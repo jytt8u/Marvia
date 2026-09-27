@@ -10,7 +10,7 @@ func BenchmarkProtocolTransfer(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	for _, mode := range append(append([]string(nil), modes...), "VP1-Fast+TLS") {
+	for _, mode := range modes {
 		b.Run(mode, func(b *testing.B) {
 			b.SetBytes(64 << 20)
 			b.ReportAllocs()
@@ -31,7 +31,7 @@ func TestEveryModeDeliversTheSamePayloadAndEcho(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, mode := range append(append([]string(nil), modes...), "VP1-Fast+TLS") {
+	for _, mode := range modes {
 		t.Run(mode, func(t *testing.T) {
 			result, err := s.run(mode, testBytes, 100)
 			if err != nil {

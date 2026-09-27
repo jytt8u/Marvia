@@ -30,13 +30,18 @@ func (w *attackWire) Close() error                { w.closed = true; return w.Co
 
 func securityFirstMessage(t *testing.T, node KeyPair, stamp time.Time) []byte {
 	t.Helper()
+	return securityFirstMessageWith(t, node, stamp, CipherSuite, Prologue)
+}
+
+func securityFirstMessageWith(t *testing.T, node KeyPair, stamp time.Time, suite noise.CipherSuite, prologue string) []byte {
+	t.Helper()
 	client, err := GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
 	}
 	hs, err := noise.NewHandshakeState(noise.Config{
-		CipherSuite: CipherSuite, Random: rand.Reader, Pattern: noise.HandshakeIK,
-		Initiator: true, Prologue: []byte(Prologue), StaticKeypair: client.noiseKey(), PeerStatic: node.Public,
+		CipherSuite: suite, Random: rand.Reader, Pattern: noise.HandshakeIK,
+		Initiator: true, Prologue: []byte(prologue), StaticKeypair: client.noiseKey(), PeerStatic: node.Public,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -123,9 +128,13 @@ func TestSecurityConcurrentReplayHasOnlyOneWinner(t *testing.T) {
 }
 
 func TestSecurityTransportRejectsRecordAttacks(t *testing.T) {
+	securityTransportAttacks(t, handshakePair)
+}
+
+func securityTransportAttacks(t *testing.T, pair func(*testing.T, Authorizer) (*Conn, *Conn, []byte)) {
 	for _, kind := range []string{"ciphertext", "tag", "replay", "reorder", "other-session"} {
 		t.Run(kind, func(t *testing.T) {
-			client, server, _ := handshakePair(t, AllowAll)
+			client, server, _ := pair(t, AllowAll)
 			capture := &capturedWrites{Conn: client.Conn}
 			client.Conn = capture
 			for _, msg := range []string{"первый", "второй"} {
@@ -147,7 +156,7 @@ func TestSecurityTransportRejectsRecordAttacks(t *testing.T) {
 			case "reorder":
 				wire = append(second, first...)
 			case "other-session":
-				_, other, _ := handshakePair(t, AllowAll)
+				_, other, _ := pair(t, AllowAll)
 				server = other
 				wire = first
 			}

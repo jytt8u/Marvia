@@ -54,7 +54,11 @@ func main() {
 	mib := flag.Int64("mib", 512, "полезная нагрузка каждого прогона в МиБ")
 	echoes := flag.Int("echoes", 1000, "число последовательных echo по 1400 байт")
 	revision := flag.String("revision", "unknown", "ревизия измеряемого кода")
+	experimental := flag.Bool("experimental", false, "добавить экспериментальный VP1 Fast с AES-256-GCM")
 	flag.Parse()
+	if *experimental {
+		modes = append(modes, "VP1-Fast+TLS")
+	}
 	if *rounds < 1 || *mib < 1 || *echoes < 1 {
 		fatal(errors.New("параметры должны быть положительными"))
 	}
@@ -180,8 +184,12 @@ func (s *setup) server(mode string, raw net.Conn) (net.Conn, error) {
 		conn = t
 	}
 	switch mode {
-	case "VP1+TLS":
-		v, _, err := vp1.ServerHandshake(conn, s.serverKey, vp1.NewReplayGuard(vp1.ClockSkew), func(pub []byte) error {
+	case "VP1+TLS", "VP1-Fast+TLS":
+		handshake := vp1.ServerHandshake
+		if mode == "VP1-Fast+TLS" {
+			handshake = vp1.ServerFastHandshake
+		}
+		v, _, err := handshake(conn, s.serverKey, vp1.NewReplayGuard(vp1.ClockSkew), func(pub []byte) error {
 			if !bytes.Equal(pub, s.clientKey.Public) {
 				return vp1.ErrUnauthorized
 			}
@@ -238,8 +246,12 @@ func (s *setup) client(mode string, raw net.Conn) (net.Conn, string, error) {
 		cipher = tls.CipherSuiteName(t.ConnectionState().CipherSuite)
 	}
 	switch mode {
-	case "VP1+TLS":
-		v, err := vp1.ClientHandshake(conn, s.clientKey, s.serverKey.Public)
+	case "VP1+TLS", "VP1-Fast+TLS":
+		handshake := vp1.ClientHandshake
+		if mode == "VP1-Fast+TLS" {
+			handshake = vp1.ClientFastHandshake
+		}
+		v, err := handshake(conn, s.clientKey, s.serverKey.Public)
 		if err != nil {
 			return nil, "", err
 		}

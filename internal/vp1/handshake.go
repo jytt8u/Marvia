@@ -59,6 +59,10 @@ func AllowAll([]byte) error { return nil }
 //     а сервер волен слить такое соединение куда угодно — на этом будет
 //     построена защита от active probing на этапе M1.
 func ClientHandshake(conn net.Conn, static KeyPair, serverPub []byte) (*Conn, error) {
+	return clientHandshakeWith(conn, static, serverPub, CipherSuite, Prologue)
+}
+
+func clientHandshakeWith(conn net.Conn, static KeyPair, serverPub []byte, suite noise.CipherSuite, prologue string) (*Conn, error) {
 	if len(serverPub) != KeyLen {
 		return nil, fmt.Errorf("длина публичного ключа сервера %d байт, ожидается %d", len(serverPub), KeyLen)
 	}
@@ -69,11 +73,11 @@ func ClientHandshake(conn net.Conn, static KeyPair, serverPub []byte) (*Conn, er
 	defer func() { _ = conn.SetDeadline(time.Time{}) }()
 
 	hs, err := noise.NewHandshakeState(noise.Config{
-		CipherSuite:   CipherSuite,
+		CipherSuite:   suite,
 		Random:        rand.Reader,
 		Pattern:       noise.HandshakeIK,
 		Initiator:     true,
-		Prologue:      []byte(Prologue),
+		Prologue:      []byte(prologue),
 		StaticKeypair: static.noiseKey(),
 		PeerStatic:    serverPub,
 	})
@@ -117,6 +121,10 @@ func ClientHandshake(conn net.Conn, static KeyPair, serverPub []byte) (*Conn, er
 // соединение и публичный ключ клиента — по нему дальше считаются трафик,
 // лимиты и логи.
 func ServerHandshake(conn net.Conn, static KeyPair, guard *ReplayGuard, allow Authorizer) (*Conn, []byte, error) {
+	return serverHandshakeWith(conn, static, guard, allow, CipherSuite, Prologue)
+}
+
+func serverHandshakeWith(conn net.Conn, static KeyPair, guard *ReplayGuard, allow Authorizer, suite noise.CipherSuite, prologue string) (*Conn, []byte, error) {
 	if allow == nil {
 		allow = AllowAll
 	}
@@ -126,7 +134,7 @@ func ServerHandshake(conn net.Conn, static KeyPair, guard *ReplayGuard, allow Au
 	}
 	defer func() { _ = conn.SetDeadline(time.Time{}) }()
 
-	hs, err := newServerState(static)
+	hs, err := newServerStateWith(static, suite, prologue)
 	if err != nil {
 		return nil, nil, fmt.Errorf("инициализация хендшейка: %w", err)
 	}
@@ -252,12 +260,16 @@ func readFrameInto(r io.Reader, buf []byte) ([]byte, error) {
 // сумев расшифровать msg1, отдаём соединение обратному прокси на настоящий
 // сайт — и собирать состояние придётся до того, как решение принято.
 func newServerState(static KeyPair) (*noise.HandshakeState, error) {
+	return newServerStateWith(static, CipherSuite, Prologue)
+}
+
+func newServerStateWith(static KeyPair, suite noise.CipherSuite, prologue string) (*noise.HandshakeState, error) {
 	return noise.NewHandshakeState(noise.Config{
-		CipherSuite:   CipherSuite,
+		CipherSuite:   suite,
 		Random:        rand.Reader,
 		Pattern:       noise.HandshakeIK,
 		Initiator:     false,
-		Prologue:      []byte(Prologue),
+		Prologue:      []byte(prologue),
 		StaticKeypair: static.noiseKey(),
 	})
 }

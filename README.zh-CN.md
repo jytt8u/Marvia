@@ -66,10 +66,6 @@ VP1 访问记录中保存的客户端私钥数量为 **0**，节点只需公钥�
 [与 VLESS、Trojan 的完整对比](docs/performance.md) · [测试代码](cmd/marvia-bench)
 在完整的本地测试中，VLESS 和 Trojan 仍比 VP1 更快。
 
-> [!NOTE]
-> **[VP1 Fast — 独立实验协议](docs/vp1-fast.md)。** TLS 内使用 Noise IK 和 AES-256-GCM。
-> 已实现核心协议和本地测试工具，已发布的应用暂不支持。技术报告为俄文。
-
 ## 协议对比
 
 WireGuard 和 OpenVPN 传输 IP 数据包；下表其余协议属于代理。Android 上的

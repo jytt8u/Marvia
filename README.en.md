@@ -67,10 +67,6 @@ This is a local throughput gain, not a promise of 56% faster Internet.
 [Full comparison with VLESS and Trojan](docs/performance.md) · [Benchmark source](cmd/marvia-bench)
 VLESS and Trojan remain faster than VP1 in the full local comparison.
 
-> [!NOTE]
-> **[VP1 Fast — a separate experiment](docs/vp1-fast.md).** Noise IK with AES-256-GCM inside TLS.
-> Implemented in the core and benchmark; not yet available in released apps. Technical report in Russian.
-
 ## Protocols
 
 WireGuard and OpenVPN tunnel IP packets; the others below are proxies. On

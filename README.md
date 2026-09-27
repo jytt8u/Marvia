@@ -67,10 +67,6 @@ Windows 0.9.3 и локальный стенд панели. Android выше �
 [Полное сравнение с VLESS и Trojan](docs/performance.md) · [Код теста](cmd/marvia-bench)
 В полном локальном сравнении VLESS и Trojan пока быстрее VP1.
 
-> [!NOTE]
-> **[VP1 Fast — отдельный эксперимент](docs/vp1-fast.md).** Noise IK с AES-256-GCM внутри TLS.
-> Реализован в ядре и стенде; в выпущенных приложениях пока недоступен.
-
 ## Протоколы
 
 WireGuard и OpenVPN передают IP-пакеты; остальные строки — прокси. На Android

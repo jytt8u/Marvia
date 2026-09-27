@@ -13,6 +13,11 @@ import (
 // handshakePair поднимает клиента и сервера на паре связанных сокетов.
 func handshakePair(t *testing.T, allow Authorizer) (client, server *Conn, clientPub []byte) {
 	t.Helper()
+	return handshakePairMode(t, allow, false)
+}
+
+func handshakePairMode(t *testing.T, allow Authorizer, fast bool) (client, server *Conn, clientPub []byte) {
+	t.Helper()
 
 	serverKey, err := GenerateKeyPair()
 	if err != nil {
@@ -32,12 +37,16 @@ func handshakePair(t *testing.T, allow Authorizer) (client, server *Conn, client
 		err  error
 	}
 	done := make(chan result, 1)
+	serverHandshake, clientHandshake := ServerHandshake, ClientHandshake
+	if fast {
+		serverHandshake, clientHandshake = ServerFastHandshake, ClientFastHandshake
+	}
 	go func() {
-		conn, pub, err := ServerHandshake(c2, serverKey, guard, allow)
+		conn, pub, err := serverHandshake(c2, serverKey, guard, allow)
 		done <- result{conn, pub, err}
 	}()
 
-	client, err = ClientHandshake(c1, clientKey, serverKey.Public)
+	client, err = clientHandshake(c1, clientKey, serverKey.Public)
 	res := <-done
 	if err != nil {
 		t.Fatalf("хендшейк клиента: %v", err)

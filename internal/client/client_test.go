@@ -427,6 +427,72 @@ func TestSelectBestSkipsDeadNode(t *testing.T) {
 	}
 }
 
+// TestSelectPreferredConnectsChosenNodeWithoutWaitingForOthers проверяет
+// выбранную страну: чужая медленная нода не должна задерживать подключение.
+func TestSelectPreferredConnectsChosenNodeWithoutWaitingForOthers(t *testing.T) {
+	node := startTestNode(t)
+	slow, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("слушатель: %v", err)
+	}
+	defer slow.Close()
+	var attempts atomic.Int32
+	go func() {
+		for {
+			conn, err := slow.Accept()
+			if err != nil {
+				return
+			}
+			attempts.Add(1)
+			defer conn.Close()
+		}
+	}()
+
+	nodes := []client.Node{
+		{ID: 1, Name: "медленная", Address: slow.Addr().String(), SNI: node.info.SNI, PublicKey: node.info.PublicKey},
+		{ID: 2, Name: "Финляндия", Address: node.info.Address, SNI: node.info.SNI, PublicKey: node.info.PublicKey},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	dialer, measurements, err := client.SelectPreferred(ctx, nodes, node.clientKey, node.opts, 2)
+	if err != nil {
+		t.Fatalf("выбранная нода: %v", err)
+	}
+	defer dialer.Close()
+	if dialer.Node().ID != 2 || len(measurements) != 1 || measurements[0].Node.ID != 2 {
+		t.Fatalf("подключение или замеры не соответствуют выбору: %+v", measurements)
+	}
+	if attempts.Load() != 0 {
+		t.Fatal("клиент проверял другую ноду перед подключением")
+	}
+}
+
+// TestSelectPreferredFallsBackWhenChosenNodeIsDead сохраняет доступ, если
+// выбранная страна не отвечает: запасную ноду проверяем только после отказа.
+func TestSelectPreferredFallsBackWhenChosenNodeIsDead(t *testing.T) {
+	node := startTestNode(t)
+	closed, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("слушатель: %v", err)
+	}
+	deadAddr := closed.Addr().String()
+	_ = closed.Close()
+	nodes := []client.Node{
+		{ID: 1, Name: "Финляндия", Address: deadAddr, SNI: node.info.SNI, PublicKey: node.info.PublicKey},
+		{ID: 2, Name: "запасная", Address: node.info.Address, SNI: node.info.SNI, PublicKey: node.info.PublicKey},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	dialer, measurements, err := client.SelectPreferred(ctx, nodes, node.clientKey, node.opts, 1)
+	if err != nil {
+		t.Fatalf("переход на запасную ноду: %v", err)
+	}
+	defer dialer.Close()
+	if dialer.Node().ID != 2 || len(measurements) != 2 || measurements[0].OK() || !measurements[1].OK() {
+		t.Fatalf("запасная нода или отчёт неверны: %+v", measurements)
+	}
+}
+
 // TestSelectBestFailsWhenAllDead: если не работает ни одна нода, клиент должен
 // сказать об этом прямо и всё равно отдать замеры — именно про такой случай
 // продавцу важнее всего узнать.

@@ -66,6 +66,13 @@
   }
   button { font-family: inherit; }
   button:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+  /* WebView2 otherwise paints bright Windows scrollbars across dark themes. */
+  * { scrollbar-color: var(--line) transparent; scrollbar-width: thin; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: var(--line); border: 2px solid transparent; border-radius: 8px; background-clip: padding-box; }
+  *::-webkit-scrollbar-thumb:hover { background-color: var(--dim); }
+  *::-webkit-scrollbar-button { display: none; }
 
   .app { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; }
 
@@ -163,7 +170,7 @@
   .page { display: none; flex: 1; min-height: 0; flex-direction: column; gap: var(--gap); animation: rise .5s var(--ease) both; }
   .page[data-open] { display: flex; }
   @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-  .scroll { overflow: auto; min-height: 0; }
+  .scroll { overflow-x: hidden; overflow-y: auto; min-height: 0; }
 
   .card {
     padding: var(--pad); border-radius: var(--r);
@@ -366,11 +373,11 @@
   .range { width: 100%; accent-color: var(--acc); }
   .file-row { display: flex; gap: 8px; }
   .code { font-family: var(--mono); font-size: 12px; padding: 10px 12px; border-radius: min(var(--r), 12px); background: var(--shade); border: 1px solid var(--line); color: var(--fg); cursor: pointer; }
-  .knobs { width: 340px; flex: 0 0 340px; overflow: auto; min-height: 0; padding-right: 2px; }
+  .knobs { width: 340px; flex: 0 0 340px; overflow-x: hidden; overflow-y: auto; min-height: 0; padding-right: 2px; }
 
   /* ---------------------------------------------------------- настройки */
 
-  .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); align-content: start; overflow: auto; min-height: 0; }
+  .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); align-content: start; overflow-x: hidden; overflow-y: auto; min-height: 0; }
   .group { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .group .k { padding: 0 4px; }
   .rows { border-radius: var(--r); background: var(--surf); border: 1px solid var(--cardLine); box-shadow: var(--cardShadow); display: flex; flex-direction: column; overflow: hidden; }
@@ -380,15 +387,58 @@
   .rows .name { font-size: 14px; font-weight: 600; color: var(--fg); }
   .rows .sub { font-size: 12px; color: var(--dim); }
   .rows .stack { flex-direction: column; align-items: stretch; gap: 10px; }
-  .log { max-height: 220px; overflow: auto; font-family: var(--mono); font-size: 11px; display: flex; flex-direction: column; gap: 4px; user-select: text; }
-  .log .ln { display: flex; gap: 10px; color: var(--fg); }
+  .log { max-height: 220px; max-width: 100%; overflow-x: hidden; overflow-y: auto; font-family: var(--mono); font-size: 11px; display: flex; flex-direction: column; gap: 4px; user-select: text; }
+  .log .ln { display: flex; gap: 10px; min-width: 0; color: var(--fg); }
   .log .tm { color: var(--dim); flex: none; }
+  .log .msg { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
   .about { margin: 0; font-size: 13px; line-height: 1.6; color: var(--dim); }
   .about b { color: var(--fg); }
   .facts { display: flex; gap: 28px; }
   .fact .k { letter-spacing: .16em; }
   .fact .v { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--fg); margin-top: 4px; white-space: nowrap; }
   .host { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+
+  /* Первый запуск: спокойный, полноэкранный шаг в цветах текущей темы. */
+  .welcome { position: fixed; z-index: 20; inset: 0; overflow-x: hidden; overflow-y: auto;
+    background: radial-gradient(circle at 77% 26%, rgba(var(--accRgb), .12), transparent 36%), var(--bgcss, var(--bg)); }
+  .welcome::before { content: ""; position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(rgba(var(--accRgb), .075) 1px, transparent 1.5px) 0 0 / 22px 22px; }
+  .welcome-shell { position: relative; max-width: 1060px; min-height: 100%; margin: auto; padding: 42px 48px;
+    display: flex; flex-direction: column; gap: 36px; }
+  .welcome-brand { display: flex; align-items: center; gap: 14px; }
+  .welcome-brand .logo { width: 38px; height: 38px; }
+  .welcome-brand .wordmark { height: 20px; }
+  .welcome-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, .86fr); gap: 64px; align-items: center; flex: 1; }
+  .welcome-eyebrow { display: inline-flex; align-items: center; gap: 9px; color: var(--acc); font: 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+  .welcome-eyebrow::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 16px var(--acc); }
+  .welcome h1 { margin: 18px 0 16px; font: 700 clamp(30px, 4vw, 52px)/1.17 var(--display); letter-spacing: -.04em; }
+  .welcome-lead { max-width: 42ch; margin: 0; color: var(--dim); font-size: 16px; line-height: 1.65; }
+  .welcome-flow { margin-top: 42px; display: flex; align-items: center; gap: 12px; color: var(--dim); font: 11px var(--mono); }
+  .welcome-flow i { width: 28px; height: 1px; background: var(--line); }
+  .welcome-flow b { color: var(--acc); font-weight: 600; }
+  .welcome-panel { padding: 28px; border: 1px solid var(--line); border-radius: 24px; background: var(--surf); box-shadow: 0 24px 70px rgba(0,0,0,.18); }
+  .welcome-panel h2 { margin: 0 0 16px; font-size: 19px; font-weight: 650; }
+  .welcome-langs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .welcome-choice { padding: 14px 16px; min-height: 64px; border: 1px solid var(--line); border-radius: 13px; background: var(--bg); color: var(--fg);
+    font: 600 15px Onest, system-ui, sans-serif; text-align: left; cursor: pointer; transition: border-color .2s, background .2s; }
+  .welcome-choice:hover { border-color: var(--acc); }
+  .welcome-choice[aria-pressed="true"] { border-color: var(--acc); background: var(--accSoft); }
+  .welcome-choice small { display: block; margin-top: 2px; color: var(--dim); font: 11px var(--mono); }
+  .welcome-privacy { margin: 26px 0 24px; padding-top: 22px; border-top: 1px solid var(--line); }
+  .welcome-privacy .k { display: block; margin-bottom: 12px; }
+  .welcome-privacy p { display: flex; gap: 12px; margin: 11px 0; color: var(--dim); font-size: 12px; line-height: 1.5; }
+  .welcome-privacy p::before { content: ""; flex: none; width: 5px; height: 5px; margin-top: 7px; border-radius: 50%; background: var(--acc); }
+  .welcome-start { width: 100%; min-height: 44px; border: 0; border-radius: 12px; background: var(--acc); color: var(--accFg); font: 700 14px Onest, system-ui, sans-serif; cursor: pointer; }
+  .welcome-start:hover { filter: brightness(1.08); }
+  .welcome-foot { color: var(--dim); font: 11px var(--mono); letter-spacing: .03em; }
+  body.as-widget .welcome { display: none !important; }
+  @media (max-width: 760px) {
+    .welcome-shell { padding: 24px; gap: 28px; }
+    .welcome-body { grid-template-columns: 1fr; gap: 28px; align-items: start; }
+    .welcome h1 { font-size: clamp(30px, 7vw, 42px); }
+    .welcome-panel { padding: 20px; }
+    .settings { grid-template-columns: 1fr; }
+  }
 
   /* --------------------------------------------------------- трей-виджет */
 
@@ -757,6 +807,38 @@
   </div>
 </div>
 
+<section class="welcome" id="welcome" aria-labelledby="welcome-title" hidden>
+  <div class="welcome-shell">
+    <div class="welcome-brand" aria-label="Marvia">
+      <span class="logo" aria-hidden="true"></span>
+      <span class="wordmark">MARVIA</span>
+    </div>
+    <div class="welcome-body">
+      <div>
+        <span class="welcome-eyebrow" data-t="welcomeEyebrow"></span>
+        <h1 id="welcome-title" data-t="welcomeTitle"></h1>
+        <p class="welcome-lead" data-t="welcomeLead"></p>
+        <div class="welcome-flow" aria-hidden="true"><b>01</b><span data-t="welcomeFlowLanguage"></span><i></i><span>02</span><span data-t="welcomeFlowKey"></span></div>
+      </div>
+      <div class="welcome-panel">
+        <h2 data-t="welcomeChoose"></h2>
+        <div class="welcome-langs" role="group" aria-label="Language / Язык">
+          <button class="welcome-choice" id="welcome-ru" type="button" aria-pressed="false">Русский<small>RU</small></button>
+          <button class="welcome-choice" id="welcome-en" type="button" aria-pressed="false">English<small>EN</small></button>
+        </div>
+        <div class="welcome-privacy">
+          <span class="k" data-t="welcomePrivacy"></span>
+          <p data-t="welcomePrivateKey"></p>
+          <p data-t="welcomePrivateRoute"></p>
+          <p data-t="welcomePrivateLimit"></p>
+        </div>
+        <button class="welcome-start" id="welcome-start" type="button" data-t="welcomeStart"></button>
+      </div>
+    </div>
+    <div class="welcome-foot" data-t="welcomeFoot"></div>
+  </div>
+</section>
+
 <!-- -------------------------------------------------------- трей-виджет -->
 <div class="widget" id="widget">
   <div class="w-top">
@@ -847,7 +929,7 @@ function on(id, event, handler) {
 
 /*
   Клиент ставят там же, где панель, — не только в России. Держим два языка и
-  переключатель, а язык при первом запуске берём у системы.
+  переключатель, а язык системы используем как предварительный выбор на первом экране.
 
   Надписи собраны в один словарь, а не рассыпаны по разметке: иначе перевод
   отстаёт молча, и человек видит вперемешку два языка. Статику разметка
@@ -863,6 +945,14 @@ const LANG_KEY = "marvia-lang";
 const T = {
   ru: {
     lang: "ru", switchTo: "EN", switchTitle: "Switch to English",
+    welcomeEyebrow: "Первый запуск", welcomeTitle: "Ваш интернет. Ваш маршрут.",
+    welcomeLead: "Выберите язык и добавьте свой ключ доступа. Marvia подберёт ноду после подключения.",
+    welcomeFlowLanguage: "Язык", welcomeFlowKey: "Ключ доступа", welcomeChoose: "Выберите язык",
+    welcomePrivacy: "Как устроена приватность",
+    welcomePrivateKey: "Ссылка доступа сохраняется на этом компьютере.",
+    welcomePrivateRoute: "Трафик проходит через выбранную ноду; её владелец контролирует точку выхода.",
+    welcomePrivateLimit: "Туннель защищает путь до ноды, но не гарантирует полной анонимности.",
+    welcomeStart: "Продолжить", welcomeFoot: "MARVIA / WINDOWS CLIENT",
 
     tabHome: "Туннель", tabKey: "Ключ доступа", tabLog: "Журнал", tabAbout: "О нас", tabNodes: "Серверы", tabTheme: "Тема", tabSettings: "Настройки",
     settingsApp: "Программа", settingsLang: "Язык интерфейса", settingsLangHint: "Русский или английский; окно переключается сразу.",
@@ -981,6 +1071,14 @@ const T = {
 
   en: {
     lang: "en", switchTo: "RU", switchTitle: "Переключить на русский",
+    welcomeEyebrow: "First launch", welcomeTitle: "Your internet. Your route.",
+    welcomeLead: "Choose a language and add your own access key. Marvia will select a node after you connect.",
+    welcomeFlowLanguage: "Language", welcomeFlowKey: "Access key", welcomeChoose: "Choose a language",
+    welcomePrivacy: "How privacy works",
+    welcomePrivateKey: "Your access link is saved on this computer.",
+    welcomePrivateRoute: "Traffic goes through a selected node; its operator controls the exit point.",
+    welcomePrivateLimit: "The tunnel protects the path to the node, but cannot guarantee complete anonymity.",
+    welcomeStart: "Continue", welcomeFoot: "MARVIA / WINDOWS CLIENT",
 
     tabHome: "Tunnel", tabKey: "Access key", tabLog: "Log", tabAbout: "About us", tabNodes: "Servers", tabTheme: "Theme", tabSettings: "Settings",
     settingsApp: "Program", settingsLang: "Interface language", settingsLangHint: "Russian or English; the window switches at once.",
@@ -1100,6 +1198,11 @@ const T = {
 
 let lang = "ru";
 const L = () => T[lang];
+function formatVersion(value) {
+  if (!value) return "";
+  const clean = String(value).replace(/^v+/i, "");
+  return clean === "dev" ? clean : "v" + clean;
+}
 
 function pickLang() {
   try {
@@ -1134,6 +1237,8 @@ function paintStatic() {
   $("lang-2").title = d.switchTitle;
   $("w-full").title = d.wOpen;
   $("w-hide").title = d.wHide;
+  $("welcome-ru").setAttribute("aria-pressed", String(lang === "ru"));
+  $("welcome-en").setAttribute("aria-pressed", String(lang === "en"));
 
   paintHead();
   paintTheme();
@@ -1147,6 +1252,23 @@ async function setLang(next) {
   // Программе язык нужен для своих сообщений: они приходят готовой строкой.
   try { await api("POST", "api/lang", { lang: next }); } catch (_) { /* переживём */ }
   tick();
+}
+
+let onboarded = false;
+function welcomeSeen() { return onboarded; }
+
+function showWelcome() {
+  if (widgetMode || welcomeSeen()) return;
+  $("welcome").hidden = false;
+  $(lang === "ru" ? "welcome-ru" : "welcome-en").focus();
+}
+
+function finishWelcome() {
+  onboarded = true;
+  api("POST", "api/welcome").catch(() => { onboarded = false; });
+  $("welcome").hidden = true;
+  document.querySelector('.tab[data-tab="settings"]').click();
+  $("account").focus();
 }
 
 /* --------------------------------------------------------------- вкладки */
@@ -1818,7 +1940,7 @@ function render(s) {
     : s.state === "connected" || s.state === "stalled" ? d.power.off
     : d.power.on;
   $("elev-warn").hidden = s.elevated;
-  $("version").textContent = s.version ? "v" + s.version : "";
+  $("version").textContent = formatVersion(s.version);
   $("update-card").hidden = !s.update;
   if (s.update) $("update-title").textContent = d.updateTitle(s.update);
   // Точка на вкладке — чтобы заметили, не заходя в настройки.
@@ -1942,6 +2064,7 @@ function paintLog(lines) {
     const tm = document.createElement("span");
     tm.className = "tm";
     const tx = document.createElement("span");
+    tx.className = "msg";
     const m = /^(\d\d:\d\d:\d\d)\s+(.*)$/s.exec(line);
     tm.textContent = m ? m[1] : "";
     tx.textContent = m ? m[2] : line;
@@ -2049,15 +2172,30 @@ paintStatic();
 loadBackdropFile();
 on("lang", "click", () => setLang(lang === "ru" ? "en" : "ru"));
 on("lang-2", "click", () => setLang(lang === "ru" ? "en" : "ru"));
-
-// Программе язык сообщаем сразу: её сообщения приходят готовой строкой, и до
-// первого такого сообщения она должна знать, на каком языке его собирать.
-api("POST", "api/lang", { lang }).catch(() => {});
+on("welcome-ru", "click", () => setLang("ru"));
+on("welcome-en", "click", () => setLang("en"));
+on("welcome-start", "click", finishWelcome);
 
 api("GET", "api/account").then((a) => {
+  onboarded = Boolean(a.welcome);
+  if (T[a.lang]) {
+    lang = a.lang;
+    paintStatic();
+  } else {
+    api("POST", "api/lang", { lang }).catch(() => {});
+  }
   $("account").value = a.link || "";
   paintKeyCard(a.link);
-}).catch(() => {});
+  if (a.link && !welcomeSeen()) {
+    onboarded = true;
+    api("POST", "api/welcome").catch(() => {});
+  } else if (!a.link) {
+    showWelcome();
+  }
+}).catch(() => {
+  api("POST", "api/lang", { lang }).catch(() => {});
+  showWelcome();
+});
 tick();
 setInterval(tick, 1000);
 </script>

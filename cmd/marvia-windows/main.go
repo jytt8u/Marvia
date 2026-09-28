@@ -70,6 +70,9 @@ func main() {
 func run(dns string, mtu uint32, urlFile string, inTray bool) error {
 	log := newJournal()
 	ctl := NewController(dns, mtu, log)
+	if savedLang := readUISetting("language"); savedLang != "" {
+		setUILang(savedLang)
+	}
 
 	if !elevated() {
 		log.add("прав администратора нет: туннель поднять не выйдет")
@@ -106,9 +109,9 @@ func run(dns string, mtu uint32, urlFile string, inTray bool) error {
 		_ = server.Close()
 	}()
 
-	// Адрес кладём в журнал, а не печатаем: печатать некуда, программа
-	// оконная. В журнале он пригодится, если окно откроется пустым.
-	log.add("интерфейс на %s", url)
+	// Адрес содержит одноразовый ключ доступа к локальному интерфейсу.
+	// Не показываем его в журнале приложения; для диагностики есть url-file.
+	log.add("интерфейс готов")
 	if urlFile != "" {
 		_ = os.WriteFile(urlFile, []byte(url), 0o600)
 	}

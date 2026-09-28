@@ -24,6 +24,8 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 
 if [ "${1:-}" != "--skip-core" ]; then
     echo "== ядро -> android/app/libs/marvia.aar"
+    # В чистом клоне каталога нет: собранная библиотека исключена из Git.
+    mkdir -p android/app/libs
     gomobile bind \
         -target=android/arm64,android/arm \
         -trimpath -ldflags="-s -w" \

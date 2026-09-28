@@ -91,6 +91,8 @@ $env:PATH = "$env:PATH;$(go env GOPATH)\bin"
 
 if (-not $SkipCore) {
     Write-Host '== ядро -> android/app/libs/marvia.aar'
+    # Чистый клон не содержит libs: сама библиотека исключена из Git.
+    New-Item -ItemType Directory -Force 'android/app/libs' | Out-Null
     # Аргументы в кавычках, и это обязательно.
     #
     # Без них PowerShell видит запятую в -target=android/arm64,android/arm как

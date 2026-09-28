@@ -139,12 +139,11 @@ func SelectBest(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Options
 	return SelectPreferred(ctx, nodes, key, opts, 0)
 }
 
-// SelectPreferred — то же, но с нодой, выбранной человеком.
+// SelectPreferred подключает выбранную человеком ноду без ожидания остальных.
 //
-// prefer — её идентификатор; ноль означает обычный выбор по замеру. Меряем
-// всё равно все: экран выбора страны показывает время рядом с каждой, и
-// показывать его только у выбранной значило бы лишить человека того, ради
-// чего он туда зашёл — сравнения.
+// prefer — её идентификатор; ноль означает автовыбор. Экран выбора страны
+// меряет все ноды отдельно по запросу. Повторять этот замер при подключении
+// означало ждать даже те серверы, которыми человек пользоваться не собирается.
 //
 // Если выбранная нода не ответила, берём лучшую живую. Человек хотел
 // определённую страну, но интернет он хотел сильнее; о подмене ему скажут —
@@ -154,7 +153,32 @@ func SelectPreferred(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Op
 		return nil, nil, errors.New("список нод пуст")
 	}
 
-	results := probeAll(ctx, nodes, key, opts)
+	var results []Measurement
+	if prefer != 0 {
+		for index, node := range nodes {
+			if node.ID != prefer {
+				continue
+			}
+			chosen := Probe(ctx, node, key, opts)
+			if chosen.OK() {
+				return chosen.dialer, []Measurement{chosen}, nil
+			}
+			// При отказе выбранной ноды не пробуем её повторно. Отчёт об
+			// отказе остаётся на её месте, чтобы панель не получила чужой ID.
+			others := make([]Node, 0, len(nodes)-1)
+			others = append(others, nodes[:index]...)
+			others = append(others, nodes[index+1:]...)
+			fallback := probeAll(ctx, others, key, opts)
+			results = make([]Measurement, 0, len(nodes))
+			results = append(results, fallback[:index]...)
+			results = append(results, chosen)
+			results = append(results, fallback[index:]...)
+			break
+		}
+	}
+	if results == nil {
+		results = probeAll(ctx, nodes, key, opts)
+	}
 
 	// Сортируем копию: порядок замеров должен совпадать с порядком нод,
 	// иначе отчёт панели уедет не про те ноды.
@@ -168,16 +192,6 @@ func SelectPreferred(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Op
 	})
 
 	winner := ranked[0]
-
-	// Выбор человека идёт впереди замера, но только если он жив.
-	if prefer != 0 {
-		for _, m := range ranked {
-			if m.Node.ID == prefer && m.OK() {
-				winner = m
-				break
-			}
-		}
-	}
 
 	if !winner.OK() {
 		closeAll(results, nil)

@@ -92,6 +92,9 @@ VP1 is not compatible with WireGuard or Xray clients.
 | Android: Marvia and third-party keys, node selection, usage and VPN settings | Panel and nodes: limits, accounting, backups and bot API |
 | Windows: TUN client | VP1, VLESS and Trojan; verified node updates |
 
+Manually selected nodes connect without waiting for measurements of every
+other node. If the selected node is unavailable, the client checks fallbacks.
+
 ## Compared with other projects
 
 | Project | Focus | Notable capability |

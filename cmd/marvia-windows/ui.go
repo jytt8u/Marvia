@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -113,6 +115,7 @@ func serveUI(ctl *Controller, log *journal, onWindow *func(mode, tab string)) (s
 	mux.HandleFunc("POST "+prefix+"/api/proxy/off", u.dropProxy)
 	mux.HandleFunc("POST "+prefix+"/api/update/open", u.openUpdate)
 	mux.HandleFunc("POST "+prefix+"/api/lang", u.setLang)
+	mux.HandleFunc("POST "+prefix+"/api/welcome", u.completeWelcome)
 	mux.HandleFunc("POST "+prefix+"/api/window", u.window)
 	mux.HandleFunc("GET "+prefix+"/api/autostart", u.getAutostart)
 	mux.HandleFunc("POST "+prefix+"/api/autostart", u.setAutostart)
@@ -149,7 +152,9 @@ func (u *ui) journal(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (u *ui) getAccount(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"link": u.ctl.Account()})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"link": u.ctl.Account(), "lang": readUISetting("language"), "welcome": readUISetting("welcome") == "1",
+	})
 }
 
 func (u *ui) setAccount(w http.ResponseWriter, r *http.Request) {
@@ -253,7 +258,47 @@ func (u *ui) setLang(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setUILang(body.Lang)
+	if body.Lang == "ru" || body.Lang == "en" {
+		if err := writeUISetting("language", body.Lang); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{})
+}
+
+func (u *ui) completeWelcome(w http.ResponseWriter, _ *http.Request) {
+	if err := writeUISetting("welcome", "1"); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{})
+}
+
+// Настройки окна живут рядом с ключом доступа: случайный порт WebView2
+// меняется при каждом запуске, поэтому localStorage не может быть основным
+// хранилищем языка и уже пройденного первого экрана.
+func readUISetting(name string) string {
+	dir, err := settingsDir()
+	if err != nil {
+		return ""
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "ui-"+name))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(raw))
+}
+
+func writeUISetting(name, value string) error {
+	dir, err := settingsDir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "ui-"+name), []byte(value), 0o600)
 }
 
 // window — страница просит переключить вид окна: «full» с вкладкой или «hide».

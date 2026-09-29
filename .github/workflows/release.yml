@@ -127,24 +127,24 @@ jobs:
             dist/SHA256SUMS
             dist/SHA256SUMS.sigstore.json
           body: |
-            Установка панели на чистый сервер:
+            **Marvia ${{ github.ref_name }}** — Android, Windows, панель и ноды в одном комплекте.
+
+            Windows-клиент: `marvia-windows.exe`. Подписанные Android APK и AAB
+            добавляются после отдельной сборки и проверки подписи владельца.
+
+            Установка панели на чистый Linux-сервер:
 
             ```
             curl -fsSL https://github.com/jytt8u/marvia/releases/latest/download/install-panel.sh -o install-panel.sh
-            sh install-panel.sh --domain панель.твой-домен --email ты@почта
+            sh install-panel.sh --domain panel.example.com --email you@example.com
             ```
 
-            Ноды скачивать не надо: панель выдаёт для них готовую строку.
+            Панель выдаёт команду установки ноды и может раздавать клиентские
+            приложения со своего домена. [Руководство](https://github.com/jytt8u/marvia/blob/${{ github.ref_name }}/docs/guide.md)
+            и [изменения](https://github.com/jytt8u/marvia/blob/${{ github.ref_name }}/CHANGELOG.md).
 
-            **Приложения покупателям раздаёт сама панель** — с домена продавца, а
-            не отсюда. Установщик кладёт их на место; ссылки бот берёт у панели
-            запросом `GET /api/v1/apps`.
-
-            Это не удобство, а работоспособность: провайдеры уже рубят загрузку
-            из Google Play и App Store, объясняя это блокировкой международных
-            CDN. GitHub раздаётся через такой же CDN.
-
-            Контрольные суммы — в `SHA256SUMS`, установщик сверяет их сам.
+            Контрольные суммы находятся в `SHA256SUMS` и подтверждены
+            `SHA256SUMS.sigstore.json`. Установщик сверяет суммы сам.
 
       - name: Сохранить сборку
         if: "!startsWith(github.ref, 'refs/tags/v')"

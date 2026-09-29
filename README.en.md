@@ -2,7 +2,9 @@
 
 <img src="docs/shots/readme-brand.png" alt="Marvia" width="1000">
 
-**VPN for Android and Windows. Panel, nodes and the VP1 protocol.**
+<img src="docs/shots/readme-v1.png" alt="Marvia 1.0: Android, Windows, panel and nodes" width="1000">
+
+**Marvia 1.0 — clients, panel and nodes in one stack. Your key, your route.**
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
 
@@ -17,7 +19,7 @@
 
 ## The app
 
-Android 0.12.2 · actual emulator captures · no key added
+Android · actual emulator captures from 0.12.2 · no key added
 
 | Home | VPN settings | Network and privacy |
 |:---:|:---:|:---:|
@@ -26,7 +28,7 @@ Android 0.12.2 · actual emulator captures · no key added
 <details>
 <summary>Windows and panel — archived captures</summary>
 
-Windows 0.9.3 and a local panel instance. Android above is the current 0.12.2 release.
+Windows 0.9.3 and a local panel instance. These are archived UI captures.
 
 <img src="docs/shots/windows.png" alt="Windows 0.9.3" width="1000">
 <img src="docs/shots/panel-clients.png" alt="Marvia Partner" width="1000">
@@ -58,7 +60,7 @@ VP1 access records contain **0 client private keys**; nodes only need public key
 
 <img src="docs/shots/readme-vp1-progress.svg" alt="VP1 before and after optimization: 435.0 → 678.3 MB/s, +55.9% in a local test; medians and ranges of five paired runs" width="1200">
 
-**56% more throughput than the previous VP1 build.** Fewer unnecessary TLS records; encryption and wire compatibility are unchanged. This optimization is planned for the next release.
+**56% more throughput than the previous VP1 build in a local test.** Fewer unnecessary TLS records; encryption and wire compatibility are unchanged. The optimization is included in 1.0.
 
 Five paired 512 MiB runs on one PC, without Internet or TUN.
 This is a local throughput gain, not a promise of 56% faster Internet.
@@ -112,7 +114,7 @@ supports the feature comparison; no matched speed ranking is available.
 
 > **Have a key?** Download the [Android APK](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
 > or [Windows client](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows.exe),
-> add a `marvia://…` link in **Servers**, and connect.
+> add a `marvia://…` link in the app, and connect.
 
 Android also accepts VLESS, VMess, Trojan, Shadowsocks, Hysteria2 and WireGuard
 links. The app is not yet on Google Play.
@@ -137,10 +139,10 @@ client in the panel. [Full guide (Russian)](docs/guide.md) · [Bot API](docs/bot
 - Monthly quota resets and buyer migration with stable links.
 - iOS, Clash/sing-box subscriptions, TUIC, Shadowsocks plugins, and per-device
   revocation when a key is shared.
-- Before 1.0: stabilize APIs and link formats; validate rollback and staged node updates.
 
-Marvia does not sell VPN access, take payments or host servers. Versions below
-1.0 may change APIs and link formats.
+Starting with 1.0, the bot API, `marvia://` links and subscription format
+remain backward compatible throughout 1.x. Marvia does not sell VPN access,
+take payments or host servers.
 
 ## Docs and build
 

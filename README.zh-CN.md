@@ -2,7 +2,9 @@
 
 <img src="docs/shots/readme-brand.png" alt="Marvia" width="1000">
 
-**适用于 Android 和 Windows 的 VPN。面板、节点与 VP1 协议。**
+<img src="docs/shots/readme-v1.png" alt="Marvia 1.0：Android、Windows、管理面板和节点" width="1000">
+
+**Marvia 1.0：客户端、管理面板与节点，一套齐全。自己的密钥，自己的路线。**
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
 
@@ -17,7 +19,7 @@
 
 ## 应用界面
 
-Android 0.12.2 · 模拟器真实截图 · 尚未添加密钥
+Android · 0.12.2 版本的模拟器真实截图 · 尚未添加密钥
 
 | 主页 | VPN 设置 | 网络与隐私 |
 |:---:|:---:|:---:|
@@ -26,7 +28,7 @@ Android 0.12.2 · 模拟器真实截图 · 尚未添加密钥
 <details>
 <summary>Windows 与面板：历史截图</summary>
 
-Windows 0.9.3 与本地面板实例。上方 Android 截图来自当前 0.12.2 版本。
+Windows 0.9.3 与本地面板实例。这些是旧版界面截图。
 
 <img src="docs/shots/windows.png" alt="Windows 0.9.3" width="1000">
 <img src="docs/shots/panel-clients.png" alt="Marvia Partner" width="1000">
@@ -57,7 +59,7 @@ VP1 访问记录中保存的客户端私钥数量为 **0**，节点只需公钥�
 
 <img src="docs/shots/readme-vp1-progress.svg" alt="VP1 优化前后：435.0 → 678.3 MB/s，本地测试提升 55.9%；五组配对测试的中位数及范围" width="1200">
 
-**比上一版 VP1 吞吐量提高 56%。** 减少不必要的 TLS 记录；加密和协议兼容性保持不变。该优化计划随下一版本发布。
+**在本地测试中，比上一版 VP1 吞吐量提高 56%。** 减少不必要的 TLS 记录；加密和协议兼容性保持不变。该优化已包含在 1.0 中。
 
 同一台电脑上进行五组配对测试，每次传输 512 MiB，不包含互联网与 TUN。
 这是本地吞吐量的提升，不代表互联网速度一定提高 56%。
@@ -110,7 +112,7 @@ Clash/sing-box 订阅格式。功能比较以表中的项目文档为依据；�
 
 > **已有密钥？** 下载 [Android APK](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
 > 或 [Windows 客户端](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows.exe)，
-> 在「服务器」页添加 `marvia://…` 链接，然后连接。
+> 在应用中添加 `marvia://…` 链接，然后连接。
 
 Android 还支持 VLESS、VMess、Trojan、Shadowsocks、Hysteria2 和 WireGuard 链接。
 目前尚未上架 Google Play。
@@ -135,10 +137,9 @@ sh install-panel.sh --domain panel.example.com --email you@example.com
 - 每月自动重置额度；保留原有链接的用户迁移。
 - iOS、Clash/sing-box 订阅、TUIC、Shadowsocks 插件，以及共享密钥时
   单独撤销设备。
-- 1.0 之前：稳定 API 和链接格式，验证回滚与分批更新节点。
 
-Marvia 不销售 VPN 访问权限、不处理付款，也不代管服务器。1.0 之前的
-版本可能调整 API 和链接格式。
+从 1.0 开始，机器人 API、`marvia://` 链接及订阅格式在整个 1.x 系列中
+保持向后兼容。Marvia 不销售 VPN 访问权限、不处理付款，也不代管服务器。
 
 ## 文档与构建
 

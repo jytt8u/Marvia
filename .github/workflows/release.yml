@@ -75,9 +75,8 @@ jobs:
             tar -czf "dist/marvia_${os}_${arch}.tar.gz" -C "$out" .
           done
 
-          # Клиент под Windows. Отдельным файлом, а не в архиве: ссылку на него
-          # продавец вставляет в бота, а покупатель нажимает на телефоне или на
-          # компьютере — распаковывать он ничего не будет.
+          # EXE сохраняем для совместимости. Полный переносимый комплект
+          # ниже включает Wintun: без него окно работает, но VPN не поднимается.
           #
           # -H windowsgui убирает чёрное окно консоли за окном приложения.
           go run github.com/tc-hib/go-winres@v0.3.3 make --arch amd64 \
@@ -95,7 +94,12 @@ jobs:
           # сверяет с SHA256SUMS — а не из ветки, которая меняется в любой миг.
           cp scripts/upgrade.sh dist/upgrade.sh
 
-          cd dist && sha256sum *.tar.gz install-panel.sh upgrade.sh marvia-windows.exe > SHA256SUMS && cat SHA256SUMS
+      - name: Собрать полный комплект Windows
+        shell: pwsh
+        run: ./scripts/package-windows.ps1 -Exe ./dist/marvia-windows.exe -OutputDirectory ./dist
+
+      - name: Посчитать суммы всех файлов выпуска
+        run: cd dist && sha256sum *.tar.gz install-panel.sh upgrade.sh marvia-windows.exe marvia-windows.zip > SHA256SUMS && cat SHA256SUMS
 
       - name: Подписать контрольные суммы сборки
         id: attest
@@ -127,12 +131,15 @@ jobs:
             dist/install-panel.sh
             dist/upgrade.sh
             dist/marvia-windows.exe
+            dist/marvia-windows.zip
             dist/SHA256SUMS
             dist/SHA256SUMS.sigstore.json
           body: |
             **Marvia ${{ github.ref_name }}** — Android, Windows, панель и ноды в одном комплекте.
 
-            Windows-клиент: `marvia-windows.exe`. Подписанные Android APK и AAB
+            Windows-клиент: распакуйте весь `marvia-windows.zip` и запустите
+            EXE из полученной папки. В комплекте официальный подписанный Wintun.
+            Отдельный EXE требует `wintun.dll` рядом с ним. Подписанные Android APK и AAB
             добавляются после отдельной сборки и проверки подписи владельца.
 
             Установка панели на чистый Linux-сервер:

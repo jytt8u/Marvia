@@ -258,6 +258,21 @@ bash scripts/smoke.sh
 
 ## Клиент для Windows
 
+Готовый переносимый комплект — `marvia-windows.zip` в новых выпусках.
+Распакуйте **весь архив** в одну папку и запускайте EXE из неё, не из ZIP.
+Внутри находятся `marvia-windows.exe`, официальный подписанный `wintun.dll`,
+лицензия драйвера и инструкция. Один EXE открывает окно, но без DLL рядом
+не сможет создать VPN-адаптер. Старые выпуски могут содержать только EXE.
+
+Чтобы упаковать самостоятельно собранный EXE:
+
+```powershell
+./scripts/package-windows.ps1 -Exe ./marvia-windows.exe -OutputDirectory ./dist
+```
+
+Сценарий сверяет SHA256 официального архива Wintun; на Windows дополнительно
+проверяет подпись DLL. Релизная сборка всегда добавляет полный ZIP к файлам.
+
 ```bash
 go run github.com/tc-hib/go-winres@v0.3.3 make --arch amd64 --in cmd/marvia-windows/winres.json --out cmd/marvia-windows/rsrc
 go build -ldflags "-H windowsgui" -o marvia-windows.exe ./cmd/marvia-windows

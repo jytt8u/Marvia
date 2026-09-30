@@ -29,6 +29,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Встроить логотип и данные EXE
+        run: go run github.com/tc-hib/go-winres@v0.3.3 make --arch amd64 --in cmd/marvia-windows/winres.json --out cmd/marvia-windows/rsrc
       - name: Проверить сокеты и транспорты Windows
         run: go test ./internal/netpath ./internal/foreign ./internal/transport ./internal/wintun ./cmd/marvia-windows
 
@@ -81,6 +83,8 @@ jobs:
                 go build -trimpath -o /dev/null "./cmd/$cmd"
             done
           done
+          go run github.com/tc-hib/go-winres@v0.3.3 make --arch amd64 \
+            --in cmd/marvia-windows/winres.json --out cmd/marvia-windows/rsrc
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
             go build -trimpath -ldflags "-H windowsgui" -o /dev/null ./cmd/marvia-windows
 

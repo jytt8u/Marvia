@@ -33,6 +33,9 @@ veil-release.properties
 # а проверить их нельзя. Готовые лежат в релизах.
 dist/
 
+# Ресурсы Windows собираются из winres.json и логотипа перед сборкой EXE.
+cmd/marvia-windows/rsrc_windows_*.syso
+
 # Результат gomobile bind. Собирается скриптом, в репозитории не нужен.
 android/app/libs/*.aar
 android/app/libs/*-sources.jar

@@ -68,6 +68,8 @@ type shell struct {
 	tray    *tray
 	ctl     *Controller
 	log     *journal
+	icons   [2]uintptr
+	caption captionTheme
 }
 
 // showWindow открывает окно программы и держит её до выхода из меню трея.
@@ -80,11 +82,12 @@ type shell struct {
 // Если движка не оказалось, открываем ту же страницу в браузере. Это хуже —
 // окно с адресной строкой вместо программы, — но лучше, чем отказ работать.
 // hidden — начать в трее, без окна: так программа стартует вместе с Windows.
-func showWindow(url string, ctl *Controller, log *journal, hidden bool, onWindow *func(mode, tab string)) error {
+func showWindow(url string, ctl *Controller, log *journal, hidden bool, onWindow *func(windowRequest)) error {
 	w := webview2.NewWithOptions(webview2.WebViewOptions{
 		Debug:     false,
 		AutoFocus: true,
 		WindowOptions: webview2.WindowOptions{
+			IconId: 1,
 			Title:  "Marvia",
 			Width:  fullWidth,
 			Height: fullHeight,
@@ -94,9 +97,11 @@ func showWindow(url string, ctl *Controller, log *journal, hidden bool, onWindow
 	if w == nil {
 		return openInBrowser(url)
 	}
-	defer w.Destroy()
-
 	s := &shell{w: w, hwnd: uintptr(w.Window()), url: url, ctl: ctl, log: log}
+	defer func() { w.Destroy(); s.releaseWindowIcons() }()
+	s.setWindowIcons()
+	initialTheme, _ := captionColors("#0c0e11", "#f1f4f7")
+	s.applyCaption(initialTheme)
 	s.subclass()
 
 	t, err := newTray()
@@ -118,13 +123,17 @@ func showWindow(url string, ctl *Controller, log *journal, hidden bool, onWindow
 	// Страница просит переключить вид: из виджета — в полное окно на нужную
 	// вкладку, крестиком виджета — спрятаться. Приходит из обработчика HTTP,
 	// то есть из другого потока, а окно трогать можно только из своего.
-	*onWindow = func(mode, tab string) {
+	*onWindow = func(request windowRequest) {
 		w.Dispatch(func() {
-			switch mode {
+			switch request.Mode {
 			case "full":
-				s.showFull(tab)
+				s.showFull(request.Tab)
 			case "hide":
 				s.hide()
+			case "theme":
+				if theme, err := captionColors(request.Background, request.Foreground); err == nil {
+					s.applyCaption(theme)
+				}
 			}
 		})
 	}
@@ -179,6 +188,7 @@ func (s *shell) showFull(tab string) {
 	x := int(wa.Left) + (int(wa.Right-wa.Left)-fullWidth)/2
 	y := int(wa.Top) + (int(wa.Bottom-wa.Top)-fullHeight)/2
 	_, _, _ = procSetWindowPos.Call(s.hwnd, 0, uintptr(x), uintptr(y), fullWidth, fullHeight, swpNoZOrder|swpFrameChanged)
+	s.applyCaption(s.caption)
 	page := s.url
 	if tab != "" {
 		page += "?tab=" + tab

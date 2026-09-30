@@ -1,0 +1,17 @@
+{
+  "RT_GROUP_ICON": { "#1": { "0000": "ui/tray.png" } },
+  "RT_VERSION": {
+    "#1": {
+      "0409": {
+        "info": {
+          "0409": {
+            "FileDescription": "Marvia — VPN-клиент",
+            "InternalName": "marvia-windows",
+            "OriginalFilename": "marvia-windows.exe",
+            "ProductName": "Marvia"
+          }
+        }
+      }
+    }
+  }
+}

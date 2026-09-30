@@ -2,14 +2,16 @@
 
 <img src="docs/shots/readme-brand.png" alt="Marvia" width="1000">
 
-<img src="docs/shots/readme-v1.png" alt="Marvia 1.0：Android、Windows、管理面板和节点" width="1000">
+**Marvia：Android、Windows、管理面板与节点。开发版本：0.13.0-alpha.1。**
 
-**Marvia 1.0：客户端、管理面板与节点，一套齐全。自己的密钥，自己的路线。**
+1.0 发布已推迟。目前主要公开版本是历史测试版本 v0.12.2，其稳定性尚未得到确认。
+当前代码中的安全与连接修复均保留。
+[开发计划（俄语）](docs/development-plan.md) · [从零搭建自己的 VPN（俄语）](docs/start-from-zero.md)
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
 
-[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
-[![Windows Setup](https://img.shields.io/badge/WINDOWS-SETUP-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows-setup.exe)
+[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.12.2/marvia-android.apk)
+[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#安装面板)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
@@ -59,7 +61,7 @@ VP1 访问记录中保存的客户端私钥数量为 **0**，节点只需公钥�
 
 <img src="docs/shots/readme-vp1-progress.svg" alt="VP1 优化前后：435.0 → 678.3 MB/s，本地测试提升 55.9%；五组配对测试的中位数及范围" width="1200">
 
-**在本地测试中，比上一版 VP1 吞吐量提高 56%。** 减少不必要的 TLS 记录；加密和协议兼容性保持不变。该优化已包含在 1.0 中。
+**在本地测试中，比上一版 VP1 吞吐量提高 56%。** 减少不必要的 TLS 记录；加密和协议兼容性保持不变。优化保留在当前开发代码中，并不代表旧版 v0.12.2 的测量结果。
 
 同一台电脑上进行五组配对测试，每次传输 512 MiB，不包含互联网与 TUN。
 这是本地吞吐量的提升，不代表互联网速度一定提高 56%。
@@ -110,8 +112,8 @@ Clash/sing-box 订阅格式。功能比较以表中的项目文档为依据；�
 
 ## 开始使用
 
-> **已有密钥？** 下载 [Android APK](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
-> 或 [Windows 安装程序](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows-setup.exe)，
+> **已有密钥？** 下载 [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.12.2/marvia-android.apk)
+> 或阅读 [Windows 安装说明](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)，
 > 在应用中添加 `marvia://…` 链接，然后连接。
 
 Android 还支持 VLESS、VMess、Trojan、Shadowsocks、Hysteria2 和 WireGuard 链接。
@@ -119,12 +121,16 @@ Android 还支持 VLESS、VMess、Trojan、Shadowsocks、Hysteria2 和 WireGuard
 
 ### 安装面板
 
+v0.12.2 仅供测试；不要为了版本号降低已安装的修复版客户端。
+完整 Windows 安装包与新 APK 正在 alpha 阶段准备，尚未完成真实设备验证。
+单个 VPS 上面板使用 8443，节点使用 443；请先阅读[完整安装步骤](docs/start-from-zero.md)。
+
 需要 Linux 服务器和已配置 A 记录的域名。从[官方版本](https://github.com/jytt8u/marvia/releases/latest)
 下载安装脚本：
 
 ```bash
-curl -fsSL https://github.com/jytt8u/marvia/releases/latest/download/install-panel.sh -o install-panel.sh
-sh install-panel.sh --domain panel.example.com --email you@example.com
+curl -fsSL https://github.com/jytt8u/marvia/releases/download/v0.12.2/install-panel.sh -o install-panel.sh
+sudo sh install-panel.sh --domain panel.example.com --email you@example.com --port 8443 --from https://github.com/jytt8u/marvia/releases/download/v0.12.2/marvia_linux_amd64.tar.gz
 ```
 
 保存安装时显示的管理员令牌，再在面板中创建节点和用户。
@@ -138,7 +144,7 @@ sh install-panel.sh --domain panel.example.com --email you@example.com
 - iOS、Clash/sing-box 订阅、TUIC、Shadowsocks 插件，以及共享密钥时
   单独撤销设备。
 
-从 1.0 开始，机器人 API、`marvia://` 链接及订阅格式在整个 1.x 系列中
+当前处于 alpha 开发阶段；未来经过验证的 1.x 版本计划使机器人 API、`marvia://` 链接及订阅格式在整个 1.x 系列中
 保持向后兼容。Marvia 不销售 VPN 访问权限、不处理付款，也不代管服务器。
 
 ## 文档与构建

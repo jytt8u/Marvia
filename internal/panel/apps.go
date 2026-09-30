@@ -26,12 +26,34 @@ import (
 
 // Приложения, которые панель раздаёт. Имя из адреса сопоставляется с файлом:
 // брать имя файла прямо из адреса нельзя, иначе туда попросят «../../etc/shadow».
-var appFiles = map[string]struct {
+type appFile struct {
 	file string
 	mime string
-}{
+}
+
+var appFiles = map[string]appFile{
 	"android": {"marvia-android.apk", "application/vnd.android.package-archive"},
-	"windows": {"marvia-windows.exe", "application/octet-stream"},
+	"windows": {"marvia-windows-setup.exe", "application/octet-stream"},
+}
+
+// Сначала предлагаем установщик, затем полный переносимый архив. Старый
+// одиночный EXE не выдаём: окно откроется, но без Wintun VPN не поднимется.
+func (a *API) availableApp(name string) (appFile, bool) {
+	app, known := appFiles[name]
+	if !known {
+		return appFile{}, false
+	}
+	candidates := []appFile{app}
+	if name == "windows" {
+		candidates = append(candidates, appFile{"marvia-windows.zip", "application/zip"})
+	}
+	for _, candidate := range candidates {
+		info, err := os.Stat(filepath.Join(a.distDir, candidate.file))
+		if err == nil && info.Mode().IsRegular() {
+			return candidate, true
+		}
+	}
+	return appFile{}, false
 }
 
 // appDownload отдаёт приложение по токену подписки.
@@ -50,6 +72,12 @@ func (a *API) appDownload(w http.ResponseWriter, r *http.Request) {
 	app, known := appFiles[r.PathValue("name")]
 	if !known {
 		http.NotFound(w, r)
+		return
+	}
+	if available, exists := a.availableApp(r.PathValue("name")); exists {
+		app = available
+	} else {
+		fail(w, http.StatusServiceUnavailable, "приложение пока не выложено: нужен полный комплект "+app.file)
 		return
 	}
 
@@ -103,8 +131,9 @@ type AppOffer struct {
 // диске, по той же причине, что и в appLinks.
 func (a *API) appOffers(subToken string) map[string]AppOffer {
 	out := map[string]AppOffer{}
-	for name, app := range appFiles {
-		if _, err := os.Stat(filepath.Join(a.distDir, app.file)); err != nil {
+	for name := range appFiles {
+		app, exists := a.availableApp(name)
+		if !exists {
 			continue
 		}
 		out[name] = AppOffer{URL: a.subURL(subToken) + "/app/" + name, Version: a.appVersion(app.file)}
@@ -121,8 +150,8 @@ func (a *API) appOffers(subToken string) map[string]AppOffer {
 // отсутствия ссылки, потому что покупатель по ней сходит и придёт с вопросом.
 func (a *API) appLinks(subToken string) map[string]string {
 	out := map[string]string{}
-	for name, app := range appFiles {
-		if _, err := os.Stat(filepath.Join(a.distDir, app.file)); err != nil {
+	for name := range appFiles {
+		if _, exists := a.availableApp(name); !exists {
 			continue
 		}
 		out[name] = a.subURL(subToken) + "/app/" + name
@@ -157,7 +186,10 @@ func (a *API) listApps(w http.ResponseWriter, r *http.Request) {
 
 	out := make([]AppFile, 0, len(names))
 	for _, name := range names {
-		app := appFiles[name]
+		app, exists := a.availableApp(name)
+		if !exists {
+			continue
+		}
 		path := filepath.Join(a.distDir, app.file)
 
 		info, err := os.Stat(path)

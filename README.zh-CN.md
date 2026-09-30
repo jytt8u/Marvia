@@ -9,7 +9,7 @@
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
 
 [![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
-[![Windows EXE](https://img.shields.io/badge/WINDOWS-EXE-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows.exe)
+[![Windows Setup](https://img.shields.io/badge/WINDOWS-SETUP-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows-setup.exe)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#安装面板)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
@@ -111,7 +111,7 @@ Clash/sing-box 订阅格式。功能比较以表中的项目文档为依据；�
 ## 开始使用
 
 > **已有密钥？** 下载 [Android APK](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
-> 或 [Windows 客户端](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows.exe)，
+> 或 [Windows 安装程序](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows-setup.exe)，
 > 在应用中添加 `marvia://…` 链接，然后连接。
 
 Android 还支持 VLESS、VMess、Trojan、Shadowsocks、Hysteria2 和 WireGuard 链接。

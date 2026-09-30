@@ -34,6 +34,27 @@ jobs:
       - name: Проверить сокеты и транспорты Windows
         run: go test ./internal/netpath ./internal/foreign ./internal/transport ./internal/wintun ./cmd/marvia-windows
 
+      - name: Получить компилятор установщика
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'nsis-3.12.zip'
+          curl.exe --fail --location --max-time 90 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.12/nsis-3.12.zip?use_mirror=netix' --output $archive
+          if ($LASTEXITCODE -ne 0) { throw 'не скачался компилятор NSIS' }
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne '56581F90DB321581C5381193D796FFFCF2D24B2F8FED2160A6C6A3BAA67F2C4F') { throw 'не совпала сумма NSIS' }
+          Expand-Archive $archive -DestinationPath $env:RUNNER_TEMP
+          "MARVIA_NSIS=$(Join-Path $env:RUNNER_TEMP 'nsis-3.12/Bin/makensis.exe')" >> $env:GITHUB_ENV
+
+      - name: Проверить установку и удаление Windows
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'marvia-package'
+          New-Item -ItemType Directory -Path $output | Out-Null
+          $exe = Join-Path $output 'marvia-windows.exe'
+          go build -trimpath -ldflags '-H windowsgui' -o $exe ./cmd/marvia-windows
+          if ($LASTEXITCODE -ne 0) { throw 'не собрался клиент Windows' }
+          ./scripts/package-windows.ps1 -Exe $exe -OutputDirectory $output -Version dev -MakeNSIS $env:MARVIA_NSIS
+          ./scripts/test-windows-installer.ps1 -Package (Join-Path $output 'marvia-windows.zip') -MakeNSIS $env:MARVIA_NSIS -WorkDirectory $output
+
   check:
     name: Тесты и сборка
     runs-on: ubuntu-latest

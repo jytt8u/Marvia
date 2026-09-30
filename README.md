@@ -2,14 +2,16 @@
 
 <img src="docs/shots/readme-brand.png" alt="Marvia" width="1000">
 
-<img src="docs/shots/readme-v1.png" alt="Marvia 1.0: Android, Windows, панель и ноды" width="1000">
+**Marvia — Android, Windows, панель и ноды. Разработка: 0.13.0-alpha.1.**
 
-**Marvia 1.0 — клиент, панель и ноды в одном комплекте. Свой ключ, свой маршрут.**
+Выпуск 1.0 отложен. Основной опубликованный выпуск — историческая тестовая
+v0.12.2; он не объявляется стабильным. Исправления в текущем коде сохранены.
+[План доработки](docs/development-plan.md) · [Свой VPN с нуля](docs/start-from-zero.md)
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
 
-[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
-[![Windows Setup](https://img.shields.io/badge/WINDOWS-SETUP-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows-setup.exe)
+[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.12.2/marvia-android.apk)
+[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#установка-панели)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
@@ -60,7 +62,7 @@ Windows 0.9.3 и локальный стенд панели. Это архивн
 
 <img src="docs/shots/readme-vp1-progress.svg" alt="VP1 до и после оптимизации: 435,0 → 678,3 МБ/с, +55,9% в локальном тесте; медианы и диапазоны пяти парных прогонов" width="1200">
 
-**+56% к прежней версии VP1 в локальном тесте.** Меньше лишних записей TLS; шифрование и совместимость сохранены. Оптимизация вошла в 1.0.
+**+56% к прежней версии VP1 в локальном тесте.** Меньше лишних записей TLS; шифрование и совместимость сохранены. Оптимизация сохранена в текущей разработке и не относится к старой сборке v0.12.2.
 
 Пять парных прогонов по 512 МиБ на одном ПК, без интернета и TUN.
 Это прирост локальной пропускной способности, не обещание ускорить интернет на 56%.
@@ -112,21 +114,27 @@ Marvia пока уступает по автоматическому месяч�
 
 ## Начать
 
-> **Получили ключ?** Скачайте [Android APK](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
-> или [установщик Windows](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows-setup.exe),
+> **Получили ключ?** Скачайте [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.12.2/marvia-android.apk)
+> или прочитайте [установку Windows](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент),
 > добавьте ссылку `marvia://…` в приложении и подключитесь.
 
 Android также принимает VLESS, VMess, Trojan, Shadowsocks, Hysteria2 и WireGuard.
 В Google Play приложения пока нет.
 
+Публичная v0.12.2 предназначена для тестирования. Уже установленный исправленный
+клиент не понижайте ради номера версии. Полный установщик Windows и новое APK
+готовятся в alpha; их проверка на реальных устройствах ещё не завершена.
+
 ### Установка панели
 
 Нужны Linux-сервер и домен с A-записью. Установщик берётся из
-[официального релиза](https://github.com/jytt8u/marvia/releases/latest):
+[тестового выпуска v0.12.2](https://github.com/jytt8u/marvia/releases/tag/v0.12.2).
+Для одного VPS панель использует 8443, нода — 443. Полная подготовка и проверка
+сумм описаны в [инструкции с нуля](docs/start-from-zero.md):
 
 ```bash
-curl -fsSL https://github.com/jytt8u/marvia/releases/latest/download/install-panel.sh -o install-panel.sh
-sh install-panel.sh --domain panel.example.com --email you@example.com
+curl -fsSL https://github.com/jytt8u/marvia/releases/download/v0.12.2/install-panel.sh -o install-panel.sh
+sudo sh install-panel.sh --domain panel.example.com --email you@example.com --port 8443 --from https://github.com/jytt8u/marvia/releases/download/v0.12.2/marvia_linux_amd64.tar.gz
 ```
 
 Сохраните показанный при установке админский токен. Затем создайте ноду и
@@ -139,8 +147,9 @@ sh install-panel.sh --domain panel.example.com --email you@example.com
 - iOS, подписки Clash/sing-box, TUIC, плагины Shadowsocks и раздельный отзыв
   устройств с общим ключом.
 
-Начиная с 1.0, API бота, схема `marvia://` и формат подписки сохраняют
-обратную совместимость в рамках 1.x. Marvia не продаёт доступ, не принимает
+Для будущей 1.x планируется проверенная обратная совместимость API бота,
+схемы `marvia://` и формата подписки. Сейчас действует стадия alpha.
+Marvia не продаёт доступ, не принимает
 платежи и не размещает серверы.
 
 ## Документы и сборка

@@ -11,7 +11,7 @@
     раздаёт его покупателям.
 
     Пример:
-        .\scripts\publish-apk.ps1 -Tag v0.2.0
+        .\scripts\publish-apk.ps1 -Tag v0.13.0-alpha.1 -VersionCode 10002
 #>
 [CmdletBinding()]
 param(
@@ -22,6 +22,10 @@ param(
     # Репозиторий сборок. Открытый: покупатель качает без токенов и логинов.
     [string]$Repo = 'jytt8u/marvia',
 
+    # Код Android растёт даже при возврате номера версии к alpha после 1.x.
+    [ValidateRange(0, 2100000000)]
+    [int]$VersionCode = 0,
+
     # Пропустить пересборку ядра на Go — она долгая и нужна, только когда
     # менялся Go, а не Kotlin.
     [switch]$SkipCore
@@ -30,12 +34,32 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 
+if ($Tag -notmatch '^v0\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
+    throw 'выпуск 1.x отложен; разрешены только тестовые версии v0.x'
+}
+if ($Tag.Contains('-') -and $VersionCode -lt 10002) {
+    throw 'для alpha после 1.0.1 задайте -VersionCode больше 10001; каждый следующий APK требует ещё больший код'
+}
+
+# Пока выпуск отложен, этот скрипт не изменяет публичные файлы. Сначала
+# владелец проверяет конкретный кандидат и публикует готовый черновик отдельно.
+$releaseState = gh release view $Tag --repo $Repo --json isDraft
+if ($LASTEXITCODE -ne 0) { throw 'черновик релиза не найден' }
+if (-not ($releaseState | ConvertFrom-Json).isDraft) {
+    throw 'APK можно прикладывать только к черновику тестового релиза'
+}
+
 if (-not $env:ANDROID_HOME) { $env:ANDROID_HOME = 'D:\android-sdk' }
 if (-not $env:MARVIA_RELEASE_KEYS) { $env:MARVIA_RELEASE_KEYS = 'D:\veil-keys\veil-release.properties' }
 
 # Версия приложения — из метки: одна строка на apk, aab и файл .version на
 # панели, по которому покупатель узнаёт про обновление.
 $env:MARVIA_VERSION = $Tag -replace '^v', ''
+if ($VersionCode -gt 0) {
+    $env:MARVIA_VERSION_CODE = [string]$VersionCode
+} else {
+    Remove-Item Env:MARVIA_VERSION_CODE -ErrorAction SilentlyContinue
+}
 
 if (-not (Test-Path $env:MARVIA_RELEASE_KEYS)) {
     throw "нет ключа подписи: $env:MARVIA_RELEASE_KEYS. Неподписанный APK не поставится."

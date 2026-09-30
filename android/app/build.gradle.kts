@@ -37,10 +37,16 @@ val releaseKeys = Properties().apply {
 // строка уезжает в панель файлом .version: по ней приложение у покупателя
 // узнаёт, что устарело. Две версии в двух местах разошлись бы в первый же
 // релиз. versionCode Play требует строго растущим на каждую загрузку —
-// считаем его из тех же трёх чисел, чтобы он рос вместе с версией сам.
+// Для возврата к номеру alpha после 1.x или повторных кандидатов задаём
+// MARVIA_VERSION_CODE отдельно: меньший versionName не должен мешать обновлению.
 // Без переменной — dev и код 1: сборка разработчика, обновлений не ждёт.
 val appVersion: String = System.getenv("MARVIA_VERSION")?.trim()?.removePrefix("v")?.takeIf { it.isNotEmpty() } ?: "dev"
-val appVersionCode: Int = appVersion.split("-")[0].split(".").let { parts ->
+val explicitVersionCode = System.getenv("MARVIA_VERSION_CODE")?.let { raw ->
+    requireNotNull(raw.toIntOrNull()?.takeIf { it in 1..2100000000 }) {
+        "MARVIA_VERSION_CODE должен быть целым числом от 1 до 2100000000"
+    }
+}
+val appVersionCode: Int = explicitVersionCode ?: appVersion.split("-")[0].split(".").let { parts ->
     val nums = parts.map { it.toIntOrNull() }
     if (nums.size in 1..3 && nums.all { it != null && it in 0..99 }) {
         val n = nums.map { it!! } + List(3 - nums.size) { 0 }

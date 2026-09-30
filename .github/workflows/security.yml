@@ -82,5 +82,5 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Проверить права, шифрование снимков и доверие к обновлениям
-        run: go test -race -count=1 -timeout=10m -v ./internal/panel ./internal/nodesync ./internal/updater
+      - name: Проверить права, снимки, обновления и защиту токенов подписки
+        run: go test -race -count=1 -timeout=10m -v ./internal/panel ./internal/nodesync ./internal/updater ./internal/client ./internal/foreign ./internal/httpguard

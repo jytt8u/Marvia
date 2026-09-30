@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jytt8u/marvia/internal/httpguard"
 )
 
 // Subscription — чужая подписка: ноды и, если продавец их сообщил, остаток и
@@ -99,7 +101,7 @@ func FetchRaw(ctx context.Context, url string) (body []byte, userinfo string, er
 		return nil, "", errors.New("адрес подписки не разбирается")
 	}
 	req.Header.Set("User-Agent", "v2rayNG/1.10.0")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpguard.SubscriptionClient(http.DefaultClient).Do(req)
 	if err != nil {
 		return nil, "", errors.New("подписка недоступна")
 	}

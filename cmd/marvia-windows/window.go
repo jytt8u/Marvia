@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"syscall"
@@ -42,8 +43,8 @@ const (
 	// Размеры из макета: полное окно 1180×720 и трей-виджет 380×560.
 	fullWidth    = 1180
 	fullHeight   = 720
-	widgetWidth  = 380
-	widgetHeight = 560
+	widgetWidth  = 400
+	widgetHeight = 640
 	widgetGap    = 12
 )
 
@@ -70,6 +71,7 @@ type shell struct {
 	log     *journal
 	icons   [2]uintptr
 	caption captionTheme
+	loaded  bool
 }
 
 // showWindow открывает окно программы и держит её до выхода из меню трея.
@@ -112,6 +114,22 @@ func showWindow(url string, ctl *Controller, log *journal, hidden bool, onWindow
 	} else {
 		s.tray = t
 		t.onClick = func() { s.toggleWidget() }
+		t.onShow = func() { s.showFull("") }
+		t.onLink = func(link string) {
+			w.Dispatch(func() {
+				s.showFull("settings")
+				old := ctl.Account()
+				if old == link {
+					return
+				}
+				if old != "" && !confirm(say("replaceKeyTitle"), say("replaceKeyBody")) {
+					return
+				}
+				if err := ctl.SetAccount(link); err != nil {
+					log.add("ссылка не подошла: %v", err)
+				}
+			})
+		}
 		t.onMenu = s.menu
 		t.menuState = func() (bool, bool) {
 			st := ctl.Status()
@@ -140,6 +158,7 @@ func showWindow(url string, ctl *Controller, log *journal, hidden bool, onWindow
 
 	if hidden && s.tray != nil {
 		w.Navigate(url)
+		s.loaded = true
 		s.hide()
 	} else {
 		s.showFull("")
@@ -189,11 +208,7 @@ func (s *shell) showFull(tab string) {
 	y := int(wa.Top) + (int(wa.Bottom-wa.Top)-fullHeight)/2
 	_, _, _ = procSetWindowPos.Call(s.hwnd, 0, uintptr(x), uintptr(y), fullWidth, fullHeight, swpNoZOrder|swpFrameChanged)
 	s.applyCaption(s.caption)
-	page := s.url
-	if tab != "" {
-		page += "?tab=" + tab
-	}
-	s.w.Navigate(page)
+	s.navigateView("full", tab)
 	_, _, _ = procShowWindow.Call(s.hwnd, swShow)
 	_, _, _ = procSetForegroundWindow.Call(s.hwnd)
 }
@@ -211,12 +226,36 @@ func (s *shell) toggleWidget() {
 	// остаётся ближайшим к значку в подавляющем числе случаев.
 	var wa rect
 	_, _, _ = procSystemParametersInfo.Call(spiGetWorkArea, 0, uintptr(unsafe.Pointer(&wa)), 0)
-	x := int(wa.Right) - widgetWidth - widgetGap
-	y := int(wa.Bottom) - widgetHeight - widgetGap
-	_, _, _ = procSetWindowPos.Call(s.hwnd, 0, uintptr(x), uintptr(y), widgetWidth, widgetHeight, swpNoZOrder|swpFrameChanged)
-	s.w.Navigate(s.url + "?mode=widget")
+	dpi, _, _ := user32.NewProc("GetDpiForWindow").Call(s.hwnd)
+	if dpi == 0 {
+		dpi = 96
+	}
+	width := min(widgetWidth*int(dpi)/96, int(wa.Right-wa.Left)-widgetGap*2)
+	height := min(widgetHeight*int(dpi)/96, int(wa.Bottom-wa.Top)-widgetGap*2)
+	x := int(wa.Right) - width - widgetGap
+	y := int(wa.Bottom) - height - widgetGap
+	_, _, _ = procSetWindowPos.Call(s.hwnd, 0, uintptr(x), uintptr(y), uintptr(width), uintptr(height), swpNoZOrder|swpFrameChanged)
+	s.navigateView("widget", "")
 	_, _, _ = procShowWindow.Call(s.hwnd, swShow)
 	_, _, _ = procSetForegroundWindow.Call(s.hwnd)
+}
+
+// Переключение трея не создаёт новую страницу: остаются форма ключа,
+// графики и текущие отсчёты скорости, а WebView не загружает шрифты заново.
+func (s *shell) navigateView(mode, tab string) {
+	if !s.loaded {
+		page := s.url
+		if mode == "widget" {
+			page += "?mode=widget"
+		} else if tab != "" {
+			page += "?tab=" + tab
+		}
+		s.w.Navigate(page)
+		s.loaded = true
+		return
+	}
+	view, _ := json.Marshal(map[string]string{"mode": mode, "tab": tab})
+	s.w.Eval("window.marviaView && window.marviaView(" + string(view) + ")")
 }
 
 // menu исполняет выбор из меню значка.

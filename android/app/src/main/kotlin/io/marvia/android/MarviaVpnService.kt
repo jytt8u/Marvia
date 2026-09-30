@@ -200,9 +200,8 @@ class MarviaVpnService : VpnService() {
         // Android: список «мимо туннеля» и список «только эти» в одном
         // интерфейсе не сочетаются, система бросит исключение.
         //
-        // Пропавшее приложение не повод не подниматься: его могли удалить
-        // между настройкой и запуском, а падать посреди включения VPN из-за
-        // этого — худший из возможных ответов.
+        // Удалённые пакеты пропускаем, но не расширяем список «только эти»:
+        // пустой список Android трактует как весь телефон.
         when (store.bypassMode) {
             Store.BYPASS_EXCLUDE -> {
                 // Свой трафик в собственный туннель не заворачиваем. Иначе
@@ -225,14 +224,18 @@ class MarviaVpnService : VpnService() {
                 // в список не добавляем, и этого достаточно: неотмеченное
                 // система в туннель не пускает. Пустой список для Android
                 // означает «все» — экран об этом предупреждает.
-                for (pkg in store.bypassed) {
+                val selected = store.bypassed
+                val accepted = AppRouting.addIncluded(selected, packageName) { pkg ->
                     try {
                         builder.addAllowedApplication(pkg)
+                        true
                     } catch (_: PackageManager.NameNotFoundException) {
                         Log.w(TAG, "в туннель просили $pkg, но оно не установлено")
+                        false
                     }
                 }
-                if (store.bypassed.isEmpty()) {
+                if (!accepted) throw IllegalStateException(getString(R.string.error_missing_allowed_apps))
+                if (selected.isEmpty()) {
                     builder.addDisallowedApplication(packageName)
                 }
             }

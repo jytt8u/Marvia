@@ -1,6 +1,6 @@
 # Конфиденциальность Marvia
 
-Обновлено 25 сентября 2026 года. English version below.
+Обновлено 30 сентября 2026 года. English version below.
 
 Marvia — приложение для подключения к VPN-серверу по ключу или подписке,
 которые вы получили от владельца сервера. Приложение не продаёт доступ и не
@@ -8,6 +8,10 @@ Marvia — приложение для подключения к VPN-серве�
 обрабатывает её владелец; его условия хранения нужно узнавать у него.
 
 ## На устройстве
+
+Windows хранит дневные объёмы трафика по часам локально в
+`%APPDATA%\Marvia\traffic.json`. В этом файле нет сайтов, адресов нод,
+ключей или списка приложений; статистика не отправляется в единый сервис Marvia.
 
 Приложение хранит ключи и адреса подписок, список нод и их замеры, настройки
 VPN и темы, выбор приложений для обхода туннеля, локальный журнал, расход и
@@ -60,7 +64,7 @@ VPN и темы, выбор приложений для обхода тунне�
 
 # Marvia privacy policy
 
-Updated 25 September 2026.
+Updated 30 September 2026.
 
 Marvia connects to a VPN server using an access key or subscription supplied
 by the server operator. The app does not sell access or create an account in
@@ -68,6 +72,10 @@ a central Marvia service. The operator of the subscription processes data on
 their panel and nodes; ask them about their retention and deletion terms.
 
 ## On the device
+
+Windows stores daily traffic volumes by hour locally in
+`%APPDATA%\Marvia\traffic.json`. This file contains no websites, node addresses,
+access keys or app list; these local statistics are not sent to a central Marvia service.
 
 The app stores access keys and subscription URLs, node lists and measurements,
 VPN and appearance settings, the list of apps that bypass the VPN, local logs,

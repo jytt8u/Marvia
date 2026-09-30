@@ -21,7 +21,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	"golang.org/x/sys/windows"
@@ -41,6 +40,12 @@ const (
 )
 
 func main() {
+	if running, err := forwardToRunning(); running || err != nil {
+		if err != nil {
+			instanceError(err)
+		}
+		return
+	}
 	dns := flag.String("dns", defaultDNS, "адрес для запросов имён внутри туннеля")
 	mtu := flag.Uint("mtu", tunbridge.DefaultMTU, "MTU интерфейса")
 	noElevate := flag.Bool("no-elevate", false, "не просить прав администратора (окно откроется, туннель не поднимется)")
@@ -68,6 +73,19 @@ func main() {
 }
 
 func run(dns string, mtu uint32, urlFile string, inTray bool) error {
+	name, err := instanceName()
+	if err != nil {
+		return err
+	}
+	guard, first, err := acquireInstance(name)
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(guard)
+	if !first {
+		_, err := forwardToRunning()
+		return err
+	}
 	log := newJournal()
 	ctl := NewController(dns, mtu, log)
 	if savedLang := readUISetting("language"); savedLang != "" {
@@ -167,7 +185,7 @@ func relaunchElevated() error {
 	if err != nil {
 		return err
 	}
-	args := strings.Join(os.Args[1:], " ")
+	args := elevatedArguments(os.Args[1:])
 
 	verb, _ := syscall.UTF16PtrFromString("runas")
 	file, _ := syscall.UTF16PtrFromString(exe)

@@ -297,6 +297,102 @@ func TestConnectRefreshesStaleCache(t *testing.T) {
 	}
 }
 
+// Медленная панель не должна держать экран подключения, когда прежняя нода
+// всё ещё отвечает. Свежий список доедет в кэш уже после запуска туннеля.
+func TestConnectUsesStaleLiveNodeBeforeSlowPanel(t *testing.T) {
+	node := startTestNode(t)
+	old := node.info
+	old.ID = 11
+	fresh := node.info
+	fresh.ID = 12
+
+	unblock := make(chan struct{})
+	released := false
+	requested := make(chan struct{}, 1)
+	panel := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case requested <- struct{}{}:
+		default:
+		}
+		select {
+		case <-unblock:
+			_ = json.NewEncoder(w).Encode(client.Subscription{Nodes: []client.Node{fresh}})
+		case <-r.Context().Done():
+		}
+	}))
+	defer func() {
+		if !released {
+			close(unblock)
+		}
+		panel.Close()
+	}()
+
+	subURL := panel.URL + "/sub/token"
+	path := cachePathIn(t)
+	if err := client.SaveCache(path, subURL, client.Subscription{Nodes: []client.Node{old}}); err != nil {
+		t.Fatal(err)
+	}
+	ageCache(t, path, client.CacheTTL+time.Hour)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	dialer, _, err := client.Connect(ctx, client.ConnectConfig{
+		Account: client.Account{SubscriptionURL: subURL},
+		Key:     node.clientKey, Dial: node.opts, CachePath: path, Prefer: old.ID,
+	})
+	if err != nil {
+		t.Fatalf("ожидали подключение по рабочему кэшу до ответа панели: %v", err)
+	}
+	defer dialer.Close()
+	if dialer.Node().ID != old.ID {
+		t.Fatalf("выбрана нода %d вместо сохранённой %d", dialer.Node().ID, old.ID)
+	}
+
+	select {
+	case <-requested:
+	case <-time.After(3 * time.Second):
+		t.Fatal("список не обновляется в фоне")
+	}
+	close(unblock)
+	released = true
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		cached, err := client.LoadCache(path, subURL)
+		if err == nil && cached.Fresh() && cached.Nodes()[0].ID == fresh.ID {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("фоновое обновление не сохранило свежий список")
+}
+
+func TestConnectDoesNotUseExpiredCachedSubscription(t *testing.T) {
+	node := startTestNode(t)
+	old := node.info
+	old.ID = 21
+	fresh := node.info
+	fresh.ID = 22
+	panel := startPanel(t, fresh)
+	path := cachePathIn(t)
+	if err := client.SaveCache(path, panel.subURL(), client.Subscription{
+		Nodes: []client.Node{old}, ExpiresAt: time.Now().Add(-time.Hour).Format(time.RFC3339),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	dialer, _, err := client.Connect(testContext(t), client.ConnectConfig{
+		Account: client.Account{SubscriptionURL: panel.subURL()},
+		Key:     node.clientKey, Dial: node.opts, CachePath: path,
+	})
+	if err != nil {
+		t.Fatalf("подписка могла быть продлена на панели: %v", err)
+	}
+	defer dialer.Close()
+	if dialer.Node().ID != fresh.ID || panel.hits.Load() != 1 {
+		t.Fatalf("вместо свежего списка использован истёкший кэш: нода %d, запросов %d", dialer.Node().ID, panel.hits.Load())
+	}
+}
+
 // TestConnectWithoutCacheAsksPanel: кэша нет — всё работает ровно как раньше,
 // а по дороге кэш заводится.
 func TestConnectWithoutCacheAsksPanel(t *testing.T) {

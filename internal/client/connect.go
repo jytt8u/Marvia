@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/jytt8u/marvia/internal/vp1"
 )
@@ -56,12 +57,10 @@ type ConnectConfig struct {
 //
 // Порядок такой:
 //
-//  1. свежий кэш — меряем ноды из него и, если хоть одна жива, на этом всё:
-//     домен подписки в запросах имён не появляется;
-//  2. кэша нет, он протух или все его ноды мертвы — идём в панель и
-//     перезаписываем кэш;
-//  3. панель молчит, но кэш есть — пробуем его даже протухшим: вчерашняя
-//     нода лучше, чем никакой.
+//  1. кэш с действующей подпиской — пробуем известные ноды сразу, даже если
+//     список старше суток; протухший список обновляем в фоне;
+//  2. кэша нет, подписка в нём кончилась или все ноды молчат — идём в панель
+//     за свежим списком и пробуем новые адреса.
 //
 // Замеры возвращаются всегда, в том числе вместе с ошибкой: их ждёт панель,
 // и именно про случай «не работает ничего» продавцу важнее всего узнать.
@@ -86,13 +85,24 @@ func Connect(ctx context.Context, cfg ConnectConfig) (*Dialer, []Measurement, er
 	// когда все попытки провалились.
 	var measurements []Measurement
 
-	if cached.Fresh() {
-		logf("замеряю ноды из кэша, их %d", len(cached.Nodes()))
+	// Панель иногда отвечает только после полного HTTP-тайм-аута. Если в
+	// протухшем кэше есть живая нода, ждать панель перед подключением незачем:
+	// нода уже умеет проверить доступ, а обновление списка не должно держать
+	// человека на экране «Подключаюсь». Кэш с датой из будущего не используем.
+	cacheAge := time.Since(cached.FetchedAt)
+	cacheUsable := len(cached.Nodes()) > 0 && !cached.FetchedAt.IsZero() &&
+		cacheAge >= 0 && cached.Subscription.Allows() == nil
+	var refresh <-chan subscriptionResult
+	if cacheUsable && !cached.Fresh() && cfg.CachePath != "" {
+		// Если адреса уже сменились, запрос панели идёт одновременно с
+		// проверкой старых: не складываем два тайм-аута подряд.
+		refresh = refreshCache(cfg)
+	}
+	if cacheUsable {
+		logf("пробую ноды из кэша, их %d", len(cached.Nodes()))
 		dialer, m, err := SelectPreferred(ctx, cached.Nodes(), cfg.Key, cfg.Dial, cfg.Prefer)
 		if err == nil {
-			// Срок и остаток берём из кэша: он вчерашний, но показать
-			// «осталось 12 ГБ» вчерашней точности лучше, чем не показать
-			// ничего и погнать человека спрашивать у продавца.
+			// До обновления показываем последнюю известную подписку.
 			return dialer.withSubscription(cached.Subscription), m, nil
 		}
 		measurements = m
@@ -105,19 +115,23 @@ func Connect(ctx context.Context, cfg ConnectConfig) (*Dialer, []Measurement, er
 	}
 
 	logf("забираю список нод")
-	sub, err := FetchSubscription(ctx, cfg.Account.SubscriptionURL, cfg.Account.PanelIPs)
+	var sub Subscription
+	var err error
+	if refresh != nil {
+		select {
+		case result := <-refresh:
+			sub, err = result.sub, result.err
+		case <-ctx.Done():
+			return nil, measurements, ctx.Err()
+		}
+	} else {
+		sub, err = FetchSubscription(ctx, cfg.Account.SubscriptionURL, cfg.Account.PanelIPs)
+	}
 	if err != nil {
-		dialer, m, ok := lastHope(ctx, cached, cfg, logf)
-		if ok {
-			return dialer, m, nil
-		}
-		if m != nil {
-			measurements = m
-		}
 		return nil, measurements, fmt.Errorf("%w: %w", ErrPanel, err)
 	}
 
-	if cfg.CachePath != "" {
+	if refresh == nil && cfg.CachePath != "" {
 		if err := SaveCache(cfg.CachePath, cfg.Account.SubscriptionURL, sub); err != nil {
 			// Не сохранился кэш — не повод не подключаться. В худшем случае
 			// в следующий раз сходим в панель, как раньше.
@@ -137,20 +151,22 @@ func Connect(ctx context.Context, cfg ConnectConfig) (*Dialer, []Measurement, er
 	return dialer.withSubscription(sub), m, err
 }
 
-// lastHope пробует протухший кэш, когда панель не ответила.
-//
-// Панель могли заблокировать саму — тогда протухший список нод единственное,
-// что у человека осталось. Свежий кэш сюда не попадает: его уже пробовали
-// выше и он не сработал.
-func lastHope(ctx context.Context, cached CachedSubscription, cfg ConnectConfig, logf func(string, ...any)) (*Dialer, []Measurement, bool) {
-	if ctx.Err() != nil || cached.Fresh() || len(cached.Nodes()) == 0 {
-		return nil, nil, false
-	}
+type subscriptionResult struct {
+	sub Subscription
+	err error
+}
 
-	logf("панель недоступна, пробую протухший кэш")
-	dialer, m, err := SelectPreferred(ctx, cached.Nodes(), cfg.Key, cfg.Dial, cfg.Prefer)
-	if err != nil {
-		return nil, m, false
-	}
-	return dialer.withSubscription(cached.Subscription), m, true
+// refreshCache обновляет вчерашний список параллельно с дозвоном к известной
+// ноде. Если она не ответит, Connect дождётся уже идущего запроса вместо
+// второго, последовательного похода в панель.
+func refreshCache(cfg ConnectConfig) <-chan subscriptionResult {
+	ch := make(chan subscriptionResult, 1)
+	go func() {
+		sub, err := FetchSubscription(context.Background(), cfg.Account.SubscriptionURL, cfg.Account.PanelIPs)
+		if err == nil {
+			_ = SaveCache(cfg.CachePath, cfg.Account.SubscriptionURL, sub)
+		}
+		ch <- subscriptionResult{sub: sub, err: err}
+	}()
+	return ch
 }

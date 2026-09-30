@@ -263,7 +263,7 @@ fi
 #
 # Не скачалось — не беда: панель просто не покажет ссылку, а продавец положит
 # файлы руками позже.
-for app in marvia-android.apk marvia-windows.exe; do
+for app in marvia-android.apk marvia-windows-setup.exe marvia-windows.zip; do
 	if [ -f "$BIN_DIR/$app" ]; then
 		cp "$BIN_DIR/$app" "$DIR/dist/$app"
 	else
@@ -284,7 +284,7 @@ if [ -f "$DIR/dist/marvia-android.apk" ]; then
 	say 'приложения на месте: панель раздаёт их покупателям сама'
 else
 	say 'ВНИМАНИЕ: приложений нет — покупателям их скачивать неоткуда.'
-	say "Положи marvia-android.apk и marvia-windows.exe в $DIR/dist"
+	say "Положи marvia-android.apk и marvia-windows-setup.exe (или полный marvia-windows.zip) в $DIR/dist"
 fi
 
 ADMIN_TOKEN=$("$DIR/marvia-panel" -new-token)

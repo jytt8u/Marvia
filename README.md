@@ -9,7 +9,7 @@
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
 
 [![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
-[![Windows EXE](https://img.shields.io/badge/WINDOWS-EXE-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows.exe)
+[![Windows Setup](https://img.shields.io/badge/WINDOWS-SETUP-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows-setup.exe)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#установка-панели)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
@@ -113,7 +113,7 @@ Marvia пока уступает по автоматическому месяч�
 ## Начать
 
 > **Получили ключ?** Скачайте [Android APK](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
-> или [Windows-клиент](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows.exe),
+> или [установщик Windows](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows-setup.exe),
 > добавьте ссылку `marvia://…` в приложении и подключитесь.
 
 Android также принимает VLESS, VMess, Trojan, Shadowsocks, Hysteria2 и WireGuard.

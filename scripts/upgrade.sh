@@ -371,7 +371,7 @@ refresh_dist() {
 	# Версию спрашиваем у свежего бинарника из архива: после подмены она та же,
 	# а запускать от root файл из каталога marvia нельзя (installed_version).
 	now=$("$tmp/marvia-panel" -version 2>/dev/null | awk '{print $2}' | sed 's/^v//')
-	for app in marvia-android.apk marvia-windows.exe; do
+	for app in marvia-android.apk marvia-windows-setup.exe marvia-windows.zip; do
 		# Не скачалось — оставляем прежнее: старое приложение лучше никакого.
 		if curl -fsSL --max-time 300 -o "$tmp/$app" "$base/$app" 2>/dev/null &&
 			(cd "$tmp" && grep "[ *]$app\$" SHA256SUMS | sha256sum -c - >/dev/null 2>&1); then

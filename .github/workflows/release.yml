@@ -47,6 +47,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME}"
           case "$VERSION" in v*) ;; *) VERSION="dev-${GITHUB_SHA::7}" ;; esac
           echo "Версия: $VERSION"
+          echo "MARVIA_BUILD_VERSION=$VERSION" >> "$GITHUB_ENV"
 
           mkdir -p dist
 
@@ -95,11 +96,14 @@ jobs:
           cp scripts/upgrade.sh dist/upgrade.sh
 
       - name: Собрать полный комплект Windows
+        run: sudo apt-get update && sudo apt-get install -y nsis
+
+      - name: Упаковать установщик и переносимый комплект Windows
         shell: pwsh
-        run: ./scripts/package-windows.ps1 -Exe ./dist/marvia-windows.exe -OutputDirectory ./dist
+        run: ./scripts/package-windows.ps1 -Exe ./dist/marvia-windows.exe -OutputDirectory ./dist -Version $env:MARVIA_BUILD_VERSION
 
       - name: Посчитать суммы всех файлов выпуска
-        run: cd dist && sha256sum *.tar.gz install-panel.sh upgrade.sh marvia-windows.exe marvia-windows.zip > SHA256SUMS && cat SHA256SUMS
+        run: cd dist && sha256sum *.tar.gz install-panel.sh upgrade.sh marvia-windows.exe marvia-windows.zip marvia-windows-setup.exe > SHA256SUMS && cat SHA256SUMS
 
       - name: Подписать контрольные суммы сборки
         id: attest
@@ -132,13 +136,15 @@ jobs:
             dist/upgrade.sh
             dist/marvia-windows.exe
             dist/marvia-windows.zip
+            dist/marvia-windows-setup.exe
             dist/SHA256SUMS
             dist/SHA256SUMS.sigstore.json
           body: |
             **Marvia ${{ github.ref_name }}** — Android, Windows, панель и ноды в одном комплекте.
 
-            Windows-клиент: распакуйте весь `marvia-windows.zip` и запустите
-            EXE из полученной папки. В комплекте официальный подписанный Wintun.
+            Windows-клиент: запустите `marvia-windows-setup.exe` и установите
+            приложение. Драйвер и ярлык уже в комплекте, ключи при обновлении сохраняются.
+            Для переносимого запуска распакуйте весь `marvia-windows.zip`.
             Отдельный EXE требует `wintun.dll` рядом с ним. Подписанные Android APK и AAB
             добавляются после отдельной сборки и проверки подписи владельца.
 

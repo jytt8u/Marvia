@@ -9,7 +9,7 @@
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
 
 [![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
-[![Windows EXE](https://img.shields.io/badge/WINDOWS-EXE-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows.exe)
+[![Windows Setup](https://img.shields.io/badge/WINDOWS-SETUP-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows-setup.exe)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#install-the-panel)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
@@ -113,7 +113,7 @@ supports the feature comparison; no matched speed ranking is available.
 ## Get started
 
 > **Have a key?** Download the [Android APK](https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk)
-> or [Windows client](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows.exe),
+> or [Windows installer](https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows-setup.exe),
 > add a `marvia://…` link in the app, and connect.
 
 Android also accepts VLESS, VMess, Trojan, Shadowsocks, Hysteria2 and WireGuard

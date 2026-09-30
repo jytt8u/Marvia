@@ -3,6 +3,7 @@ package panel_test
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -75,6 +76,63 @@ func TestAppComesFromPanel(t *testing.T) {
 	}
 	if got != fakeAPK {
 		t.Errorf("отдалось не то: %q", got)
+	}
+}
+
+func TestWindowsDownloadIncludesItsDriver(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		files              map[string]string
+		wantFile, wantBody string
+	}{
+		{"установщик", map[string]string{"marvia-windows.exe": "неполный EXE", "marvia-windows.zip": "переносимый комплект", "marvia-windows-setup.exe": "полный установщик", "marvia-windows-setup.exe.version": "1.0.2\n"}, "marvia-windows-setup.exe", "полный установщик"},
+		{"переносимый комплект", map[string]string{"marvia-windows.exe": "неполный EXE", "marvia-windows.zip": "переносимый комплект", "marvia-windows.zip.version": "1.0.2\n"}, "marvia-windows.zip", "переносимый комплект"},
+		{"только EXE", map[string]string{"marvia-windows.exe": "неполный EXE"}, "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, admin := appPanel(t, tc.files)
+			token, created := buySubscription(t, srv, admin)
+			_, subscription := do(t, srv, "GET", "/sub/"+token+"?format=json", "", "")
+			_, listed := do(t, srv, "GET", "/api/v1/apps", admin, "")
+			response, err := srv.Client().Get(srv.URL + "/sub/" + token + "/app/windows")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer response.Body.Close()
+			if tc.wantFile == "" {
+				for _, body := range []string{created, subscription, listed} {
+					if strings.Contains(body, `"windows"`) {
+						t.Errorf("обещан неполный комплект Windows: %s", body)
+					}
+				}
+				if response.StatusCode != http.StatusServiceUnavailable {
+					t.Errorf("неполный комплект отдан: %d", response.StatusCode)
+				}
+				return
+			}
+			if response.StatusCode != http.StatusOK {
+				t.Fatalf("загрузка: %d", response.StatusCode)
+			}
+			if got := response.Header.Get("Content-Disposition"); got != `attachment; filename="`+tc.wantFile+`"` {
+				t.Errorf("имя файла: %s", got)
+			}
+			if tc.wantFile == "marvia-windows.zip" && response.Header.Get("Content-Type") != "application/zip" {
+				t.Error("архив выдан без типа ZIP")
+			}
+			body, err := io.ReadAll(response.Body)
+			if err != nil || string(body) != tc.wantBody {
+				t.Errorf("отдан другой комплект: %s, %v", body, err)
+			}
+			if !strings.Contains(created, "/app/windows") || !strings.Contains(subscription, `"version":"1.0.2"`) {
+				t.Errorf("нет ссылки или версии: %s %s", created, subscription)
+			}
+			if !strings.Contains(listed, tc.wantFile) || strings.Contains(listed, `"file":"marvia-windows.exe"`) {
+				t.Errorf("список приложений: %s", listed)
+			}
+			if code, _ := do(t, srv, "GET", "/sub/чужой/app/windows", "", ""); code != http.StatusNotFound {
+				t.Errorf("комплект доступен без подписки: %d", code)
+			}
+		})
 	}
 }
 
@@ -199,7 +257,7 @@ func TestSubscriptionTellsWhichVersionIsLaidOut(t *testing.T) {
 	srv, admin := appPanel(t, map[string]string{
 		"marvia-android.apk":         fakeAPK,
 		"marvia-android.apk.version": "0.10.0\n",
-		"marvia-windows.exe":         "это как бы exe",
+		"marvia-windows.zip":         "это как бы полный комплект",
 	})
 	token, _ := buySubscription(t, srv, admin)
 

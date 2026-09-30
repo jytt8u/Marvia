@@ -1,13 +1,15 @@
 <#
-    Полный переносимый комплект Windows: EXE, официальный Wintun и лицензия.
+    Установщик и переносимый комплект Windows: EXE, официальный Wintun и лицензия.
     Один EXE умеет открыть окно, но без DLL не создаст VPN-адаптер.
-    Пример: ./scripts/package-windows.ps1 -Exe ./dist/marvia-windows.exe -OutputDirectory ./dist
+    Пример: ./scripts/package-windows.ps1 -Exe ./dist/marvia-windows.exe -OutputDirectory ./dist -Version 1.0.2
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)] [string]$Exe,
     [Parameter(Mandatory = $true)] [string]$OutputDirectory,
-    [string]$WintunArchive
+    [string]$WintunArchive,
+    [string]$Version = 'dev',
+    [string]$MakeNSIS
 )
 
 $ErrorActionPreference = 'Stop'
@@ -66,10 +68,26 @@ Marvia для Windows x64
         '{0}  {1}' -f (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
     }
     [IO.File]::WriteAllLines((Join-Path $bundlePath 'SHA256SUMS'), [string[]]$sums, [Text.UTF8Encoding]::new($false))
+    if (-not $MakeNSIS) { $MakeNSIS = (Get-Command makensis -ErrorAction Stop).Source }
+    $numericVersion = '0.0.0.0'
+    if ($Version -match '^v?(\d+)\.(\d+)\.(\d+)') {
+        $numericVersion = '{0}.{1}.{2}.0' -f $Matches[1], $Matches[2], $Matches[3]
+    }
+    $versionLabel = $Version -replace '^v', ''
+    if ($versionLabel -notmatch '^[A-Za-z0-9.+_-]+$') { throw 'недопустимая версия приложения' }
+    $flag = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { '/' } else { '-' }
+    $installerPath = Join-Path $temporaryPath 'marvia-windows-setup.exe'
+    & $MakeNSIS "${flag}V2" "${flag}WX" "${flag}INPUTCHARSET" 'UTF8' `
+        "${flag}DINPUT_DIR=$bundlePath" "${flag}DOUTPUT_FILE=$installerPath" `
+        "${flag}DVERSION=$versionLabel" "${flag}DNUMERIC_VERSION=$numericVersion" `
+        (Join-Path $PSScriptRoot 'windows-installer.nsi')
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $installerPath)) { throw 'не собрался установщик Windows' }
     $zipPath = Join-Path $temporaryPath 'marvia-windows.zip'
     [IO.Compression.ZipFile]::CreateFromDirectory($bundlePath, $zipPath)
+    Move-Item -LiteralPath $installerPath -Destination (Join-Path $outputPath 'marvia-windows-setup.exe') -Force
     Move-Item -LiteralPath $zipPath -Destination (Join-Path $outputPath 'marvia-windows.zip') -Force
     Write-Host "Комплект готов: $(Join-Path $outputPath 'marvia-windows.zip')"
+    Write-Host "Установщик готов: $(Join-Path $outputPath 'marvia-windows-setup.exe')"
 } finally {
     # Удаляем только собственную случайную папку внутри явно заданного вывода.
     $resolvedTemporary = [IO.Path]::GetFullPath($temporaryPath)

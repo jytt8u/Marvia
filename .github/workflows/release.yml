@@ -80,6 +80,9 @@ jobs:
           # компьютере — распаковывать он ничего не будет.
           #
           # -H windowsgui убирает чёрное окно консоли за окном приложения.
+          go run github.com/tc-hib/go-winres@v0.3.3 make --arch amd64 \
+            --in cmd/marvia-windows/winres.json --out cmd/marvia-windows/rsrc \
+            --product-version "$VERSION" --file-version "$VERSION"
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
             go build -trimpath \
               -ldflags "-H windowsgui -s -w -X main.version=${VERSION}" \

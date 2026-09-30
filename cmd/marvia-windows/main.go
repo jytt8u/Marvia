@@ -100,7 +100,7 @@ func run(dns string, mtu uint32, urlFile string, inTray bool) error {
 
 	// Окно ещё не создано, а страница уже может попросить его переключить;
 	// ручка заполняется, когда окно появится.
-	var onWindow func(mode, tab string)
+	var onWindow func(windowRequest)
 	url, server, err := serveUI(ctl, log, &onWindow)
 	if err != nil {
 		return err

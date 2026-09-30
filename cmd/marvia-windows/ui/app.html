@@ -1341,6 +1341,7 @@ function applyLook() {
   // Свой фон отменяет фон темы: иначе он его и закроет. Читаемость тогда
   // держит пелена над картинкой, а не фон.
   document.documentElement.style.cssText = Look.vars(t) + (backdropURL ? ";--bgcss:transparent" : "");
+  api("POST", "api/window", { mode: "theme", background: t.bg, foreground: t.fg }).catch(() => {});
   paintBackdrop();
   // Кнопка питания: вид — из темы. Ставится атрибутом, а красится в CSS.
   $("power").dataset.btn = t.btn;

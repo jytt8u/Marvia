@@ -46,6 +46,8 @@ var (
 	procDestroyIcon              = user32.NewProc("DestroyIcon")
 	procShellNotifyIconW         = shell32.NewProc("Shell_NotifyIconW")
 	procGetModuleHandleW         = kernel32.NewProc("GetModuleHandleW")
+	procUnregisterClassW         = user32.NewProc("UnregisterClassW")
+	procRegisterWindowMessageW   = user32.NewProc("RegisterWindowMessageW")
 )
 
 const (
@@ -126,9 +128,11 @@ type point struct{ X, Y int32 }
 
 // tray — значок и его скрытое окно-приёмник.
 type tray struct {
-	hwnd uintptr
-	icon uintptr
-	data notifyIconData
+	hwnd            uintptr
+	icon            uintptr
+	data            notifyIconData
+	taskbarCreated  uintptr
+	classRegistered bool
 
 	// Что делать по нажатиям. Ставит окно: значок про окно ничего не знает.
 	onClick   func()
@@ -139,6 +143,12 @@ type tray struct {
 // newTray вешает значок. Зовётся из потока цикла сообщений.
 func newTray() (*tray, error) {
 	t := &tray{}
+	installed := false
+	defer func() {
+		if !installed {
+			t.Remove()
+		}
+	}()
 
 	className, _ := syscall.UTF16PtrFromString("MarviaTray")
 	inst, _, _ := procGetModuleHandleW.Call(0)
@@ -151,18 +161,25 @@ func newTray() (*tray, error) {
 	if r, _, err := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); r == 0 {
 		return nil, fmt.Errorf("класс окна трея: %w", err)
 	}
+	t.classRegistered = true
+	restartName, _ := syscall.UTF16PtrFromString("TaskbarCreated")
+	t.taskbarCreated, _, _ = procRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(restartName)))
+	// Окно только для сообщений не получает TaskbarCreated. Скрытое верхнее
+	// окно позволяет вернуть значок после перезапуска Проводника без VPN-рестарта.
 	hwnd, _, err := procCreateWindowExW.Call(0, uintptr(unsafe.Pointer(className)), 0, 0, 0, 0, 0, 0,
-		hwndMessage, 0, inst, 0)
+		0, 0, inst, 0)
 	if hwnd == 0 {
 		return nil, fmt.Errorf("окно трея: %w", err)
 	}
 	t.hwnd = hwnd
+	// Клиент повышает права для VPN, а Проводник остаётся обычным процессом.
+	// Разрешаем только сигнал о его перезапуске через границу UIPI.
+	if t.taskbarCreated != 0 {
+		_, _, _ = user32.NewProc("ChangeWindowMessageFilterEx").Call(hwnd, t.taskbarCreated, 1, 0)
+	}
 
-	// Иконка — из PNG, прямо из байтов: с Vista user32 умеет читать PNG как
-	// ресурс иконки, и отдельный .ico ради этого не нужен.
-	icon, _, err := procCreateIconFromResourceEx.Call(
-		uintptr(unsafe.Pointer(&trayPNG[0])), uintptr(len(trayPNG)), 1, 0x30000, 0, 0, 0)
-	if icon == 0 {
+	icon, err := applicationIcon(32)
+	if err != nil {
 		return nil, fmt.Errorf("иконка трея: %w", err)
 	}
 	t.icon = icon
@@ -179,6 +196,7 @@ func newTray() (*tray, error) {
 	if r, _, err := procShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&t.data))); r == 0 {
 		return nil, fmt.Errorf("значок в трее: %w", err)
 	}
+	installed = true
 	return t, nil
 }
 
@@ -199,10 +217,10 @@ func (t *tray) Tip(text string) {
 // Remove снимает значок. Обязательно перед выходом: иначе он висит до
 // первого наведения, как у половины программ на свете.
 func (t *tray) Remove() {
-	if t.hwnd == 0 {
-		return
+	if t.data.Wnd != 0 {
+		_, _, _ = procShellNotifyIconW.Call(nimDelete, uintptr(unsafe.Pointer(&t.data)))
+		t.data.Wnd = 0
 	}
-	_, _, _ = procShellNotifyIconW.Call(nimDelete, uintptr(unsafe.Pointer(&t.data)))
 	if t.icon != 0 {
 		_, _, _ = procDestroyIcon.Call(t.icon)
 		t.icon = 0
@@ -211,9 +229,19 @@ func (t *tray) Remove() {
 		_, _, _ = procDestroyWindow.Call(t.hwnd)
 		t.hwnd = 0
 	}
+	if t.classRegistered {
+		className, _ := syscall.UTF16PtrFromString("MarviaTray")
+		inst, _, _ := procGetModuleHandleW.Call(0)
+		_, _, _ = procUnregisterClassW.Call(uintptr(unsafe.Pointer(className)), inst)
+		t.classRegistered = false
+	}
 }
 
 func (t *tray) wndProc(hwnd, msg, wp, lp uintptr) uintptr {
+	if t.taskbarCreated != 0 && msg == t.taskbarCreated {
+		_, _, _ = procShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&t.data)))
+		return 0
+	}
 	if msg == wmTrayEvent {
 		switch lp & 0xffff {
 		case wmLButtonUp:

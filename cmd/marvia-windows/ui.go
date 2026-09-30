@@ -82,7 +82,7 @@ type ui struct {
 	// onWindow переключает вид окна по просьбе страницы: из виджета в
 	// полное окно на вкладку, крестиком виджета — в трей. Указатель, потому
 	// что окно появляется позже сервера.
-	onWindow *func(mode, tab string)
+	onWindow *func(windowRequest)
 }
 
 // serveUI поднимает интерфейс и возвращает адрес, который надо открыть.
@@ -91,7 +91,7 @@ type ui struct {
 // ссылка доступа с личным ключом покупателя, а на компьютере может работать
 // что угодно, в том числе чужое. Поэтому всё лежит под одноразовым ключом в
 // адресе — угадать его чужой программе не проще, чем подобрать пароль.
-func serveUI(ctl *Controller, log *journal, onWindow *func(mode, tab string)) (string, *http.Server, error) {
+func serveUI(ctl *Controller, log *journal, onWindow *func(windowRequest)) (string, *http.Server, error) {
 	raw := make([]byte, 24)
 	if _, err := rand.Read(raw); err != nil {
 		return "", nil, err
@@ -301,15 +301,25 @@ func writeUISetting(name, value string) error {
 	return os.WriteFile(filepath.Join(dir, "ui-"+name), []byte(value), 0o600)
 }
 
-// window — страница просит переключить вид окна: «full» с вкладкой или «hide».
+type windowRequest struct {
+	Mode       string `json:"mode"`
+	Tab        string `json:"tab"`
+	Background string `json:"background"`
+	Foreground string `json:"foreground"`
+}
+
+// window принимает переключение вида или цвета системного заголовка от страницы.
 func (u *ui) window(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Mode string `json:"mode"`
-		Tab  string `json:"tab"`
-	}
+	var body windowRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": say("badRequest")})
 		return
+	}
+	if body.Mode == "theme" {
+		if _, err := captionColors(body.Background, body.Foreground); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": say("badRequest")})
+			return
+		}
 	}
 	// Вкладку проверяем по списку: она уходит в адрес страницы, и мусор в
 	// ней — это мусор в адресной строке движка.
@@ -319,7 +329,7 @@ func (u *ui) window(w http.ResponseWriter, r *http.Request) {
 		body.Tab = ""
 	}
 	if u.onWindow != nil && *u.onWindow != nil {
-		(*u.onWindow)(body.Mode, body.Tab)
+		(*u.onWindow)(body)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{})
 }

@@ -259,7 +259,8 @@ bash scripts/smoke.sh
 ## Клиент для Windows
 
 ```bash
-go build -o marvia-windows.exe ./cmd/marvia-windows
+go run github.com/tc-hib/go-winres@v0.3.3 make --arch amd64 --in cmd/marvia-windows/winres.json --out cmd/marvia-windows/rsrc
+go build -ldflags "-H windowsgui" -o marvia-windows.exe ./cmd/marvia-windows
 ```
 
 Рядом с получившимся файлом нужен `wintun.dll` — драйвер сетевого адаптера от
@@ -284,6 +285,20 @@ Get-AuthenticodeSignature .\wintun.dll | Format-List Status, SignerCertificate
 говорит прямо, а не падает где-то в середине.
 
 ### Окно, а не командная строка
+
+Логотип встроен в EXE: его показывают Проводник, заголовок окна, панель задач
+и трей. Заголовок получает цвет выбранной темы; на старых Windows, где
+свои цвета заголовка не поддерживаются, остаётся системное оформление.
+После перезапуска Проводника значок трея восстанавливается.
+
+**SmartScreen.** EXE пока не подписан сертификатом издателя. Иконка и
+контрольная сумма не заменяют подпись Authenticode. Предупреждение
+«Windows защитила ваш компьютер» означает неизвестную репутацию файла;
+само по себе оно не является результатом антивирусного анализа. Подпись
+доверенным сертификатом позволяет накапливать репутацию издателя, но не
+гарантирует отсутствия предупреждения у новой сборки. Самоподписанный
+сертификат эту проблему не решает. Подробности — в
+[документации Microsoft](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
 
 Двойной щелчок по `marvia-windows.exe` — Windows спросит разрешение, откроется
 окно с большой кнопкой. Ничего запускать из PowerShell не нужно: программа

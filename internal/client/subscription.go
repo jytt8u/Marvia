@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jytt8u/marvia/internal/httpguard"
 )
 
 const (
@@ -226,7 +228,7 @@ func FetchSubscription(ctx context.Context, subURL string, pinned []netip.Addr) 
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, subURL+"?format=json", nil)
 	if err != nil {
-		return Subscription{}, err
+		return Subscription{}, withoutSecret(err)
 	}
 
 	resp, err := subscriptionClient(pinned).Do(req)
@@ -261,7 +263,7 @@ func FetchBypass(ctx context.Context, subURL string, pinned []netip.Addr) ([]str
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(subURL, "/")+"/bypass", nil)
 	if err != nil {
-		return nil, err
+		return nil, withoutSecret(err)
 	}
 	resp, err := subscriptionClient(pinned).Do(req)
 	if err != nil {
@@ -301,7 +303,7 @@ const maxBypass = 8 << 20
 // поэтому подменить панель, зная лишь адрес, всё равно не выйдет.
 func subscriptionClient(pinned []netip.Addr) *http.Client {
 	if len(pinned) == 0 {
-		return http.DefaultClient
+		return httpguard.SubscriptionClient(http.DefaultClient)
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -344,7 +346,7 @@ func subscriptionClient(pinned []netip.Addr) *http.Client {
 		return conn, nil
 	}
 
-	return &http.Client{Transport: transport}
+	return httpguard.SubscriptionClient(&http.Client{Transport: transport})
 }
 
 // Until — до какого момента оплачена подписка.

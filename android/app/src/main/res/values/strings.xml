@@ -442,6 +442,7 @@
 
     <string name="consent_denied">The tunnel cannot start without permission from the system</string>
     <string name="error_no_interface">The system did not give out a network interface</string>
+    <string name="error_missing_allowed_apps">The apps selected for VPN are no longer installed. Update the app selection in settings.</string>
 
     <!--
         Фразы под виды неудач из ядра. Задача каждой — сказать человеку, что

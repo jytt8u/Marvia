@@ -64,7 +64,8 @@ type Status struct {
 	Since int64 `json:"since,omitempty"`
 
 	// History — байты по минутам за последний час, от старой к текущей.
-	History []int64 `json:"history"`
+	History []int64         `json:"history"`
+	Traffic trafficSnapshot `json:"traffic"`
 
 	Version string `json:"version"`
 
@@ -91,11 +92,15 @@ type Status struct {
 // когда захочет, в том числе посреди подключения, — и тогда две половины
 // состояния начали бы расходиться.
 type Controller struct {
-	mu     sync.Mutex
-	state  State
-	node   client.Node
-	ping   time.Duration
-	reason string
+	mu            sync.Mutex
+	tunnelMu      sync.Mutex
+	disconnectMu  sync.Mutex
+	disconnecting bool
+	connectCtx    context.Context
+	state         State
+	node          client.Node
+	ping          time.Duration
+	reason        string
 
 	// Подписка, с которой выбрана нода: её показывает окно.
 	until      string
@@ -109,7 +114,8 @@ type Controller struct {
 	bridge  *tunbridge.Bridge
 	cancel  context.CancelFunc
 
-	up, down atomic.Int64
+	up, down         atomic.Int64
+	baseUp, baseDown int64
 
 	// proxy — что нашлось в системных настройках прокси на момент подключения.
 	//
@@ -122,14 +128,18 @@ type Controller struct {
 	log *journal
 
 	// since — момент подъёма туннеля; нулевой, пока туннеля нет.
-	since time.Time
-	hist  history
+	since   time.Time
+	hist    history
+	traffic trafficStats
 }
 
 // NewController готовит управление, подхватывая сохранённую ссылку доступа.
 func NewController(dns string, mtu uint32, log *journal) *Controller {
 	c := &Controller{state: StateIdle, dns: dns, mtu: mtu, log: log}
 	c.account = readAccount()
+	if path, err := accountPath(); err == nil {
+		c.traffic.load(filepath.Join(filepath.Dir(path), "traffic.json"), time.Now())
+	}
 	go c.keepHistory()
 	return c
 }
@@ -141,6 +151,7 @@ func NewController(dns string, mtu uint32, log *journal) *Controller {
 func (c *Controller) keepHistory() {
 	for now := range time.Tick(historyTick) {
 		c.hist.sample(now, c.up.Load()+c.down.Load())
+		c.traffic.sample(now, c.up.Load(), c.down.Load())
 	}
 }
 
@@ -160,8 +171,8 @@ func (c *Controller) Status() Status {
 		Node:       c.node.Title(),
 		Address:    c.node.Address,
 		PingMS:     pingMS,
-		Up:         c.up.Load(),
-		Down:       c.down.Load(),
+		Up:         max(0, c.up.Load()-c.baseUp),
+		Down:       max(0, c.down.Load()-c.baseDown),
 		Reason:     c.reason,
 		Until:      c.until,
 		LimitBytes: c.limitBytes,
@@ -170,6 +181,7 @@ func (c *Controller) Status() Status {
 		Elevated:   elevated(),
 		Since:      sinceUnix(c.since),
 		History:    c.hist.minutes(time.Now()),
+		Traffic:    c.traffic.snapshot(time.Now()),
 		Version:    version,
 		Update:     c.update.Version,
 		UpdateURL:  c.update.URL,
@@ -255,7 +267,7 @@ func (c *Controller) Connect() error {
 	c.mu.Lock()
 	// StateStalled сюда же: туннель поднят, просто нода молчит. Поднимать
 	// второй поверх первого нельзя — адаптер и маршруты уже заняты.
-	if c.state == StateConnecting || c.state == StateConnected || c.state == StateStalled {
+	if c.disconnecting || c.state == StateConnecting || c.state == StateConnected || c.state == StateStalled {
 		c.mu.Unlock()
 		return nil
 	}
@@ -272,11 +284,12 @@ func (c *Controller) Connect() error {
 	c.proxy = wintun.SystemProxy()
 	c.state = StateConnecting
 	c.reason = ""
-	c.up.Store(0)
-	c.down.Store(0)
+	c.baseUp, c.baseDown = c.up.Load(), c.down.Load()
+	c.traffic.resetRates(time.Now(), c.baseUp, c.baseDown)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
+	c.connectCtx = ctx
 	c.mu.Unlock()
 
 	go c.connect(ctx, account)
@@ -287,11 +300,11 @@ func (c *Controller) connect(ctx context.Context, link string) {
 	if err := c.raise(ctx, link); err != nil {
 		if ctx.Err() != nil {
 			// Человек нажал «отключиться», не дождавшись. Это не ошибка.
-			c.finish(StateIdle, "")
+			c.finish(ctx, StateIdle, "")
 			return
 		}
 		c.log.add("%s", sayf("logNoConnect", err))
-		c.finish(StateFailed, err.Error())
+		c.finish(ctx, StateFailed, err.Error())
 	}
 }
 
@@ -315,7 +328,7 @@ func (c *Controller) raise(ctx context.Context, link string) error {
 	if err != nil {
 		return err
 	}
-	return c.raiseTunnel(dialer, measurements)
+	return c.raiseTunnel(ctx, dialer, measurements)
 }
 
 // raiseForeign — чужая подписка: VLESS, VMess, Trojan и прочее через Xray.
@@ -339,7 +352,7 @@ func (c *Controller) raiseForeign(ctx context.Context, link string) (client.Back
 	if err != nil {
 		return nil, nil, err
 	}
-	dialer, measurements, err := foreign.Supervise(ctx, pinned, 0, client.Events{OnSwitch: c.moved, OnTrouble: c.stall, OnRecovered: c.recovered}, foreign.Options{})
+	dialer, measurements, err := foreign.Supervise(ctx, pinned, 0, c.events(ctx), foreign.Options{})
 	if err != nil {
 		return nil, measurements, err
 	}
@@ -368,7 +381,7 @@ func (c *Controller) raiseMarvia(ctx context.Context, link string) (client.Backe
 		Key:       key,
 		CachePath: cachePath(),
 		Log:       c.log.add,
-	}, client.Events{OnSwitch: c.moved, OnTrouble: c.stall, OnRecovered: c.recovered})
+	}, c.events(ctx))
 
 	go func() {
 		_ = client.SendReports(context.Background(), account.SubscriptionURL, client.ReportsFrom(measurements))
@@ -382,7 +395,18 @@ func (c *Controller) raiseMarvia(ctx context.Context, link string) (client.Backe
 }
 
 // raiseTunnel поднимает адаптер, маршруты и мост поверх готового подключения.
-func (c *Controller) raiseTunnel(dialer client.Backend, measurements []client.Measurement) error {
+func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, measurements []client.Measurement) error {
+	// Старый адаптер должен сняться раньше нового. Отмена при этом немедленно
+	// закрывает контекст: ждать освобождения маршрутов для отмены незачем.
+	c.tunnelMu.Lock()
+	defer c.tunnelMu.Unlock()
+	c.mu.Lock()
+	current := c.connectCtx == ctx && ctx.Err() == nil
+	c.mu.Unlock()
+	if !current {
+		_ = dialer.Close()
+		return context.Canceled
+	}
 	node := dialer.Node()
 	ping := latencyOf(measurements, node)
 	c.log.add("%s", sayf("logNodePicked", node.Name, ping.Milliseconds()))
@@ -424,6 +448,13 @@ func (c *Controller) raiseTunnel(dialer client.Backend, measurements []client.Me
 	}
 
 	c.mu.Lock()
+	if c.connectCtx != ctx || ctx.Err() != nil {
+		c.mu.Unlock()
+		_ = bridge.Close()
+		_ = adapter.Close()
+		_ = dialer.Close()
+		return context.Canceled
+	}
 	c.dialer, c.adapter, c.bridge = dialer, adapter, bridge
 	c.node, c.ping = node, ping
 	c.until, c.limitBytes, c.leftBytes = subscriptionOf(dialer)
@@ -444,11 +475,19 @@ func (c *Controller) raiseTunnel(dialer client.Backend, measurements []client.Me
 
 // Disconnect убирает туннель и всё, что под него настраивалось.
 func (c *Controller) Disconnect() {
+	c.disconnectMu.Lock()
+	defer c.disconnectMu.Unlock()
 	c.mu.Lock()
+	c.disconnecting = true
+	c.connectCtx = nil
 	if c.cancel != nil {
 		c.cancel()
 		c.cancel = nil
 	}
+	c.mu.Unlock()
+	c.tunnelMu.Lock()
+	defer c.tunnelMu.Unlock()
+	c.mu.Lock()
 	bridge, adapter, dialer := c.bridge, c.adapter, c.dialer
 	c.bridge, c.adapter, c.dialer = nil, nil, nil
 	c.state = StateIdle
@@ -471,9 +510,13 @@ func (c *Controller) Disconnect() {
 	if dialer != nil {
 		_ = dialer.Close()
 	}
+	c.traffic.flush(time.Now(), c.up.Load(), c.down.Load())
 	if bridge != nil || adapter != nil {
 		c.log.add("%s", say("logTunnelDown"))
 	}
+	c.mu.Lock()
+	c.disconnecting = false
+	c.mu.Unlock()
 }
 
 // moved — ядро переехало на другую ноду.
@@ -481,8 +524,12 @@ func (c *Controller) Disconnect() {
 // Имя переписываем обязательно: иначе окно продолжит показывать ноду, через
 // которую трафик давно не идёт. Состояние возвращаем в «подключено» — если до
 // этого висело «связь потеряна», то она уже нашлась.
-func (c *Controller) moved(node client.Node) {
+func (c *Controller) moved(ctx context.Context, node client.Node) {
 	c.mu.Lock()
+	if c.connectCtx != ctx || ctx.Err() != nil {
+		c.mu.Unlock()
+		return
+	}
 	c.node = node
 	c.ping = 0
 	if c.state == StateStalled {
@@ -506,7 +553,7 @@ func (c *Controller) moved(node client.Node) {
 // работает, — но тогда снимутся маршруты, и трафик пойдёт мимо туннеля
 // открыто ровно в тот момент, когда человек об этом не знает. Для средства
 // обхода блокировок это хуже, чем отсутствие связи.
-func (c *Controller) stall(code string) {
+func (c *Controller) stall(ctx context.Context, code string) {
 	// Из ядра приезжает код, а не фраза: оно не знает, на каком языке говорит
 	// окно. Фразу подбираем здесь, из своего словаря.
 	reason := say("nodeSilent")
@@ -515,6 +562,10 @@ func (c *Controller) stall(code string) {
 	}
 
 	c.mu.Lock()
+	if c.connectCtx != ctx || ctx.Err() != nil {
+		c.mu.Unlock()
+		return
+	}
 	if c.state == StateConnected {
 		c.state = StateStalled
 		c.reason = reason
@@ -623,8 +674,12 @@ func nodeViews(dialer client.Backend, nodes []client.Node, measured []client.Mea
 // и надпись оставалась навсегда, в том числе после возвращения сети. Хуже
 // того, кнопка «Подключиться» в этом состоянии тоже не помогала: туннель
 // считался поднятым.
-func (c *Controller) recovered() {
+func (c *Controller) recovered(ctx context.Context) {
 	c.mu.Lock()
+	if c.connectCtx != ctx || ctx.Err() != nil {
+		c.mu.Unlock()
+		return
+	}
 	if c.state == StateStalled {
 		c.state = StateConnected
 		c.reason = ""
@@ -634,12 +689,27 @@ func (c *Controller) recovered() {
 	c.log.add("%s", say("logNodeBack"))
 }
 
-func (c *Controller) finish(state State, reason string) {
+func (c *Controller) finish(ctx context.Context, state State, reason string) {
 	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.connectCtx != ctx {
+		return
+	}
 	c.state = state
 	c.reason = reason
+	if c.cancel != nil {
+		c.cancel()
+	}
 	c.cancel = nil
-	c.mu.Unlock()
+	c.connectCtx = nil
+}
+
+func (c *Controller) events(ctx context.Context) client.Events {
+	return client.Events{
+		OnSwitch:    func(node client.Node) { c.moved(ctx, node) },
+		OnTrouble:   func(reason string) { c.stall(ctx, reason) },
+		OnRecovered: func() { c.recovered(ctx) },
+	}
 }
 
 // latencyOf достаёт задержку выбранной ноды из замеров.

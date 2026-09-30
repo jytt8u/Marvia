@@ -291,7 +291,11 @@
   .node > div { flex: 1; min-width: 0; }
   .node .ping { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--acc); }
 
-  .side { width: 380px; flex: 0 0 380px; display: flex; flex-direction: column; gap: var(--gap); min-height: 0; }
+  .side { width: 380px; flex: 0 0 380px; display: flex; flex-direction: column; gap: var(--gap); min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--dim) transparent; padding-right: 3px; }
+  .side .chart { flex: none; padding: 14px; }
+  .side .chart .bars { height: 60px; }
+  .side .kpi { padding: 10px 12px; }
+  .side .daily { padding: 14px; }
   .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); }
   .tiles.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi { padding: 12px 14px; border-radius: var(--r); background: var(--surf); border: 1px solid var(--cardLine); box-shadow: var(--cardShadow); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -448,7 +452,7 @@
     у трея без системной.
   */
   .widget { display: none; }
-  body.as-widget { background: transparent; }
+  body.as-widget { background: transparent; overflow: hidden; }
   body.as-widget::before { display: none; }
   body.as-widget .app { display: none; }
   body.as-widget .widget {
@@ -461,20 +465,57 @@
   .w-top .acts button { width: 34px; height: 30px; border: 0; background: transparent; color: var(--dim); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
   .w-top .acts button:hover { color: var(--fg); background: var(--accSoft); }
   .w-top .acts svg { width: 14px; height: 14px; }
-  .w-hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 8px 0; }
-  .w-hero .ring { width: 196px; height: 196px; }
-  .w-hero .power { width: 156px; height: 156px; }
+  .w-hero { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 12px 14px; }
+  .w-hero .ring { width: 148px; height: 148px; flex: none; }
+  .w-hero .power { width: 116px; height: 116px; }
   .w-hero .power svg { width: 50px; height: 50px; }
   .w-hero .status { font-size: 20px; }
-  .w-meta { font-family: var(--mono); font-size: 12px; letter-spacing: .04em; color: var(--dim); }
-  .w-bottom { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .w-hero > div:last-child { width: 100%; min-width: 0; }
+  .w-meta { max-width: 100%; text-align: center; font-size: 12px; line-height: 1.5; color: var(--dim); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .w-bottom { padding: 0 14px 14px; display: flex; flex: none; flex-direction: column; gap: 8px; }
   .w-node { max-width: none; cursor: pointer; font: inherit; text-align: left; }
   .w-node > div { flex: 1; min-width: 0; }
-  .w-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .w-node .name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .w-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .w-tiles .kpi { padding: 10px 12px; }
   .w-tiles .kpi .k { font-size: 11px; }
   .w-tiles .kpi .v { font-size: 14px; }
+  .w-tiles .kpi .t { font-size: 10px; }
   .w-open { min-height: 40px; }
+  .daily { flex: none; }
+  .daily-bars { display: flex; gap: 3px; align-items: flex-end; height: 42px; padding-top: 5px; }
+  .daily-bars i { flex: 1; min-width: 0; min-height: 2px; background: var(--acc); opacity: .55; border-radius: 2px 2px 0 0; transition: height .3s; }
+  .daily-bars i[data-current] { opacity: 1; }
+  .daily .axis { display: flex; justify-content: space-between; font-size: 10px; color: var(--dim); }
+  .w-daily { padding: 10px 12px; border-radius: 12px; background: var(--surf); border: 1px solid var(--line); }
+  .w-daily .card-head { font-size: 11px; color: var(--dim); }
+  .w-daily .daily-bars { height: 28px; }
+  .w-daily .mono { font-size: 11px; color: var(--fg); }
+  .session-extra { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 4px 0; font-size: 11px; color: var(--dim); }
+  .session-extra strong { display: block; margin-top: 3px; font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--fg); }
+  @media (max-height: 540px) {
+    .w-hero { padding: 6px 12px; gap: 4px; }
+    .w-hero .ring { width: 100px; height: 100px; }
+    .w-hero .power { width: 80px; height: 80px; }
+    .w-hero .power svg { width: 32px; height: 32px; }
+    .w-tiles .kpi { padding: 7px 10px; }
+    .w-node { padding: 10px 12px; }
+    .w-daily .daily-bars { height: 20px; }
+  }
+  @media (max-height: 500px) {
+    .w-top { height: 36px; }
+    .w-hero .ring { width: 80px; height: 80px; }
+    .w-hero .power { width: 64px; height: 64px; }
+    .w-hero .power svg { width: 28px; height: 28px; }
+    .w-hero .status { font-size: 17px; }
+    .w-tiles .kpi { padding: 6px 10px; gap: 2px; }
+    .w-tiles .kpi .k { font-size: 10px; line-height: 13px; }
+    .w-tiles .kpi .v { font-size: 13px; line-height: 18px; }
+    .w-tiles .kpi .t { font-size: 9px; line-height: 12px; }
+    .w-node { padding: 8px 10px; }
+    .w-open { min-height: 34px; }
+    .w-bottom { gap: 6px; padding: 0 12px 12px; }
+  }
 
   /* Свой фон: картинка или видео под всем окном; пелена держит читаемость. */
   #bg-layer { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
@@ -622,6 +663,17 @@
               <div class="kpi"><div class="k" data-t="kPing"></div><div class="v acc" id="k-ping">—</div></div>
               <div class="kpi"><div class="k" data-t="down"></div><div class="v" id="s-down">0</div><div class="t" id="t-down"></div></div>
               <div class="kpi"><div class="k" data-t="up"></div><div class="v" id="s-up">0</div><div class="t" id="t-up"></div></div>
+            </div>
+            <div class="card daily">
+              <div class="card-head"><b data-t="todayTraffic"></b><span class="mono" id="today-total">—</span></div>
+              <div class="daily-bars" id="day-bars" role="img" data-t-title="todayTraffic"></div>
+              <div class="axis"><span>00:00</span><span>23:00</span></div>
+              <div class="session-extra">
+                <div><span data-t="peakDown"></span><strong id="peak-down">—</strong></div>
+                <div><span data-t="peakUp"></span><strong id="peak-up">—</strong></div>
+                <div><span data-t="averageDown"></span><strong id="average-down">—</strong></div>
+                <div><span data-t="averageUp"></span><strong id="average-up">—</strong></div>
+              </div>
             </div>
           </div>
         </div>
@@ -889,8 +941,13 @@
     </button>
     <div class="w-tiles">
       <div class="kpi"><span class="k" data-t="kSession"></span><span class="v" id="w-session">—</span></div>
-      <div class="kpi"><span class="k" data-t="down"></span><span class="v" id="w-down">—</span></div>
       <div class="kpi"><span class="k" data-t="kPing"></span><span class="v acc" id="w-kping">—</span></div>
+      <div class="kpi"><span class="k" data-t="down"></span><span class="v" id="w-down">—</span><span class="t" id="w-t-down"></span></div>
+      <div class="kpi"><span class="k" data-t="up"></span><span class="v" id="w-up">—</span><span class="t" id="w-t-up"></span></div>
+    </div>
+    <div class="w-daily daily">
+      <div class="card-head"><span data-t="todayTraffic"></span><span class="mono" id="w-today">—</span></div>
+      <div class="daily-bars" id="w-day-bars" role="img" data-t-title="todayTraffic"></div>
     </div>
     <button class="chip w-open" type="button" data-open="home">
       <span data-t="wOpen"></span>
@@ -969,6 +1026,8 @@ const T = {
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
     kSession: "Сессия", kPing: "Отклик ноды", down: "Приём", up: "Отдача",
+    todayTraffic: "Трафик сегодня", peakDown: "Пик приёма за сессию", peakUp: "Пик отдачи за сессию",
+    averageDown: "Приём в среднем", averageUp: "Отдача в среднем", wNoKey: "Добавьте ключ в настройках",
     chartTitle: "Трафик за час", chartFrom: "−60 мин", chartNow: "сейчас",
 
     nodesAll: "Все страны",
@@ -1095,6 +1154,8 @@ const T = {
 
     pingUnknown: "Not measured", setupLabel: "Connection",
     kSession: "Session", kPing: "Node response", down: "Down", up: "Up",
+    todayTraffic: "Traffic today", peakDown: "Session download peak", peakUp: "Session upload peak",
+    averageDown: "Average download", averageUp: "Average upload", wNoKey: "Add your access key in settings",
     chartTitle: "Traffic, last hour", chartFrom: "−60 min", chartNow: "now",
 
     nodesAll: "All countries",
@@ -1278,7 +1339,7 @@ let openTab = "home";
 // Режим страницы задаёт программа адресом: ?mode=widget — трей-виджет,
 // ?tab=… — какую вкладку открыть в полном окне. Страница одна на оба вида.
 const pageParams = new URLSearchParams(location.search);
-const widgetMode = pageParams.get("mode") === "widget";
+let widgetMode = pageParams.get("mode") === "widget";
 if (widgetMode) document.body.classList.add("as-widget");
 
 function paintHead() {
@@ -1302,6 +1363,16 @@ document.querySelectorAll(".tab").forEach((tab) => {
     if (openTab === "nodes") loadNodes();
   });
 });
+
+window.marviaView = ({mode, tab}) => {
+  widgetMode = mode === "widget";
+  document.body.classList.toggle("as-widget", widgetMode);
+  if (["home", "nodes", "theme", "settings"].includes(tab)) {
+    document.querySelector('.tab[data-tab="' + tab + '"]').click();
+  }
+  if (!widgetMode && !welcomeSeen()) showWelcome();
+  tick();
+};
 
 // Вкладка из адреса: так виджет открывает полное окно сразу на нужной.
 // Ключ, журнал и «о программе» переехали в настройки; старые имена из
@@ -1885,7 +1956,6 @@ function keyParts(link) {
 
 // Названия состояний живут в словаре: их видит человек, а не программа.
 
-let prev = null;
 
 /*
   Последняя ошибка, показанная в ответ на нажатие.
@@ -2000,18 +2070,23 @@ function render(s) {
 
   showProxy(s);
 
-  // Скорость считаем сами, по разнице между опросами: программе незачем
-  // помнить, когда её спрашивали в прошлый раз.
-  const now = Date.now();
-  if (prev && now > prev.t) {
-    const dt = (now - prev.t) / 1000;
-    $("s-down").textContent = bytes(Math.max(0, (s.down - prev.down) / dt)) + d.perSec;
-    $("s-up").textContent = bytes(Math.max(0, (s.up - prev.up) / dt)) + d.perSec;
-  }
-  prev = { t: now, up: s.up || 0, down: s.down || 0 };
+  // Снятия делает ядро: скорость и пик не теряются, пока окно спрятано.
+  const traffic = s.traffic || {};
+  $("s-down").textContent = bytes(up ? traffic.rate_down || 0 : 0) + d.perSec;
+  $("s-up").textContent = bytes(up ? traffic.rate_up || 0 : 0) + d.perSec;
 
   $("t-down").textContent = bytes(s.down || 0);
   $("t-up").textContent = bytes(s.up || 0);
+  const today = bytes((traffic.today_up || 0) + (traffic.today_down || 0));
+  $("today-total").textContent = today;
+  $("w-today").textContent = today;
+  $("peak-down").textContent = bytes(traffic.peak_down || 0) + d.perSec;
+  $("peak-up").textContent = bytes(traffic.peak_up || 0) + d.perSec;
+  const seconds = s.since ? Math.max(1, Date.now() / 1000 - s.since) : 0;
+  $("average-down").textContent = seconds ? bytes((s.down || 0) / seconds) + d.perSec : "—";
+  $("average-up").textContent = seconds ? bytes((s.up || 0) / seconds) + d.perSec : "—";
+  paintDaily($("day-bars"), traffic.hours);
+  paintDaily($("w-day-bars"), traffic.hours);
 
   paintBars(s.history);
 
@@ -2025,12 +2100,32 @@ function render(s) {
   const wmeta = [];
   if (up && s.since) wmeta.push(clock(Math.max(0, Math.floor(Date.now() / 1000) - s.since)));
   if (up) wmeta.push($("s-down").textContent);
-  $("w-meta").textContent = wmeta.length ? wmeta.join(" · ") : $("detail").textContent;
+  $("w-meta").textContent = wmeta.length ? wmeta.join(" · ") : (!s.has_account ? d.wNoKey : $("detail").textContent);
   $("w-node").textContent = $("node-name").textContent;
   $("w-ping").textContent = $("node-ping").textContent;
   $("w-session").textContent = $("k-session").textContent;
-  $("w-down").textContent = $("t-down").textContent || $("s-down").textContent;
+  $("w-down").textContent = $("s-down").textContent;
+  $("w-up").textContent = $("s-up").textContent;
+  $("w-t-down").textContent = $("t-down").textContent;
+  $("w-t-up").textContent = $("t-up").textContent;
   $("w-kping").textContent = $("k-ping").textContent;
+}
+
+function paintDaily(box, hours) {
+  const values = Array.from({length: 24}, (_, i) => Math.max(0, Number(hours && hours[i]) || 0));
+  const current = new Date().getHours();
+  const signature = current + ":" + values.join(",");
+  if (box.dataset.values === signature) return;
+  box.dataset.values = signature;
+  if (box.children.length !== 24) {
+    box.replaceChildren(...values.map(() => document.createElement("i")));
+  }
+  const highest = Math.max(1, ...values);
+  [...box.children].forEach((bar, i) => {
+    bar.style.height = Math.max(4, values[i] / highest * 100) + "%";
+    bar.title = String(i).padStart(2, "0") + ":00 · " + bytes(values[i]);
+    bar.toggleAttribute("data-current", i === current);
+  });
 }
 
 // paintKeyCard — заголовок карточки ключа: метка и хост из ссылки.
@@ -2157,13 +2252,23 @@ on("first-save", "click", async () => {
 
 /* ----------------------------------------------------------------- опрос */
 
+let pollBusy = false;
+let lastLogPoll = 0;
 async function tick() {
+  if (pollBusy) return;
+  pollBusy = true;
   try {
     render(await api("GET", "api/state"));
-    const log = await api("GET", "api/log");
-    paintLog(log.lines);
+    if (!widgetMode && openTab === "settings" && Date.now() - lastLogPoll > 3000) {
+      const log = await api("GET", "api/log");
+      paintLog(log.lines);
+      lastLogPoll = Date.now();
+    }
   } catch (err) {
     $("status").textContent = L().noLink;
+    $("w-status").textContent = L().noLink;
+  } finally {
+    pollBusy = false;
   }
 }
 

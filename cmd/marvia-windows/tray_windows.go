@@ -132,10 +132,13 @@ type tray struct {
 	icon            uintptr
 	data            notifyIconData
 	taskbarCreated  uintptr
+	showExisting    uintptr
 	classRegistered bool
 
 	// Что делать по нажатиям. Ставит окно: значок про окно ничего не знает.
 	onClick   func()
+	onShow    func()
+	onLink    func(string)
 	onMenu    func(id int)
 	menuState func() (connected bool, hasAccount bool)
 }
@@ -164,9 +167,15 @@ func newTray() (*tray, error) {
 	t.classRegistered = true
 	restartName, _ := syscall.UTF16PtrFromString("TaskbarCreated")
 	t.taskbarCreated, _, _ = procRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(restartName)))
+	t.showExisting = instanceMessage()
+	instance, err := instanceName()
+	if err != nil {
+		return nil, err
+	}
+	windowName, _ := syscall.UTF16PtrFromString(instance)
 	// Окно только для сообщений не получает TaskbarCreated. Скрытое верхнее
 	// окно позволяет вернуть значок после перезапуска Проводника без VPN-рестарта.
-	hwnd, _, err := procCreateWindowExW.Call(0, uintptr(unsafe.Pointer(className)), 0, 0, 0, 0, 0, 0,
+	hwnd, _, err := procCreateWindowExW.Call(0, uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(windowName)), 0, 0, 0, 0, 0,
 		0, 0, inst, 0)
 	if hwnd == 0 {
 		return nil, fmt.Errorf("окно трея: %w", err)
@@ -177,6 +186,12 @@ func newTray() (*tray, error) {
 	if t.taskbarCreated != 0 {
 		_, _, _ = user32.NewProc("ChangeWindowMessageFilterEx").Call(hwnd, t.taskbarCreated, 1, 0)
 	}
+	// Обычный запуск передаёт только показ окна и ссылку с подтверждением.
+	// Прочие сообщения через границу прав по-прежнему запрещены.
+	if t.showExisting != 0 {
+		_, _, _ = user32.NewProc("ChangeWindowMessageFilterEx").Call(hwnd, t.showExisting, 1, 0)
+	}
+	_, _, _ = user32.NewProc("ChangeWindowMessageFilterEx").Call(hwnd, wmCopyData, 1, 0)
 
 	icon, err := applicationIcon(32)
 	if err != nil {
@@ -238,6 +253,20 @@ func (t *tray) Remove() {
 }
 
 func (t *tray) wndProc(hwnd, msg, wp, lp uintptr) uintptr {
+	if t.showExisting != 0 && msg == t.showExisting {
+		if t.onShow != nil {
+			t.onShow()
+		}
+		return 0
+	}
+	if msg == wmCopyData && lp != 0 {
+		payload := instancePayload(lp)
+		if link := instanceLink(&payload); link != "" && t.onLink != nil {
+			t.onLink(link)
+			return 1
+		}
+		return 0
+	}
 	if t.taskbarCreated != 0 && msg == t.taskbarCreated {
 		_, _, _ = procShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&t.data)))
 		return 0

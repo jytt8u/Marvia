@@ -338,15 +338,10 @@ func (s *Supervisor) Ping(ctx context.Context) (time.Duration, error) {
 	}
 	rtt, err := d.pool.Ping(ctx)
 	if err != nil {
+		d.recordRTT(0)
 		return 0, err
 	}
-	m := Measurement{Node: d.Node()}
-	if prev := d.measurement.Load(); prev != nil {
-		m = *prev
-	}
-	m.RTT = rtt
-	m.dialer = nil
-	d.measurement.Store(&m)
+	d.recordRTT(rtt)
 	return rtt, nil
 }
 
@@ -512,6 +507,7 @@ func (s *Supervisor) watch(ctx context.Context) {
 			continue
 		}
 
+		d.recordRTT(0)
 		misses++
 		if misses < probeMisses {
 			// Промах уже был: второй проверки ждём секунды, а не полминуты.

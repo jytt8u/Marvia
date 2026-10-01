@@ -43,6 +43,23 @@ func (d *Dialer) Connect() time.Duration {
 	return time.Duration(d.connectNS.Load())
 }
 
+// После потери сети старый отклик уже не описывает текущий туннель. Меняем
+// только RTT: параллельный замер серверов не должен потерять свои результаты.
+func (d *Dialer) recordRTT(rtt time.Duration) {
+	for {
+		previous := d.measurement.Load()
+		next := Measurement{Node: d.Node()}
+		if previous != nil {
+			next = *previous
+		}
+		next.RTT = rtt
+		next.dialer = nil
+		if d.measurement.CompareAndSwap(previous, &next) {
+			return
+		}
+	}
+}
+
 // quicAttempt — сколько ждём дозвона по UDP, прежде чем уйти на TCP.
 //
 // Четыре секунды: этого хватает на честное рукопожатие даже на плохой

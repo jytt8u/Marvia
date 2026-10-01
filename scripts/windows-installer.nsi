@@ -30,7 +30,7 @@ ShowUninstDetails show
 
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "Marvia ${VERSION}"
-!define MUI_WELCOMEPAGE_TEXT "Установка приложения и драйвера VPN.$\r$\n$\r$\nВсе необходимые файлы уже в комплекте. Ваши ключи, язык и настройки сохраняются при обновлении.$\r$\n$\r$\nПеред установкой завершите Marvia через «Выйти» в трее."
+!define MUI_WELCOMEPAGE_TEXT "Установка приложения и драйвера VPN.$\r$\n$\r$\nПриложение и Wintun уже в комплекте. Для окна нужен Microsoft Edge WebView2 Runtime: при его отсутствии Marvia предложит официальную загрузку.$\r$\n$\r$\nВаши ключи, язык и настройки сохраняются при обновлении. Перед установкой завершите Marvia через «Выйти» в трее."
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES

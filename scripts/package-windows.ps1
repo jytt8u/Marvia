@@ -60,6 +60,9 @@ Marvia для Windows x64
 4. Добавьте свою ссылку доступа и нажмите кнопку подключения.
 
 Файл wintun.dll должен оставаться рядом с EXE. Он подписан WireGuard LLC.
+Для окна нужен Microsoft Edge WebView2 Runtime. Если его нет, Marvia предложит
+официальную страницу Microsoft; установите Evergreen Runtime и запустите Marvia снова.
+https://developer.microsoft.com/microsoft-edge/webview2/#download-section
 Сам EXE Marvia пока без подписи издателя; SmartScreen может предупреждать.
 Наличие DLL устраняет ошибку создания адаптера, но не гарантирует доступность ноды.
 '@

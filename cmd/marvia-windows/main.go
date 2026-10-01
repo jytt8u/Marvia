@@ -13,6 +13,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -53,6 +54,18 @@ func main() {
 	inTray := flag.Bool("tray", false, "начать в трее, без окна, и подключиться, если ключ есть (так запускает автозапуск)")
 	flag.Parse()
 
+	if savedLang := readUISetting("language"); savedLang != "" {
+		setUILang(savedLang)
+	}
+	if err := checkWebViewRuntime(readRuntimeVersion); err != nil {
+		if confirm(say("webViewTitle"), say("webViewMissing")) {
+			if err := openLink(webViewDownloadURL); err != nil {
+				alert("Marvia", err.Error())
+			}
+		}
+		os.Exit(1)
+	}
+
 	// Без прав администратора Windows не даст ни создать адаптер, ни трогать
 	// маршруты. Просим их сразу и обычным путём — через то самое окно, которое
 	// человек видит при установке любой программы. Запускать что-то из
@@ -67,7 +80,11 @@ func main() {
 	}
 
 	if err := run(*dns, uint32(*mtu), *urlFile, *inTray); err != nil {
-		alert("Marvia", err.Error())
+		text := err.Error()
+		if errors.Is(err, errWebViewWindow) {
+			text = say("webViewFailed")
+		}
+		alert("Marvia", text)
 		os.Exit(1)
 	}
 }
@@ -161,9 +178,8 @@ func run(dns string, mtu uint32, urlFile string, inTray bool) error {
 	return showWindow(url, ctl, log, inTray, &onWindow)
 }
 
-// openLink открывает адрес в браузере человека — через проводник, по той же
-// причине, что и openInBrowser: программа работает с правами администратора,
-// и браузер, запущенный из неё напрямую, унаследовал бы их.
+// openLink открывает адрес через проводник обычного пользователя: браузер,
+// запущенный напрямую из повышенного процесса, унаследовал бы его права.
 func openLink(url string) error {
 	if err := exec.Command("explorer.exe", url).Start(); err != nil {
 		return fmt.Errorf("не удалось открыть браузер: %w", err)

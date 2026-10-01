@@ -51,6 +51,9 @@ func say(key string) string {
 
 var messages = map[string]map[string]string{
 	"ru": {
+		"webViewTitle":    "Для окна Marvia нужен WebView2",
+		"webViewMissing":  "Не найден Microsoft Edge WebView2 Runtime. VPN не запущен.\n\nУстановите Evergreen Runtime с официальной страницы Microsoft и снова откройте Marvia. Ключи и настройки сохранены.\n\nОткрыть официальную страницу загрузки?",
+		"webViewFailed":   "Не удалось открыть окно Marvia. Проверьте или восстановите Microsoft Edge WebView2 Runtime и запустите приложение снова. VPN остановлен; ключи и настройки сохранены.",
 		"noAccount":       "не задана ссылка доступа",
 		"replaceKeyTitle": "Заменить ключ доступа?",
 		"replaceKeyBody":  "Ссылка пришла извне — из браузера или другой программы. После замены трафик пойдёт через серверы того, кто её выдал. Соглашайся, только если ссылку прислал твой продавец.",
@@ -65,7 +68,7 @@ var messages = map[string]map[string]string{
 
 		"logKeySaved":     "ключ доступа сохранён",
 		"logProxyGone":    "системный прокси снят",
-		"logTunnelUp":     "туннель поднят: весь трафик идёт через %s",
+		"logTunnelUp":     "туннель поднят через %s",
 		"logTunnelDown":   "туннель убран, маршруты сняты",
 		"logNoConnect":    "не подключилось: %v",
 		"logCleanup":      "при уборке: %v",
@@ -82,6 +85,9 @@ var messages = map[string]map[string]string{
 		"logAutostartOff": "запуск вместе с Windows выключен",
 	},
 	"en": {
+		"webViewTitle":    "Marvia needs WebView2 to display its window",
+		"webViewMissing":  "Microsoft Edge WebView2 Runtime was not found. The VPN has not started.\n\nInstall the Evergreen Runtime from the official Microsoft page and open Marvia again. Your keys and settings are kept.\n\nOpen the official download page?",
+		"webViewFailed":   "Marvia could not open its window. Check or repair Microsoft Edge WebView2 Runtime and start the app again. The VPN has stopped; your keys and settings are kept.",
 		"noAccount":       "no access key set",
 		"replaceKeyTitle": "Replace the access key?",
 		"replaceKeyBody":  "This link came from outside — a browser or another program. After replacing it, your traffic goes through the servers of whoever issued it. Agree only if the link came from your seller.",
@@ -96,7 +102,7 @@ var messages = map[string]map[string]string{
 
 		"logKeySaved":     "access key saved",
 		"logProxyGone":    "system proxy removed",
-		"logTunnelUp":     "tunnel up: all traffic goes through %s",
+		"logTunnelUp":     "tunnel up through %s",
 		"logTunnelDown":   "tunnel removed, routes cleared",
 		"logNoConnect":    "could not connect: %v",
 		"logCleanup":      "while cleaning up: %v",

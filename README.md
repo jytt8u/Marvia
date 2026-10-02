@@ -158,7 +158,9 @@ Marvia не продаёт доступ, не принимает
 [Архитектура](docs/architecture.md) ·
 [Протокол VP1](docs/protocol.md) ·
 [Конфиденциальность](docs/privacy.md) ·
-[История версий](CHANGELOG.md)
+[История версий](CHANGELOG.md) ·
+[Участие](CONTRIBUTING.md) ·
+[Уязвимости](SECURITY.md)
 
 Для серверных бинарников нужен Go 1.26.6+:
 

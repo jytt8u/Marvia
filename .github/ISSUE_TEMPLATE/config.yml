@@ -1,0 +1,12 @@
+# Пустой issue закрыт: только в форме есть предупреждение про ключи.
+blank_issues_enabled: false
+contact_links:
+  - name: Уязвимость или признак, выдающий ноду
+    url: https://github.com/jytt8u/marvia/security/advisories/new
+    about: Закрытый отчёт — его увидит только автор проекта
+  - name: Свой VPN с нуля
+    url: https://github.com/jytt8u/marvia/blob/main/docs/start-from-zero.md
+    about: Пошаговая установка панели, ноды и первого клиента
+  - name: Руководство
+    url: https://github.com/jytt8u/marvia/blob/main/docs/guide.md
+    about: Эксплуатация, API, отладка

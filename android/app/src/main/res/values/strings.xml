@@ -61,6 +61,7 @@
     <string name="status_off">Disconnected</string>
     <string name="status_connecting">Connecting…</string>
     <string name="status_on">Connected</string>
+    <string name="status_offline">No network</string>
     <string name="status_failed">Could not connect</string>
 
     <string name="detail_connecting">Picking the fastest node</string>
@@ -466,6 +467,8 @@
     <string name="notification_channel_desc">Shows whether the tunnel is running</string>
     <string name="notification_stop">Disconnect</string>
     <string name="notification_on">Connected · %1$s</string>
+    <string name="notification_offline">No network · %1$s</string>
+    <string name="notification_offline_detail">The tunnel will resume by itself when the network comes back</string>
     <string name="notification_speed">↓ %1$s   ↑ %2$s</string>
     <string name="notification_today">Today %1$s</string>
     <string name="tile_add">Quick settings button</string>
@@ -484,6 +487,7 @@
     <string name="log_connected">connected through %1$s</string>
     <string name="log_moved">node stopped answering, moved to %1$s</string>
     <string name="trouble_no_node">the node is silent and there is nowhere to move — nothing works right now</string>
+    <string name="trouble_offline">the phone has no network: neither Wi-Fi nor mobile data. The tunnel will resume by itself when it comes back</string>
     <string name="log_failed">did not come up: %1$s — %2$s</string>
     <!--
         Вкладка «Ещё»: соединение, приложения, логи. Три раздела под одним

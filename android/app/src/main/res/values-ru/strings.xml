@@ -35,6 +35,7 @@
     <string name="status_off">Отключено</string>
     <string name="status_connecting">Подключаюсь…</string>
     <string name="status_on">Подключено</string>
+    <string name="status_offline">Нет сети</string>
     <string name="status_failed">Не подключилось</string>
 
     <string name="detail_connecting">Выбираем доступный сервер</string>
@@ -441,6 +442,8 @@
     <string name="notification_channel_desc">Показывает, работает ли туннель</string>
     <string name="notification_stop">Отключить</string>
     <string name="notification_on">Подключено · %1$s</string>
+    <string name="notification_offline">Нет сети · %1$s</string>
+    <string name="notification_offline_detail">Туннель продолжит сам, когда появится сеть</string>
     <string name="notification_speed">↓ %1$s   ↑ %2$s</string>
     <string name="notification_today">Сегодня %1$s</string>
     <string name="tile_add">Кнопка в шторке</string>
@@ -459,6 +462,7 @@
     <string name="log_connected">подключено через %1$s</string>
     <string name="log_moved">нода замолчала, переехали на %1$s</string>
     <string name="trouble_no_node">нода молчит, и переехать не на что — сейчас ничего не работает</string>
+    <string name="trouble_offline">у телефона нет сети: ни Wi-Fi, ни мобильного интернета. Туннель продолжит сам, когда она появится</string>
     <string name="log_failed">не поднялся: %1$s — %2$s</string>
     <string name="more_title">Настройки</string>
     <string name="more_sub">Marvia для Android · %1$s</string>

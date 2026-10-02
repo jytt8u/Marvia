@@ -55,6 +55,9 @@ class MarviaVpnService : VpnService() {
     @Volatile
     private var core: Core? = null
 
+    /** Есть ли сеть под туннелем. См. [Uplink]. */
+    private val uplink by lazy { Uplink(this) }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             shutdown(TunnelState.Off)
@@ -136,6 +139,7 @@ class MarviaVpnService : VpnService() {
             Traffic(this@MarviaVpnService).beginSession()
             SessionDetails.begin()
             MarviaState.set(snapshot(started, node))
+            uplink.start()
             goForeground(live.on(this@MarviaVpnService, node, 0))
             detectExitCountry(started, store)
 
@@ -291,8 +295,15 @@ class MarviaVpnService : VpnService() {
             // Из ядра приезжает код, а не фраза: оно не знает языка интерфейса.
             // Раньше оттуда приходило русское предложение, и англоязычный
             // покупатель читал его как есть.
+            // Нет сети — главное, что надо знать: остальные ошибки в это
+            // время только её следствие.
             val trouble = started.trouble()
-            val last = if (trouble.isEmpty()) started.lastError() else troubleText(trouble)
+            val offline = uplink.offline
+            val last = when {
+                offline -> getString(R.string.trouble_offline)
+                trouble.isEmpty() -> started.lastError()
+                else -> troubleText(trouble)
+            }
             if (last.isNotBlank() && last != previousWarning) Journal.add(last, Journal.Level.WARN)
             previousWarning = last
 
@@ -310,7 +321,7 @@ class MarviaVpnService : VpnService() {
             if (next != MarviaState.state.value) {
                 MarviaState.set(next)
             }
-            goForeground(live.on(this, shownNode, next.ms))
+            goForeground(live.on(this, shownNode, next.ms, offline))
         }
     }
 
@@ -408,6 +419,7 @@ class MarviaVpnService : VpnService() {
 
         worker?.cancel()
         worker = null
+        uplink.stop()
         countryProbe?.cancel()
         countryProbe = null
         core?.let { started ->
@@ -488,7 +500,7 @@ class MarviaVpnService : VpnService() {
 
         private var core: Core? = null
 
-        fun on(context: android.content.Context, node: String, ms: Long): Text {
+        fun on(context: android.content.Context, node: String, ms: Long, offline: Boolean = false): Text {
             val c = core
             val now = android.os.SystemClock.elapsedRealtime()
             var down = 0.0
@@ -504,6 +516,13 @@ class MarviaVpnService : VpnService() {
                 rx = r; tx = t; at = now
             }
             val place = node.split('·').map { it.trim() }.filter { it.isNotEmpty() }.take(2).joinToString(" · ")
+            if (offline) {
+                // Скорость и отклик без сети — нули, которые выглядят как
+                // поломка туннеля. Говорим, что именно случилось и что делать.
+                val title = context.getString(R.string.notification_offline, place.ifEmpty { node })
+                val detail = context.getString(R.string.notification_offline_detail)
+                return Text(title, detail, detail + "\n" + node, on = true)
+            }
             val title = context.getString(R.string.notification_on, place.ifEmpty { node })
             val speed = context.getString(R.string.notification_speed, rate(context, down), rate(context, up))
             val ping = if (ms > 0) context.getString(R.string.node_ms, ms) else ""

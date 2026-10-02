@@ -536,7 +536,13 @@ class MainActivity : AppCompatActivity() {
             }
 
             is TunnelState.On -> {
-                status(R.string.status_on, if (theme.dark) theme.fg else theme.acc)
+                // Без сети «Подключено» — неправда, которую человек проверяет
+                // открытым сайтом и списывает на VPN.
+                if (state.warning == getString(R.string.trouble_offline)) {
+                    status(R.string.status_offline, theme.warn)
+                } else {
+                    status(R.string.status_on, if (theme.dark) theme.fg else theme.acc)
+                }
                 c.powerAction.contentDescription = getString(R.string.connect_disconnect)
                 paintPower(theme.acc)
                 c.nodeNote.text = choiceText(state)
@@ -545,7 +551,12 @@ class MainActivity : AppCompatActivity() {
                 // ней нельзя: иначе человек видит «подключено» при наполовину
                 // живой ноде.
                 if (state.warning.isNotBlank()) {
-                    c.techText.text = if (state.warning == getString(R.string.trouble_no_node)) state.warning else getString(R.string.connection_warning_details)
+                    // Две беды называем как есть: «нода молчит» и «нет сети»
+                    // объясняют всё сами, и «некоторые запросы не прошли»
+                    // вместо них только запутало бы.
+                    val plain = state.warning == getString(R.string.trouble_no_node) ||
+                        state.warning == getString(R.string.trouble_offline)
+                    c.techText.text = if (plain) state.warning else getString(R.string.connection_warning_details)
                     c.techText.setTextColor(theme.warn)
                     c.techText.isVisible = true
                 }

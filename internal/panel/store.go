@@ -166,7 +166,20 @@ CREATE TABLE IF NOT EXISTS users (
     speed_limit   INTEGER NOT NULL DEFAULT 0,
     sub_token     TEXT    NOT NULL UNIQUE,
     external_id   TEXT,
-    created_at    TEXT    NOT NULL
+    created_at    TEXT    NOT NULL,
+    used_before   INTEGER NOT NULL DEFAULT 0
+);
+
+-- Адреса подписки прежней панели, см. import.go. Отдельной таблицей, а не
+-- столбцом: у покупателя 3x-ui их бывает несколько, а у Marzban хранится не
+-- адрес, а то, чем его проверить.
+CREATE TABLE IF NOT EXISTS sub_aliases (
+    kind       TEXT    NOT NULL,
+    key        TEXT    NOT NULL,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    secret     TEXT    NOT NULL DEFAULT '',
+    not_before TEXT,
+    PRIMARY KEY (kind, key)
 );
 
 
@@ -337,6 +350,8 @@ func migrate(db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, node_id INTEGER REFERENCES nodes(id) ON DELETE CASCADE, detail TEXT NOT NULL DEFAULT '')`,
 		`CREATE INDEX IF NOT EXISTS events_at ON events(at)`,
 		`CREATE TABLE IF NOT EXISTS presence (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, node_id INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE, conns INTEGER NOT NULL DEFAULT 0, ips INTEGER NOT NULL DEFAULT 0, seen_at TEXT, PRIMARY KEY (user_id, node_id))`,
+		`ALTER TABLE users ADD COLUMN used_before INTEGER NOT NULL DEFAULT 0`,
+		`CREATE TABLE IF NOT EXISTS sub_aliases (kind TEXT NOT NULL, key TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, secret TEXT NOT NULL DEFAULT '', not_before TEXT, PRIMARY KEY (kind, key))`,
 	}
 
 	for _, step := range steps {
@@ -617,18 +632,34 @@ func (s *Store) GetUser(ctx context.Context, id int64) (User, error) {
 // Старая ссылка перестаёт работать сразу, новую надо переслать покупателю:
 // приложение обновляет список нод по адресу, который у него сохранён, и само
 // про смену не узнает.
+//
+// Вместе с ней гаснут и адреса подписки с прежней панели, если покупатель
+// переехал. Продавец меняет ссылку, потому что она утекла, — а утечь могла
+// как раз старая, которую покупатель годами пересылал знакомым.
 func (s *Store) RotateSubToken(ctx context.Context, id int64) (User, error) {
 	token, err := NewToken()
 	if err != nil {
 		return User{}, err
 	}
 
-	res, err := s.db.ExecContext(ctx, `UPDATE users SET sub_token = ? WHERE id = ?`, token, id)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return User{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	res, err := tx.ExecContext(ctx, `UPDATE users SET sub_token = ? WHERE id = ?`, token, id)
 	if err != nil {
 		return User{}, fmt.Errorf("смена токена подписки: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return User{}, ErrNotFound
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM sub_aliases WHERE user_id = ?`, id); err != nil {
+		return User{}, fmt.Errorf("отзыв прежних адресов подписки: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return User{}, err
 	}
 	return s.GetUser(ctx, id)
 }
@@ -654,7 +685,7 @@ func (s *Store) queryUsers(ctx context.Context, where string, args ...any) ([]Us
 	query := `
 		SELECT u.id, u.label, u.enabled, u.expires_at, u.traffic_limit, u.max_ips,
 		       u.max_conns, u.speed_limit, u.sub_token, u.created_at, u.external_id,
-		       COALESCE((SELECT SUM(up + down) FROM usage WHERE user_id = u.id), 0),
+		       u.used_before + COALESCE((SELECT SUM(up + down) FROM usage WHERE user_id = u.id), 0),
 		       COALESCE((SELECT SUM(p.conns) FROM presence p JOIN nodes n ON n.id = p.node_id
 		                 WHERE p.user_id = u.id AND n.last_seen >= ?), 0),
 		       COALESCE((SELECT SUM(p.ips) FROM presence p JOIN nodes n ON n.id = p.node_id
@@ -1099,12 +1130,13 @@ func versionParts(v string) ([3]int, bool) {
 // Главная тонкость — общая квота при нескольких нодах. Каждая нода считает
 // только свой трафик, поэтому лимит для неё уменьшается на то, что человек уже
 // израсходовал на других. Иначе квоту в 100 ГБ можно было бы потратить на
-// каждой ноде отдельно.
+// каждой ноде отдельно. Расход до переезда с чужой панели (used_before) — та
+// же «другая нода», только прошлая.
 func (s *Store) NodeUsers(ctx context.Context, nodeID int64) ([]users.User, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT u.id, u.label, u.enabled, u.expires_at, u.traffic_limit, u.max_ips, u.max_conns, u.speed_limit,
 		       c.kind, c.secret,
-		       COALESCE((SELECT SUM(up + down) FROM usage WHERE user_id = u.id AND node_id <> ?), 0)
+		       u.used_before + COALESCE((SELECT SUM(up + down) FROM usage WHERE user_id = u.id AND node_id <> ?), 0)
 		FROM users u
 		JOIN credentials c ON c.user_id = u.id
 		ORDER BY u.id, c.id`, nodeID)

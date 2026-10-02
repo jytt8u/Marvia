@@ -156,7 +156,8 @@ take payments or host servers.
 
 [Guide](docs/guide.md) · [Architecture](docs/architecture.md) ·
 [VP1 protocol](docs/protocol.md) · [Privacy](docs/privacy.md) ·
-[Changelog](CHANGELOG.md)
+[Changelog](CHANGELOG.md) · [Contributing (Russian)](CONTRIBUTING.md) ·
+[Security](SECURITY.md)
 
 Server binaries require Go 1.26.6 or newer:
 

@@ -151,7 +151,8 @@ sudo sh install-panel.sh --domain panel.example.com --email you@example.com --po
 
 [使用指南](docs/guide.md) · [架构](docs/architecture.md) ·
 [VP1 协议](docs/protocol.md) · [隐私](docs/privacy.md) ·
-[更新记录](CHANGELOG.md)
+[更新记录](CHANGELOG.md) · [参与（俄语）](CONTRIBUTING.md) ·
+[安全](SECURITY.md)
 
 服务器程序需要 Go 1.26.6 或更新版本：
 

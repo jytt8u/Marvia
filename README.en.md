@@ -2,11 +2,11 @@
 
 <img src="docs/shots/readme-brand.png" alt="Marvia" width="1000">
 
-**Marvia — Android, Windows, panel and nodes. Development: 0.13.0-alpha.1.**
+**Your own VPN, end to end: protocol, nodes, panel, and apps for Android and Windows.**
 
-The 1.0 release is postponed. The primary published release is the historical
-test build v0.12.2, whose stability is not established. Current fixes are retained.
-[Development plan (Russian)](docs/development-plan.md) · [Your VPN from scratch (Russian)](docs/start-from-zero.md)
+Whoever hands out access installs the panel with one script and adds each node
+with a line copied from the panel. Whoever connects gets a single link: the app
+picks a node by itself and, if it stops responding, looks for a working one.
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
 
@@ -15,7 +15,11 @@ test build v0.12.2, whose stability is not established. Current fixes are retain
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#install-the-panel)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
-[Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
+**Stage: alpha, `0.13.0-alpha.1`.** 1.0 is postponed until it is verified on
+real devices and networks — [criteria (Russian)](docs/development-plan.md).
+The published v0.12.2 is a test build and is not declared stable.
+
+[Your VPN from scratch (Russian)](docs/start-from-zero.md) · [Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
 
 </div>
 

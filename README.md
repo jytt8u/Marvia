@@ -2,11 +2,11 @@
 
 <img src="docs/shots/readme-brand.png" alt="Marvia" width="1000">
 
-**Marvia — Android, Windows, панель и ноды. Разработка: 0.13.0-alpha.1.**
+**Свой VPN целиком: протокол, ноды, панель и приложения для Android и Windows.**
 
-Выпуск 1.0 отложен. Основной опубликованный выпуск — историческая тестовая
-v0.12.2; он не объявляется стабильным. Исправления в текущем коде сохранены.
-[План доработки](docs/development-plan.md) · [Свой VPN с нуля](docs/start-from-zero.md)
+Тот, кто раздаёт доступ, ставит панель одним скриптом, а ноду — строкой из
+панели. Тот, кто подключается, получает одну ссылку: приложение само выбирает
+ноду, а если она перестала отвечать — ищет рабочую.
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
 
@@ -15,7 +15,11 @@ v0.12.2; он не объявляется стабильным. Исправле
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#установка-панели)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
-[Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
+**Стадия — alpha, `0.13.0-alpha.1`.** Выпуск 1.0 отложен до проверки на
+реальных устройствах и сетях — [критерии](docs/development-plan.md).
+Опубликованная v0.12.2 — тестовая и стабильной не объявляется.
+
+[Свой VPN с нуля](docs/start-from-zero.md) · [Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
 
 </div>
 

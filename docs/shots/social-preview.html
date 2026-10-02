@@ -1,0 +1,33 @@
+<!doctype html>
+<!--
+  Карточка, которую показывают Telegram, X и мессенджеры, когда в них
+  вставлена ссылка на репозиторий. Без неё GitHub рисует свою — с числом
+  звёзд и форков, а это не то, с чего стоит знакомиться с проектом.
+
+  Знак берётся целиком из readme-brand.png, без перерисовки. Края у него
+  растворены маской: у оригинала свой фон, и без маски на карточке
+  проступал бы его прямоугольник.
+
+  Пересобрать (из docs/shots):
+    msedge --headless=new --hide-scrollbars --force-device-scale-factor=1 --window-size=1280,640 --screenshot=social-preview.png social-preview.html
+  Загружается руками: Settings → General → Social preview. API для этого нет.
+-->
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Manrope; src: url(../../internal/look/fonts/manrope-latin.woff2) format("woff2"); font-weight: 200 800; }
+html, body { margin: 0; width: 1280px; height: 640px; overflow: hidden; }
+body { background: #edf0f4; font-family: Manrope, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+img {
+  width: 980px; display: block; margin: -30px 0 -46px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14%, #000 86%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 22%, #000 78%, transparent 100%);
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+}
+.line { margin-top: 30px; font-size: 34px; font-weight: 600; color: #30353b; letter-spacing: -0.2px; }
+.sub { margin-top: 14px; font-size: 25px; font-weight: 500; color: #687482; letter-spacing: 0.2px; }
+.dot { color: #a3abb5; padding: 0 10px; }
+</style></head>
+<body>
+<img src="readme-brand.png" alt="">
+<div class="line">Your own VPN, end to end</div>
+<div class="sub">VP1 protocol<span class="dot">·</span>nodes<span class="dot">·</span>panel<span class="dot">·</span>Android &amp; Windows apps</div>
+</body></html>

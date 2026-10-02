@@ -2,11 +2,10 @@
 
 <img src="docs/shots/readme-brand.png" alt="Marvia" width="1000">
 
-**Marvia：Android、Windows、管理面板与节点。开发版本：0.13.0-alpha.1。**
+**完整的自建 VPN：协议、节点、管理面板，以及 Android 和 Windows 应用。**
 
-1.0 发布已推迟。目前主要公开版本是历史测试版本 v0.12.2，其稳定性尚未得到确认。
-当前代码中的安全与连接修复均保留。
-[开发计划（俄语）](docs/development-plan.md) · [从零搭建自己的 VPN（俄语）](docs/start-from-zero.md)
+分发访问权限的人用一个脚本安装面板，再用面板给出的一行命令添加节点。
+连接的人只需要一个链接：应用自动选择节点，节点停止响应时会寻找可用的节点。
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
 
@@ -15,7 +14,10 @@
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#安装面板)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
-[Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
+**当前阶段：alpha，`0.13.0-alpha.1`。** 1.0 推迟发布，直到在真实设备和网络上完成验证——
+[标准（俄语）](docs/development-plan.md)。已公开的 v0.12.2 是测试版本，不宣称稳定。
+
+[从零搭建自己的 VPN（俄语）](docs/start-from-zero.md) · [Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
 
 </div>
 

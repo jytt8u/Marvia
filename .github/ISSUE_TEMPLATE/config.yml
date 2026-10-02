@@ -4,6 +4,9 @@ contact_links:
   - name: Уязвимость или признак, выдающий ноду
     url: https://github.com/jytt8u/marvia/security/advisories/new
     about: Закрытый отчёт — его увидит только автор проекта
+  - name: Вопрос — как поставить, настроить, подключить
+    url: https://github.com/jytt8u/marvia/discussions
+    about: Вопросы живут в обсуждениях, а issues остаются для ошибок
   - name: Свой VPN с нуля
     url: https://github.com/jytt8u/marvia/blob/main/docs/start-from-zero.md
     about: Пошаговая установка панели, ноды и первого клиента

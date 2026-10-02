@@ -1,5 +1,9 @@
 # Участие
 
+Вопрос «как поставить или настроить» — в
+[обсуждения](https://github.com/jytt8u/marvia/discussions); issues — для
+ошибок и предложений.
+
 ## Сообщить об ошибке
 
 [Форма issue](https://github.com/jytt8u/marvia/issues/new/choose) спросит

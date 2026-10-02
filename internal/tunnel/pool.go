@@ -77,6 +77,8 @@ const reapEvery = time.Minute
 // pooled — сессия и срок её жизни.
 type pooled struct {
 	sess *yamux.Session
+	// tcp — сокет под сессией, если он есть: по нему ядро отдаёт отклик.
+	tcp *net.TCPConn
 	// retireAt — когда сессия перестаёт брать новые потоки. Опустев после
 	// этого срока, она закрывается.
 	retireAt time.Time
@@ -107,28 +109,50 @@ type Pool struct {
 	pingBusy atomic.Bool
 }
 
-// Ping меряет запрос-ответ внутри уже установленного туннеля, включая очередь
-// записи. Хендшейк сюда не входит. Отмена замера не рвёт рабочие потоки:
-// yamux завершит запрос по своему тайм-ауту; до этого второй не запускаем.
+// Ping отдаёт отклик ноды по уже установленному туннелю.
+//
+// Где ядро умеет (Linux и Android), отклик — его оценка по TCP-сокету под
+// сессией, см. rtt.go: очередь трафика внутри туннеля в неё не входит. Пинг
+// мультиплексора при этом всё равно уходит, но в фоне и только ради того,
+// чтобы ядру было что подтвердить: на молчащем соединении обрыв иначе не
+// заметить до следующего keepalive.
+//
+// Где не умеет — запрос-ответ мультиплексора, включая очередь записи.
+// Хендшейк сюда не входит. Отмена замера не рвёт рабочие потоки: yamux
+// завершит запрос по своему тайм-ауту; до этого второй не запускаем.
 func (p *Pool) Ping(ctx context.Context) (time.Duration, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	if !p.pingBusy.CompareAndSwap(false, true) {
-		return 0, errors.New("замер уже идёт")
-	}
 	p.mu.Lock()
-	var session *yamux.Session
+	var (
+		session *yamux.Session
+		tcp     *net.TCPConn
+	)
 	for _, s := range p.sessions {
 		if !s.sess.IsClosed() {
-			session = s.sess
+			session, tcp = s.sess, s.tcp
 			break
 		}
 	}
 	p.mu.Unlock()
 	if session == nil {
-		p.pingBusy.Store(false)
 		return 0, errors.New("нет установленного туннеля")
+	}
+
+	if tcp != nil {
+		rtt, ok, err := kernelRTT(tcp)
+		if ok {
+			if err != nil {
+				return 0, err
+			}
+			p.nudge(session)
+			return rtt, nil
+		}
+	}
+
+	if !p.pingBusy.CompareAndSwap(false, true) {
+		return 0, errors.New("замер уже идёт")
 	}
 	type result struct {
 		rtt time.Duration
@@ -150,6 +174,19 @@ func (p *Pool) Ping(ctx context.Context) (time.Duration, error) {
 		}
 		return max(time.Nanosecond, r.rtt), nil
 	}
+}
+
+// nudge шлёт пинг мультиплексора, не дожидаясь ответа. Ответ не нужен:
+// нужно, чтобы по соединению ушли данные, — тогда к следующему замеру ядро
+// либо получит свежий образец отклика, либо увидит, что подтверждений нет.
+func (p *Pool) nudge(session *yamux.Session) {
+	if !p.pingBusy.CompareAndSwap(false, true) {
+		return
+	}
+	go func() {
+		defer p.pingBusy.Store(false)
+		_, _ = session.Ping()
+	}()
 }
 
 // NewPool создаёт пул. Нулевые значения лимитов заменяются на умолчания.
@@ -301,7 +338,7 @@ func (p *Pool) spawn(ctx context.Context) (*yamux.Session, error) {
 		_ = session.Close()
 		return nil, errors.New("пул закрыт")
 	}
-	p.sessions = append(p.sessions, &pooled{sess: session, retireAt: p.now().Add(p.rotateAfter())})
+	p.sessions = append(p.sessions, &pooled{sess: session, tcp: rawTCP(conn), retireAt: p.now().Add(p.rotateAfter())})
 	p.mu.Unlock()
 
 	return session, nil

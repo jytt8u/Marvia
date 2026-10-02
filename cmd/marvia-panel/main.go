@@ -91,6 +91,13 @@ func main() {
 	showVersion := flag.Bool("version", false, "показать версию и выйти")
 	installUpdater := flag.Bool("install-updater", false, "поставить службу обновления по кнопке в панели и выйти (нужен root)")
 
+	var imp importOptions
+	flag.StringVar(&imp.source, "import", "", "перенести покупателей с прежней панели: marzban или 3x-ui (без -import-apply — только отчёт)")
+	flag.StringVar(&imp.from, "import-db", "", "база прежней панели: /var/lib/marzban/db.sqlite3 или /etc/x-ui/x-ui.db")
+	flag.StringVar(&imp.xray, "import-xray", "", "xray_config.json Marzban (по умолчанию — рядом с базой)")
+	flag.StringVar(&imp.subPath, "import-sub-path", "", "путь подписки прежней панели, если он не /sub/")
+	flag.BoolVar(&imp.apply, "import-apply", false, "записать перенос в базу панели, а не только показать отчёт")
+
 	flag.Parse()
 
 	if *showVersion {
@@ -100,6 +107,14 @@ func main() {
 	if *installUpdater {
 		if err := updater.Install(); err != nil {
 			fmt.Fprintf(os.Stderr, "служба обновления: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if imp.source != "" {
+		if err := runImport(os.Stdout, imp, opts.dbPath); err != nil {
+			fmt.Fprintf(os.Stderr, "перенос: %v\n", err)
 			os.Exit(1)
 		}
 		return

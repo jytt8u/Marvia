@@ -10,6 +10,13 @@
 #   DEST=www.icloud.com:443 — другой сайт прикрытия
 #   NAME=amsterdam-1 — как нода будет называться в панели
 #   COUNTRY=Нидерланды — страна, которую увидит покупатель (можно указать потом)
+#   SNI=www.example.com,img.example.com — имена в SNI (по умолчанию — хост из DEST)
+#   SHORT_IDS=a1b2c3d4,0f — короткие идентификаторы REALITY (по умолчанию — один случайный)
+#   REALITY_KEY=… REALITY_PUB=… — готовая пара ключей REALITY вместо новой
+#
+# Последние три нужны при переезде с Marzban или 3x-ui на тот же сервер: с
+# прежними ключами прежние ссылки покупателей продолжают работать. Строку
+# с ними печатает marvia-panel -import.
 
 set -eu
 
@@ -19,6 +26,10 @@ PORT="${PORT:-443}"
 DEST="${DEST:-www.samsung.com:443}"
 NAME="${NAME:-$(hostname 2>/dev/null || echo нода)}"
 COUNTRY="${COUNTRY:-}"
+SNI="${SNI:-}"
+SHORT_IDS="${SHORT_IDS:-}"
+GIVEN_KEY="${REALITY_KEY:-}"
+GIVEN_PUB="${REALITY_PUB:-}"
 DIR=/opt/marvia-node
 
 # ---------------------------------------------------------------- как это выглядит
@@ -133,6 +144,23 @@ fi
 # ---------------------------------------------------------------- сайт прикрытия
 
 DEST_HOST="${DEST%:*}"
+SNI="${SNI:-$DEST_HOST}"
+
+# Эти значения уходят в строку запуска службы и в запрос к панели. Проверяем
+# состав, а не верим на слово: пробел или кавычка из скопированной строки
+# сломали бы службу так, что видно это было бы только в журнале.
+case "$SNI" in
+*[!A-Za-z0-9.,-]*) die "SNI — имена через запятую, без пробелов; получено «$SNI»" ;;
+esac
+case "$SHORT_IDS" in
+*[!0-9a-fA-F,]*) die "SHORT_IDS — шестнадцатеричные строки через запятую; получено «$SHORT_IDS»" ;;
+esac
+if [ -n "$GIVEN_KEY$GIVEN_PUB" ]; then
+	[ -n "$GIVEN_KEY" ] && [ -n "$GIVEN_PUB" ] || die 'REALITY_KEY и REALITY_PUB задаются только вместе'
+	case "$GIVEN_KEY$GIVEN_PUB" in
+	*[!A-Za-z0-9_-]*) die 'ключи REALITY — строки base64url, как в конфиге Xray' ;;
+	esac
+fi
 
 spin "проверяю сайт прикрытия $DEST_HOST" \
 	curl -sI --max-time 10 --tlsv1.3 "https://$DEST_HOST/" -o /dev/null ||
@@ -193,6 +221,15 @@ SHORT_ID=$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')
 rm -f "$DIR/.k1" "$DIR/.k2"
 [ -n "$NODE_KEY" ] && [ -n "$REALITY_KEY" ] || die 'не получилось выпустить ключи'
 
+# Прежние ключи REALITY заменяют новые целиком: публичный ключ из пары
+# покупатели уже держат в ссылках как pbk.
+if [ -n "$GIVEN_KEY" ]; then
+	REALITY_KEY=$GIVEN_KEY
+	REALITY_PUB=$GIVEN_PUB
+	done_ 'ключи REALITY прежние — старые ссылки подойдут'
+fi
+SHORT_IDS="${SHORT_IDS:-$SHORT_ID}"
+
 printf '%s\n' "$NODE_KEY" >"$DIR/node.key"
 chmod 600 "$DIR/node.key"
 done_ 'ключи выпущены, приватные остались здесь'
@@ -202,7 +239,7 @@ done_ 'ключи выпущены, приватные остались здес
 # Адрес не отправляем: за NAT нода видит свой внутренний, а панель видит
 # настоящий, с которого пришло соединение.
 BODY=$(printf '{"name":"%s","country":"%s","port":%s,"sni":"%s","public_key":"%s","reality_public_key":"%s","reality_short_id":"%s"}' \
-	"$NAME" "$COUNTRY" "$PORT" "$DEST_HOST" "$NODE_PUB" "$REALITY_PUB" "$SHORT_ID")
+	"$NAME" "$COUNTRY" "$PORT" "${SNI%%,*}" "$NODE_PUB" "$REALITY_PUB" "${SHORT_IDS%%,*}")
 
 spin 'записываюсь в панель' \
 	curl -fsS -X POST "$PANEL/api/v1/nodes/register" \
@@ -266,7 +303,7 @@ User=marvia
 Group=marvia
 WorkingDirectory=$DIR
 EnvironmentFile=$DIR/env
-ExecStart=$DIR/marvia-node -listen 0.0.0.0:$PORT -key-file $DIR/node.key -panel $PANEL -reality-dest $DEST -reality-short-id $SHORT_ID
+ExecStart=$DIR/marvia-node -listen 0.0.0.0:$PORT -key-file $DIR/node.key -panel $PANEL -reality-dest $DEST -reality-sni $SNI -reality-short-id $SHORT_IDS
 Restart=on-failure
 
 # Отступ между попытками. Раньше стояло три секунды: нода, падавшая при

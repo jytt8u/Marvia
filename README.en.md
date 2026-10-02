@@ -168,3 +168,9 @@ go build -o bin/ ./...
 
 Android is built separately with [`scripts/publish-apk.ps1`](scripts/publish-apk.ps1);
 the signing key is stored outside this repository.
+
+## License
+
+[AGPL-3.0](LICENSE). You are free to use, modify and share it. If you
+distribute a modified panel, node or app — including letting people use it
+over a network — you publish your changes under the same license.

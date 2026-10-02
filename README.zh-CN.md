@@ -163,3 +163,8 @@ go build -o bin/ ./...
 
 Android 需单独使用 [`scripts/publish-apk.ps1`](scripts/publish-apk.ps1) 构建；
 签名密钥不存放在本仓库。
+
+## 许可证
+
+[AGPL-3.0](LICENSE)。可以自由使用、修改和分发。如果分发修改后的面板、节点或应用
+（包括通过网络向他人提供使用），需要以同一许可证公开所做的修改。

@@ -1,4 +1,4 @@
-//go:build !linux
+//go:build !linux && !windows
 
 package tunnel
 
@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// kernelRTT вне Linux и Android не реализован: на Windows оценка есть
-// (SIO_TCP_INFO), но там отклик пока мерится по-старому, пингом внутри
-// туннеля.
-func kernelRTT(*net.TCPConn) (time.Duration, bool, error) { return 0, false, nil }
+// kernelRTT на прочих системах не реализован: отклик мерится по-старому,
+// пингом внутри туннеля. Клиенты Marvia работают на Android и Windows, а
+// нода — на Linux, так что сюда попадает разве что сборка для отладки.
+func kernelRTT(*net.TCPConn, *rttState) (time.Duration, bool, error) { return 0, false, nil }

@@ -1,3 +1,5 @@
+//go:build linux || windows
+
 package tunnel_test
 
 import (

@@ -79,6 +79,7 @@ type pooled struct {
 	sess *yamux.Session
 	// tcp — сокет под сессией, если он есть: по нему ядро отдаёт отклик.
 	tcp *net.TCPConn
+	rtt rttState
 	// retireAt — когда сессия перестаёт брать новые потоки. Опустев после
 	// этого срока, она закрывается.
 	retireAt time.Time
@@ -128,10 +129,11 @@ func (p *Pool) Ping(ctx context.Context) (time.Duration, error) {
 	var (
 		session *yamux.Session
 		tcp     *net.TCPConn
+		state   *rttState
 	)
 	for _, s := range p.sessions {
 		if !s.sess.IsClosed() {
-			session, tcp = s.sess, s.tcp
+			session, tcp, state = s.sess, s.tcp, &s.rtt
 			break
 		}
 	}
@@ -141,7 +143,7 @@ func (p *Pool) Ping(ctx context.Context) (time.Duration, error) {
 	}
 
 	if tcp != nil {
-		rtt, ok, err := kernelRTT(tcp)
+		rtt, ok, err := kernelRTT(tcp, state)
 		if ok {
 			if err != nil {
 				return 0, err

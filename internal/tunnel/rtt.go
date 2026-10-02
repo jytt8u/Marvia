@@ -3,6 +3,7 @@ package tunnel
 import (
 	"errors"
 	"net"
+	"sync"
 )
 
 // Отклик ноды берётся у ядра ОС, а не замером внутри туннеля.
@@ -42,4 +43,14 @@ func rawTCP(c net.Conn) *net.TCPConn {
 		c = inner.NetConn()
 	}
 	return nil
+}
+
+// rttState — что нужно помнить между замерами одного соединения. Linux
+// отдаёт время последнего подтверждения и в памяти не нуждается; Windows —
+// нет, и обрыв там виден только по разнице двух замеров.
+type rttState struct {
+	mu       sync.Mutex
+	seen     bool
+	timeouts uint32
+	bytesIn  uint64
 }

@@ -28,7 +28,7 @@ const (
 //
 // ok = false — ядро не ответило, и отклик надо мерить по-старому. err —
 // соединение молчит, показывать прежнее число нельзя.
-func kernelRTT(tcp *net.TCPConn) (rtt time.Duration, ok bool, err error) {
+func kernelRTT(tcp *net.TCPConn, _ *rttState) (rtt time.Duration, ok bool, err error) {
 	raw, err := tcp.SyscallConn()
 	if err != nil {
 		return 0, false, nil

@@ -165,6 +165,10 @@ func (c *Conn) CloseWrite() error {
 	return errors.New("транспорт не умеет CloseWrite")
 }
 
+// NetConn отдаёт транспорт под VP1 — так же, как tls.Conn. Нужен клиенту,
+// чтобы спросить у ядра отклик TCP-сокета, не трогая протокол.
+func (c *Conn) NetConn() net.Conn { return c.Conn }
+
 // Close закрывает транспорт. Безопасно вызывать несколько раз.
 func (c *Conn) Close() error {
 	var err error

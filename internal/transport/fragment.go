@@ -55,6 +55,10 @@ func FragmentHello(c net.Conn) net.Conn {
 	return &splitHello{Conn: c}
 }
 
+// NetConn отдаёт соединение под дробилкой — так же, как tls.Conn. По нему
+// клиент спрашивает у ядра отклик ноды, см. internal/tunnel/rtt.go.
+func (c *splitHello) NetConn() net.Conn { return c.Conn }
+
 func (c *splitHello) Write(p []byte) (int, error) {
 	if c.done {
 		return c.Conn.Write(p)

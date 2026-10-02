@@ -121,6 +121,25 @@ Marvia 尚缺少每月自动重置额度和 Clash/sing-box 订阅格式。从 Ma
 Android 还支持 VLESS、VMess、Trojan、Shadowsocks、Hysteria2 和 WireGuard 链接。
 目前尚未上架 Google Play。
 
+### 验证文件
+
+**APK** 自首个版本起一直使用同一把密钥签名。签名证书 SHA-256 指纹：
+
+```
+53:EB:5B:D4:4A:38:1C:BA:E1:9B:76:06:EF:20:91:9E:33:DF:FB:26:0D:49:F2:D4:AD:86:88:85:36:4D:7E:82
+```
+
+可在手机上用 [AppVerifier](https://github.com/soupslurpr/AppVerifier) 核对，或在电脑上用
+Android SDK 的 `apksigner verify --print-certs marvia-android.apk`。指纹不同即不是我们的文件。
+安装后，Android 会拒绝用其他密钥签名的更新。APK 目前由作者本人构建而非在 GitHub 上构建，
+因此签名证明发布者身份，但不证明由哪份源码构建。
+
+**面板、节点和 Windows** 文件由 GitHub 根据标签构建，所有文件的校验和经 Sigstore 签名：
+
+```bash
+gh attestation verify SHA256SUMS --bundle SHA256SUMS.sigstore.json --repo jytt8u/marvia && sha256sum -c SHA256SUMS --ignore-missing
+```
+
 ### 安装面板
 
 v0.12.2 仅供测试；不要为了版本号降低已安装的修复版客户端。

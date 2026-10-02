@@ -130,6 +130,30 @@ v0.12.2 is for testing. Do not downgrade an installed fixed client just for its
 version number. The complete Windows installer and new APK are being prepared
 in alpha; verification on real devices is not complete.
 
+### Verify the files
+
+**The APK** has been signed with the same key since the first release. Signing
+certificate SHA-256 fingerprint:
+
+```
+53:EB:5B:D4:4A:38:1C:BA:E1:9B:76:06:EF:20:91:9E:33:DF:FB:26:0D:49:F2:D4:AD:86:88:85:36:4D:7E:82
+```
+
+Check it on the phone with [AppVerifier](https://github.com/soupslurpr/AppVerifier)
+or on a computer with `apksigner verify --print-certs marvia-android.apk` from
+the Android SDK. A different fingerprint means it is not our file. Once
+installed, Android refuses updates signed with another key. The APK is still
+built by the author rather than on GitHub, so the signature proves who
+released it, not which source it was built from.
+
+**Panel, node and Windows** files are built on GitHub from the tag. The
+checksums of all files are signed through Sigstore, proving this repository's
+build produced them:
+
+```bash
+gh attestation verify SHA256SUMS --bundle SHA256SUMS.sigstore.json --repo jytt8u/marvia && sha256sum -c SHA256SUMS --ignore-missing
+```
+
 ### Install the panel
 
 Use a Linux server and a domain with an A record. Download the installer from

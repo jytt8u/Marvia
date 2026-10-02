@@ -170,7 +170,7 @@ func run(opts serverOptions) error {
 		return err
 	}
 
-	ln, err := net.Listen("tcp", opts.listenAddr)
+	ln, err := listenTCP(opts.listenAddr)
 	if err != nil {
 		return fmt.Errorf("прослушивание %s: %w", opts.listenAddr, err)
 	}

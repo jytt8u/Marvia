@@ -1531,6 +1531,26 @@ curl -fsSL https://panel.example.com/install/<приглашение> | PORT=844
 права, — занять порт ниже 1024, и это выдаётся отдельной возможностью
 `CAP_NET_BIND_SERVICE`.
 
+### BBR для соединений ноды
+
+Нода просит у ядра для своих соединений BBR вместо стандартного CUBIC.
+Маршрут от ноды до покупателя почти всегда дальний и с потерями, и CUBIC
+на каждую потерю вдвое сбавляет скорость; BBR держит её по измеренной
+полосе. Алгоритм ставится на слушающий сокет ноды, системный по умолчанию
+не меняется — остальные службы сервера его не замечают.
+
+Установщик загружает модуль `tcp_bbr` и разрешает выбирать BBR без root
+(`/etc/sysctl.d/90-marvia-bbr.conf`); `BBR=0` перед `sh` это отключает. Где
+BBR нет, нода пишет об этом в журнал один раз и работает на стандартном.
+На ноде, поставленной раньше, то же самое — одна команда на сервере ноды
+от root:
+
+```bash
+modprobe tcp_bbr && echo tcp_bbr >/etc/modules-load.d/marvia-bbr.conf && { grep -qw bbr /proc/sys/net/ipv4/tcp_allowed_congestion_control || printf 'net.ipv4.tcp_allowed_congestion_control = %s bbr\n' "$(cat /proc/sys/net/ipv4/tcp_allowed_congestion_control)" >/etc/sysctl.d/90-marvia-bbr.conf; } && sysctl -q --system && systemctl restart marvia-node
+```
+
+Замера на живом маршруте с BBR пока нет; прирост здесь не обещается.
+
 ## Переезд с Marzban и 3x-ui
 
 Покупатели переезжают со своим: UUID VLESS, паролем Trojan, сроком,

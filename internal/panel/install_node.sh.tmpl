@@ -13,6 +13,7 @@
 #   SNI=www.example.com,img.example.com — имена в SNI (по умолчанию — хост из DEST)
 #   SHORT_IDS=a1b2c3d4,0f — короткие идентификаторы REALITY (по умолчанию — один случайный)
 #   REALITY_KEY=… REALITY_PUB=… — готовая пара ключей REALITY вместо новой
+#   BBR=0 — не разрешать ноде BBR (см. «ускорение» ниже)
 #
 # Последние три нужны при переезде с Marzban или 3x-ui на тот же сервер: с
 # прежними ключами прежние ссылки покупателей продолжают работать. Строку
@@ -275,6 +276,31 @@ fi
 
 id -u marvia >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin marvia
 chown -R marvia:marvia "$DIR"
+
+# ---------------------------------------------------------------- ускорение
+#
+# Нода просит для своих соединений BBR вместо стандартного CUBIC: на дальнем
+# маршруте с потерями CUBIC на каждую потерю вдвое сбавляет скорость, BBR
+# держит её по измеренной полосе. Системный алгоритм по умолчанию не трогаем —
+# остальные службы сервера живут как жили. Только загружаем модуль и
+# разрешаем выбрать BBR без root: нода работает от marvia.
+if [ "${BBR:-1}" != 0 ]; then
+	modprobe tcp_bbr 2>/dev/null || true
+	if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null; then
+		echo tcp_bbr >/etc/modules-load.d/marvia-bbr.conf
+		allowed=$(cat /proc/sys/net/ipv4/tcp_allowed_congestion_control 2>/dev/null || echo 'reno cubic')
+		case " $allowed " in
+		*" bbr "*) ;;
+		*)
+			printf 'net.ipv4.tcp_allowed_congestion_control = %s bbr\n' "$allowed" >/etc/sysctl.d/90-marvia-bbr.conf
+			sysctl -q -p /etc/sysctl.d/90-marvia-bbr.conf >/dev/null 2>&1 || true
+			;;
+		esac
+		done_ 'BBR разрешён для соединений ноды'
+	else
+		note 'BBR в этом ядре нет — нода будет на стандартном алгоритме'
+	fi
+fi
 
 cat >/etc/systemd/system/marvia-node.service <<UNITEOF
 [Unit]

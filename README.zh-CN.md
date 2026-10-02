@@ -94,7 +94,7 @@ VP1 不兼容 WireGuard 或 Xray 客户端。
 
 | 客户端 | 服务器 |
 |---|---|
-| Android：支持 Marvia 和第三方密钥、节点选择、用量统计及 VPN 设置 | 面板与节点：限额、流量统计、备份和机器人 API |
+| Android：支持 Marvia 和第三方密钥、节点选择、用量统计及 VPN 设置 | 面板与节点：限额、流量统计、备份、机器人 API，以及从 Marzban 和 3x-ui 迁移 |
 | Windows：TUN 客户端 | VP1、VLESS 和 Trojan；经过校验的节点更新 |
 
 手动选择节点后，客户端无需等待所有其他节点测速；若所选节点不可用，再检查备用节点。
@@ -108,8 +108,8 @@ VP1 不兼容 WireGuard 或 Xray 客户端。
 | [Remnawave](https://docs.rw/) | Xray 面板和节点 | Mihomo/sing-box 模板、设备控制 |
 | [3x-ui](https://docs.sanaei.dev/docs/) | Xray 面板 | 协议和管理功能较丰富 |
 
-Marvia 尚缺少每月自动重置额度、保留原有链接的用户迁移，以及
-Clash/sing-box 订阅格式。功能比较以表中的项目文档为依据；目前没有
+Marvia 尚缺少每月自动重置额度和 Clash/sing-box 订阅格式。从 Marzban 和 3x-ui
+迁移时，用户保留原有密钥和订阅地址——[迁移时会有哪些变化（俄语）](docs/guide.md#переезд-с-marzban-и-3x-ui)。功能比较以表中的项目文档为依据；目前没有
 同等条件下的竞品速度排名。
 
 ## 开始使用
@@ -142,7 +142,8 @@ sudo sh install-panel.sh --domain panel.example.com --email you@example.com --po
 
 - Google Play：新版实体设备验证、声明及测试。
   [发布计划（俄语）](docs/google-play.md)。
-- 每月自动重置额度；保留原有链接的用户迁移。
+- 每月自动重置额度。从 Marzban 和 3x-ui 迁移时，VMess、Shadowsocks、
+  Vision 链接以及 MySQL 和 PostgreSQL 数据库不会迁移。
 - iOS、Clash/sing-box 订阅、TUIC、Shadowsocks 插件，以及共享密钥时
   单独撤销设备。
 

@@ -97,7 +97,7 @@ VP1 is not compatible with WireGuard or Xray clients.
 
 | Client | Server |
 |---|---|
-| Android: Marvia and third-party keys, node selection, usage and VPN settings | Panel and nodes: limits, accounting, backups and bot API |
+| Android: Marvia and third-party keys, node selection, usage and VPN settings | Panel and nodes: limits, accounting, backups, bot API, migration from Marzban and 3x-ui |
 | Windows: TUN client | VP1, VLESS and Trojan; verified node updates |
 
 Manually selected nodes connect without waiting for measurements of every
@@ -112,8 +112,9 @@ other node. If the selected node is unavailable, the client checks fallbacks.
 | [Remnawave](https://docs.rw/) | Xray panel and nodes | Mihomo/sing-box templates, device controls |
 | [3x-ui](https://docs.sanaei.dev/docs/) | Xray panel | Broad protocol and administration support |
 
-Marvia still lacks automatic monthly quota resets, buyer migration that keeps
-links intact, and Clash/sing-box subscriptions. The linked project documentation
+Marvia still lacks automatic monthly quota resets and Clash/sing-box
+subscriptions. Buyers move from Marzban and 3x-ui with their existing keys and
+subscription addresses â [what changes on the way (Russian)](docs/guide.md#Ð¿ÐµÑÐµÐµÐ·Ð´-Ñ-marzban-Ð¸-3x-ui). The linked project documentation
 supports the feature comparison; no matched speed ranking is available.
 
 ## Get started
@@ -148,7 +149,8 @@ client in the panel. [Full guide (Russian)](docs/guide.md) · [Bot API](docs/bot
 
 - Google Play: physical-device verification, declarations
   and testing. [Publication plan (Russian)](docs/google-play.md).
-- Monthly quota resets and buyer migration with stable links.
+- Monthly quota resets. Migration from Marzban and 3x-ui does not carry over VMess,
+  Shadowsocks, Vision links, or MySQL and PostgreSQL databases.
 - iOS, Clash/sing-box subscriptions, TUIC, Shadowsocks plugins, and per-device
   revocation when a key is shared.
 

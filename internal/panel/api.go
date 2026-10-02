@@ -125,6 +125,14 @@ func (a *API) Handler() http.Handler {
 	// Российские подсети для байпаса. По токену подписки: список не секрет, но
 	// и раздавать его всему интернету с домена продавца незачем.
 	mux.HandleFunc("GET /sub/{token}/bypass", a.bypassRoutes)
+
+	// Подписка по пути прежней панели, если он был не /sub/. Все пути выше
+	// конкретнее этого шаблона и выигрывают у него сами.
+	//
+	// Без метода в шаблоне — намеренно. С «GET» маршрутизатор отвечал бы на
+	// POST по любому пути из двух частей 405 вместо 404, и сканер отличал бы
+	// панель по этой мелочи. Метод проверяет сам обработчик.
+	mux.HandleFunc("/{prefix}/{token}", a.legacySubscription)
 	mux.HandleFunc("GET /api/v1/apps", a.scoped(ScopeRead, a.listApps))
 	mux.HandleFunc("GET /api/v1/stats", a.scoped(ScopeRead, a.stats))
 
@@ -821,14 +829,44 @@ func (a *API) nodeUsage(w http.ResponseWriter, r *http.Request, n Node) {
 // окончания. Мелочь, но именно её продавцу приходится объяснять покупателям
 // голосом, если её нет.
 func (a *API) subscription(w http.ResponseWriter, r *http.Request) {
-	user, err := a.store.UserBySubToken(r.Context(), r.PathValue("token"))
+	token := r.PathValue("token")
+	user, err := a.store.UserBySubToken(r.Context(), token)
+	if errors.Is(err, ErrNotFound) {
+		// Покупатель, переехавший с Marzban или 3x-ui, приходит со старым
+		// адресом: его приложение обновляет подписку само и про переезд не
+		// знает. Путь /sub/ у обеих панелей тот же, что у нас.
+		user, err = a.store.UserByLegacySubToken(r.Context(), token)
+	}
 	if err != nil {
 		// Не подсказываем, существует ли токен: перебор подписок — обычное
 		// занятие тех, кто ищет чужие ноды.
 		http.NotFound(w, r)
 		return
 	}
+	a.serveSubscription(w, r, user)
+}
 
+// legacySubscription отдаёт подписку по пути прежней панели, когда он был не
+// /sub/: у 3x-ui его часто делают случайным. Любой другой путь — 404, как и
+// раньше.
+func (a *API) legacySubscription(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.NotFound(w, r)
+		return
+	}
+	if !a.store.IsLegacySubPath(r.Context(), r.PathValue("prefix")) {
+		http.NotFound(w, r)
+		return
+	}
+	user, err := a.store.UserByLegacySubToken(r.Context(), r.PathValue("token"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	a.serveSubscription(w, r, user)
+}
+
+func (a *API) serveSubscription(w http.ResponseWriter, r *http.Request, user User) {
 	nodes, err := a.store.ListNodes(r.Context())
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())

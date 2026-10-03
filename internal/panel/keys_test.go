@@ -2,6 +2,7 @@ package panel_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -234,5 +235,58 @@ func TestBotKeyIsRefusedNotLoggedOut(t *testing.T) {
 	}
 	if code, _ := do(t, srv, http.MethodGet, "/api/v1/keys", "чужой", ""); code != http.StatusUnauthorized {
 		t.Fatalf("чужой токен: код %d", code)
+	}
+}
+
+// TestReadOnlyKeyDoesNotSeeBuyerSecrets — право read означает «смотреть»,
+// а не «пользоваться чужим доступом».
+//
+// По токену подписки отдаются ссылки vless и trojan вместе с секретами, а
+// секрет vless или trojan сам по себе пускает на ноду. Ключ для доски с
+// показателями или для второго человека, который видел их в списке
+// покупателей, получал бы доступ всех покупателей разом — ровно то, что
+// для бота закрыто отдельным правом users.
+func TestReadOnlyKeyDoesNotSeeBuyerSecrets(t *testing.T) {
+	h := newHarness(t)
+	created := h.createUser(0, panel.CredVP1, panel.CredVLESS, panel.CredTrojan)
+
+	secrets := []string{created.User.SubToken, created.secretOf(panel.CredVLESS), created.secretOf(panel.CredTrojan)}
+	for _, s := range secrets {
+		if s == "" {
+			t.Fatal("у покупателя не выдан один из секретов, проверять нечего")
+		}
+	}
+
+	for _, scopes := range [][]string{{"read"}, {"nodes"}} {
+		var issued struct {
+			Secret string `json:"secret"`
+		}
+		if code := h.do("POST", "/api/v1/keys", adminToken, map[string]any{"name": "доска", "scopes": scopes}, &issued); code != http.StatusOK {
+			t.Fatalf("выпуск ключа: %d", code)
+		}
+		for _, path := range []string{"/api/v1/users", fmt.Sprintf("/api/v1/users/%d", created.User.ID)} {
+			code, body := h.raw("GET", path, issued.Secret)
+			if code != http.StatusOK {
+				t.Fatalf("%v %s: код %d, смотреть ключ всё ещё должен", scopes, path, code)
+			}
+			for _, s := range secrets {
+				if strings.Contains(body, s) {
+					t.Fatalf("ключ с правами %v увидел в %s секрет покупателя", scopes, path)
+				}
+			}
+		}
+	}
+
+	// Бот с правом users и сам продавец видят всё как раньше: им выдавать
+	// ссылки заново.
+	var full struct {
+		Secret string `json:"secret"`
+	}
+	h.do("POST", "/api/v1/keys", adminToken, map[string]any{"name": "бот", "scopes": []string{"users"}}, &full)
+	for _, token := range []string{adminToken, full.Secret} {
+		_, body := h.raw("GET", fmt.Sprintf("/api/v1/users/%d", created.User.ID), token)
+		if !strings.Contains(body, created.User.SubToken) || !strings.Contains(body, created.secretOf(panel.CredVLESS)) {
+			t.Fatal("тот, кому положено, перестал видеть токен подписки и секреты")
+		}
 	}
 }

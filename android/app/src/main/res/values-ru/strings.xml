@@ -112,6 +112,9 @@
     <string name="key_title">Ключ доступа</string>
     <string name="key_hint_short">marvia://, vless://, адрес подписки…</string>
     <string name="key_paste">Вставить</string>
+    <string name="key_qr">QR</string>
+    <string name="key_qr_description">Прочитать ключ с картинки QR-кода</string>
+    <string name="key_qr_missing">На картинке не нашлось QR-кода с ключом</string>
     <string name="key_footer">Ключ хранится только на этом телефоне: мы его не видим и восстановить не сможем.</string>
     <string name="key_clipboard_empty">В буфере обмена нет ссылки</string>
     <string name="key_saved">Ключ сохранён</string>

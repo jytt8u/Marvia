@@ -136,6 +136,9 @@
     <string name="key_title">Access key</string>
     <string name="key_hint_short">marvia://, vless://, subscription URL…</string>
     <string name="key_paste">Paste</string>
+    <string name="key_qr">QR</string>
+    <string name="key_qr_description">Read the key from a QR code picture</string>
+    <string name="key_qr_missing">No QR code with a key found in this picture</string>
     <string name="key_footer">The key lives on this phone only: we do not see it and cannot bring it back.</string>
     <string name="key_clipboard_empty">There is no link in the clipboard</string>
     <string name="key_saved">Key saved</string>

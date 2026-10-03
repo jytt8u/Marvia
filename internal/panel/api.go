@@ -173,7 +173,7 @@ func (a *API) scoped(scope string, next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if TokensEqual(token, a.adminToken) {
-			next(w, withActor(r, ActorAdmin))
+			next(w, withSecrets(withActor(r, ActorAdmin), true))
 			return
 		}
 
@@ -192,7 +192,7 @@ func (a *API) scoped(scope string, next http.HandlerFunc) http.HandlerFunc {
 		// Имя ключа, а не сам ключ: по журналу должно быть видно, чей бот
 		// наделал дел, и при этом журнал не должен становиться местом,
 		// откуда утекают токены.
-		next(w, withActor(r, key.Name))
+		next(w, withSecrets(withActor(r, key.Name), key.Allows(ScopeUsers)))
 	}
 }
 
@@ -253,7 +253,7 @@ func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {
 			respondStoreErr(w, err)
 			return
 		}
-		ok(w, map[string]any{"users": []User{user}})
+		ok(w, map[string]any{"users": visible(r, []User{user})})
 		return
 	}
 
@@ -262,7 +262,7 @@ func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ok(w, map[string]any{"users": list})
+	ok(w, map[string]any{"users": visible(r, list)})
 }
 
 func (a *API) createUser(w http.ResponseWriter, r *http.Request) {
@@ -399,7 +399,7 @@ func (a *API) getUser(w http.ResponseWriter, r *http.Request) {
 		respondStoreErr(w, err)
 		return
 	}
-	ok(w, map[string]any{"user": user})
+	ok(w, map[string]any{"user": visible(r, []User{user})[0]})
 }
 
 func (a *API) updateUser(w http.ResponseWriter, r *http.Request) {
@@ -1410,6 +1410,54 @@ var actorKey actorKeyType
 // withActor помечает запрос тем, кто его сделал: админ или имя ключа бота.
 func withActor(r *http.Request, actor string) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), actorKey, actor))
+}
+
+// secretsKeyType — может ли тот, кто спрашивает, видеть секреты покупателей.
+type secretsKeyType struct{}
+
+var secretsKey secretsKeyType
+
+// withSecrets помечает запрос правом видеть токены подписок и секреты vless
+// с trojan. Это право users: кто может выдать покупателю доступ, тот может и
+// посмотреть выданный.
+func withSecrets(r *http.Request, allowed bool) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), secretsKey, allowed))
+}
+
+// visible прячет секреты покупателей от тех, кому положено только смотреть.
+//
+// Право read раздают доске с показателями и второму человеку — тем, кому
+// менять ничего не надо. А токен подписки и секрет vless или trojan — это
+// сам доступ: по токену отдаются ссылки с секретами, по секрету пускает
+// нода. Без этого ключ «только смотреть» уносил бы доступ всех покупателей
+// разом, хотя ссылки (GET /users/{id}/links) ему закрыты правом users.
+//
+// Публичный ключ vp1 остаётся: секретом он не является, а страница по нему
+// отличает наборы друг от друга.
+//
+// Нет пометки — значит запрос пришёл мимо scoped, и считаем его чужим:
+// показать лишнее хуже, чем не показать.
+func visible(r *http.Request, list []User) []User {
+	if allowed, _ := r.Context().Value(secretsKey).(bool); allowed {
+		return list
+	}
+	out := make([]User, len(list))
+	for i, u := range list {
+		u.SubToken = ""
+		creds := make([]Credential, len(u.Credentials))
+		for j, c := range u.Credentials {
+			if c.Kind != CredVP1 {
+				c.Secret = ""
+			}
+			creds[j] = c
+		}
+		if u.Credentials == nil {
+			creds = nil
+		}
+		u.Credentials = creds
+		out[i] = u
+	}
+	return out
 }
 
 // actorOf достаёт того, кто действует. Пусто не бывает у ручек, закрытых

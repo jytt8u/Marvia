@@ -1064,3 +1064,23 @@ func TestSubscriptionCarriesTheNamePool(t *testing.T) {
 		}
 	}
 }
+
+// raw отдаёт ответ панели как есть: тесту на утечку надо видеть всё тело,
+// а не то, что из него разобралось в известные поля.
+func (h *harness) raw(method, path, token string) (int, string) {
+	h.t.Helper()
+	req, err := http.NewRequest(method, h.server.URL+path, nil)
+	if err != nil {
+		h.t.Fatalf("запрос: %v", err)
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := h.server.Client().Do(req)
+	if err != nil {
+		h.t.Fatalf("%s %s: %v", method, path, err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(body)
+}

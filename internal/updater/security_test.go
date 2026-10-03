@@ -61,8 +61,8 @@ func TestFailedServiceStartRestoresBinaryAndDatabase(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			script := "set -eu\nPANEL_DIR=./panel\nPANEL_DB_COPY=''\ntmp=./fresh\n" +
-				extract("installed_version") + extract("backup_panel_db") + extract("restore_panel_db") + extract("swap") + `
+			script := "set -eu\nPANEL_DIR=./panel\nBACKUP_DIR=./backups\nPANEL_DB_COPY=''\ntmp=./fresh\n" +
+				extract("installed_version") + extract("as_owner") + extract("backup_panel_db") + extract("restore_panel_db") + extract("swap") + `
 say() { :; }
 ok() { :; }
 bad() { :; }
@@ -92,6 +92,11 @@ swap marvia-panel ./panel marvia-panel backup_panel_db
 			if out, err := cmd.CombinedOutput(); err == nil {
 				t.Fatalf("сбой не замечен: %s", out)
 			}
+			// Сценарий должен упасть на откате, а не раньше: иначе файлы
+			// «восстановлены» просто потому, что до подмены дело не дошло.
+			if _, err := os.Stat(filepath.Join(dir, "started")); err != nil {
+				t.Fatal("до запуска новой версии сценарий не дошёл")
+			}
 			for _, name := range []string{"panel/marvia-panel", "panel/panel.db", "panel/panel.db-wal"} {
 				value, err := os.ReadFile(filepath.Join(dir, name))
 				if err != nil || string(value) != files[name] {
@@ -102,6 +107,95 @@ swap marvia-panel ./panel marvia-panel backup_panel_db
 				t.Fatal("исполнен прежний бинарник от root")
 			}
 		})
+	}
+}
+
+// upgradeFunctions вырезает из upgrade.sh функции по именам, чтобы проверять
+// их по отдельности, без systemd и root.
+func upgradeFunctions(t *testing.T, names ...string) string {
+	t.Helper()
+	raw, err := os.ReadFile("../../scripts/upgrade.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(raw)
+	var out strings.Builder
+	for _, name := range names {
+		start := strings.Index(s, name+"() {")
+		if start < 0 {
+			t.Fatalf("нет функции %s", name)
+		}
+		end := strings.Index(s[start:], "\n}")
+		if end < 0 {
+			t.Fatalf("нет конца функции %s", name)
+		}
+		out.WriteString(s[start:start+end+2] + "\n")
+	}
+	return out.String()
+}
+
+// Каталог панели принадлежит её службе, а обновление идёт от root. Служба,
+// которую взломали, заранее кладёт ссылки на имена, по которым root будет
+// писать: на копию базы перед обновлением и на саму базу перед откатом.
+func TestUpgradeDoesNotWriteThroughLinksPlantedByService(t *testing.T) {
+	dir := t.TempDir()
+	for _, child := range []string{"panel", "outside"} {
+		if err := os.Mkdir(filepath.Join(dir, child), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	files := map[string]string{
+		"panel/panel.db": "old-database", "panel/panel.db-wal": "old-wal",
+		"outside/backup-target": "untouched", "outside/restore-target": "untouched",
+	}
+	for name, value := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(value), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Имя копии предсказуемо до секунды; date в проверке подменён, так что
+	// ссылка ложится ровно туда, куда раньше писал root.
+	planted := filepath.Join(dir, "panel", "panel.db.before-upgrade.20261004-120000")
+	if err := os.Symlink(filepath.Join(dir, "outside", "backup-target"), planted); err != nil {
+		t.Skipf("ссылки здесь не создать: %v", err)
+	}
+
+	script := "set -eu\nPANEL_DIR=./panel\nBACKUP_DIR=./backups\nPANEL_DB_COPY=''\n" +
+		upgradeFunctions(t, "as_owner", "backup_panel_db", "restore_panel_db") + `
+say() { :; }
+ok() { :; }
+die() { exit 1; }
+date() { echo 20261004-120000; }
+backup_panel_db
+# Новая версия «испортила» базу, а служба успела подменить её ссылкой.
+rm -f panel/panel.db panel/panel.db-wal
+ln -s "$PWD/outside/restore-target" panel/panel.db
+restore_panel_db
+`
+	if err := os.WriteFile(filepath.Join(dir, "check.sh"), []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(shellForTest(t), "check.sh")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("сценарий упал: %v\n%s", err, out)
+	}
+
+	for _, name := range []string{"outside/backup-target", "outside/restore-target"} {
+		value, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil || string(value) != "untouched" {
+			t.Fatalf("root записал через подложенную ссылку в %s: %q %v", name, value, err)
+		}
+	}
+	info, err := os.Lstat(filepath.Join(dir, "panel", "panel.db"))
+	if err != nil || info.Mode()&os.ModeSymlink != 0 {
+		t.Fatalf("на месте базы осталась ссылка: %v", err)
+	}
+	for name, want := range map[string]string{"panel/panel.db": "old-database", "panel/panel.db-wal": "old-wal"} {
+		value, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil || string(value) != want {
+			t.Fatalf("не восстановлен %s: %q %v", name, value, err)
+		}
 	}
 }
 

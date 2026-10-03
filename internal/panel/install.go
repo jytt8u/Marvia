@@ -55,14 +55,29 @@ func (a *API) installScript(w http.ResponseWriter, r *http.Request) {
 		base = "https://" + r.Host
 	}
 
-	var out bytes.Buffer
-	if err := installNodeTmpl.Execute(&out, installParams{Panel: base, Token: token}); err != nil {
+	out, err := renderInstall(base, token)
+	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
-	_, _ = w.Write(out.Bytes())
+	_, _ = w.Write(out)
+}
+
+// renderInstall подставляет адрес панели и приглашение в установщик.
+//
+// Оба значения стоят в шаблоне внутри одинарных кавычек, и кавычку в самих
+// значениях закрываем по правилам shell. Адрес без -sub-base берётся из
+// заголовка Host, а в нём одинарная кавычка допустима: без этого строка
+// установщика обрывалась бы на ней, и остаток шёл бы командой от root.
+func renderInstall(base, token string) ([]byte, error) {
+	quote := func(s string) string { return strings.ReplaceAll(s, "'", `'\''`) }
+	var out bytes.Buffer
+	if err := installNodeTmpl.Execute(&out, installParams{Panel: quote(base), Token: quote(token)}); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
 }
 
 // installBinary отдаёт бинарник ноды по тому же приглашению.

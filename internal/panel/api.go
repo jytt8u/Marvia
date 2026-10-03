@@ -792,6 +792,9 @@ func (a *API) nodeUsers(w http.ResponseWriter, r *http.Request, n Node) {
 	ok(w, map[string]any{"users": list, "upgrade_to": n.UpgradeTo})
 }
 
+// maxCoverNames — сколько имён прикрытия панель принимает от ноды за раз.
+const maxCoverNames = 16
+
 func (a *API) nodeUsage(w http.ResponseWriter, r *http.Request, n Node) {
 	var body struct {
 		Usage map[string]users.Usage `json:"usage"`
@@ -820,8 +823,20 @@ func (a *API) nodeUsage(w http.ResponseWriter, r *http.Request, n Node) {
 
 	// Пишем, только когда список и правда изменился: отчёт приходит каждые
 	// несколько секунд, и запись на каждый из них ни к чему.
-	if !sameNames(n.SNIExtra, body.SNIExtra, n.SNI) {
-		names := body.SNIExtra
+	// Список уходит в подписку каждого покупателя, а присылает его нода — то
+	// есть кто угодно с её токеном. Режем до разумного: имя в DNS не длиннее
+	// 253 знаков, а живой ноде хватает пары десятков имён.
+	var reported []string
+	for _, name := range body.SNIExtra {
+		if len(reported) == maxCoverNames {
+			break
+		}
+		if len(name) <= 253 {
+			reported = append(reported, name)
+		}
+	}
+	if !sameNames(n.SNIExtra, reported, n.SNI) {
+		names := reported
 		if _, err := a.store.UpdateNode(r.Context(), n.ID, UpdateNodeParams{SNIExtra: &names}); err != nil {
 			log.Printf("имена прикрытия ноды %d не сохранились: %v", n.ID, err)
 		}

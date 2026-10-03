@@ -103,3 +103,17 @@ func TestErrorsCarryNoTarget(t *testing.T) {
 		}
 	}
 }
+
+// На ноде только с IPv6 IPv4-сайты доступны через NAT64: адрес вида
+// 64:ff9b::a.b.c.d. Внутренний IPv4, завёрнутый так, остаётся внутренним, а
+// обычные сайты через NAT64 открыты — иначе такая нода не работала бы вовсе.
+func TestPrivateAddressBehindNAT64IsStillClosed(t *testing.T) {
+	for _, s := range []string{"64:ff9b::7f00:1", "64:ff9b::a00:1", "64:ff9b::a9fe:a9fe", "64:ff9b:1::1"} {
+		if !egress.Forbidden(netip.MustParseAddr(s)) {
+			t.Errorf("%s должен быть закрыт", s)
+		}
+	}
+	if egress.Forbidden(netip.MustParseAddr("64:ff9b::101:101")) {
+		t.Error("64:ff9b::1.1.1.1 должен быть открыт")
+	}
+}

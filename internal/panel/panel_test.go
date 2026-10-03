@@ -854,6 +854,39 @@ func TestOneReporterCannotBuryNode(t *testing.T) {
 	}
 }
 
+// TestOneReporterCannotLiftNodeToTop — та же защита, с другой стороны.
+//
+// Жалобы одного подписчика ноду не топят — а его похвала поднимала её
+// наверх: медиана из одного замера и есть этот замер. Вредитель с одной
+// подпиской сообщал «1 мс» о заблокированной ноде, и все чужие приложения,
+// которые берут первую строку подписки, шли в неё. Задержка двигает ноду
+// только тогда же, когда и жалобы: от трёх разных подписчиков.
+func TestOneReporterCannotLiftNodeToTop(t *testing.T) {
+	h := newHarness(t)
+	first := h.createNode("first")
+	second := h.createNode("second")
+	third := h.createNode("third")
+
+	saboteur := h.createUser(0)
+	if code := h.reportNode(saboteur.User.SubToken, third.Node.ID, true, 1); code != http.StatusNoContent {
+		t.Fatalf("отчёт: код %d", code)
+	}
+	watcher := h.createUser(0)
+	if order := h.subscriptionOrder(watcher.User.SubToken); strings.Join(order, ",") != "first,second,third" {
+		t.Fatalf("один подписчик переставил ноды: %v", order)
+	}
+
+	// Трое разных — уже показание, и быстрая нода встаёт выше медленной.
+	for i := 0; i < 3; i++ {
+		reporter := h.createUser(0)
+		h.reportNode(reporter.User.SubToken, first.Node.ID, true, 300)
+		h.reportNode(reporter.User.SubToken, second.Node.ID, true, 30)
+	}
+	if order := h.subscriptionOrder(watcher.User.SubToken); len(order) < 2 || order[0] != "second" || order[1] != "first" {
+		t.Fatalf("согласные замеры троих не подняли быструю ноду: %v", order)
+	}
+}
+
 // TestReportsVisibleToSeller: продавец должен узнавать о блокировке из панели,
 // а не из обращений в поддержку.
 func TestReportsVisibleToSeller(t *testing.T) {

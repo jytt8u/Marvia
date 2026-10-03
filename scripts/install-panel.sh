@@ -308,6 +308,10 @@ ACME_EMAIL=''
 # которые панель не может перезаписать.
 id -u marvia >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin marvia
 chown -R marvia:marvia "$DIR"
+# Каталог создан до umask 077 и вышел с правами 755, а база внутри — с
+# правами, которые дала ей служба. В базе токены и секреты покупателей:
+# закрываем сам каталог, чтобы её не читали прочие пользователи сервера.
+chmod 700 "$DIR"
 
 cat > /etc/systemd/system/marvia-panel.service <<UNITEOF
 [Unit]

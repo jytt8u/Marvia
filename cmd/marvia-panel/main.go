@@ -213,7 +213,14 @@ func run(opts options) error {
 		Addr:              opts.listen,
 		Handler:           api.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
-		TLSConfig:         &tls.Config{MinVersion: tls.VersionTLS12},
+		// Тела запросов к панели не больше мегабайта, и минуты на них хватает
+		// с запасом. Без предела медленный клиент держит соединение и
+		// горутину сколько захочет — так панель кладут, не зная ни одного
+		// токена. WriteTimeout не ставим: приложения покупателю отдаются
+		// отсюда же, и на плохом мобильном десятки мегабайт идут дольше.
+		ReadTimeout: time.Minute,
+		IdleTimeout: 2 * time.Minute,
+		TLSConfig:   &tls.Config{MinVersion: tls.VersionTLS12},
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

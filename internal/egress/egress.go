@@ -40,7 +40,17 @@ func ForbiddenPort(port int) bool {
 // а также IPv4, завёрнутый в IPv6, — по нему проверяется вложенный адрес.
 func Forbidden(ip netip.Addr) bool {
 	ip = ip.Unmap()
+	// NAT64 (RFC 6052) несёт IPv4 в последних четырёх байтах, и шлюз
+	// провайдера доставит пакет на этот IPv4 — в том числе на внутренний.
+	// Сам префикс не закрываем: на ноде только с IPv6 без него не открылся
+	// бы ни один IPv4-сайт. Проверяем вложенный адрес.
+	if nat64.Contains(ip) {
+		b := ip.As16()
+		return Forbidden(netip.AddrFrom4([4]byte{b[12], b[13], b[14], b[15]}))
+	}
 	return !ip.IsValid() ||
+		// 64:ff9b:1::/48 — NAT64 для локальных сетей (RFC 8215), наружу не ведёт.
+		nat64Local.Contains(ip) ||
 		ip.IsLoopback() ||
 		ip.IsPrivate() ||
 		ip.IsLinkLocalUnicast() ||
@@ -58,6 +68,9 @@ var (
 	cgnat   = netip.MustParsePrefix("100.64.0.0/10")
 	ietf    = netip.MustParsePrefix("192.0.0.0/24")
 	zeroNet = netip.MustParsePrefix("0.0.0.0/8")
+
+	nat64      = netip.MustParsePrefix("64:ff9b::/96")
+	nat64Local = netip.MustParsePrefix("64:ff9b:1::/48")
 )
 
 // Dial открывает соединение с целью, отказывая закрытым адресам.

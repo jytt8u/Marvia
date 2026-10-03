@@ -305,3 +305,37 @@ func TestNodeTeachesThePanelItsCoverNames(t *testing.T) {
 		t.Fatalf("панель не догнала смену имён: %v", out.Nodes[0].SNIExtra)
 	}
 }
+
+// Нода, у которой украли токен, не должна раздуть подписку всех покупателей
+// тысячей имён прикрытия или одним именем на мегабайт.
+func TestNodeCannotFloodSubscriptionsWithCoverNames(t *testing.T) {
+	h := newHarness(t)
+	node := h.createNode("msk")
+
+	names := []string{strings.Repeat("a", 5000) + ".example"}
+	for i := 0; i < 1000; i++ {
+		names = append(names, "n"+strconv.Itoa(i)+".example")
+	}
+	code := h.do(http.MethodPost, "/api/v1/node/usage", node.Token, map[string]any{
+		"usage": map[string]any{}, "sni_extra": names,
+	}, nil)
+	if code != http.StatusNoContent {
+		t.Fatalf("отчёт ноды: код %d", code)
+	}
+
+	var out struct {
+		Nodes []panel.Node `json:"nodes"`
+	}
+	if code := h.do(http.MethodGet, "/api/v1/nodes", adminToken, nil, &out); code != http.StatusOK || len(out.Nodes) != 1 {
+		t.Fatalf("список нод: код %d", code)
+	}
+	got := out.Nodes[0].SNIExtra
+	if len(got) > 16 {
+		t.Fatalf("панель записала %d имён прикрытия", len(got))
+	}
+	for _, name := range got {
+		if len(name) > 253 {
+			t.Fatalf("панель записала имя длиной %d", len(name))
+		}
+	}
+}

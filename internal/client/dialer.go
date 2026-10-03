@@ -196,12 +196,16 @@ func quicFirst(node Node, serverName string, opts Options, tcp func(context.Cont
 
 // tcpDialer собирает дозвон по TCP — тот, что был до появления QUIC.
 func tcpDialer(node Node, serverName string, opts Options, onConnect func(time.Duration)) (func(context.Context) (net.Conn, error), error) {
+	// Незнакомое имя отпечатка оставляет Chrome: панель могла выучить новое
+	// раньше, чем клиент обновился, и подключиться важнее, чем изобразить.
+	fingerprint, _ := transport.Fingerprint(node.Fingerprint)
 	tlsCfg := transport.ClientConfig{
 		ServerName:         serverName,
 		RootCAs:            opts.RootCAs,
 		InsecureSkipVerify: opts.InsecureSkipVerify,
 		OnConnect:          onConnect,
 		Fragment:           opts.Fragment,
+		Fingerprint:        fingerprint,
 	}
 
 	switch node.Transport() {
@@ -231,11 +235,12 @@ func tcpDialer(node Node, serverName string, opts Options, onConnect func(time.D
 		names := node.serverNames(serverName)
 		return func(ctx context.Context) (net.Conn, error) {
 			return transport.DialReality(ctx, node.Address, transport.RealityDialConfig{
-				ServerName: names[mrand.IntN(len(names))],
-				PublicKey:  pub,
-				ShortID:    node.RealityShortID,
-				OnConnect:  onConnect,
-				Fragment:   opts.Fragment,
+				ServerName:  names[mrand.IntN(len(names))],
+				PublicKey:   pub,
+				ShortID:     node.RealityShortID,
+				OnConnect:   onConnect,
+				Fragment:    opts.Fragment,
+				Fingerprint: fingerprint,
 			})
 		}, nil
 

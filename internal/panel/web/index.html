@@ -205,7 +205,7 @@
   }
   #veil h2 { font-size: 18px; font-weight: 700; }
   #veil label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--dim, #6c8a76); }
-  #veil input[type=text], #veil input[type=number] {
+  #veil input[type=text], #veil input[type=number], #veil select {
     padding: 11px 12px;
     border-radius: 10px;
     border: 1px solid var(--line, #1c2e21);
@@ -1560,6 +1560,17 @@ function nodeSheet(node) {
     field(d.node.country[0], "nd-country", "text", node.country || "", d.node.country[1]),
   ];
 
+  // Отпечаток TLS выбирает продавец, а не клиент. Перебирать его самому
+  // клиенту нельзя: по наблюдениям 2026 года смена отпечатка сразу после
+  // заморозки адреса её удлиняет. Пусто — Chrome, как было до выбора.
+  const fp = el("select", { id: "nd-fp" });
+  for (const name of ["", ...FINGERPRINTS.filter((n) => n !== "chrome")]) {
+    const option = el("option", { value: name, text: name || d.node.fpDefault });
+    if ((node.fingerprint || "").replace("chrome", "") === name) option.setAttribute("selected", "");
+    fp.append(option);
+  }
+  form.push(el("label", { text: d.node.fp[0] }, fp, el("span", { cls: "note", text: d.node.fp[1] })));
+
   // Запасные имена прикрытия — только под REALITY: там ноду подтверждает её
   // ключ, а не сертификат, и в SNI годится любое принимаемое имя. При обычном
   // TLS и за CDN имя обязано совпадать с сертификатом, и поля здесь нет —
@@ -1575,7 +1586,7 @@ function nodeSheet(node) {
 
   sheet(node.name || node.address, facts.concat(form), [
     btn(d.node.save, "go", () => act(async () => {
-      await api("/api/v1/nodes/" + node.id, "PATCH", { name: val("nd-name"), country: val("nd-country") });
+      await api("/api/v1/nodes/" + node.id, "PATCH", { name: val("nd-name"), country: val("nd-country"), fingerprint: val("nd-fp") });
       closeSheet();
       toast(d.node.saved);
       await loadAll();
@@ -1605,6 +1616,9 @@ function nodeSheet(node) {
 // Права намеренно грубые: те же три, что в панели. Права, которые нельзя
 // объяснить одной строкой, продавец раздаёт наугад — а наугад он раздаст все.
 const SCOPES = ["users", "nodes", "read"];
+
+// FINGERPRINTS — те же имена, что panel.Fingerprints; совпадение проверяет тест.
+const FINGERPRINTS = ["chrome", "firefox", "safari", "ios", "android", "edge", "qq", "360"];
 
 function newKeySheet() {
   const d = L();
@@ -2058,6 +2072,8 @@ const TEXTS = {
       name: ["Имя", "Видно покупателю в списке серверов"],
       country: ["Страна", "Тоже видно покупателю; встаёт первой в названии"],
       sniExtra: "Запасные имена прикрытия",
+      fp: ["Отпечаток TLS", "Чьё приветствие изображает клиент. Меняй, только если на ноду массово не подключаются, и не чаще раза в несколько минут"],
+      fpDefault: "chrome — по умолчанию",
       save: "Сохранить", saved: "Сохранено",
       disable: "Выключить", enable: "Включить",
       disabled: "Нода убрана из подписок", enabled: "Нода вернулась в подписки",
@@ -2360,6 +2376,8 @@ const TEXTS = {
       name: ["Name", "The buyer sees it in the server list"],
       country: ["Country", "The buyer sees it too; it comes first in the name"],
       sniExtra: "Spare cover names",
+      fp: ["TLS fingerprint", "Whose hello the client imitates. Change it only if buyers massively fail to connect, and not more often than every few minutes"],
+      fpDefault: "chrome — default",
       save: "Save", saved: "Saved",
       disable: "Disable", enable: "Enable",
       disabled: "Node removed from subscriptions", enabled: "Node is back in subscriptions",

@@ -62,6 +62,11 @@ type Node struct {
 	RealityPublicKey string `json:"reality_public_key,omitempty"`
 	RealityShortID   string `json:"reality_short_id,omitempty"`
 
+	// Fingerprint — чьё TLS-приветствие изображать: chrome, firefox, safari,
+	// ios, android, edge, qq, 360. Пусто или незнакомое имя — Chrome. Выбирает
+	// продавец для каждой ноды; клиент сам его не перебирает, см. panel.Fingerprints.
+	Fingerprint string `json:"fingerprint,omitempty"`
+
 	// QUIC означает, что нода принимает ещё и по UDP на том же порту.
 	//
 	// Это не замена TCP, а вторая дорога. На сети с потерями она заметно

@@ -29,7 +29,7 @@ import (
 // быть на него выписан.
 func nodeQuery(n Node) url.Values {
 	q := url.Values{}
-	q.Set("fp", "chrome")
+	q.Set("fp", fingerprintOf(n))
 
 	if n.WSPath != "" {
 		// Нода за CDN. Адрес в ссылке ведёт на CDN, а не на саму ноду —
@@ -103,7 +103,7 @@ func NodeLink(n Node) string {
 	if n.SNI != "" {
 		q.Set("sni", n.SNI)
 	}
-	q.Set("fp", "chrome")
+	q.Set("fp", fingerprintOf(n))
 
 	return (&url.URL{
 		Scheme:   accountScheme,
@@ -199,3 +199,12 @@ func AccountLink(base, privateKey, subToken, label string, ips []string) string 
 // свой бинарник весь клиентский транспорт ради одной строки. Значение обязано
 // совпадать с client.AccountScheme, и это проверяется тестом.
 const accountScheme = "marvia"
+
+// fingerprintOf — параметр fp для ссылки: выбор продавца или Chrome, как
+// было до выбора. Имена в Fingerprints совпадают с теми, что понимает Xray.
+func fingerprintOf(n Node) string {
+	if n.Fingerprint != "" {
+		return n.Fingerprint
+	}
+	return "chrome"
+}

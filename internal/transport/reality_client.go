@@ -122,6 +122,9 @@ func DialReality(ctx context.Context, addr string, cfg RealityDialConfig) (net.C
 	if err != nil {
 		return nil, err
 	}
+	if err := budget.take(ctx, addr); err != nil {
+		return nil, err
+	}
 
 	dialer := netpath.Dialer()
 	began := time.Now()

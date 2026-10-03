@@ -228,6 +228,69 @@ func probeAll(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Options) 
 	return results
 }
 
+// measureAround меряет ноды, не открывая нового соединения к той, через
+// которую уже идёт туннель.
+//
+// Раньше кнопка «Обновить» звонила и текущей ноде: к двум сессиям туннеля
+// добавлялось третье рукопожатие, а второе нажатие подряд давало четвёртое.
+// Это ровно тот всплеск к одному адресу, за который ТСПУ замораживает его
+// (см. transport/budget.go), — и замерзал как раз рабочий туннель. Текущую
+// ноду незачем мерить заново: отклик у неё есть по живому соединению.
+func measureAround(ctx context.Context, nodes []Node, current *Dialer, key vp1.KeyPair, opts Options) []Measurement {
+	if current == nil || !current.pool.Live() {
+		return MeasureAll(ctx, nodes, key, opts)
+	}
+	cur := current.Node()
+	others := make([]Node, 0, len(nodes))
+	for _, n := range nodes {
+		if !sameNode(n, cur) {
+			others = append(others, n)
+		}
+	}
+	measured := MeasureAll(ctx, others, key, opts)
+
+	out := make([]Measurement, 0, len(nodes))
+	next := 0
+	for _, n := range nodes {
+		if sameNode(n, cur) {
+			out = append(out, current.live(ctx))
+			continue
+		}
+		out = append(out, measured[next])
+		next++
+	}
+	return out
+}
+
+// sameNode — та же ли нода. ID есть не у всех подписок: у чужих и старых он
+// нулевой, и тогда ноду узнаём по адресу и ключу.
+func sameNode(a, b Node) bool {
+	if a.ID != 0 || b.ID != 0 {
+		return a.ID == b.ID
+	}
+	return a.Address == b.Address && a.PublicKey == b.PublicKey
+}
+
+// live — замер текущей ноды по уже открытому туннелю: прежние время
+// подключения и скорость плюс свежий отклик. Неудачный отклик не делает
+// ноду мёртвой — за этим следит сторож, — он только скрывает число.
+func (d *Dialer) live(ctx context.Context) Measurement {
+	m := Measurement{Node: d.Node(), Connect: d.Connect()}
+	if prev := d.measurement.Load(); prev != nil {
+		m = *prev
+		m.dialer = nil
+		m.Err = nil
+	}
+	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	rtt, err := d.pool.Ping(pingCtx)
+	if err != nil {
+		rtt = 0
+	}
+	m.RTT = rtt
+	return m
+}
+
 // MeasureAll меряет все ноды и ничего не оставляет открытым.
 //
 // Нужен экрану выбора страны: человек смотрит, где быстрее, и выбирает сам.

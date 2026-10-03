@@ -71,6 +71,16 @@ func (c ClientConfig) fingerprint() utls.ClientHelloID {
 // браузеров, — это готовый признак для классификатора, и в Иране по нему уже
 // блокировали. uTLS повторяет ClientHello настоящего Chrome байт в байт.
 func Dial(ctx context.Context, addr string, cfg ClientConfig) (net.Conn, error) {
+	if err := budget.take(ctx, addr); err != nil {
+		return nil, err
+	}
+	return dialTLS(ctx, addr, cfg)
+}
+
+// dialTLS — Dial без бюджета рукопожатий. Нужен WebSocket за CDN: там адрес
+// принадлежит CDN, общему для миллионов сайтов, и заморозка конкретной ноды
+// по нему не грозит, а лишнее ожидание грозит.
+func dialTLS(ctx context.Context, addr string, cfg ClientConfig) (net.Conn, error) {
 	if cfg.ServerName == "" {
 		return nil, fmt.Errorf("не задано имя сервера (SNI)")
 	}

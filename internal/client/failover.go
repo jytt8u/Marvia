@@ -299,16 +299,17 @@ func (s *Supervisor) Nodes() []Node {
 func (s *Supervisor) Measure(ctx context.Context) []Measurement {
 	s.mu.Lock()
 	cfg := s.cfg
+	current := s.dialer
 	var nodes []Node
-	if s.dialer != nil {
-		nodes = s.dialer.Subscription().Nodes
+	if current != nil {
+		nodes = current.Subscription().Nodes
 	}
 	s.mu.Unlock()
 
 	if len(nodes) == 0 {
 		return nil
 	}
-	results := MeasureAll(ctx, nodes, cfg.Key, cfg.Dial)
+	results := measureAround(ctx, nodes, current, cfg.Key, cfg.Dial)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.dialer != nil {

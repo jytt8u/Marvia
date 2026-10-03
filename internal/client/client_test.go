@@ -221,6 +221,10 @@ type testNode struct {
 	clientKey vp1.KeyPair
 	opts      client.Options
 
+	// handshakes — сколько соединений нода приняла: по нему видно, не
+	// открыл ли клиент лишнего рукопожатия.
+	handshakes atomic.Int64
+
 	// sampled — сколько байт нода согласилась отдать на замер скорости.
 	// Нужно, чтобы проверить потолок: за эти байты платит продавец.
 	sampled atomic.Int64
@@ -258,6 +262,7 @@ func startTestNode(t *testing.T) *testNode {
 			if err != nil {
 				return
 			}
+			node.handshakes.Add(1)
 			go serveNodeConn(conn, serverKey, guard, &node.sampled)
 		}
 	}()

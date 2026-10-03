@@ -255,6 +255,19 @@ func (p *Pool) Open(ctx context.Context) (net.Conn, error) {
 	return nil, fmt.Errorf("открытие потока: %w", lastErr)
 }
 
+// Live — есть ли сейчас хоть одна открытая сессия. Замер по кнопке смотрит
+// на это, чтобы не открывать к текущей ноде ещё одно соединение.
+func (p *Pool) Live() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, s := range p.sessions {
+		if !s.sess.IsClosed() {
+			return true
+		}
+	}
+	return false
+}
+
 // Close закрывает все сессии.
 func (p *Pool) Close() error {
 	p.mu.Lock()

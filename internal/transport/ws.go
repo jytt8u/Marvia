@@ -265,7 +265,7 @@ func DialWS(ctx context.Context, addr string, cfg WSDialConfig) (net.Conn, error
 			return d.DialContext(ctx, network, addr)
 		},
 		DialTLSContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return Dial(ctx, addr, tlsCfg)
+			return dialTLS(ctx, addr, tlsCfg)
 		},
 		// Соединение туннельное и живёт долго; пул переиспользования здесь
 		// только мешает.

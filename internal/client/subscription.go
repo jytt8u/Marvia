@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jytt8u/marvia/internal/httpguard"
+	"github.com/jytt8u/marvia/internal/seller"
 )
 
 const (
@@ -134,6 +135,36 @@ type Subscription struct {
 	// Apps — что панель выложила для скачивания, по платформам: android,
 	// windows. Версия может быть пустой — тогда сравнивать не с чем.
 	Apps map[string]AppOffer `json:"apps,omitempty"`
+
+	// SupportURL, RenewURL и Announce — куда писать, где продлить и что
+	// продавец хочет сказать всем сразу. Пусто — продавец не задал.
+	//
+	// Панели клиент не доверяет: поля перепроверяются при каждом приёме, и
+	// из сети, и из кэша, — см. distrust. Ссылку приложение отдаёт системе,
+	// и схема, которую панель «забыла» проверить, открылась бы у человека.
+	SupportURL string `json:"support_url,omitempty"`
+	RenewURL   string `json:"renew_url,omitempty"`
+	Announce   string `json:"announce,omitempty"`
+}
+
+// Seller — поддержка, продление и объявление одним значением.
+func (s Subscription) Seller() seller.Info {
+	return seller.Info{SupportURL: s.SupportURL, RenewURL: s.RenewURL, Announce: s.Announce}
+}
+
+// WithSeller кладёт в подписку поддержку, продление и объявление, вычистив
+// их по тем же правилам, что и ответ панели.
+func (s Subscription) WithSeller(info seller.Info) Subscription {
+	info = seller.Clean(info)
+	s.SupportURL, s.RenewURL, s.Announce = info.SupportURL, info.RenewURL, info.Announce
+	return s
+}
+
+// distrust вычищает то, что пришло от панели и пойдёт человеку на экран
+// или в систему: негодные ссылки выбрасываются, из объявления уходят
+// управляющие символы и символы направления письма, длинное обрезается.
+func (s Subscription) distrust() Subscription {
+	return s.WithSeller(s.Seller())
 }
 
 // AppOffer — ссылка на приложение с домена панели и его версия.
@@ -253,7 +284,7 @@ func FetchSubscription(ctx context.Context, subURL string, pinned []netip.Addr) 
 	if len(sub.Nodes) == 0 {
 		return Subscription{}, errors.New("в подписке нет ни одной ноды")
 	}
-	return sub, nil
+	return sub.distrust(), nil
 }
 
 // FetchBypass забирает у панели российские подсети, которые идут мимо туннеля.

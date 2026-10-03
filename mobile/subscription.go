@@ -38,6 +38,22 @@ type SubscriptionView struct {
 	// Stale — список из протухшего кэша: панель не ответила, показываем
 	// вчерашний. Человеку это надо видеть, а не догадываться.
 	Stale bool `json:"stale"`
+
+	// SupportURL, RenewURL, Announce — поддержка, «Продлить» и объявление
+	// продавца; пусто — не задано. Ядро их уже проверило: только https:// и
+	// tg://, текст без управляющих символов и символов направления письма.
+	// Приложению остаётся отдать ссылку системе как есть.
+	SupportURL string `json:"support_url,omitempty"`
+	RenewURL   string `json:"renew_url,omitempty"`
+	Announce   string `json:"announce,omitempty"`
+
+	// Remind — о чём напомнить: "expiry" (RemindValue — дней до конца) или
+	// "traffic" (RemindValue — процентов трафика осталось); пусто — не о
+	// чем. RemindKey приложение запоминает, когда показало, и тот же ключ
+	// второй раз не показывает. Подробности — client.Reminder.
+	Remind      string `json:"remind,omitempty"`
+	RemindValue int64  `json:"remind_value,omitempty"`
+	RemindKey   string `json:"remind_key,omitempty"`
 }
 
 // Subscription отдаёт подписку по ссылке доступа: из свежего кэша, иначе из
@@ -144,12 +160,21 @@ func MeasureNodes(accountLink, cacheDir, settings string) (string, error) {
 }
 
 func viewJSON(sub client.Subscription, fetched time.Time, stale bool) (string, error) {
+	// Напоминание считается на «сейчас», а не на момент, когда список
+	// пришёл: из кэша суточной давности «осталось 3 дня» было бы неправдой.
+	remind := sub.Reminder(time.Now())
 	view := SubscriptionView{
-		Nodes:     make([]NodeView, 0, len(sub.Nodes)),
-		Limit:     sub.TrafficLimit,
-		Left:      sub.Remaining(),
-		FetchedAt: fetched.Unix(),
-		Stale:     stale,
+		Nodes:       make([]NodeView, 0, len(sub.Nodes)),
+		Limit:       sub.TrafficLimit,
+		Left:        sub.Remaining(),
+		FetchedAt:   fetched.Unix(),
+		Stale:       stale,
+		SupportURL:  sub.SupportURL,
+		RenewURL:    sub.RenewURL,
+		Announce:    sub.Announce,
+		Remind:      remind.Kind,
+		RemindValue: remind.Value,
+		RemindKey:   remind.Key,
 	}
 	if until, set := sub.Until(); set {
 		view.Until = until.Local().Format("2006-01-02")

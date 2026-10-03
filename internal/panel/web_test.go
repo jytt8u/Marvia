@@ -138,3 +138,39 @@ func TestDictionaryStaysInsideRenderVals(t *testing.T) {
 		}
 	}
 }
+
+// Каждое поле, которое читает код страницы, на странице есть.
+//
+// Опечатка в id не видна ни при загрузке, ни на пустой панели: getElementById
+// молча отдаёт null, и сохранение падает только у продавца, когда он нажал
+// кнопку. Поле бывает в разметке (id="…"), а бывает собрано кодом окна —
+// через field(…, "id", …) или el(…, { id: "…" }).
+func TestEveryFieldTheCodeReadsExistsOnThePage(t *testing.T) {
+	raw, err := webFS.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	page := string(raw)
+
+	reads := regexp.MustCompile(`(?:getElementById|\bval|\bnum)\("([a-z][\w-]*)"\)`).FindAllStringSubmatch(page, -1)
+	if len(reads) == 0 {
+		t.Fatal("не нашёл ни одного чтения поля — проверка ничего не проверяет")
+	}
+	seen := map[string]bool{}
+	for _, m := range reads {
+		id := m[1]
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		built := regexp.MustCompile(`field\([^,]+, "` + regexp.QuoteMeta(id) + `"|\{ id: "` + regexp.QuoteMeta(id) + `"`)
+		if !strings.Contains(page, `id="`+id+`"`) && !built.MatchString(page) {
+			t.Errorf("код читает поле %q, а на странице его нет", id)
+		}
+	}
+	for _, id := range []string{"sl-support", "sl-renew", "sl-announce"} {
+		if !seen[id] {
+			t.Errorf("поле %q есть на странице, но сохранение его не читает", id)
+		}
+	}
+}

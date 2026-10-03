@@ -453,7 +453,9 @@ func View(sub Subscription) client.Subscription {
 	if !sub.Expire.IsZero() {
 		out.ExpiresAt = sub.Expire.UTC().Format(time.RFC3339)
 	}
-	return out
+	// Поддержка, продление и объявление — те же поля, что у своей подписки:
+	// экрану всё равно, чья панель, кнопка ведёт к тому, кто продал.
+	return out.WithSeller(sub.Seller)
 }
 
 // Close останавливает надзор и движок и ждёт, пока надзор выйдет.

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jytt8u/marvia/internal/httpguard"
+	"github.com/jytt8u/marvia/internal/seller"
 )
 
 // Subscription — чужая подписка: ноды и, если продавец их сообщил, остаток и
@@ -23,6 +24,12 @@ type Subscription struct {
 
 	Upload, Download, Total int64
 	Expire                  time.Time
+
+	// Seller — поддержка, продление и объявление из заголовков чужой
+	// панели (support-url, profile-web-page-url, announce). Правила те же,
+	// что для своей: см. internal/seller. Чужой панели доверия ещё меньше,
+	// чем своей, — её мог поднять кто угодно.
+	Seller seller.Info
 }
 
 // Remaining — сколько трафика осталось; -1 — без ограничения.
@@ -89,31 +96,42 @@ func (s *Subscription) ParseUserinfo(h string) {
 // maxBody — больше подписка не бывает: тысяча нод — это сотни килобайт.
 const maxBody = 4 << 20
 
-// FetchRaw забирает тело чужой подписки и заголовок с остатком — как есть,
-// чтобы их можно было положить в кэш и разобрать потом тем же ParseList.
+// Meta — то из заголовков чужой подписки, что клиент хранит рядом с телом.
+type Meta struct {
+	Userinfo string
+	Seller   seller.Info
+}
+
+// FetchRaw забирает тело чужой подписки и её заголовки: остаток, поддержку,
+// продление, объявление. Тело — как есть, чтобы его можно было положить в
+// кэш и разобрать потом тем же ParseList; заголовки о продавце — уже
+// вычищенными.
 //
 // Представляемся v2rayNG: панели выбирают формат ответа по User-Agent, и на
 // незнакомый многие отдают страницу для браузера, а не список. Ошибка — без
 // адреса: в нём токен подписки, а ошибки уходят в журнал.
-func FetchRaw(ctx context.Context, url string) (body []byte, userinfo string, err error) {
+func FetchRaw(ctx context.Context, url string) (body []byte, meta Meta, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, "", errors.New("адрес подписки не разбирается")
+		return nil, Meta{}, errors.New("адрес подписки не разбирается")
 	}
 	req.Header.Set("User-Agent", "v2rayNG/1.10.0")
 	resp, err := httpguard.SubscriptionClient(http.DefaultClient).Do(req)
 	if err != nil {
-		return nil, "", errors.New("подписка недоступна")
+		return nil, Meta{}, errors.New("подписка недоступна")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("подписка ответила %s", resp.Status)
+		return nil, Meta{}, fmt.Errorf("подписка ответила %s", resp.Status)
 	}
 	body, err = io.ReadAll(io.LimitReader(resp.Body, maxBody))
 	if err != nil {
-		return nil, "", errors.New("подписка оборвалась на полуслове")
+		return nil, Meta{}, errors.New("подписка оборвалась на полуслове")
 	}
-	return body, resp.Header.Get("Subscription-Userinfo"), nil
+	return body, Meta{
+		Userinfo: resp.Header.Get("Subscription-Userinfo"),
+		Seller:   seller.FromHeader(resp.Header),
+	}, nil
 }
 
 // Usable — подписка годится для подключения; иначе — почему нет.

@@ -14,6 +14,7 @@ import (
 
 	"github.com/jytt8u/marvia/internal/look"
 	"github.com/jytt8u/marvia/internal/routes"
+	"github.com/jytt8u/marvia/internal/seller"
 	"github.com/jytt8u/marvia/internal/users"
 )
 
@@ -100,6 +101,15 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/updates/panel", a.admin(a.upgradePanel))
 	mux.HandleFunc("POST /api/v1/updates/nodes", a.admin(a.upgradeNodes))
 	mux.HandleFunc("PUT /api/v1/alerts", a.admin(a.setAlerts))
+
+	// Связь с покупателем: поддержка, «Продлить», объявление. Читать можно
+	// ключом с правом read — бот продавца шлёт покупателю ту же ссылку
+	// продления, а секрета в ней нет: она и так уходит в каждой подписке.
+	// Менять — только админским токеном: эти ссылки ведут покупателей к
+	// деньгам, и утёкший ключ бота не должен уметь подменить страницу оплаты
+	// на чужую у всех покупателей разом.
+	mux.HandleFunc("GET /api/v1/seller", a.scoped(ScopeRead, a.getSeller))
+	mux.HandleFunc("PUT /api/v1/seller", a.admin(a.setSeller))
 
 	// Установка ноды одной командой. Приглашение стоит в адресе, потому что
 	// команду продавец вставляет целиком, не разбираясь в заголовках.
@@ -892,8 +902,20 @@ func (a *API) serveSubscription(w http.ResponseWriter, r *http.Request, user Use
 	w.Header().Set("Subscription-Userinfo", userInfoHeader(user))
 	w.Header().Set("Profile-Update-Interval", "12")
 
+	// Поддержка, «Продлить» и объявление — для чужих приложений заголовками,
+	// для нашего клиента ещё и полями JSON. Не прочиталось — подписка всё
+	// равно уходит: без кнопок жить можно, без нод нельзя.
+	info, err := a.store.SellerInfo(r.Context())
+	if err != nil {
+		log.Printf("настройки связи с покупателем: %v", err)
+	}
+	// Имя профиля — метка доступа: её покупатель и так видит в имени каждой
+	// ноды (см. StockLinks), и в приложении профиль зовётся так же. Пустая
+	// метка — заголовка нет, приложение назовёт профиль по адресу.
+	info.WriteHeader(w.Header(), user.Label)
+
 	if r.URL.Query().Get("format") == "json" {
-		a.subscriptionJSON(w, user, nodes)
+		a.subscriptionJSON(w, user, nodes, info)
 		return
 	}
 
@@ -914,7 +936,7 @@ func (a *API) serveSubscription(w http.ResponseWriter, r *http.Request, user Use
 //
 // Секретов здесь нет и быть не должно: свой ключ клиент получил один раз в
 // ссылке аккаунта, а список нод он обновляет постоянно и по открытому каналу.
-func (a *API) subscriptionJSON(w http.ResponseWriter, user User, nodes []Node) {
+func (a *API) subscriptionJSON(w http.ResponseWriter, user User, nodes []Node, info seller.Info) {
 	// Транспорт передаётся явно: нашему клиенту нужно знать, как именно
 	// подключаться, а разбирать это из ссылки — лишний источник расхождений
 	// между тем, что собрала панель, и тем, что понял клиент.
@@ -972,6 +994,17 @@ func (a *API) subscriptionJSON(w http.ResponseWriter, user User, nodes []Node) {
 	// может не показывать приложение в РФ, а панель раздаёт его молча.
 	if apps := a.appOffers(user.SubToken); apps != nil {
 		answer["apps"] = apps
+	}
+	// Пустые поля не отдаём вовсе: клиент постарше их не знает, а новый
+	// читает отсутствие как «выключено».
+	if info.SupportURL != "" {
+		answer["support_url"] = info.SupportURL
+	}
+	if info.RenewURL != "" {
+		answer["renew_url"] = info.RenewURL
+	}
+	if info.Announce != "" {
+		answer["announce"] = info.Announce
 	}
 	ok(w, answer)
 }

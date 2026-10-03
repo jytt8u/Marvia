@@ -73,3 +73,47 @@ func TestSubscriptionNeverSendsTokenAfterHTTPSDowngrade(t *testing.T) {
 		t.Fatalf("токен ушёл по незашифрованному HTTP: %d запросов", received.Load())
 	}
 }
+
+func TestClientDoesNotTrustSellerLinksFromPanel(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"nodes":[{"id":1,"name":"a","address":"a.example:443","public_key":"x"}],` +
+			`"support_url":"javascript:alert(1)","renew_url":"https://shop.example/renew",` +
+			`"announce":"Продлите‮ moc.live\n сегодня"}`))
+	}))
+	defer srv.Close()
+
+	sub, err := FetchSubscription(context.Background(), srv.URL+"/sub/t", nil)
+	if err != nil {
+		t.Fatalf("подписка: %v", err)
+	}
+	if sub.SupportURL != "" {
+		t.Errorf("ссылка javascript: дошла до клиента: %q", sub.SupportURL)
+	}
+	if sub.RenewURL != "https://shop.example/renew" {
+		t.Errorf("годная ссылка продления потерялась: %q", sub.RenewURL)
+	}
+	if sub.Announce != "Продлите moc.live сегодня" {
+		t.Errorf("объявление не вычищено: %q", sub.Announce)
+	}
+}
+
+func TestCachedSellerLinksAreCheckedAgainOnLoad(t *testing.T) {
+	path := t.TempDir() + "/sub.json"
+	const subURL = "https://panel.example/sub/t"
+	// Так мог записать клиент постарше, который ссылок не проверял.
+	err := SaveCache(path, subURL, Subscription{
+		Nodes:      []Node{{ID: 1, Name: "a", Address: "a.example:443"}},
+		SupportURL: "file:///etc/passwd",
+		Announce:   "⁦скидка⁩",
+	})
+	if err != nil {
+		t.Fatalf("запись кэша: %v", err)
+	}
+	cached, err := LoadCache(path, subURL)
+	if err != nil {
+		t.Fatalf("чтение кэша: %v", err)
+	}
+	if cached.Subscription.SupportURL != "" || cached.Subscription.Announce != "скидка" {
+		t.Fatalf("из кэша пришло непроверенное: %+v", cached.Subscription)
+	}
+}

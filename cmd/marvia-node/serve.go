@@ -92,6 +92,12 @@ func serveVP1(rc *rewind.Conn, meter *metered.Conn, peer net.Addr, d deps) {
 	// к serveCover.
 	tunnel, _, err := vp1.ServerHandshake(rc, d.static, d.guard, authorize)
 	if err != nil {
+		// Ключ проверяется раньше метки времени и повтора, и проверка уже
+		// засчитала соединение и адрес. Сорвалось дальше — повтор записанного
+		// приветствия, сбитые часы, обрыв до ответа — значит засчитанное надо
+		// вернуть: иначе оно висит до перезапуска ноды, и покупатель с
+		// лимитом соединений однажды перестаёт входить совсем.
+		session.Close()
 		serveCover(rc, err, d.fallback)
 		return
 	}

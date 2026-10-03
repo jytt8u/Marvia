@@ -691,6 +691,35 @@
 
               <div style="font-size: 12px; line-height: 1.5; color: var(--dim); border-top: 1px solid var(--line); padding-top: 12px;">{{ d18.alerts.privacy }}</div>
             </div>
+
+            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
+              <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.seller.title }}</div>
+              <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.seller.what }}</div>
+
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .16em; color: var(--dim);">{{ sellerSupportLabel }}</div>
+                <input id="sl-support" type="url" inputmode="url" maxlength="1024" placeholder="https://t.me/…" style="{{ inputStyle }}" />
+                <div style="font-size: 12px; line-height: 1.45; color: var(--dim);">{{ sellerSupportNote }}</div>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .16em; color: var(--dim);">{{ sellerRenewLabel }}</div>
+                <input id="sl-renew" type="url" inputmode="url" maxlength="1024" placeholder="https://…" style="{{ inputStyle }}" />
+                <div style="font-size: 12px; line-height: 1.45; color: var(--dim);">{{ sellerRenewNote }}</div>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .16em; color: var(--dim);">{{ sellerAnnounceLabel }}</div>
+                <input id="sl-announce" type="text" maxlength="300" style="{{ inputStyle }}" />
+                <div style="font-size: 12px; line-height: 1.45; color: var(--dim);">{{ sellerAnnounceNote }}</div>
+              </div>
+
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <div style="{{ ctaStyle }}" onClick="{{ saveSeller }}">{{ d18.seller.save }}</div>
+              </div>
+
+              <div style="font-size: 12px; line-height: 1.5; color: var(--dim); border-top: 1px solid var(--line); padding-top: 12px;">{{ d18.seller.where }}</div>
+            </div>
           </div>
         </sc-if>
 
@@ -1122,6 +1151,13 @@ async function loadAlerts() {
     // их заново, а падать из-за этого панель не должна.
     state.alerts = null;
   }
+  // Связь с покупателем живёт на той же странице: это тоже настройки
+  // продавца, и тоже только для админа.
+  try {
+    state.seller = await api("/api/v1/seller");
+  } catch (_) {
+    state.seller = null;
+  }
   render();
   fillAlerts();
 }
@@ -1135,6 +1171,10 @@ function fillAlerts() {
   on.checked = !!cfg.enabled;
   document.getElementById("al-chat").value = cfg.chat_id || "";
   document.getElementById("al-token").placeholder = cfg.has_token ? L().alerts.tokenSaved : L().alerts.tokenHint;
+  const sl = state.seller || {};
+  document.getElementById("sl-support").value = sl.support_url || "";
+  document.getElementById("sl-renew").value = sl.renew_url || "";
+  document.getElementById("sl-announce").value = sl.announce || "";
 }
 
 async function loadAll() {
@@ -1839,7 +1879,7 @@ const TEXTS = {
     sub: {
       dash: "Обзор за 30 дней",
       keys: "Токены для ботов и интеграций",
-      alerts: "Телеграм-бот · молчащие ноды, сроки, копии базы",
+      alerts: "Оповещения в телеграм · ссылки поддержки и продления",
       journal: "Что делали с панелью · последние 90 дней",
       updates: (latest) => latest ? "Панель и ноды · последний релиз " + latest : "Панель и ноды",
       look: "Тема панели · 28 готовых видов",
@@ -1920,6 +1960,7 @@ const TEXTS = {
         "key.create": "выпущен ключ бота",
         "key.revoke": "отозван ключ бота",
         "alerts.update": "оповещения",
+        "seller.update": "связь с покупателем",
         "panel.upgrade": "обновление панели",
         "nodes.upgrade": "обновление нод",
       },
@@ -1960,6 +2001,16 @@ const TEXTS = {
       save: "Сохранить",
       saved: "Оповещения сохранены",
       privacy: "В сообщениях только числа: «у троих кончается срок», без имён. Переписка с ботом живёт в телеграме, и списком клиентов ей становиться незачем. Пока оповещения выключены, панель наружу не ходит вовсе.",
+    },
+    seller: {
+      title: "Покупателю: поддержка, продление, объявление",
+      what: "Когда кончается срок или пропала связь, покупателю должно быть куда нажать. Пустое поле — выключено.",
+      support: ["ПОДДЕРЖКА", "Куда писать, если не работает. Только https:// или tg://, например https://t.me/твоя_поддержка."],
+      renew: ["ПРОДЛИТЬ", "Страница оплаты или бот, где продлевают. Только https:// или tg://. Платёжного шлюза у панели нет — ссылка ведёт к тебе."],
+      announce: ["ОБЪЯВЛЕНИЕ", "Одна строка для всех, до 300 символов: работы, новости. Happ показывает первые 200."],
+      save: "Сохранить",
+      saved: "Сохранено",
+      where: "Уходит в подписку каждому покупателю. Happ, v2RayTun и Hiddify показывают кнопки и объявление по заголовкам подписки. В приложениях Marvia кнопок пока нет: данные уже доходят, экран — следующей версией.",
     },
     look: {
       title: "Теперь — по-вашему.",
@@ -2145,7 +2196,7 @@ const TEXTS = {
     sub: {
       dash: "Last 30 days",
       keys: "Tokens for bots and integrations",
-      alerts: "Telegram bot · silent nodes, expiries, backups",
+      alerts: "Telegram alerts · support and renewal links",
       journal: "What was done to the panel · last 90 days",
       updates: (latest) => latest ? "Panel and nodes · latest release " + latest : "Panel and nodes",
       look: "Panel theme · 28 ready looks",
@@ -2226,6 +2277,7 @@ const TEXTS = {
         "key.create": "bot key issued",
         "key.revoke": "bot key revoked",
         "alerts.update": "alerts",
+        "seller.update": "customer links",
         "panel.upgrade": "panel upgrade",
         "nodes.upgrade": "nodes upgrade",
       },
@@ -2266,6 +2318,16 @@ const TEXTS = {
       save: "Save",
       saved: "Alerts saved",
       privacy: "Messages carry numbers only: “three are expiring”, no names. The chat with the bot lives in Telegram, and it has no business becoming a customer list. While alerts are off, the panel makes no outbound calls at all.",
+    },
+    seller: {
+      title: "For customers: support, renewal, announcement",
+      what: "When access runs out or something breaks, a customer needs somewhere to tap. An empty field means off.",
+      support: ["SUPPORT", "Where to write when it does not work. Only https:// or tg://, e.g. https://t.me/your_support."],
+      renew: ["RENEW", "Your payment page or bot. Only https:// or tg://. The panel has no payment gateway — the link leads to you."],
+      announce: ["ANNOUNCEMENT", "One line for everyone, up to 300 characters: maintenance, news. Happ shows the first 200."],
+      save: "Save",
+      saved: "Saved",
+      where: "Sent with every customer's subscription. Happ, v2RayTun and Hiddify show the buttons and the announcement from subscription headers. Marvia apps have no buttons yet: the data already arrives, the screen comes in a later version.",
     },
     look: {
       title: "Make it yours.",
@@ -3263,6 +3325,12 @@ function renderVals() {
     alertChatLabel: d18.alerts.chat[0],
     alertChatNote: d18.alerts.chat[1],
     alertTokenHint: (state.alerts && state.alerts.has_token) ? d18.alerts.tokenSaved : d18.alerts.tokenHint,
+    sellerSupportLabel: d18.seller.support[0],
+    sellerSupportNote: d18.seller.support[1],
+    sellerRenewLabel: d18.seller.renew[0],
+    sellerRenewNote: d18.seller.renew[1],
+    sellerAnnounceLabel: d18.seller.announce[0],
+    sellerAnnounceNote: d18.seller.announce[1],
 
     inputStyle: "width:100%;padding:10px 12px;border-radius:" + t.r + "px;background:" + t.surf2
       + ";border:1px solid " + t.line + ";color:" + t.fg + ";font:inherit;font-size:13px;outline:none",
@@ -3278,6 +3346,20 @@ function renderVals() {
       });
       await loadAlerts();
       toast(d.alerts.saved);
+    }),
+
+    // Проверяет панель, а не страница: правила одни с клиентом (internal/
+    // seller), и второй их копии на JavaScript разойтись с первой незачем.
+    // Отказ приходит текстом — act покажет его как есть.
+    saveSeller: () => act(async () => {
+      const d = L();
+      state.seller = await api("/api/v1/seller", "PUT", {
+        support_url: val("sl-support"),
+        renew_url: val("sl-renew"),
+        announce: val("sl-announce"),
+      });
+      fillAlerts();
+      toast(d.seller.saved);
     }),
 
     // Поиск нужен там, где список длинный и растёт. У нод и ключей их

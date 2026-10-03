@@ -118,7 +118,9 @@ func LoadCache(path, subURL string) (CachedSubscription, error) {
 		return CachedSubscription{}, errors.New("в кэше нет ни одной ноды")
 	}
 
-	return CachedSubscription{Subscription: stored.Payload, FetchedAt: stored.FetchedAt}, nil
+	// Кэш — тоже приём: файл мог записать клиент постарше, без проверки
+	// ссылок, а мог и кто-то с доступом к диску.
+	return CachedSubscription{Subscription: stored.Payload.distrust(), FetchedAt: stored.FetchedAt}, nil
 }
 
 // SaveCache сохраняет подписку рядом со ссылкой доступа.

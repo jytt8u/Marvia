@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jytt8u/marvia/internal/seller"
 )
 
 // IsForeign — строка не ключ Marvia, а чужая ссылка ноды или адрес чужой
@@ -45,6 +47,10 @@ type cacheFile struct {
 	FetchedAt int64  `json:"fetched_at"`
 	Userinfo  string `json:"userinfo"`
 	Body      string `json:"body"`
+
+	// Seller — поддержка, продление и объявление. Кэш постарше их не знает,
+	// и тогда кнопок просто нет до следующего похода в панель.
+	Seller seller.Info `json:"seller,omitempty"`
 }
 
 // CachePath — файл кэша чужой подписки в каталоге dir. Имя — от отпечатка
@@ -87,6 +93,9 @@ func Load(link, cachePath string, refresh bool) (sub Subscription, fetched time.
 	fromCache := func() Subscription {
 		s := ParseList([]byte(cached.Body))
 		s.ParseUserinfo(cached.Userinfo)
+		// И из кэша — через чистку: файл мог записать кто угодно с доступом
+		// к диску, а ссылка отсюда уходит системе.
+		s.Seller = seller.Clean(cached.Seller)
 		return s
 	}
 	if !refresh && cached.Body != "" && time.Since(time.Unix(cached.FetchedAt, 0)) < Fresh {
@@ -95,7 +104,7 @@ func Load(link, cachePath string, refresh bool) (sub Subscription, fetched time.
 
 	ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
 	defer cancel()
-	body, userinfo, ferr := FetchRaw(ctx, link)
+	body, meta, ferr := FetchRaw(ctx, link)
 	if ferr != nil {
 		if cached.Body != "" {
 			return fromCache(), time.Unix(cached.FetchedAt, 0), true, nil
@@ -103,7 +112,8 @@ func Load(link, cachePath string, refresh bool) (sub Subscription, fetched time.
 		return Subscription{}, time.Time{}, false, ferr
 	}
 	sub = ParseList(body)
-	sub.ParseUserinfo(userinfo)
+	sub.ParseUserinfo(meta.Userinfo)
+	sub.Seller = meta.Seller
 	if err := sub.Usable(); err != nil {
 		// Панель ответила 200, но не подпиской: заглушка провайдера, страница
 		// входа, формат, которого клиент не знает. Прежний список лучше
@@ -114,7 +124,7 @@ func Load(link, cachePath string, refresh bool) (sub Subscription, fetched time.
 		return sub, time.Time{}, false, err
 	}
 	if cachePath != "" {
-		raw, _ := json.Marshal(cacheFile{FetchedAt: time.Now().Unix(), Userinfo: userinfo, Body: string(body)})
+		raw, _ := json.Marshal(cacheFile{FetchedAt: time.Now().Unix(), Userinfo: meta.Userinfo, Body: string(body), Seller: meta.Seller})
 		// Во временный и переименованием: оборванная запись не должна
 		// оставить кэш, который потом не прочитается.
 		tmp := cachePath + ".tmp"

@@ -97,7 +97,7 @@ VP1 is not compatible with WireGuard or Xray clients.
 
 | Client | Server |
 |---|---|
-| Android: Marvia and third-party keys, node selection, usage and VPN settings | Panel and nodes: limits, accounting, backups, bot API, migration from Marzban and 3x-ui |
+| Android: Marvia and third-party keys, node selection, usage and VPN settings | Panel and nodes: limits, accounting, backups, bot API, migration from Marzban and 3x-ui; support and renew links and an announcement in the subscription for Happ, v2RayTun, Hiddify |
 | Windows: TUN client | VP1, VLESS and Trojan; verified node updates |
 
 Manually selected nodes connect without waiting for measurements of every
@@ -177,6 +177,10 @@ client in the panel. [Full guide (Russian)](docs/guide.md) · [Bot API](docs/bot
   Shadowsocks, Vision links, or MySQL and PostgreSQL databases.
 - iOS, Clash/sing-box subscriptions, TUIC, Shadowsocks plugins, and per-device
   revocation when a key is shared.
+- Support and Renew buttons, the seller's announcement and the expiry reminder
+  in the Marvia apps. The panel already sends them and the client core accepts
+  and checks them, but there are no screens yet — only Happ, v2RayTun and
+  Hiddify show them.
 
 For a future verified 1.x release, the bot API, `marvia://` links and subscription format are intended to
 remain backward compatible throughout 1.x. Marvia does not sell VPN access,

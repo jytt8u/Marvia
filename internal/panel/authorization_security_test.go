@@ -42,6 +42,7 @@ func TestSecurityAdministrativeRoutesRejectOtherCredentialTypes(t *testing.T) {
 		{"GET", "/api/v1/events", nil},
 		{"GET", "/api/v1/alerts", nil},
 		{"PUT", "/api/v1/alerts", map[string]any{"enabled": false}},
+		{"PUT", "/api/v1/seller", map[string]any{"renew_url": "https://evil.example/pay"}},
 		{"POST", "/api/v1/updates/panel", map[string]any{"version": "0.12.0"}},
 		{"POST", "/api/v1/updates/nodes", map[string]any{"version": "0.12.0"}},
 	} {

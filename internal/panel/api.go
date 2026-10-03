@@ -742,6 +742,12 @@ func (a *API) updateNode(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "имя ноды не может быть пустым")
 		return
 	}
+	if p.Fingerprint != nil {
+		if _, err := normalFingerprint(*p.Fingerprint); err != nil {
+			fail(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 
 	node, err := a.store.UpdateNode(r.Context(), id, p)
 	if err != nil {
@@ -933,6 +939,10 @@ func (a *API) subscriptionJSON(w http.ResponseWriter, user User, nodes []Node) {
 		QUIC             bool   `json:"quic,omitempty"`
 		RealityPublicKey string `json:"reality_public_key,omitempty"`
 		RealityShortID   string `json:"reality_short_id,omitempty"`
+
+		// Fingerprint — чьё приветствие изображать. Клиенты постарше поля не
+		// знают и остаются на Chrome, как раньше.
+		Fingerprint string `json:"fingerprint,omitempty"`
 	}
 
 	views := make([]nodeView, 0, len(nodes))
@@ -948,6 +958,7 @@ func (a *API) subscriptionJSON(w http.ResponseWriter, user User, nodes []Node) {
 			QUIC:             n.QUIC,
 			RealityPublicKey: n.RealityPublicKey,
 			RealityShortID:   n.RealityShortID,
+			Fingerprint:      n.Fingerprint,
 		})
 	}
 
@@ -1479,6 +1490,9 @@ func nodeUpdateDetail(p UpdateNodeParams) string {
 	}
 	if p.Address != nil {
 		parts = append(parts, "изменён адрес")
+	}
+	if p.Fingerprint != nil {
+		parts = append(parts, "изменён отпечаток TLS")
 	}
 	// Имена прикрытия нода присылает сама, каждым отчётом. Писать о них в
 	// журнал значило бы забивать его строками, которых человек не делал.

@@ -128,6 +128,10 @@ type Node struct {
 	// первым и молча уходит на TCP там, где UDP режут.
 	QUIC bool `json:"quic,omitempty"`
 
+	// Fingerprint — чьё TLS-приветствие изображает клиент. Пусто — Chrome.
+	// См. fingerprint.go.
+	Fingerprint string `json:"fingerprint,omitempty"`
+
 	Enabled   bool       `json:"enabled"`
 	LastSeen  *time.Time `json:"last_seen,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
@@ -208,6 +212,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     reality_short_id   TEXT NOT NULL DEFAULT '',
     ws_path            TEXT NOT NULL DEFAULT '',
     quic               INTEGER NOT NULL DEFAULT 0,
+    fingerprint        TEXT NOT NULL DEFAULT '',
     token_hash TEXT    NOT NULL UNIQUE,
     enabled    INTEGER NOT NULL DEFAULT 1,
     last_seen  TEXT,
@@ -351,6 +356,7 @@ func migrate(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS events_at ON events(at)`,
 		`CREATE TABLE IF NOT EXISTS presence (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, node_id INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE, conns INTEGER NOT NULL DEFAULT 0, ips INTEGER NOT NULL DEFAULT 0, seen_at TEXT, PRIMARY KEY (user_id, node_id))`,
 		`ALTER TABLE users ADD COLUMN used_before INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE nodes ADD COLUMN fingerprint TEXT NOT NULL DEFAULT ''`,
 		`CREATE TABLE IF NOT EXISTS sub_aliases (kind TEXT NOT NULL, key TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, secret TEXT NOT NULL DEFAULT '', not_before TEXT, PRIMARY KEY (kind, key))`,
 	}
 
@@ -831,7 +837,7 @@ func (s *Store) GetNode(ctx context.Context, id int64) (Node, error) {
 
 func (s *Store) queryNodes(ctx context.Context, where string, args ...any) ([]Node, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, country, address, sni, sni_extra, public_key, reality_public_key, reality_short_id, ws_path, quic, enabled, last_seen, created_at, version, arch, upgrade_to
+		`SELECT id, name, country, address, sni, sni_extra, public_key, reality_public_key, reality_short_id, ws_path, quic, enabled, last_seen, created_at, version, arch, upgrade_to, fingerprint
 		 FROM nodes `+where+` ORDER BY id`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("чтение нод: %w", err)
@@ -850,7 +856,7 @@ func (s *Store) queryNodes(ctx context.Context, where string, args ...any) ([]No
 		)
 		if err := rows.Scan(&n.ID, &n.Name, &n.Country, &n.Address, &n.SNI, &sniExtra, &n.PublicKey,
 			&n.RealityPublicKey, &n.RealityShortID, &n.WSPath, &quicOn, &enabled, &lastSeen, &createdAt,
-			&n.Version, &n.Arch, &n.UpgradeTo); err != nil {
+			&n.Version, &n.Arch, &n.UpgradeTo, &n.Fingerprint); err != nil {
 			return nil, err
 		}
 		n.SNIExtra = splitNames(sniExtra)
@@ -916,6 +922,9 @@ type UpdateNodeParams struct {
 	// ровно тот же набор. Нода про панель здесь ничего не сообщает — она
 	// вообще не знает, кому её раздают.
 	SNIExtra *[]string `json:"sni_extra,omitempty"`
+
+	// Fingerprint — чьё TLS-приветствие изображает клиент; пусто — Chrome.
+	Fingerprint *string `json:"fingerprint,omitempty"`
 }
 
 // UpdateNode меняет заданные поля ноды.
@@ -943,6 +952,14 @@ func (s *Store) UpdateNode(ctx context.Context, id int64, p UpdateNodeParams) (N
 	if p.Enabled != nil {
 		sets = append(sets, "enabled = ?")
 		args = append(args, boolInt(*p.Enabled))
+	}
+	if p.Fingerprint != nil {
+		fp, err := normalFingerprint(*p.Fingerprint)
+		if err != nil {
+			return Node{}, err
+		}
+		sets = append(sets, "fingerprint = ?")
+		args = append(args, fp)
 	}
 	if p.SNIExtra != nil {
 		// Основное имя из набора вычёркиваем: «запасные» — это те, что кроме

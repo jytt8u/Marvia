@@ -76,23 +76,47 @@ say 'Что стоит на этой машине:'
 
 PANEL_DB_COPY=''
 
+# Копии кладём в каталог root, а не рядом с базой.
+#
+# Каталог панели принадлежит её службе. Скрипт идёт от root, и всё, что он
+# пишет туда по предсказуемому имени, служба может заранее подменить ссылкой:
+# root запишет копию базы — а в ней строки, которые задаёт покупатель, — в
+# любой файл системы, хоть в /root/.ssh/authorized_keys. Взломанная панель
+# становилась бы root на первом же обновлении по кнопке.
+BACKUP_DIR=${BACKUP_DIR:-/var/backups/marvia}
+
+# as_owner выполняет команду правами владельца каталога службы. Читать и писать
+# её файлы root должен так же, как она сама: ссылка, которую служба подложила
+# вместо panel.db, ведёт туда, куда у неё самой доступа нет, — и чтение или
+# запись через неё просто не удаются, а не открывают /etc/shadow.
+as_owner() {
+	owner=$(stat -c %U "$1")
+	shift
+	if [ "$(id -u)" = 0 ] && [ "$owner" != root ]; then
+		command -v runuser >/dev/null 2>&1 || die 'нет runuser (util-linux): не могу безопасно тронуть файлы службы'
+		runuser -u "$owner" -- "$@"
+	else
+		"$@"
+	fi
+}
+
 backup_panel_db() {
 	if [ -f "$PANEL_DIR/panel.db" ]; then
-		PANEL_DB_COPY="$PANEL_DIR/panel.db.before-upgrade.$(date +%Y%m%d-%H%M%S)"
-		cp "$PANEL_DIR/panel.db" "$PANEL_DB_COPY"
-		# В базе токены подписок и секреты покупателей: права как у самой базы,
-		# не шире.
-		chmod 600 "$PANEL_DB_COPY"
+		mkdir -p "$BACKUP_DIR"
+		chmod 700 "$BACKUP_DIR"
+		PANEL_DB_COPY="$BACKUP_DIR/panel.db.before-upgrade.$(date +%Y%m%d-%H%M%S)"
+		# В базе токены подписок и секреты покупателей: права не шире, чем у
+		# самой базы.
+		(umask 077 && as_owner "$PANEL_DIR" cat "$PANEL_DIR/panel.db" >"$PANEL_DB_COPY")
 
 		for side in -wal -shm; do
 			[ -f "$PANEL_DIR/panel.db$side" ] || continue
 			# Имя вида <копия>-wal: SQLite ищет журнал по имени основного файла,
 			# так что возвращённая копия подхватит свой журнал, а не чужой.
-			cp "$PANEL_DIR/panel.db$side" "$PANEL_DB_COPY$side"
-			chmod 600 "$PANEL_DB_COPY$side"
+			(umask 077 && as_owner "$PANEL_DIR" cat "$PANEL_DIR/panel.db$side" >"$PANEL_DB_COPY$side")
 		done
 
-		ok "копия базы: $(basename "$PANEL_DB_COPY")"
+		ok "копия базы: $PANEL_DB_COPY"
 	fi
 	return 0
 }
@@ -107,17 +131,17 @@ restore_panel_db() {
 		# вместо отката получится смесь двух состояний.
 		rm -f "$PANEL_DIR/panel.db-wal" "$PANEL_DIR/panel.db-shm"
 
-		cp "$PANEL_DB_COPY" "$PANEL_DIR/panel.db"
-		for side in -wal -shm; do
+		# Не пишем поверх: на месте базы служба могла оставить ссылку. Старый
+		# файл убираем (rm убирает саму ссылку, а не то, куда она ведёт), новый
+		# создаём правами владельца — заодно он сразу принадлежит службе, и
+		# панель может в него писать.
+		for side in '' -wal -shm; do
 			[ -f "$PANEL_DB_COPY$side" ] || continue
-			cp "$PANEL_DB_COPY$side" "$PANEL_DIR/panel.db$side"
-			# Панель работает не от root: файл, созданный нами, должен
-			# принадлежать тому же, кому принадлежит база, иначе панель не
-			# сможет в него писать.
-			chown --reference="$PANEL_DIR/panel.db" "$PANEL_DIR/panel.db$side" 2>/dev/null || true
+			rm -f "$PANEL_DIR/panel.db$side"
+			as_owner "$PANEL_DIR" sh -c 'umask 077 && cat >"$1"' sh "$PANEL_DIR/panel.db$side" <"$PANEL_DB_COPY$side"
 		done
 
-		say "    база возвращена из $(basename "$PANEL_DB_COPY")"
+		say "    база возвращена из $PANEL_DB_COPY"
 	fi
 	return 0
 }
@@ -212,9 +236,12 @@ swap() {
 		"$after_stop"
 	fi
 
-	# Копия для отката лежит в каталоге root, недоступном службе.
+	# Копия для отката лежит в каталоге root, недоступном службе. Читаем
+	# прежний бинарник правами владельца каталога: служба могла подменить его
+	# ссылкой на чужой файл, и root не должен копировать его себе. install
+	# ниже сначала убирает старое имя, так что через ссылку он не пишет.
 	keep="$tmp/$name.before-upgrade"
-	cp "$dir/$name" "$keep"
+	as_owner "$dir" cat "$dir/$name" >"$keep"
 	install -m 755 "$fresh" "$dir/$name"
 
 	systemctl start "$service" || true

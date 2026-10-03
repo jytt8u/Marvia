@@ -83,6 +83,21 @@
                 android:tag="acc"
                 android:textColor="@color/veil_link"
                 android:textSize="14sp" />
+
+            <!-- Продавцы шлют ключ и QR-кодом — скриншотом в чат. -->
+            <TextView
+                android:id="@+id/qrButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackground"
+                android:contentDescription="@string/key_qr_description"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="6dp"
+                android:text="@string/key_qr"
+                android:tag="acc"
+                android:textColor="@color/veil_link"
+                android:textSize="14sp" />
         </LinearLayout>
 
         <TextView

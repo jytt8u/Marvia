@@ -107,6 +107,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Ключ с картинки QR-кода из галереи. Распознавание — не на главном
+     * потоке: большой скриншот разбирается десятки миллисекунд, и экран не
+     * должен на это время замирать.
+     */
+    private val pickQr = registerForActivityResult(
+        ActivityResultContracts.GetContent(),
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val text = withContext(Dispatchers.Default) {
+                runCatching { QrImport.fromUri(this@MainActivity, uri) }.getOrNull()
+            }
+            if (text.isNullOrEmpty()) {
+                Toast.makeText(this@MainActivity, R.string.key_qr_missing, Toast.LENGTH_LONG).show()
+            } else {
+                ui.keyScreen.keyInput.setText(text)
+            }
+        }
+    }
+
     /** Своя картинка под значок в шапке — тем же путём, что фон. */
     private val pickLogo = registerForActivityResult(
         ActivityResultContracts.GetContent(),
@@ -656,6 +677,7 @@ class MainActivity : AppCompatActivity() {
     private fun wireKey() {
         val k = ui.keyScreen
         k.pasteButton.setOnClickListener { paste() }
+        k.qrButton.setOnClickListener { pickQr.launch("image/*") }
         k.keySaveButton.setOnClickListener { onKeyButton() }
     }
 

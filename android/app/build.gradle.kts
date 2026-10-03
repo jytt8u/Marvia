@@ -163,6 +163,9 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    // Ключ с картинки QR-кода. Только ядро ZXing: чистая Java, Apache-2.0, без
+    // сервисов Google и без доступа к камере.
+    implementation("com.google.zxing:core:3.5.3")
 
     // Тесты на JVM, без телефона: арифметика темы сверяется с look.js.
     testImplementation("junit:junit:4.13.2")

@@ -1151,7 +1151,7 @@ func versionParts(v string) ([3]int, bool) {
 // же «другая нода», только прошлая.
 func (s *Store) NodeUsers(ctx context.Context, nodeID int64) ([]users.User, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT u.id, u.label, u.enabled, u.expires_at, u.traffic_limit, u.max_ips, u.max_conns, u.speed_limit,
+		SELECT u.id, u.enabled, u.expires_at, u.traffic_limit, u.max_ips, u.max_conns, u.speed_limit,
 		       c.kind, c.secret,
 		       u.used_before + COALESCE((SELECT SUM(up + down) FROM usage WHERE user_id = u.id AND node_id <> ?), 0)
 		FROM users u
@@ -1166,7 +1166,6 @@ func (s *Store) NodeUsers(ctx context.Context, nodeID int64) ([]users.User, erro
 	for rows.Next() {
 		var (
 			userID    int64
-			label     string
 			enabled   int
 			expires   sql.NullString
 			limit     int64
@@ -1177,15 +1176,18 @@ func (s *Store) NodeUsers(ctx context.Context, nodeID int64) ([]users.User, erro
 			secret    string
 			elsewhere int64
 		)
-		if err := rows.Scan(&userID, &label, &enabled, &expires, &limit, &maxIPs, &maxConns, &speed,
+		if err := rows.Scan(&userID, &enabled, &expires, &limit, &maxIPs, &maxConns, &speed,
 			&kind, &secret, &elsewhere); err != nil {
 			return nil, err
 		}
 
+		// Имени покупателя здесь нет намеренно: ноде оно для пропуска не
+		// нужно, а изъятую или взломанную ноду оно превращало бы в список
+		// клиентов продавца. Аккаунт — номер, и связать его с человеком
+		// может только панель.
 		u := users.User{
 			Kind:     kind,
 			Secret:   secret,
-			Label:    label,
 			Enabled:  enabled != 0,
 			MaxIPs:   maxIPs,
 			MaxConns: maxConns,

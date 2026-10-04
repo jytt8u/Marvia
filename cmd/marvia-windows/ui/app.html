@@ -318,6 +318,14 @@
   .leak .act { display: flex; align-items: center; gap: 10px; }
   .leak .said { font-size: 12px; color: var(--dim); }
 
+  /* Канал продавца: обычная карточка, а не тревога. Тревожный цвет — только у
+     напоминания о сроке: остальное здесь не беда, а адрес, куда нажать. */
+  .seller { flex: none; width: 100%; max-width: 460px; padding: 12px 14px; border-radius: var(--r); background: var(--surf); border: 1px solid var(--cardLine); box-shadow: var(--cardShadow); display: flex; flex-direction: column; gap: 8px; }
+  .seller .remind { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 600; color: var(--warn); }
+  .seller .body { font-size: 12px; line-height: 1.5; color: var(--fg); overflow-wrap: anywhere; }
+  .seller .act { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .seller .said { font-size: 12px; color: var(--dim); }
+
   /* ----------------------------------------------------------- серверы */
 
   .nodes { display: flex; flex-direction: column; gap: 2px; overflow: auto; min-height: 0; }
@@ -653,6 +661,28 @@
           </div>
 
           <div class="side">
+            <!--
+              Канал продавца: напоминание о сроке, объявление и две кнопки.
+              Кнопка появляется, только если продавец оставил ссылку: кнопка
+              без адреса — обещание, которого он не давал. Есть и без туннеля:
+              «Продлить» нужнее всего, когда подключиться уже нельзя. Сверху
+              правой колонки, а не под кнопкой: под ней уже нода и прокси, и в
+              окне 1180×720 карточка ушла бы за край.
+            -->
+            <div class="seller" id="seller" hidden>
+              <div class="k" data-t="sellerFrom"></div>
+              <div class="remind" id="seller-remind" hidden>
+                <span id="seller-remind-text"></span>
+                <button class="chip" id="seller-seen" type="button" data-t="sellerSeen"></button>
+              </div>
+              <div class="body" id="seller-announce" hidden></div>
+              <div class="act" id="seller-act">
+                <button class="chip" id="seller-renew" type="button" data-t="sellerRenew" hidden></button>
+                <button class="chip" id="seller-support" type="button" data-t="sellerSupport" hidden></button>
+                <span class="said" id="seller-msg"></span>
+              </div>
+            </div>
+
             <div class="card chart">
               <div class="card-head"><b data-t="chartTitle"></b><span class="mono" id="hour-total"></span></div>
               <div class="bars" id="bars"></div>
@@ -1038,11 +1068,14 @@ const T = {
     bypassRuCount: (n) => "Мимо туннеля подсетей: " + n,
     bypassRuNone: "Список ещё не скачан — пока ничего не уводится",
     bypassRuFailed: (e) => "Список не скачался: " + e,
+    sellerFrom: "От продавца", sellerRenew: "Продлить", sellerSupport: "Поддержка", sellerSeen: "Понятно",
+    sellerExpiry: (n) => n <= 1 ? "Доступ кончится в ближайшие сутки" : "Доступ кончится через " + n + (n < 5 ? " дня" : " дней"),
+    sellerTraffic: (p) => "Трафика осталось " + p + "%",
     pages: {
       home: ["Туннель", "Состояние и трафик"],
       nodes: ["Серверы", "Через какой идти"],
       theme: ["Тема", "Окно красится сразу"],
-      settings: ["Настройки", "Ключ, запуск, журнал и о программе"],
+      settings: ["Настройки", "Ключи, подключение, запуск, журнал и о программе"],
     },
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
@@ -1172,11 +1205,14 @@ const T = {
     bypassRuCount: (n) => "Subnets around the tunnel: " + n,
     bypassRuNone: "The list is not downloaded yet — nothing goes around",
     bypassRuFailed: (e) => "The list did not download: " + e,
+    sellerFrom: "From your seller", sellerRenew: "Renew", sellerSupport: "Support", sellerSeen: "Got it",
+    sellerExpiry: (n) => n <= 1 ? "Access ends within a day" : "Access ends in " + n + " days",
+    sellerTraffic: (p) => p + "% of traffic left",
     pages: {
       home: ["Tunnel", "State and traffic"],
       nodes: ["Servers", "Which one to go through"],
       theme: ["Theme", "The window repaints at once"],
-      settings: ["Settings", "Key, startup, log and about"],
+      settings: ["Settings", "Keys, connection, startup, log and about"],
     },
 
     pingUnknown: "Not measured", setupLabel: "Connection",
@@ -2097,6 +2133,7 @@ function render(s) {
   $("k-session").textContent = up && s.since ? clock(Math.max(0, Math.floor(Date.now() / 1000) - s.since)) : "—";
 
   showProxy(s);
+  paintSeller(s.seller);
 
   // Снятия делает ядро: скорость и пик не теряются, пока окно спрятано.
   const traffic = s.traffic || {};
@@ -2243,6 +2280,52 @@ on("autostart", "click", async () => {
 paintAutostart();
 
 on("proxy-off", "click", dropProxy);
+
+// Канал продавца. Объявление — только через textContent: его пишет продавец,
+// и разметкой оно стать не должно.
+//
+// Закрытое напоминание прячем сразу и помним здесь же: опрос раз в секунду
+// мог прийти раньше, чем программа запишет ключ, и напоминание мигнуло бы
+// обратно.
+let sellerKey = "", sellerClosed = "";
+function paintSeller(v) {
+  const d = L();
+  v = v || {};
+  sellerKey = v.remind_key || "";
+  const remind = sellerKey === sellerClosed ? ""
+    : v.remind === "expiry" ? d.sellerExpiry(v.remind_value)
+    : v.remind === "traffic" ? d.sellerTraffic(v.remind_value)
+    : "";
+  $("seller-remind").hidden = !remind;
+  $("seller-remind-text").textContent = remind;
+  $("seller-announce").hidden = !v.announce;
+  $("seller-announce").textContent = v.announce || "";
+  $("seller-renew").hidden = !v.renew;
+  $("seller-support").hidden = !v.support;
+  $("seller-act").hidden = !v.renew && !v.support && !$("seller-msg").textContent;
+  $("seller").hidden = !remind && !v.announce && !v.renew && !v.support;
+}
+// Адрес страница не знает и не шлёт — только имя кнопки; открывает программа.
+async function openSeller(link) {
+  const msg = $("seller-msg");
+  msg.textContent = "";
+  try {
+    await api("POST", "api/seller/open", { link });
+  } catch (err) {
+    msg.textContent = err.message;
+  }
+}
+on("seller-renew", "click", () => openSeller("renew"));
+on("seller-support", "click", () => openSeller("support"));
+on("seller-seen", "click", async () => {
+  sellerClosed = sellerKey;
+  $("seller-remind").hidden = true;
+  try {
+    await api("POST", "api/seller/seen", { key: sellerClosed });
+  } catch (err) {
+    $("seller-msg").textContent = err.message;
+  }
+});
 
 // Настройки подключения: состояние берём у программы, а не помним сами —
 // под переключателем нужна правда о списке, а она есть только там.

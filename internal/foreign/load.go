@@ -84,20 +84,8 @@ func Load(link, cachePath string, refresh bool) (sub Subscription, fetched time.
 		return sub, time.Now(), false, nil
 	}
 
-	var cached cacheFile
-	if cachePath != "" {
-		if raw, rerr := os.ReadFile(cachePath); rerr == nil {
-			_ = json.Unmarshal(raw, &cached)
-		}
-	}
-	fromCache := func() Subscription {
-		s := ParseList([]byte(cached.Body))
-		s.ParseUserinfo(cached.Userinfo)
-		// И из кэша — через чистку: файл мог записать кто угодно с доступом
-		// к диску, а ссылка отсюда уходит системе.
-		s.Seller = seller.Clean(cached.Seller)
-		return s
-	}
+	cached := readCache(cachePath)
+	fromCache := cached.subscription
 	if !refresh && cached.Body != "" && time.Since(time.Unix(cached.FetchedAt, 0)) < Fresh {
 		return fromCache(), time.Unix(cached.FetchedAt, 0), false, nil
 	}
@@ -133,6 +121,47 @@ func Load(link, cachePath string, refresh bool) (sub Subscription, fetched time.
 		}
 	}
 	return sub, time.Now(), false, nil
+}
+
+// Cached отдаёт чужую подписку из кэша, не ходя в сеть, каким бы старым
+// кэш ни был; false — кэша нет.
+//
+// Нужна там, где поход в панель недопустим или бессмыслен: окно на
+// компьютере показывает «Продлить» и «Поддержку» и тогда, когда подключиться
+// уже нельзя, — доступ кончился, и панель, может быть, недоступна. Ноды
+// отсюда для подключения не годятся: для этого есть Load.
+func Cached(link, cachePath string) (Subscription, bool) {
+	link = strings.TrimSpace(link)
+	if IsLink(FirstLine(link)) {
+		sub := ParseList([]byte(link))
+		return sub, len(sub.Links) > 0
+	}
+	cached := readCache(cachePath)
+	if cached.Body == "" {
+		return Subscription{}, false
+	}
+	return cached.subscription(), true
+}
+
+// readCache читает кэш чужой подписки. Нет файла или он испорчен — пусто.
+func readCache(cachePath string) cacheFile {
+	var cached cacheFile
+	if cachePath != "" {
+		if raw, err := os.ReadFile(cachePath); err == nil {
+			_ = json.Unmarshal(raw, &cached)
+		}
+	}
+	return cached
+}
+
+// subscription разбирает кэш в подписку.
+func (c cacheFile) subscription() Subscription {
+	s := ParseList([]byte(c.Body))
+	s.ParseUserinfo(c.Userinfo)
+	// И из кэша — через чистку: файл мог записать кто угодно с доступом
+	// к диску, а ссылка отсюда уходит системе.
+	s.Seller = seller.Clean(c.Seller)
+	return s
 }
 
 // Pin закрепляет за нодой адрес: Xray будет дозваниваться по нему, а не по

@@ -114,6 +114,8 @@ func serveUI(ctl *Controller, log *journal, onWindow *func(windowRequest)) (stri
 	mux.HandleFunc("POST "+prefix+"/api/nodes/select", u.selectNode)
 	mux.HandleFunc("POST "+prefix+"/api/proxy/off", u.dropProxy)
 	mux.HandleFunc("POST "+prefix+"/api/update/open", u.openUpdate)
+	mux.HandleFunc("POST "+prefix+"/api/seller/open", u.openSeller)
+	mux.HandleFunc("POST "+prefix+"/api/seller/seen", u.seenReminder)
 	mux.HandleFunc("POST "+prefix+"/api/lang", u.setLang)
 	mux.HandleFunc("POST "+prefix+"/api/welcome", u.completeWelcome)
 	mux.HandleFunc("POST "+prefix+"/api/window", u.window)
@@ -234,6 +236,39 @@ func (u *ui) dropProxy(w http.ResponseWriter, _ *http.Request) {
 func (u *ui) openUpdate(w http.ResponseWriter, _ *http.Request) {
 	if err := u.ctl.OpenUpdate(); err != nil {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// openSeller открывает ссылку продавца по имени кнопки: "support" или
+// "renew". Адрес страница не присылает — см. Controller.OpenSeller.
+func (u *ui) openSeller(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Link string `json:"link"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": say("badRequest")})
+		return
+	}
+	if err := u.ctl.OpenSeller(body.Link); err != nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// seenReminder — человек закрыл напоминание о сроке или трафике.
+func (u *ui) seenReminder(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Key string `json:"key"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": say("badRequest")})
+		return
+	}
+	if err := u.ctl.SeenReminder(body.Key); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

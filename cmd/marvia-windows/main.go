@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"golang.org/x/sys/windows"
@@ -181,10 +182,18 @@ func run(dns string, mtu uint32, urlFile string, inTray bool) error {
 // openLink открывает адрес через проводник обычного пользователя: браузер,
 // запущенный напрямую из повышенного процесса, унаследовал бы его права.
 func openLink(url string) error {
-	if err := exec.Command("explorer.exe", url).Start(); err != nil {
+	if err := exec.Command("explorer.exe", explorerArg(url)).Start(); err != nil {
 		return fmt.Errorf("не удалось открыть браузер: %w", err)
 	}
 	return nil
+}
+
+// explorerArg готовит адрес для командной строки проводника. Запятая для
+// него — разделитель ключей: ссылка продавца вида «https://x/,/select,C:\…»
+// открыла бы не страницу, а папку. В адресе запятая и %2C значат одно и то
+// же, так что кодируем её и не гадаем, как проводник поймёт остальное.
+func explorerArg(url string) string {
+	return strings.ReplaceAll(url, ",", "%2C")
 }
 
 // elevated сообщает, запущены ли мы с правами администратора.

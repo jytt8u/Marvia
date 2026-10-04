@@ -50,6 +50,11 @@ type pcSettings struct {
 	// IPv4, и один сервис видит человека то здесь, то там. Хранится как
 	// «выключен», чтобы умолчание — IPv6 через туннель — было нулём.
 	IPv6Off bool `json:"ipv6_off,omitempty"`
+
+	// ReportsOff — не отправлять продавцу замеры нод при подключении. Только
+	// для ключа Marvia: чужим панелям отчёты не шлются вовсе. Хранится как
+	// «выключено», чтобы умолчание — отправлять, как на телефоне, — было нулём.
+	ReportsOff bool `json:"reports_off,omitempty"`
 }
 
 // SettingsView — настройки подключения и правда о них для окна.
@@ -79,6 +84,9 @@ type SettingsView struct {
 	// IPv6 — пускать ли IPv6 через туннель; IPv6InUse — как у поднятого.
 	IPv6      bool  `json:"ipv6"`
 	IPv6InUse *bool `json:"ipv6_in_use,omitempty"`
+
+	// Reports — отправлять ли замеры нод панели продавца.
+	Reports bool `json:"reports"`
 }
 
 // SettingsPatch — что окно просит поменять; nil — не трогать.
@@ -88,6 +96,7 @@ type SettingsPatch struct {
 	DNS           *string `json:"dns"`
 	Fragment      *bool   `json:"fragment"`
 	IPv6          *bool   `json:"ipv6"`
+	Reports       *bool   `json:"reports"`
 }
 
 // settingsFile — где лежат настройки подключения.

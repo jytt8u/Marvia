@@ -15,7 +15,7 @@ func TestSettingsSurviveRestartAndBrokenFileGivesDefaults(t *testing.T) {
 	if got := loadSettings(dir); got != (pcSettings{}) {
 		t.Fatalf("без файла: %+v", got)
 	}
-	want := pcSettings{BypassRussian: true, LANOutside: true, DNS: "9.9.9.9", Fragment: true}
+	want := pcSettings{BypassRussian: true, LANOutside: true, DNS: "9.9.9.9", Fragment: true, IPv6Off: true, ReportsOff: true}
 	if err := saveSettings(dir, want); err != nil {
 		t.Fatal(err)
 	}

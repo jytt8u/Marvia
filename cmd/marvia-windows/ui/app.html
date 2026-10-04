@@ -904,6 +904,10 @@
                   <div class="grow"><span class="name" data-t="fragment"></span><span class="sub" data-t="fragmentHint"></span><span class="sub" id="fragment-msg"></span></div>
                   <button class="chip" id="fragment" type="button" aria-pressed="false"></button>
                 </div>
+                <div>
+                  <div class="grow"><span class="name" data-t="reports"></span><span class="sub" data-t="reportsHint"></span><span class="sub" id="reports-msg"></span></div>
+                  <button class="chip" id="reports" type="button" aria-pressed="false"></button>
+                </div>
                 <!--
                   Резолвер: те же четыре, что на телефоне, и свой адрес. Сами
                   запросы имён идут через туннель при любом выборе.
@@ -1133,6 +1137,9 @@ const T = {
     dnsHint: "Чей резолвер отвечает на запросы имён. Сами запросы при любом выборе идут через туннель: выбор только в том, кто на другом конце, — у AdGuard, например, есть фильтр рекламы.",
     dnsSave: "Свой адрес", dnsCustom: "например 1.0.0.1",
     dnsNext: "Применится при следующем подключении",
+    reports: "Отчёты о доступности нод",
+    reportsHint: "Для ключа Marvia: при подключении отправлять результаты замеров панели продавца — она ставит выше ноды, до которых люди доходят. На выбор ноды здесь не влияет.",
+    reportsOn: "Отправлять", reportsOff: "Не отправлять",
     ipv6: "IPv6 через туннель",
     ipv6Hint: "Выключи, если сайты путают страну. Мимо туннеля IPv6 и тогда не уходит: программы просто идут по IPv4.",
     fragment: "Дробить приветствие",
@@ -1286,6 +1293,9 @@ const T = {
     dnsHint: "Whose resolver answers name lookups. Whatever you choose, the lookups themselves go through the tunnel — the choice is only who is at the other end; AdGuard, for one, filters ads.",
     dnsSave: "Own address", dnsCustom: "e.g. 1.0.0.1",
     dnsNext: "Applies on the next connection",
+    reports: "Node availability reports",
+    reportsHint: "For Marvia keys: send measurement results to the seller panel when connecting — it ranks higher the nodes people can reach. Node selection here is unaffected.",
+    reportsOn: "Send", reportsOff: "Do not send",
     ipv6: "IPv6 through the tunnel",
     ipv6Hint: "Turn it off if sites mix up your country. IPv6 still does not go around the tunnel: programs simply use IPv4.",
     fragment: "Split the TLS hello",
@@ -2474,6 +2484,10 @@ function paintConn() {
   lan.textContent = conn.lan_outside ? d.toggleOn : d.toggleOff;
   lan.setAttribute("aria-pressed", String(!!conn.lan_outside));
 
+  const rep = $("reports");
+  rep.textContent = conn.reports ? d.reportsOn : d.reportsOff;
+  rep.setAttribute("aria-pressed", String(!!conn.reports));
+
   const v6 = $("ipv6");
   v6.textContent = conn.ipv6 ? d.toggleOn : d.toggleOff;
   v6.setAttribute("aria-pressed", String(!!conn.ipv6));
@@ -2521,6 +2535,7 @@ async function changeConn(button, patch, msg) {
 }
 on("bypass-ru", "click", () => changeConn($("bypass-ru"), { bypass_russian: !conn.bypass_russian }, "bypass-ru-msg"));
 on("lan", "click", () => changeConn($("lan"), { lan_outside: !conn.lan_outside }, "lan-msg"));
+on("reports", "click", () => changeConn($("reports"), { reports: !conn.reports }, "reports-msg"));
 on("ipv6", "click", () => changeConn($("ipv6"), { ipv6: !conn.ipv6 }, "ipv6-msg"));
 on("fragment", "click", () => changeConn($("fragment"), { fragment: !conn.fragment }, "fragment-msg"));
 for (const b of document.querySelectorAll("#dns-pick [data-dns]")) {

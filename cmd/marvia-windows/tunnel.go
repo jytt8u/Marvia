@@ -488,9 +488,14 @@ func (c *Controller) raiseMarvia(ctx context.Context, link string, set pcSetting
 		Log:       c.log.add,
 	}, c.events(ctx))
 
-	go func() {
-		_ = client.SendReports(context.Background(), account.SubscriptionURL, client.ReportsFrom(measurements))
-	}()
+	// По умолчанию продавец узнаёт и о неудачном дозвоне — так панель
+	// ставит выше ноды, до которых люди доходят. Человек может оставить
+	// замеры на компьютере: выбор ноды от этого не меняется.
+	if !set.ReportsOff {
+		go func() {
+			_ = client.SendReports(context.Background(), account.SubscriptionURL, client.ReportsFrom(measurements))
+		}()
+	}
 
 	if err != nil {
 		return nil, measurements, err

@@ -159,6 +159,9 @@ type Controller struct {
 	// туннеля нет.
 	fragmentInUse *bool
 
+	// ipv6InUse — пускает ли поднятый туннель IPv6; nil, пока туннеля нет.
+	ipv6InUse *bool
+
 	// ruErr — почему российский список не скачался в последний раз; пусто
 	// — скачался или не пробовали. Окно показывает его под переключателем:
 	// включённый тумблер без списка ничего не уводит, и человек должен это
@@ -429,7 +432,7 @@ func (c *Controller) raise(ctx context.Context, link string, set pcSettings) err
 	if err != nil {
 		return err
 	}
-	return c.raiseTunnel(ctx, dialer, measurements, set.Fragment)
+	return c.raiseTunnel(ctx, dialer, measurements, set)
 }
 
 // raiseForeign — чужая подписка: VLESS, VMess, Trojan и прочее через Xray.
@@ -497,7 +500,7 @@ func (c *Controller) raiseMarvia(ctx context.Context, link string, set pcSetting
 }
 
 // raiseTunnel поднимает адаптер, маршруты и мост поверх готового подключения.
-func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, measurements []client.Measurement, fragment bool) error {
+func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, measurements []client.Measurement, set pcSettings) error {
 	// Старый адаптер должен сняться раньше нового. Отмена при этом немедленно
 	// закрывает контекст: ждать освобождения маршрутов для отмены незачем.
 	c.tunnelMu.Lock()
@@ -550,6 +553,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 		MTU:      c.mtu,
 		Dialer:   tunbridge.Split(tunbridge.Metered(dialer, &c.up, &c.down), localNetwork, c.around),
 		DNS:      dns,
+		NoIPv6:   set.IPv6Off,
 		OnError:  func(err error) { c.log.add("%s", sayf("logConn", err)) },
 	})
 	if err != nil {
@@ -569,7 +573,8 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	c.dialer, c.adapter, c.bridge = dialer, adapter, bridge
 	c.node, c.ping = node, ping
 	c.dnsInUse = dnsAddr.String()
-	c.fragmentInUse = &fragment
+	c.fragmentInUse = &set.Fragment
+	c.ipv6InUse = boolPtr(!set.IPv6Off)
 	c.until, c.limitBytes, c.leftBytes = subscriptionOf(dialer)
 	c.known = dialer.Subscription()
 	// Про обновление узнаём здесь же: подписка приходит при подключении, а
@@ -614,6 +619,7 @@ func (c *Controller) Disconnect() {
 	c.node = client.Node{}
 	c.dnsInUse = ""
 	c.fragmentInUse = nil
+	c.ipv6InUse = nil
 	c.until, c.limitBytes, c.leftBytes = "", 0, 0
 	c.since = time.Time{}
 	c.mu.Unlock()

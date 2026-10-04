@@ -218,7 +218,7 @@ func TestEverySettingTheWindowSendsIsKnown(t *testing.T) {
 		name, _, _ := strings.Cut(typ.Field(i).Tag.Get("json"), ",")
 		known[name] = true
 	}
-	sent := regexp.MustCompile(`changeConn\([^,]+, \{ ([a-z_]+):`).FindAllStringSubmatch(string(raw), -1)
+	sent := regexp.MustCompile(`changeConn\([^,]+, \{ ([a-z0-9_]+):`).FindAllStringSubmatch(string(raw), -1)
 	if len(sent) == 0 {
 		t.Fatal("окно не шлёт ни одной настройки — разбор страницы сломался")
 	}

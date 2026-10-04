@@ -32,7 +32,7 @@ func TestCancelledAttemptNeverCreatesAnAdapter(t *testing.T) {
 	cancel()
 	c := &Controller{connectCtx: ctx, state: StateConnecting, log: newJournal()}
 	backend := &rejectedBackend{}
-	if err := c.raiseTunnel(ctx, backend, nil, false); !errors.Is(err, context.Canceled) || !backend.closed {
+	if err := c.raiseTunnel(ctx, backend, nil, pcSettings{}); !errors.Is(err, context.Canceled) || !backend.closed {
 		t.Fatalf("отменённая попытка продолжила создание адаптера: %v", err)
 	}
 }

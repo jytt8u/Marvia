@@ -121,6 +121,9 @@ func serveUI(ctl *Controller, log *journal, onWindow *func(windowRequest)) (stri
 	mux.HandleFunc("POST "+prefix+"/api/window", u.window)
 	mux.HandleFunc("GET "+prefix+"/api/autostart", u.getAutostart)
 	mux.HandleFunc("POST "+prefix+"/api/autostart", u.setAutostart)
+	mux.HandleFunc("GET "+prefix+"/api/keys", u.keys)
+	mux.HandleFunc("POST "+prefix+"/api/keys/use", u.useKey)
+	mux.HandleFunc("POST "+prefix+"/api/keys/remove", u.removeKey)
 	mux.HandleFunc("GET "+prefix+"/api/settings", u.getSettings)
 	mux.HandleFunc("POST "+prefix+"/api/settings", u.setSettings)
 
@@ -164,12 +167,14 @@ func (u *ui) getAccount(w http.ResponseWriter, _ *http.Request) {
 func (u *ui) setAccount(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Link string `json:"link"`
+		// Name — необязательное имя ключа в списке; без него — домен продавца.
+		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": say("badRequest")})
 		return
 	}
-	if err := u.ctl.SetAccount(strings.TrimSpace(body.Link)); err != nil {
+	if err := u.ctl.AddKey(body.Name, strings.TrimSpace(body.Link)); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
@@ -415,4 +420,45 @@ func (u *ui) setSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
+}
+
+func (u *ui) keys(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"keys": u.ctl.Keys()})
+}
+
+// keyRequest — какой ключ из списка, по отпечатку: сама ссылка с личным
+// ключом через окно второй раз не ходит.
+func keyRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
+	var body struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body); err != nil || body.ID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": say("badRequest")})
+		return "", false
+	}
+	return body.ID, true
+}
+
+func (u *ui) useKey(w http.ResponseWriter, r *http.Request) {
+	id, ok := keyRequest(w, r)
+	if !ok {
+		return
+	}
+	if err := u.ctl.UseKey(id); err != nil {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"keys": u.ctl.Keys()})
+}
+
+func (u *ui) removeKey(w http.ResponseWriter, r *http.Request) {
+	id, ok := keyRequest(w, r)
+	if !ok {
+		return
+	}
+	if err := u.ctl.RemoveKey(id); err != nil {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"keys": u.ctl.Keys()})
 }

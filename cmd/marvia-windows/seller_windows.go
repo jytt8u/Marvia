@@ -40,7 +40,7 @@ func knownSubscription(link string) client.Subscription {
 	if err != nil {
 		return client.Subscription{}
 	}
-	cached, err := client.LoadCache(cachePath(), account.SubscriptionURL)
+	cached, err := client.LoadCache(cachePathFor(account.SubscriptionURL), account.SubscriptionURL)
 	if err != nil {
 		return client.Subscription{}
 	}

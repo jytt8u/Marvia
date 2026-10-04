@@ -92,6 +92,9 @@ var messages = map[string]map[string]string{
 		"logSellerBadLink": "ссылка продавца отвергнута: %v",
 		"dnsBad":           "нужен адрес IPv4 вида 1.1.1.1",
 		"dnsLocal":         "это адрес локальной сети: из туннеля он не виден",
+		"keyGone":          "такого ключа уже нет в списке",
+		"logKeyUsed":       "рабочий ключ — %s",
+		"logKeyRemoved":    "ключ %s убран",
 	},
 	"en": {
 		"webViewTitle":    "Marvia needs WebView2 to display its window",
@@ -135,6 +138,9 @@ var messages = map[string]map[string]string{
 		"logSellerBadLink": "seller's link rejected: %v",
 		"dnsBad":           "an IPv4 address like 1.1.1.1 is needed",
 		"dnsLocal":         "this is a local network address: it is not visible from the tunnel",
+		"keyGone":          "this key is no longer in the list",
+		"logKeyUsed":       "active key: %s",
+		"logKeyRemoved":    "key %s removed",
 	},
 }
 

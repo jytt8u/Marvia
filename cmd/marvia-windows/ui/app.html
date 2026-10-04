@@ -400,6 +400,12 @@
   .rows .sub { font-size: 12px; color: var(--dim); }
   .rows .stack { flex-direction: column; align-items: stretch; gap: 10px; }
   .pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .keys { display: flex; flex-direction: column; gap: 6px; }
+  .keys .key { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: min(var(--r), 12px); background: var(--shade); border: 1px solid var(--line); }
+  .keys .key[data-active] { border-color: var(--acc); }
+  .keys .key .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .keys .key b { font-size: 13px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .keys .key small { font-size: 11px; color: var(--dim); }
   .pick input.code-in { width: 150px; }
   .log { max-height: 220px; max-width: 100%; overflow-x: hidden; overflow-y: auto; font-family: var(--mono); font-size: 11px; display: flex; flex-direction: column; gap: 4px; user-select: text; }
   .log .ln { display: flex; gap: 10px; min-width: 0; color: var(--fg); }
@@ -834,9 +840,16 @@
                 <p class="lead" data-t="keyLead"></p>
                 <textarea id="account" rows="3" spellcheck="false" placeholder="marvia://…  vless://…  https://…"></textarea>
                 <div class="row">
+                  <input type="text" class="code-in" id="key-name" autocomplete="off" spellcheck="false" maxlength="40" style="width: 200px;">
                   <button class="primary" id="save" data-t="keySave"></button>
                   <span id="save-msg" class="hint"></span>
                 </div>
+                <!--
+                  Сохранённые ключи: доступ бывает у двух продавцов сразу.
+                  Рабочий один; смена переподнимает туннель.
+                -->
+                <div class="k" data-t="keysTitle"></div>
+                <div class="keys" id="keys-list"></div>
                 <p class="hint" data-t="keyHint"></p>
               </div>
             </div>
@@ -1098,7 +1111,7 @@ const T = {
     sellerTraffic: (p) => "Трафика осталось " + p + "%",
     dnsTitle: "Запросы имён (DNS)",
     dnsHint: "Чей резолвер отвечает на запросы имён. Сами запросы при любом выборе идут через туннель: выбор только в том, кто на другом конце, — у AdGuard, например, есть фильтр рекламы.",
-    dnsSave: "Свой адрес", dnsCustom: "свой, например 1.0.0.1",
+    dnsSave: "Свой адрес", dnsCustom: "например 1.0.0.1",
     dnsNext: "Применится при следующем подключении",
     fragment: "Дробить приветствие",
     fragmentHint: "Если провайдер режет по имени сайта: имя ноды в TLS-приветствии не лежит целиком ни в одном пакете. Без нужды не включай — это лишние пакеты и своя примета.",
@@ -1150,6 +1163,9 @@ const T = {
     keyLead: "Ключ Marvia (marvia://), ссылка VLESS, VMess, Trojan, Shadowsocks, Hysteria2, WireGuard или адрес подписки — всё, что дал продавец.",
     keyHint: "В ссылке личный ключ. Она лежит в профиле пользователя и никуда не отправляется — кроме адреса подписки, который в ней же и записан.",
     keySave: "Сохранить", keySaveFirst: "Сохранить ключ", keySaved: "Сохранено",
+    keyNameHint: "имя, необязательно", keysTitle: "Сохранённые ключи",
+    keyActive: "рабочий", keyUse: "Сделать рабочим", keyRemove: "Убрать", keyRemoveSure: "Точно убрать?",
+    keyMarvia: "ключ Marvia", keyForeign: "чужая подписка или ссылка",
     keyOn: "СОХРАНЁН", keyOff: "НЕТ КЛЮЧА", keyNoHost: "ссылки пока нет",
     keyNote: "срок и остаток трафика панель сообщает при подключении",
     keyNoLimit: "без квоты", keyNoUntil: "без срока",
@@ -1244,7 +1260,7 @@ const T = {
     sellerTraffic: (p) => p + "% of traffic left",
     dnsTitle: "Name lookups (DNS)",
     dnsHint: "Whose resolver answers name lookups. Whatever you choose, the lookups themselves go through the tunnel — the choice is only who is at the other end; AdGuard, for one, filters ads.",
-    dnsSave: "Own address", dnsCustom: "own, e.g. 1.0.0.1",
+    dnsSave: "Own address", dnsCustom: "e.g. 1.0.0.1",
     dnsNext: "Applies on the next connection",
     fragment: "Split the TLS hello",
     fragmentHint: "If your provider blocks by site name: the node's name in the TLS hello never sits whole in one packet. Leave it off otherwise — it means extra packets and a trait of its own.",
@@ -1296,6 +1312,9 @@ const T = {
     keyLead: "A Marvia key (marvia://), a VLESS, VMess, Trojan, Shadowsocks, Hysteria2 or WireGuard link, or a subscription URL — whatever your provider gave you.",
     keyHint: "The link carries a private key. It stays in the user profile and is sent nowhere — except to the subscription address written in the link itself.",
     keySave: "Save", keySaveFirst: "Save the key", keySaved: "Saved",
+    keyNameHint: "name, optional", keysTitle: "Saved keys",
+    keyActive: "active", keyUse: "Make active", keyRemove: "Remove", keyRemoveSure: "Remove for sure?",
+    keyMarvia: "Marvia key", keyForeign: "other subscription or link",
     keyOn: "SAVED", keyOff: "NO KEY", keyNoHost: "no link yet",
     keyNote: "the panel reports expiry and remaining traffic on connect",
     keyNoLimit: "no quota", keyNoUntil: "no expiry",
@@ -1410,6 +1429,7 @@ function paintStatic() {
   paintHead();
   paintTheme();
   paintConn();
+  paintKeys();
 }
 
 async function setLang(next) {
@@ -2442,13 +2462,90 @@ on("dns-save", "click", () => changeConn($("dns-save"), { dns: $("dns-custom").v
 on("dns-custom", "keydown", (e) => { if (e.key === "Enter") $("dns-save").click(); });
 loadConn();
 
+// Ключи рисуем сами, текстом: имя ключа вписывает человек или продавец в
+// метке ссылки, и разметкой его вставлять нельзя.
+let keys = [];
+function paintKeys() {
+  const d = L();
+  $("key-name").placeholder = d.keyNameHint;
+  const box = $("keys-list");
+  box.replaceChildren(...keys.map((k) => {
+    const row = document.createElement("div");
+    row.className = "key";
+    if (k.active) row.setAttribute("data-active", "");
+    const grow = document.createElement("div");
+    grow.className = "grow";
+    const name = document.createElement("b");
+    name.textContent = k.name;
+    const kind = document.createElement("small");
+    kind.textContent = (k.active ? d.keyActive + " · " : "") + (k.foreign ? d.keyForeign : d.keyMarvia);
+    grow.append(name, kind);
+    row.append(grow);
+    if (!k.active) {
+      const use = document.createElement("button");
+      use.type = "button";
+      use.className = "chip";
+      use.textContent = d.keyUse;
+      use.addEventListener("click", () => keyAction(use, "api/keys/use", k.id));
+      row.append(use);
+    }
+    // Убрать — в два нажатия: ссылки может уже не быть под рукой, и
+    // промах мышью не должен стоить ключа.
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "chip";
+    drop.textContent = d.keyRemove;
+    drop.addEventListener("click", () => {
+      if (drop.dataset.sure !== "1") {
+        drop.dataset.sure = "1";
+        drop.textContent = d.keyRemoveSure;
+        setTimeout(() => { drop.dataset.sure = ""; drop.textContent = L().keyRemove; }, 4000);
+        return;
+      }
+      keyAction(drop, "api/keys/remove", k.id);
+    });
+    row.append(drop);
+    return row;
+  }));
+}
+async function loadKeys() {
+  try {
+    keys = (await api("GET", "api/keys")).keys || [];
+    paintKeys();
+  } catch (_) { /* покажем при следующем заходе */ }
+}
+// keyAction — сменить рабочий или убрать. После неё рабочая ссылка в поле
+// и карточка другие, а туннель мог переподняться: перечитываем всё.
+async function keyAction(button, path, id) {
+  const msg = $("save-msg");
+  msg.className = "hint";
+  msg.textContent = "";
+  button.disabled = true;
+  try {
+    keys = (await api("POST", path, { id })).keys || [];
+    paintKeys();
+    const a = await api("GET", "api/account");
+    $("account").value = a.link || "";
+    paintKeyCard(a.link);
+    await tick();
+  } catch (err) {
+    msg.className = "hint bad";
+    msg.textContent = err.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+loadKeys();
+
 on("save", "click", async () => {
   const msg = $("save-msg");
   msg.className = "hint";
   try {
-    await api("POST", "api/account", { link: $("account").value });
+    await api("POST", "api/account", { link: $("account").value, name: $("key-name").value.trim() });
     msg.textContent = L().keySaved;
+    $("key-name").value = "";
     paintKeyCard($("account").value);
+    await loadKeys();
     await tick();
   } catch (err) {
     msg.className = "hint bad";
@@ -2468,6 +2565,7 @@ on("first-save", "click", async () => {
     await api("POST", "api/account", { link });
     $("account").value = link;
     paintKeyCard(link);
+    loadKeys();
     msg.textContent = L().keySaved;
     await tick();
   } catch (err) {

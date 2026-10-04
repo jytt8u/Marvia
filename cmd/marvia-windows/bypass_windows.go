@@ -135,6 +135,8 @@ func (c *Controller) Settings() SettingsView {
 		DNSInUse:      c.dnsInUse,
 		Fragment:      c.settings.Fragment,
 		FragmentInUse: c.fragmentInUse,
+		IPv6:          !c.settings.IPv6Off,
+		IPv6InUse:     c.ipv6InUse,
 	}
 }
 
@@ -158,6 +160,9 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	}
 	if p.Fragment != nil {
 		next.Fragment = *p.Fragment
+	}
+	if p.IPv6 != nil {
+		next.IPv6Off = !*p.IPv6
 	}
 	if p.DNS != nil {
 		want := strings.TrimSpace(*p.DNS)

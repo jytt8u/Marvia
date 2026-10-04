@@ -42,6 +42,14 @@ type pcSettings struct {
 	// Выключено по умолчанию, как на телефоне: без такого фильтра у
 	// провайдера это лишние пакеты и своя примета.
 	Fragment bool `json:"fragment,omitempty"`
+
+	// IPv6Off — не пускать IPv6 через туннель вовсе. Мимо он при этом тоже не
+	// уходит: маршрут IPv6 остаётся в туннеле, мост отвечает «адресов IPv6
+	// нет», и программы идут по IPv4 (tunbridge.Config.NoIPv6). Нужен, когда
+	// сайты путают страну: IPv6-адрес ноды их базы порой относят не туда, куда
+	// IPv4, и один сервис видит человека то здесь, то там. Хранится как
+	// «выключен», чтобы умолчание — IPv6 через туннель — было нулём.
+	IPv6Off bool `json:"ipv6_off,omitempty"`
 }
 
 // SettingsView — настройки подключения и правда о них для окна.
@@ -67,6 +75,10 @@ type SettingsView struct {
 	// подключения.
 	Fragment      bool  `json:"fragment"`
 	FragmentInUse *bool `json:"fragment_in_use,omitempty"`
+
+	// IPv6 — пускать ли IPv6 через туннель; IPv6InUse — как у поднятого.
+	IPv6      bool  `json:"ipv6"`
+	IPv6InUse *bool `json:"ipv6_in_use,omitempty"`
 }
 
 // SettingsPatch — что окно просит поменять; nil — не трогать.
@@ -75,6 +87,7 @@ type SettingsPatch struct {
 	LANOutside    *bool   `json:"lan_outside"`
 	DNS           *string `json:"dns"`
 	Fragment      *bool   `json:"fragment"`
+	IPv6          *bool   `json:"ipv6"`
 }
 
 // settingsFile — где лежат настройки подключения.
@@ -239,3 +252,5 @@ func (s pcSettings) resolver(fallback string) string {
 	}
 	return fallback
 }
+
+func boolPtr(v bool) *bool { return &v }

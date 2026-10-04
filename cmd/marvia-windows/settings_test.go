@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/netip"
 	"os"
 	"path/filepath"
 	"testing"
@@ -50,5 +51,19 @@ func TestRussianListIsKeptWholeAndAgesInAWeek(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ruRoutesFile+".tmp")); !os.IsNotExist(err) {
 		t.Error("временный файл остался")
+	}
+}
+
+// Домашняя сеть — это частные адреса; публичные и петля к ней не относятся.
+func TestHomeNetworkIsPrivateAddressesOnly(t *testing.T) {
+	for _, s := range []string{"10.0.0.5", "172.16.3.4", "172.31.255.255", "192.168.1.10", "fd00::1"} {
+		if !homeNetwork(netip.MustParseAddr(s)) {
+			t.Errorf("%s не считается домашней сетью", s)
+		}
+	}
+	for _, s := range []string{"8.8.8.8", "172.32.0.1", "100.64.0.1", "127.0.0.1", "77.88.55.242", "2a00::1"} {
+		if homeNetwork(netip.MustParseAddr(s)) {
+			t.Errorf("%s считается домашней сетью", s)
+		}
 	}
 }

@@ -146,6 +146,9 @@ type Controller struct {
 	// включить и выключить обход на ходу, без переподключения.
 	bypass atomic.Pointer[routes.Set]
 
+	// lan — домашняя сеть мимо туннеля; атомарно по той же причине, что bypass.
+	lan atomic.Bool
+
 	// ruErr — почему российский список не скачался в последний раз; пусто
 	// — скачался или не пробовали. Окно показывает его под переключателем:
 	// включённый тумблер без списка ничего не уводит, и человек должен это
@@ -171,6 +174,7 @@ func NewController(dns string, mtu uint32, log *journal) *Controller {
 	}
 	if dir, err := settingsDir(); err == nil {
 		c.settings = loadSettings(dir)
+		c.lan.Store(c.settings.LANOutside)
 		if c.settings.BypassRussian {
 			c.applyRussian(dir)
 		}

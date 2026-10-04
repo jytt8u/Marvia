@@ -861,6 +861,10 @@
                   <div class="grow"><span class="name" data-t="bypassRu"></span><span class="sub" data-t="bypassRuHint"></span><span class="sub" id="bypass-ru-msg"></span></div>
                   <button class="chip" id="bypass-ru" type="button" aria-pressed="false"></button>
                 </div>
+                <div>
+                  <div class="grow"><span class="name" data-t="lanOutside"></span><span class="sub" data-t="lanOutsideHint"></span><span class="sub" id="lan-msg"></span></div>
+                  <button class="chip" id="lan" type="button" aria-pressed="false"></button>
+                </div>
               </div>
             </div>
 
@@ -1071,6 +1075,8 @@ const T = {
     sellerFrom: "От продавца", sellerRenew: "Продлить", sellerSupport: "Поддержка", sellerSeen: "Понятно",
     sellerExpiry: (n) => n <= 1 ? "Доступ кончится в ближайшие сутки" : "Доступ кончится через " + n + (n < 5 ? " дня" : " дней"),
     sellerTraffic: (p) => "Трафика осталось " + p + "%",
+    lanOutside: "Домашняя сеть мимо туннеля",
+    lanOutsideHint: "Принтер, сетевой диск или камера — частные адреса 10.x, 172.16–31.x и 192.168.x идут напрямую. Свою подсеть Windows и так ведёт мимо туннеля — это для соседних. В чужом Wi-Fi домашняя сеть чужая: включай осознанно.",
     pages: {
       home: ["Туннель", "Состояние и трафик"],
       nodes: ["Серверы", "Через какой идти"],
@@ -1208,6 +1214,8 @@ const T = {
     sellerFrom: "From your seller", sellerRenew: "Renew", sellerSupport: "Support", sellerSeen: "Got it",
     sellerExpiry: (n) => n <= 1 ? "Access ends within a day" : "Access ends in " + n + " days",
     sellerTraffic: (p) => p + "% of traffic left",
+    lanOutside: "Home network around the tunnel",
+    lanOutsideHint: "Printer, network drive or camera — private addresses 10.x, 172.16–31.x and 192.168.x go directly. Windows already keeps your own subnet outside the tunnel — this is for the neighbouring ones. On someone else's Wi-Fi the home network is theirs: turn it on deliberately.",
     pages: {
       home: ["Tunnel", "State and traffic"],
       nodes: ["Servers", "Which one to go through"],
@@ -2342,6 +2350,9 @@ function paintConn() {
     : conn.ru_error ? d.bypassRuFailed(conn.ru_error)
     : conn.ru_count ? d.bypassRuCount(conn.ru_count)
     : d.bypassRuNone;
+  const lan = $("lan");
+  lan.textContent = conn.lan_outside ? d.toggleOn : d.toggleOff;
+  lan.setAttribute("aria-pressed", String(!!conn.lan_outside));
 }
 async function loadConn() {
   try {
@@ -2365,6 +2376,7 @@ async function changeConn(button, patch, msg) {
   }
 }
 on("bypass-ru", "click", () => changeConn($("bypass-ru"), { bypass_russian: !conn.bypass_russian }, "bypass-ru-msg"));
+on("lan", "click", () => changeConn($("lan"), { lan_outside: !conn.lan_outside }, "lan-msg"));
 loadConn();
 
 on("save", "click", async () => {

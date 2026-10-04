@@ -193,6 +193,7 @@
     <!-- Добавление подписки: буфер обмена или руками, как в привычных клиентах. -->
     <string name="servers_add">Add</string>
     <string name="servers_add_clipboard">Clipboard</string>
+    <string name="servers_add_qr">From a QR picture</string>
     <string name="servers_add_manual">By hand</string>
     <string name="servers_sub_name">Name</string>
     <string name="servers_sub_link">marvia://, vless://, trojan://, ss://… or https://</string>

@@ -173,6 +173,7 @@
     <!-- Добавление подписки: буфер обмена или руками, как в привычных клиентах. -->
     <string name="servers_add">Добавить</string>
     <string name="servers_add_clipboard">Буфер обмена</string>
+    <string name="servers_add_qr">С картинки QR-кода</string>
     <string name="servers_add_manual">Вручную</string>
     <string name="servers_sub_name">Имя</string>
     <string name="servers_sub_link">marvia://, vless://, trojan://, ss://… или https://</string>

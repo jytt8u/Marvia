@@ -508,6 +508,8 @@
   .w-daily .daily-bars { height: 28px; }
   .w-daily .mono { font-size: 11px; color: var(--fg); }
   .session-extra { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 4px 0; font-size: 11px; color: var(--dim); }
+  .week-axis span { flex: 1; text-align: center; }
+  .week-note { font-size: 11px; color: var(--dim); line-height: 1.45; margin: 0; }
   .session-extra strong { display: block; margin-top: 3px; font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--fg); }
   @media (max-height: 540px) {
     .w-hero { padding: 6px 12px; gap: 4px; }
@@ -712,6 +714,20 @@
                 <div><span data-t="averageDown"></span><strong id="average-down">—</strong></div>
                 <div><span data-t="averageUp"></span><strong id="average-up">—</strong></div>
               </div>
+            </div>
+            <!--
+              Неделя: считает сама программа, как телефон — у панели есть только
+              накопительный итог, и подённой истории покупателя она не ведёт.
+            -->
+            <div class="card daily">
+              <div class="card-head"><b data-t="weekTraffic"></b><span class="mono" id="week-total">—</span></div>
+              <div class="daily-bars" id="week-bars" role="img"></div>
+              <div class="axis week-axis" id="week-axis"></div>
+              <div class="session-extra">
+                <div><span data-t="weekAverage"></span><strong id="week-average">—</strong></div>
+                <div><span data-t="weekPeak"></span><strong id="week-peak">—</strong></div>
+              </div>
+              <p class="week-note" data-t="weekNote"></p>
             </div>
           </div>
         </div>
@@ -1130,6 +1146,8 @@ const T = {
     todayTraffic: "Трафик сегодня", peakDown: "Пик приёма за сессию", peakUp: "Пик отдачи за сессию",
     averageDown: "Приём в среднем", averageUp: "Отдача в среднем", wNoKey: "Добавьте ключ в настройках",
     chartTitle: "Трафик за час", chartFrom: "−60 мин", chartNow: "сейчас",
+    weekTraffic: "Трафик за неделю", weekAverage: "В среднем за день", weekPeak: "Больше всего",
+    weekNote: "Расход этого компьютера через туннель. Другое устройство с тем же ключом считает своё, а мимо туннеля — не считается.",
 
     nodesAll: "Все страны",
     nodesAutoTitle: "Автовыбор",
@@ -1279,6 +1297,8 @@ const T = {
     todayTraffic: "Traffic today", peakDown: "Session download peak", peakUp: "Session upload peak",
     averageDown: "Average download", averageUp: "Average upload", wNoKey: "Add your access key in settings",
     chartTitle: "Traffic, last hour", chartFrom: "−60 min", chartNow: "now",
+    weekTraffic: "Traffic this week", weekAverage: "Daily average", weekPeak: "Busiest day",
+    weekNote: "This computer's traffic through the tunnel. Another device with the same key counts its own, and traffic around the tunnel is not counted.",
 
     nodesAll: "All countries",
     nodesAutoTitle: "Automatic choice",
@@ -2215,6 +2235,7 @@ function render(s) {
   $("average-up").textContent = seconds ? bytes((s.up || 0) / seconds) + d.perSec : "—";
   paintDaily($("day-bars"), traffic.hours);
   paintDaily($("w-day-bars"), traffic.hours);
+  paintWeek(traffic.week);
 
   paintBars(s.history);
 
@@ -2254,6 +2275,42 @@ function paintDaily(box, hours) {
     bar.title = String(i).padStart(2, "0") + ":00 · " + bytes(values[i]);
     bar.toggleAttribute("data-current", i === current);
   });
+}
+
+// paintWeek — семь суток столбиками, от старых к сегодняшним. Дни программа
+// присылает уже с нулями там, где туннеля не было, — пропуск читался бы как
+// «этого дня не было».
+function paintWeek(week) {
+  const days = (week || []).map((w) => ({ day: w.day, total: Math.max(0, (w.up || 0) + (w.down || 0)) }));
+  const box = $("week-bars");
+  const signature = lang + ":" + days.map((w) => w.day + "=" + w.total).join(",");
+  if (box.dataset.values === signature) return;
+  box.dataset.values = signature;
+  const highest = Math.max(1, ...days.map((w) => w.total));
+  // Название дня недели — по местному календарю, на языке окна: дату
+  // разбираем как местную полночь, а не как UTC, иначе вечером на западе
+  // от Гринвича подпись съехала бы на день назад.
+  const label = (iso) => {
+    const [y, m, dd] = iso.split("-").map(Number);
+    return new Date(y, m - 1, dd).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-GB", { weekday: "short" });
+  };
+  box.replaceChildren(...days.map((w, i) => {
+    const bar = document.createElement("i");
+    bar.style.height = Math.max(4, w.total / highest * 100) + "%";
+    bar.title = label(w.day) + " · " + bytes(w.total);
+    bar.toggleAttribute("data-current", i === days.length - 1);
+    return bar;
+  }));
+  $("week-axis").replaceChildren(...days.map((w) => {
+    const s = document.createElement("span");
+    s.textContent = label(w.day);
+    return s;
+  }));
+  const total = days.reduce((a, w) => a + w.total, 0);
+  $("week-total").textContent = days.length ? bytes(total) : "—";
+  $("week-average").textContent = days.length ? bytes(total / days.length) : "—";
+  const peak = days.reduce((a, w) => (w.total > a.total ? w : a), { total: 0 });
+  $("week-peak").textContent = peak.total ? label(peak.day) + " · " + bytes(peak.total) : "—";
 }
 
 // paintKeyCard — заголовок карточки ключа: метка и хост из ссылки.

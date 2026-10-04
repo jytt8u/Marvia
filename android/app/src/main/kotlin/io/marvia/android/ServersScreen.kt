@@ -7,6 +7,7 @@ import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.isVisible
@@ -103,10 +104,34 @@ class ServersScreen(
     private fun askWhereFrom() {
         val items = listOf(
             host.getString(R.string.servers_add_clipboard),
+            host.getString(R.string.servers_add_qr),
             host.getString(R.string.servers_add_manual),
         )
         ChoiceSheet.show(host, theme(), host.getString(R.string.servers_add_key), items) { which ->
-            if (which == 0) fromClipboard() else byHand()
+            when (which) {
+                0 -> fromClipboard()
+                1 -> pickQr.launch("image/*")
+                else -> byHand()
+            }
+        }
+    }
+
+    /**
+     * Вторую подписку тоже присылают QR-кодом. Экран ключа с кнопкой «QR»
+     * виден только до первого ключа, так что без этого пункта у человека с
+     * ключом картинку было бы не прочитать вовсе.
+     */
+    private val pickQr = host.registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        host.lifecycleScope.launch {
+            val text = withContext(Dispatchers.Default) {
+                runCatching { QrImport.fromUri(host, uri) }.getOrNull()
+            }
+            if (text.isNullOrEmpty()) {
+                Toast.makeText(host, R.string.key_qr_missing, Toast.LENGTH_LONG).show()
+            } else {
+                add("", text)
+            }
         }
     }
 

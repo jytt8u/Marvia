@@ -28,6 +28,7 @@ import androidx.core.view.doOnLayout
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.TextViewCompat
+import androidx.core.widget.doAfterTextChanged
 import androidx.core.view.updatePadding
 import androidx.core.view.updateLayoutParams
 import androidx.core.widget.ImageViewCompat
@@ -679,6 +680,9 @@ class MainActivity : AppCompatActivity() {
         k.pasteButton.setOnClickListener { paste() }
         k.qrButton.setOnClickListener { pickQr.launch("image/*") }
         k.keySaveButton.setOnClickListener { onKeyButton() }
+        // Ошибка относится к тексту, который в поле был, а не к новому: после
+        // вставки или QR красная строка про прежний ключ только путает.
+        k.keyInput.doAfterTextChanged { k.keyError.isVisible = false }
     }
 
     private fun openKey() {

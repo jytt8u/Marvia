@@ -205,8 +205,9 @@ go vet ./...
 go build -o bin/ ./...
 ```
 
-Android собирается отдельно через [`scripts/publish-apk.ps1`](scripts/publish-apk.ps1);
-ключ подписи хранится вне репозитория.
+APK собирает и подписывает сборка выпуска на GitHub, когда ключ лежит в
+секретах окружения `release`; иначе — [`scripts/publish-apk.ps1`](scripts/publish-apk.ps1)
+со своего ПК. В репозитории ключа нет.
 
 ## Лицензия
 

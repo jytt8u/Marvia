@@ -24,7 +24,16 @@ val releaseKeysFile = file(
 )
 
 val releaseKeys = Properties().apply {
-    if (releaseKeysFile.exists()) {
+    val ciStore = System.getenv("MARVIA_KEYSTORE")
+    if (!ciStore.isNullOrEmpty()) {
+        // Сборка выпуска на GitHub: хранилище ключа расшифровано из секрета во
+        // временный файл, пароли приходят переменными. Файл свойств с
+        // паролями там не пишем вовсе — меньше мест, где они лежат на диске.
+        setProperty("storeFile", ciStore)
+        setProperty("storePassword", System.getenv("MARVIA_KEYSTORE_PASSWORD").orEmpty())
+        setProperty("keyAlias", System.getenv("MARVIA_KEY_ALIAS").orEmpty())
+        setProperty("keyPassword", System.getenv("MARVIA_KEY_PASSWORD").orEmpty())
+    } else if (releaseKeysFile.exists()) {
         releaseKeysFile.inputStream().use { load(it) }
     } else {
         logger.warn("ключ подписи не найден: $releaseKeysFile — сборка release будет неподписанной")

@@ -21,8 +21,121 @@ permissions:
   attestations: write
 
 jobs:
+  # APK собирается и подписывается здесь же, из той же метки.
+  #
+  # Раньше его собирал владелец у себя, и покупателю оставалось верить, что
+  # файл в релизе сделан из этого кода. Теперь его происхождение подтверждает
+  # GitHub той же подписью, что и остальные файлы выпуска.
+  #
+  # Цена — ключ подписи живёт в секретах. Поэтому секреты лежат в окружении
+  # release, которое пускает к ним только сборку по метке v*: ветка, чужой PR
+  # и ручной запуск их не видят. А подпись сверяется с отпечатком, который
+  # знают все установленные приложения: подложенный ключ выпуск не соберёт.
+  #
+  # Ключа в секретах нет — APK пропускается, выпуск собирается как раньше, и
+  # владелец прикладывает APK сам (scripts/publish-apk.ps1).
+  android:
+    name: Android — подписанный APK
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: release
+    outputs:
+      signed: ${{ steps.key.outputs.signed }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ключ подписи из секрета
+        id: key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo '::notice::ключа подписи в секретах нет — APK приложит владелец'
+            echo 'signed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/marvia-release.jks"
+          echo "MARVIA_KEYSTORE=$RUNNER_TEMP/marvia-release.jks" >> "$GITHUB_ENV"
+          echo 'signed=true' >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        if: steps.key.outputs.signed == 'true'
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-java@v4
+        if: steps.key.outputs.signed == 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Android SDK и NDK
+        if: steps.key.outputs.signed == 'true'
+        run: |
+          sdk="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdk" --licenses >/dev/null 2>&1 || true
+          "$sdk" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+
+      - name: Ядро для Android
+        if: steps.key.outputs.signed == 'true'
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile
+          go install golang.org/x/mobile/cmd/gobind
+          mkdir -p android/app/libs
+          "$(go env GOPATH)/bin/gomobile" bind \
+            -target=android/arm64,android/arm -androidapi 24 -trimpath -ldflags="-s -w" \
+            -javapkg=io.marvia -o android/app/libs/marvia.aar ./mobile
+
+      # Код обновления лежит в android/version-code и растёт с каждым APK:
+      # телефон ставит поверх только больший код, а из номера alpha его не
+      # вывести — после снятых 1.0 и 1.0.1 коды идут с 10002.
+      - name: Приложение
+        if: steps.key.outputs.signed == 'true'
+        working-directory: android
+        env:
+          MARVIA_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MARVIA_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          MARVIA_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          export MARVIA_VERSION="${GITHUB_REF_NAME#v}"
+          export MARVIA_VERSION_CODE="$(tr -d ' \r\n' < version-code)"
+          bash ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease
+
+      - name: Подпись та же, что у установленных приложений
+        if: steps.key.outputs.signed == 'true'
+        run: |
+          tools="$ANDROID_HOME/build-tools/36.0.0"
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          cert=$("$tools/apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          if [ "$cert" != 53eb5bd44a381cbae19b7606ef20919e33dffb260d49f2d4ad868885364d7e82 ]; then
+            echo "APK подписан чужим ключом: $cert"
+            exit 1
+          fi
+          "$tools/aapt2" dump badging "$apk" | head -1
+          mkdir -p apk
+          cp "$apk" apk/marvia-android.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab apk/marvia-android.aab
+
+      - name: Стереть ключ
+        if: always()
+        run: rm -f "$RUNNER_TEMP/marvia-release.jks"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.key.outputs.signed == 'true'
+        with:
+          name: marvia-android
+          path: apk/
+          retention-days: 1
+
   build:
     name: Собрать и выложить
+    needs: android
+    # На ручном запуске Android пропущен — остальное собирается всё равно.
+    if: ${{ !cancelled() && (needs.android.result == 'success' || needs.android.result == 'skipped') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -111,8 +224,22 @@ jobs:
         shell: pwsh
         run: ./scripts/package-windows.ps1 -Exe ./dist/marvia-windows.exe -OutputDirectory ./dist -Version $env:MARVIA_BUILD_VERSION
 
+      - name: Взять подписанный APK
+        if: needs.android.outputs.signed == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: marvia-android
+          path: dist
+
+      # APK входит в те же суммы: установщик и служба обновления панели берут
+      # приложение из релиза и сверяют его по SHA256SUMS, как и остальное.
       - name: Посчитать суммы всех файлов выпуска
-        run: cd dist && sha256sum *.tar.gz install-panel.sh upgrade.sh marvia-windows.exe marvia-windows.zip marvia-windows-setup.exe > SHA256SUMS && cat SHA256SUMS
+        run: |
+          cd dist
+          apps=''
+          [ -f marvia-android.apk ] && apps='marvia-android.apk marvia-android.aab'
+          sha256sum *.tar.gz install-panel.sh upgrade.sh marvia-windows.exe marvia-windows.zip marvia-windows-setup.exe $apps > SHA256SUMS
+          cat SHA256SUMS
 
       - name: Подписать контрольные суммы сборки
         id: attest
@@ -151,6 +278,8 @@ jobs:
             dist/marvia-windows.exe
             dist/marvia-windows.zip
             dist/marvia-windows-setup.exe
+            dist/marvia-android.apk
+            dist/marvia-android.aab
             dist/SHA256SUMS
             dist/SHA256SUMS.sigstore.json
           body: |
@@ -162,8 +291,14 @@ jobs:
             Windows-клиент: запустите `marvia-windows-setup.exe` и установите
             приложение. Драйвер и ярлык уже в комплекте, ключи при обновлении сохраняются.
             Для переносимого запуска распакуйте весь `marvia-windows.zip`.
-            Отдельный EXE требует `wintun.dll` рядом с ним. Подписанные Android APK и AAB
-            добавляются после отдельной сборки и проверки подписи владельца.
+            Отдельный EXE требует `wintun.dll` рядом с ним.
+
+            Android: `marvia-android.apk` собран здесь же из этой метки и подписан
+            ключом приложения — SHA-256 сертификата
+            `53:EB:5B:D4:4A:38:1C:BA:E1:9B:76:06:EF:20:91:9E:33:DF:FB:26:0D:49:F2:D4:AD:86:88:85:36:4D:7E:82`,
+            тот же, что у прежних версий, поэтому ставится поверх с сохранением ключей.
+            `marvia-android.aab` — для Google Play. Если APK в списке нет, его приложат
+            отдельно после проверки подписи владельцем.
 
             Установка панели на чистый Linux-сервер:
 

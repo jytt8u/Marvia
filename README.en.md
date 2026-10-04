@@ -202,8 +202,9 @@ go vet ./...
 go build -o bin/ ./...
 ```
 
-Android is built separately with [`scripts/publish-apk.ps1`](scripts/publish-apk.ps1);
-the signing key is stored outside this repository.
+The release workflow builds and signs the APK when the key is in the `release`
+environment secrets; otherwise use [`scripts/publish-apk.ps1`](scripts/publish-apk.ps1)
+locally. The key is never in this repository.
 
 ## License
 

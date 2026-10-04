@@ -57,6 +57,10 @@ class ServersScreen(
         var left = 0L
         var fetchedAt = 0L
         var stale = false
+        /** Поддержка, «Продлить» и объявление продавца; пусто — не задано. */
+        var support = ""
+        var renew = ""
+        var announce = ""
         var error = ""
         var loaded = false
         var measuring = false
@@ -331,7 +335,14 @@ class ServersScreen(
         p.left = o.optLong("left", 0)
         p.fetchedAt = o.optLong("fetched_at", 0)
         p.stale = o.optBoolean("stale", false)
+        p.support = o.optString("support_url", "")
+        p.renew = o.optString("renew_url", "")
+        p.announce = o.optString("announce", "")
         p.error = ""
+        SellerChannel.remind(
+            host, store, p.sub.name, p.sub.link,
+            o.optString("remind", ""), o.optLong("remind_value", 0), o.optString("remind_key", ""), p.renew,
+        )
     }
 
     private fun parseRows(p: Provider, json: String): List<NodeRow> = NodeRow.parse(json) { id, name, endpoint ->
@@ -525,6 +536,18 @@ class ServersScreen(
             val share = if (quota) (p.left.toFloat() / p.limit).coerceIn(0f, 1f) else 1f
             item.providerFill.layoutParams = item.providerFill.layoutParams.apply { width = (item.providerTrack.width * share).toInt() }
         }
+
+        // Связь с продавцом. Кнопка без ссылки — пустое обещание, поэтому
+        // показываем только те, что продавец оставил.
+        item.providerAnnounce.isVisible = p.announce.isNotEmpty()
+        item.providerAnnounce.text = p.announce
+        val renew = SellerChannel.openable(p.renew)
+        val support = SellerChannel.openable(p.support)
+        item.providerSeller.isVisible = renew || support
+        item.providerRenew.isVisible = renew
+        item.providerSupport.isVisible = support
+        item.providerRenew.setOnClickListener { SellerChannel.open(host, p.renew) }
+        item.providerSupport.setOnClickListener { SellerChannel.open(host, p.support) }
 
         item.providerNote.isVisible = p.error.isNotEmpty() || p.stale
         item.providerNote.text = p.error.ifEmpty { host.getString(R.string.servers_stale) }

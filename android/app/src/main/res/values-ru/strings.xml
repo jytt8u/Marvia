@@ -580,4 +580,12 @@
     <string name="theme_look_custom">свой</string>
     <string name="theme_preview_place">Хельсинки · 33 мс</string>
     <string name="theme_advanced">Точная настройка оформления</string>
+    <!-- Связь с продавцом: кнопки на карточке подписки и напоминание о сроке. -->
+    <string name="seller_renew">Продлить</string>
+    <string name="seller_support">Поддержка</string>
+    <string name="seller_no_app">На телефоне нет приложения, которое откроет ссылку</string>
+    <string name="seller_remind_expiry">Доступ кончится через %1$s. Продлите заранее, чтобы ничего не встало.</string>
+    <string name="seller_remind_traffic">Осталось %1$d%% трафика. Продлите заранее, чтобы ничего не встало.</string>
+    <string name="seller_channel">Напоминания о доступе</string>
+    <string name="seller_channel_desc">Когда подходит срок или кончается трафик</string>
 </resources>

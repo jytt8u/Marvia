@@ -605,4 +605,12 @@
     <string name="theme_look_custom">custom</string>
     <string name="theme_preview_place">Helsinki · 33 ms</string>
     <string name="theme_advanced">More appearance settings</string>
+    <!-- Связь с продавцом: кнопки на карточке подписки и напоминание о сроке. -->
+    <string name="seller_renew">Renew</string>
+    <string name="seller_support">Support</string>
+    <string name="seller_no_app">No app on this phone can open the link</string>
+    <string name="seller_remind_expiry">Access ends in %1$s. Renew in advance so nothing stops.</string>
+    <string name="seller_remind_traffic">%1$d%% of traffic left. Renew in advance so nothing stops.</string>
+    <string name="seller_channel">Access reminders</string>
+    <string name="seller_channel_desc">When access is about to end or traffic runs low</string>
 </resources>

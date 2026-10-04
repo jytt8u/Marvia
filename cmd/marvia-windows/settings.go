@@ -36,6 +36,12 @@ type pcSettings struct {
 	// запросы в любом случае идут через туннель; выбор только в том, кто на
 	// другом конце: у кого-то есть фильтр рекламы, у кого-то нет.
 	DNS string `json:"dns,omitempty"`
+
+	// Fragment — резать TLS-приветствие к нодам так, чтобы имя из SNI не
+	// лежало целиком ни в одном TCP-сегменте. Против фильтров по имени.
+	// Выключено по умолчанию, как на телефоне: без такого фильтра у
+	// провайдера это лишние пакеты и своя примета.
+	Fragment bool `json:"fragment,omitempty"`
 }
 
 // SettingsView — настройки подключения и правда о них для окна.
@@ -55,6 +61,12 @@ type SettingsView struct {
 	// только вместе с адаптером.
 	DNS      string `json:"dns"`
 	DNSInUse string `json:"dns_in_use,omitempty"`
+
+	// Fragment — выбранное; FragmentInUse — с каким поднят туннель. Дробление
+	// решается при дозвоне до ноды, поэтому новое действует со следующего
+	// подключения.
+	Fragment      bool  `json:"fragment"`
+	FragmentInUse *bool `json:"fragment_in_use,omitempty"`
 }
 
 // SettingsPatch — что окно просит поменять; nil — не трогать.
@@ -62,6 +74,7 @@ type SettingsPatch struct {
 	BypassRussian *bool   `json:"bypass_russian"`
 	LANOutside    *bool   `json:"lan_outside"`
 	DNS           *string `json:"dns"`
+	Fragment      *bool   `json:"fragment"`
 }
 
 // settingsFile — где лежат настройки подключения.

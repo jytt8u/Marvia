@@ -152,6 +152,10 @@ type Controller struct {
 	// dnsInUse — резолвер поднятого туннеля; пусто, пока туннеля нет.
 	dnsInUse string
 
+	// fragmentInUse — режется ли приветствие у поднятого туннеля; nil, пока
+	// туннеля нет.
+	fragmentInUse *bool
+
 	// ruErr — почему российский список не скачался в последний раз; пусто
 	// — скачался или не пробовали. Окно показывает его под переключателем:
 	// включённый тумблер без списка ничего не уводит, и человек должен это
@@ -340,6 +344,9 @@ func (c *Controller) Connect() error {
 	c.cancel = cancel
 	c.connectCtx = ctx
 	bypass := c.settings.BypassRussian
+	// Настройки дозвона снимаем здесь, под замком и разом: правка в окне
+	// посреди подключения не должна дать половину старого и половину нового.
+	set := c.settings
 	c.mu.Unlock()
 
 	// Устаревший список обновляем рядом с подключением, а не перед ним:
@@ -349,12 +356,12 @@ func (c *Controller) Connect() error {
 		go c.refreshRussian(account, false)
 	}
 
-	go c.connect(ctx, account)
+	go c.connect(ctx, account, set)
 	return nil
 }
 
-func (c *Controller) connect(ctx context.Context, link string) {
-	if err := c.raise(ctx, link); err != nil {
+func (c *Controller) connect(ctx context.Context, link string, set pcSettings) {
+	if err := c.raise(ctx, link, set); err != nil {
 		if ctx.Err() != nil {
 			// Человек нажал «отключиться», не дождавшись. Это не ошибка.
 			c.finish(ctx, StateIdle, "")
@@ -372,7 +379,7 @@ func (c *Controller) connect(ctx context.Context, link string) {
 //
 // Путь до подключения у ключа Marvia и у чужой подписки разный, а дальше —
 // адаптер, маршруты, мост — общий: обоим нужно одно и то же, поток до цели.
-func (c *Controller) raise(ctx context.Context, link string) error {
+func (c *Controller) raise(ctx context.Context, link string, set pcSettings) error {
 	netpath.Enable()
 	var (
 		dialer       client.Backend
@@ -381,14 +388,14 @@ func (c *Controller) raise(ctx context.Context, link string) error {
 		err error
 	)
 	if foreign.IsForeign(link) {
-		dialer, measurements, err = c.raiseForeign(ctx, link)
+		dialer, measurements, err = c.raiseForeign(ctx, link, set)
 	} else {
-		dialer, measurements, err = c.raiseMarvia(ctx, link)
+		dialer, measurements, err = c.raiseMarvia(ctx, link, set)
 	}
 	if err != nil {
 		return err
 	}
-	return c.raiseTunnel(ctx, dialer, measurements)
+	return c.raiseTunnel(ctx, dialer, measurements, set.Fragment)
 }
 
 // raiseForeign — чужая подписка: VLESS, VMess, Trojan и прочее через Xray.
@@ -396,7 +403,7 @@ func (c *Controller) raise(ctx context.Context, link string) error {
 // Имена нод разрешаются здесь, до адаптера, и адреса закрепляются в
 // настройках: иначе Xray разрешал бы имя ноды при каждом соединении, и
 // запрос ушёл бы в туннель, который он же и держит. Подробнее — foreign.Pin.
-func (c *Controller) raiseForeign(ctx context.Context, link string) (client.Backend, []client.Measurement, error) {
+func (c *Controller) raiseForeign(ctx context.Context, link string, set pcSettings) (client.Backend, []client.Measurement, error) {
 	dir, _ := settingsDir()
 	sub, _, _, err := foreign.Load(link, foreign.CachePath(dir, link), false)
 	if err != nil {
@@ -412,7 +419,7 @@ func (c *Controller) raiseForeign(ctx context.Context, link string) (client.Back
 	if err != nil {
 		return nil, nil, err
 	}
-	dialer, measurements, err := foreign.Supervise(ctx, pinned, 0, c.events(ctx), foreign.Options{})
+	dialer, measurements, err := foreign.Supervise(ctx, pinned, 0, c.events(ctx), foreign.Options{Fragment: set.Fragment})
 	if err != nil {
 		return nil, measurements, err
 	}
@@ -420,7 +427,7 @@ func (c *Controller) raiseForeign(ctx context.Context, link string) (client.Back
 }
 
 // raiseMarvia — свой ключ: VP1 и панель Marvia.
-func (c *Controller) raiseMarvia(ctx context.Context, link string) (client.Backend, []client.Measurement, error) {
+func (c *Controller) raiseMarvia(ctx context.Context, link string, set pcSettings) (client.Backend, []client.Measurement, error) {
 	account, err := client.ParseAccountLink(link)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: %w", say("accountLink"), err)
@@ -440,6 +447,7 @@ func (c *Controller) raiseMarvia(ctx context.Context, link string) (client.Backe
 		Account:   account,
 		Key:       key,
 		CachePath: cachePath(),
+		Dial:      client.Options{Fragment: set.Fragment},
 		Log:       c.log.add,
 	}, c.events(ctx))
 
@@ -455,7 +463,7 @@ func (c *Controller) raiseMarvia(ctx context.Context, link string) (client.Backe
 }
 
 // raiseTunnel поднимает адаптер, маршруты и мост поверх готового подключения.
-func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, measurements []client.Measurement) error {
+func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, measurements []client.Measurement, fragment bool) error {
 	// Старый адаптер должен сняться раньше нового. Отмена при этом немедленно
 	// закрывает контекст: ждать освобождения маршрутов для отмены незачем.
 	c.tunnelMu.Lock()
@@ -527,6 +535,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	c.dialer, c.adapter, c.bridge = dialer, adapter, bridge
 	c.node, c.ping = node, ping
 	c.dnsInUse = dnsAddr.String()
+	c.fragmentInUse = &fragment
 	c.until, c.limitBytes, c.leftBytes = subscriptionOf(dialer)
 	c.known = dialer.Subscription()
 	// Про обновление узнаём здесь же: подписка приходит при подключении, а
@@ -570,6 +579,7 @@ func (c *Controller) Disconnect() {
 	c.reason = ""
 	c.node = client.Node{}
 	c.dnsInUse = ""
+	c.fragmentInUse = nil
 	c.until, c.limitBytes, c.leftBytes = "", 0, 0
 	c.since = time.Time{}
 	c.mu.Unlock()

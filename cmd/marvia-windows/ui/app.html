@@ -867,6 +867,10 @@
                   <div class="grow"><span class="name" data-t="lanOutside"></span><span class="sub" data-t="lanOutsideHint"></span><span class="sub" id="lan-msg"></span></div>
                   <button class="chip" id="lan" type="button" aria-pressed="false"></button>
                 </div>
+                <div>
+                  <div class="grow"><span class="name" data-t="fragment"></span><span class="sub" data-t="fragmentHint"></span><span class="sub" id="fragment-msg"></span></div>
+                  <button class="chip" id="fragment" type="button" aria-pressed="false"></button>
+                </div>
                 <!--
                   Резолвер: те же четыре, что на телефоне, и свой адрес. Сами
                   запросы имён идут через туннель при любом выборе.
@@ -1096,6 +1100,9 @@ const T = {
     dnsHint: "Чей резолвер отвечает на запросы имён. Сами запросы при любом выборе идут через туннель: выбор только в том, кто на другом конце, — у AdGuard, например, есть фильтр рекламы.",
     dnsSave: "Свой адрес", dnsCustom: "свой, например 1.0.0.1",
     dnsNext: "Применится при следующем подключении",
+    fragment: "Дробить приветствие",
+    fragmentHint: "Если провайдер режет по имени сайта: имя ноды в TLS-приветствии не лежит целиком ни в одном пакете. Без нужды не включай — это лишние пакеты и своя примета.",
+    fragmentNext: "Применится при следующем подключении",
     lanOutside: "Домашняя сеть мимо туннеля",
     lanOutsideHint: "Принтер, сетевой диск или камера — частные адреса 10.x, 172.16–31.x и 192.168.x идут напрямую. Свою подсеть Windows и так ведёт мимо туннеля — это для соседних. В чужом Wi-Fi домашняя сеть чужая: включай осознанно.",
     pages: {
@@ -1239,6 +1246,9 @@ const T = {
     dnsHint: "Whose resolver answers name lookups. Whatever you choose, the lookups themselves go through the tunnel — the choice is only who is at the other end; AdGuard, for one, filters ads.",
     dnsSave: "Own address", dnsCustom: "own, e.g. 1.0.0.1",
     dnsNext: "Applies on the next connection",
+    fragment: "Split the TLS hello",
+    fragmentHint: "If your provider blocks by site name: the node's name in the TLS hello never sits whole in one packet. Leave it off otherwise — it means extra packets and a trait of its own.",
+    fragmentNext: "Applies on the next connection",
     lanOutside: "Home network around the tunnel",
     lanOutsideHint: "Printer, network drive or camera — private addresses 10.x, 172.16–31.x and 192.168.x go directly. Windows already keeps your own subnet outside the tunnel — this is for the neighbouring ones. On someone else's Wi-Fi the home network is theirs: turn it on deliberately.",
     pages: {
@@ -2379,6 +2389,11 @@ function paintConn() {
   lan.textContent = conn.lan_outside ? d.toggleOn : d.toggleOff;
   lan.setAttribute("aria-pressed", String(!!conn.lan_outside));
 
+  const frag = $("fragment");
+  frag.textContent = conn.fragment ? d.toggleOn : d.toggleOff;
+  frag.setAttribute("aria-pressed", String(!!conn.fragment));
+  $("fragment-msg").textContent = conn.fragment_in_use !== undefined && conn.fragment_in_use !== conn.fragment ? d.fragmentNext : "";
+
   // Свой адрес, которого нет среди четырёх, показываем в поле: иначе
   // человек не увидел бы, что выбрано.
   let known = false;
@@ -2416,6 +2431,7 @@ async function changeConn(button, patch, msg) {
 }
 on("bypass-ru", "click", () => changeConn($("bypass-ru"), { bypass_russian: !conn.bypass_russian }, "bypass-ru-msg"));
 on("lan", "click", () => changeConn($("lan"), { lan_outside: !conn.lan_outside }, "lan-msg"));
+on("fragment", "click", () => changeConn($("fragment"), { fragment: !conn.fragment }, "fragment-msg"));
 for (const b of document.querySelectorAll("#dns-pick [data-dns]")) {
   b.addEventListener("click", () => changeConn(b, { dns: b.dataset.dns }, "dns-msg"));
 }

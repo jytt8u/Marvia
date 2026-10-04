@@ -14,7 +14,7 @@ func TestCancelledAttemptCannotOverwriteLaterConnection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	c := &Controller{state: StateConnected, node: client.Node{ID: 2}, log: newJournal()}
-	c.connect(ctx, "marvia://неверная-ссылка")
+	c.connect(ctx, "marvia://неверная-ссылка", pcSettings{})
 	if c.state != StateConnected || c.node.ID != 2 {
 		t.Fatalf("отменённая попытка затёрла новое подключение: %s", c.state)
 	}
@@ -32,7 +32,7 @@ func TestCancelledAttemptNeverCreatesAnAdapter(t *testing.T) {
 	cancel()
 	c := &Controller{connectCtx: ctx, state: StateConnecting, log: newJournal()}
 	backend := &rejectedBackend{}
-	if err := c.raiseTunnel(ctx, backend, nil); !errors.Is(err, context.Canceled) || !backend.closed {
+	if err := c.raiseTunnel(ctx, backend, nil, false); !errors.Is(err, context.Canceled) || !backend.closed {
 		t.Fatalf("отменённая попытка продолжила создание адаптера: %v", err)
 	}
 }

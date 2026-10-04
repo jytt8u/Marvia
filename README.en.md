@@ -83,7 +83,7 @@ Android, Marvia also creates a system VPN interface for third-party proxy keys.
 | Protocol | Transport and distinction | Marvia support |
 |---|---|---|
 | **[VP1](docs/protocol.md)** | Noise proxy over TLS/REALITY, WebSocket or QUIC; falls back to TCP if QUIC/UDP is unavailable | First-party node, Android and Windows |
-| [WireGuard](https://www.wireguard.com/protocol/) | IP tunnel over UDP; no built-in HTTPS disguise | Android: third-party key |
+| [WireGuard](https://www.wireguard.com/protocol/) | IP tunnel over UDP; no built-in HTTPS disguise | Android: third-party key, seller's Renew and Support |
 | [OpenVPN](https://openvpn.net/community-docs/community-articles/openvpn-2-7-manual.html) | IP tunnel over UDP or TCP with TLS; a separate protocol, not ordinary HTTPS | Not integrated |
 | [VLESS + REALITY](https://xtls.github.io/en/config/transports/reality.html) | TCP proxy with TLS handshake disguised as a target site | Node and Android |
 | [Trojan](https://github.com/trojan-gfw/trojan/blob/master/docs/protocol.md) | Proxy inside TLS with a cover site | Node and Android |
@@ -97,7 +97,7 @@ VP1 is not compatible with WireGuard or Xray clients.
 
 | Client | Server |
 |---|---|
-| Android: Marvia and third-party keys, node selection, usage and VPN settings | Panel and nodes: limits, accounting, backups, bot API, migration from Marzban and 3x-ui; support and renew links and an announcement in the subscription for Happ, v2RayTun, Hiddify |
+| Android: Marvia and third-party keys, node selection, usage and VPN settings, seller's Renew and Support | Panel and nodes: limits, accounting, backups, bot API, migration from Marzban and 3x-ui; support and renew links and an announcement in the subscription for Happ, v2RayTun, Hiddify |
 | Windows: TUN client, Russian sites and home network directly, DNS choice, split TLS hello, several keys, weekly traffic, IPv6 and reports switches, seller's Support and Renew | VP1, VLESS and Trojan; verified node updates |
 
 Manually selected nodes connect without waiting for measurements of every
@@ -177,9 +177,6 @@ client in the panel. [Full guide (Russian)](docs/guide.md) · [Bot API](docs/bot
   Shadowsocks, Vision links, or MySQL and PostgreSQL databases.
 - iOS, Clash/sing-box subscriptions, TUIC, Shadowsocks plugins, and per-device
   revocation when a key is shared.
-- Support and Renew buttons, the seller's announcement and the expiry reminder
-  in the Android app. The panel already sends them and the client core accepts
-  and checks them; Windows shows them, the phone has no screen for them yet.
 - On Windows: apps around the tunnel, a kill switch, monthly statistics and
   reading a key from a QR image — for now these exist on the phone only.
 

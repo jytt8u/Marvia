@@ -118,6 +118,7 @@ class Store(context: Context) {
         val prefix = exitCountryPrefix(link)
         val edit = prefs.edit()
         prefs.all.keys.filter { it.startsWith(prefix) }.forEach { edit.remove(it) }
+        edit.remove(remindedKey(link))
         edit.apply()
         // Убрали рабочую — остаёмся без ключа, а не с чужим втихую.
         if (accountLink == link) accountLink = ""
@@ -139,6 +140,20 @@ class Store(context: Context) {
             "${code.lowercase()}|${System.currentTimeMillis()}",
         ).apply()
     }
+
+    /**
+     * reminded — ключи напоминаний о сроке, которые по этой подписке уже
+     * показали, от старых к новым. Строкой, а не набором: набор порядка не
+     * хранит, а выбрасывать надо самые старые.
+     */
+    fun reminded(link: String): List<String> =
+        prefs.getString(remindedKey(link), "").orEmpty().split('\n').filter { it.isNotEmpty() }
+
+    fun setReminded(link: String, keys: List<String>) {
+        prefs.edit().putString(remindedKey(link), keys.joinToString("\n")).apply()
+    }
+
+    private fun remindedKey(link: String) = "reminded_${hash(link)}"
 
     private fun exitCountryPrefix(link: String) = "exit_country_${hash(link)}_"
     private fun exitCountryKey(link: String, nodeId: Long, name: String, endpoint: String) =

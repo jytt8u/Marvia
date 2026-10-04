@@ -94,7 +94,7 @@ VP1 不兼容 WireGuard 或 Xray 客户端。
 
 | 客户端 | 服务器 |
 |---|---|
-| Android：支持 Marvia 和第三方密钥、节点选择、用量统计及 VPN 设置 | 面板与节点：限额、流量统计、备份、机器人 API，以及从 Marzban 和 3x-ui 迁移；订阅中为 Happ、v2RayTun、Hiddify 提供客服与续费链接和公告 |
+| Android：支持 Marvia 和第三方密钥、节点选择、用量统计及 VPN 设置，卖家的“续费”和“客服” | 面板与节点：限额、流量统计、备份、机器人 API，以及从 Marzban 和 3x-ui 迁移；订阅中为 Happ、v2RayTun、Hiddify 提供客服与续费链接和公告 |
 | Windows：TUN 客户端，俄罗斯网站与家庭网络直连，可选 DNS，TLS 握手分片，多个密钥，每周流量，IPv6 与报告开关，卖家的“客服”和“续费” | VP1、VLESS 和 Trojan；经过校验的节点更新 |
 
 手动选择节点后，客户端无需等待所有其他节点测速；若所选节点不可用，再检查备用节点。
@@ -165,8 +165,6 @@ sudo sh install-panel.sh --domain panel.example.com --email you@example.com --po
   Vision 链接以及 MySQL 和 PostgreSQL 数据库不会迁移。
 - iOS、Clash/sing-box 订阅、TUIC、Shadowsocks 插件，以及共享密钥时
   单独撤销设备。
-- Android 应用中的“客服”“续费”按钮、卖家公告和到期提醒。面板已下发，
-  客户端内核已接收并校验；Windows 已显示，手机上尚无界面。
 - Windows 上的按应用分流、kill switch、月度统计和从二维码图片读取密钥：
   目前只有手机端具备。
 

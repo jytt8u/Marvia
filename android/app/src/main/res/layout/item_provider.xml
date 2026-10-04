@@ -177,6 +177,53 @@
             android:textStyle="bold" />
     </LinearLayout>
 
+    <!-- Объявление продавца: одно-два предложения из панели. Пусто — не задано. -->
+    <TextView
+        android:id="@+id/providerAnnounce"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="12dp"
+        android:tag="fg"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <!-- Куда идти, когда доступ кончается или не работает. Кнопки только те,
+         чьи ссылки продавец оставил. -->
+    <LinearLayout
+        android:id="@+id/providerSeller"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="14dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/providerRenew"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:foreground="?attr/selectableItemBackground"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="8dp"
+            android:tag="btn"
+            android:text="@string/seller_renew"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/providerSupport"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:foreground="?attr/selectableItemBackground"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="8dp"
+            android:tag="chip"
+            android:text="@string/seller_support"
+            android:textSize="13sp" />
+    </LinearLayout>
+
     <View
         android:id="@+id/providerRule"
         android:layout_width="match_parent"

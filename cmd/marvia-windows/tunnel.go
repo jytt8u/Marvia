@@ -83,6 +83,10 @@ type Status struct {
 	Proxy      string `json:"proxy,omitempty"`
 	ProxyOwner string `json:"proxy_owner,omitempty"`
 	ProxyEnv   bool   `json:"proxy_env,omitempty"`
+
+	// Seller — поддержка, «Продлить», объявление и напоминание о сроке; см.
+	// seller.go. Есть и без туннеля: нужнее всего, когда подключиться нельзя.
+	Seller SellerView `json:"seller"`
 }
 
 // Controller держит туннель и знает, как его включить и выключить.
@@ -148,12 +152,20 @@ type Controller struct {
 	// видеть, а не гадать, почему банк всё ещё видит заграницу.
 	ruErr string
 	ruMu  sync.Mutex
+
+	// known — последняя известная подписка ключа, из кэша; пока туннель
+	// поднят, окно смотрит на живую. reminded — ключ напоминания, которое
+	// человек уже закрыл.
+	known    client.Subscription
+	reminded string
 }
 
 // NewController готовит управление, подхватывая сохранённую ссылку доступа.
 func NewController(dns string, mtu uint32, log *journal) *Controller {
 	c := &Controller{state: StateIdle, dns: dns, mtu: mtu, log: log}
 	c.account = readAccount()
+	c.known = knownSubscription(c.account)
+	c.reminded = readUISetting(remindedSetting)
 	if path, err := accountPath(); err == nil {
 		c.traffic.load(filepath.Join(filepath.Dir(path), "traffic.json"), time.Now())
 	}
@@ -211,6 +223,7 @@ func (c *Controller) Status() Status {
 		Proxy:      c.proxy.Describe(),
 		ProxyOwner: c.proxy.Owner,
 		ProxyEnv:   c.proxy.FromEnv,
+		Seller:     sellerView(c.subscriptionLocked(), c.reminded, time.Now()),
 	}
 }
 
@@ -282,7 +295,13 @@ func (c *Controller) SetAccount(link string) error {
 	c.account = link
 	c.mu.Unlock()
 
-	return writeAccount(link)
+	if err := writeAccount(link); err != nil {
+		return err
+	}
+	// Кнопки продавца — от нового ключа, а не от прежнего: «Продлить» чужого
+	// магазина хуже, чем никакого.
+	c.rememberSubscription(link)
+	return nil
 }
 
 // Connect поднимает туннель.
@@ -335,6 +354,9 @@ func (c *Controller) connect(ctx context.Context, link string) {
 			return
 		}
 		c.log.add("%s", sayf("logNoConnect", err))
+		// Попытка успела обновить кэш до отказа: кончившийся доступ — ровно
+		// тот случай, когда нужна свежая ссылка «Продлить».
+		c.rememberSubscription(link)
 		c.finish(ctx, StateFailed, err.Error())
 	}
 }
@@ -493,6 +515,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	c.dialer, c.adapter, c.bridge = dialer, adapter, bridge
 	c.node, c.ping = node, ping
 	c.until, c.limitBytes, c.leftBytes = subscriptionOf(dialer)
+	c.known = dialer.Subscription()
 	// Про обновление узнаём здесь же: подписка приходит при подключении, а
 	// ходить за ней отдельно ради версии — лишний запрос к панели в день.
 	if offer, ok := dialer.Subscription().Update("windows", version); ok {
@@ -524,6 +547,11 @@ func (c *Controller) Disconnect() {
 	defer c.tunnelMu.Unlock()
 	c.mu.Lock()
 	bridge, adapter, dialer := c.bridge, c.adapter, c.dialer
+	if dialer != nil {
+		// Подписка за сессию могла обновиться: кнопки продавца остаются от
+		// последней, а не от той, что была при подключении.
+		c.known = dialer.Subscription()
+	}
 	c.bridge, c.adapter, c.dialer = nil, nil, nil
 	c.state = StateIdle
 	c.reason = ""

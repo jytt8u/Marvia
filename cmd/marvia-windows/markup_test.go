@@ -239,3 +239,64 @@ func TestEverySettingTheWindowSendsIsKnown(t *testing.T) {
 		}
 	}
 }
+
+// Каждая ручка, которую зовёт окно, у программы есть, и тем же методом.
+//
+// Ручка, которой нет, отвечает 404 — а окно показывает это как «ошибка 404»
+// под кнопкой, которая выглядит рабочей. Это та же нарисованная кнопка без
+// действия, только найти её труднее: ни сборка, ни vet строку адреса не
+// проверяют.
+func TestEveryEndpointTheWindowCallsIsServed(t *testing.T) {
+	page, err := os.ReadFile("ui/app.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	server, err := os.ReadFile("ui.go")
+	if err != nil {
+		t.Fatalf("ui.go не читается: %v", err)
+	}
+	calls := regexp.MustCompile(`api\("(GET|POST)", "api/([a-z/]+)"`).FindAllStringSubmatch(string(page), -1)
+	if len(calls) == 0 {
+		t.Fatal("окно не зовёт ни одной ручки — разбор страницы сломался")
+	}
+	for _, m := range calls {
+		route := `"` + m[1] + ` "+prefix+"/api/` + m[2] + `"`
+		if !strings.Contains(string(server), route) {
+			t.Errorf("окно зовёт %s api/%s, а программа такой ручки не держит", m[1], m[2])
+		}
+	}
+}
+
+// У каждой надписи data-t="…" есть слова в словаре. Без них элемент
+// остаётся пустым — например, кнопка «Продлить» без единой буквы.
+func TestEveryLabelHasWords(t *testing.T) {
+	raw, err := os.ReadFile("ui/app.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	page := string(raw)
+	ru := dictionaryKeys(t, page, "ru:")
+	for _, m := range regexp.MustCompile(`data-t="([a-zA-Z0-9]+)"`).FindAllStringSubmatch(page, -1) {
+		if !ru[m[1]] {
+			t.Errorf("надпись %q не найдена в словаре", m[1])
+		}
+	}
+}
+
+// Ссылку продавца страница не знает и не шлёт: только имя кнопки. Иначе
+// ошибка в разметке открыла бы человеку что угодно.
+func TestSellerButtonsSendNamesNotAddresses(t *testing.T) {
+	raw, err := os.ReadFile("ui/app.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	page := string(raw)
+	for _, name := range []string{"renew", "support"} {
+		if !strings.Contains(page, `openSeller("`+name+`")`) {
+			t.Errorf("кнопка %s не зовёт программу по имени", name)
+		}
+	}
+	if regexp.MustCompile(`support_url|renew_url`).MatchString(page) {
+		t.Error("страница ждёт адрес ссылки продавца — его ей не отдают")
+	}
+}

@@ -82,3 +82,27 @@ func TestTamperedForeignCacheIsCleanedOnLoad(t *testing.T) {
 		t.Fatalf("ссылка из кэша не проверена: %+v", sub.Seller)
 	}
 }
+
+// Старый кэш читается без похода в сеть, и подправленный руками — тоже
+// через чистку: окно отдаст эти ссылки системе.
+func TestCachedForeignSubscriptionNeedsNoNetworkAndIsCleaned(t *testing.T) {
+	cache := filepath.Join(t.TempDir(), "foreign.json")
+	// Неотвечающая панель: Cached обязан не пойти по этому адресу вовсе,
+	// иначе он вернул бы ошибку или ждал бы тайм-аут.
+	link := "https://127.0.0.1:1/sub/x"
+	if _, ok := Cached(link, cache); ok {
+		t.Fatal("без файла кэш нашёлся")
+	}
+	raw := `{"fetched_at":1,"body":"trojan://p@node.example.test:443",` +
+		`"seller":{"support_url":"javascript:alert(1)","renew_url":"https://shop.example/renew","announce":"ok"}}`
+	if err := os.WriteFile(cache, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sub, ok := Cached(link, cache)
+	if !ok {
+		t.Fatal("кэш не прочитан")
+	}
+	if sub.Seller.SupportURL != "" || sub.Seller.RenewURL != "https://shop.example/renew" || sub.Seller.Announce != "ok" {
+		t.Fatalf("кэш прочитан не так: %+v", sub.Seller)
+	}
+}

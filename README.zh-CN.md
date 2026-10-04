@@ -188,8 +188,8 @@ go vet ./...
 go build -o bin/ ./...
 ```
 
-Android 需单独使用 [`scripts/publish-apk.ps1`](scripts/publish-apk.ps1) 构建；
-签名密钥不存放在本仓库。
+当签名密钥存放在 `release` 环境的 secrets 中时，APK 由 GitHub 发布流程构建并签名；
+否则在本机使用 [`scripts/publish-apk.ps1`](scripts/publish-apk.ps1)。签名密钥不存放在本仓库。
 
 ## 许可证
 

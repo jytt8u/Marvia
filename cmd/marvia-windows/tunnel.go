@@ -149,6 +149,9 @@ type Controller struct {
 	// lan — домашняя сеть мимо туннеля; атомарно по той же причине, что bypass.
 	lan atomic.Bool
 
+	// dnsInUse — резолвер поднятого туннеля; пусто, пока туннеля нет.
+	dnsInUse string
+
 	// ruErr — почему российский список не скачался в последний раз; пусто
 	// — скачался или не пробовали. Окно показывает его под переключателем:
 	// включённый тумблер без списка ничего не уводит, и человек должен это
@@ -473,7 +476,12 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 		_ = dialer.Close()
 		return err
 	}
-	dnsAddr, err := dnsAddress(c.dns)
+	// Резолвер берём из настроек окна на момент подключения; флаг -dns —
+	// запасной, для поддержки и отладки.
+	c.mu.Lock()
+	dns := c.settings.resolver(c.dns)
+	c.mu.Unlock()
+	dnsAddr, err := dnsAddress(dns)
 	if err != nil {
 		_ = dialer.Close()
 		return err
@@ -499,7 +507,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 		Endpoint: adapter.Endpoint(),
 		MTU:      c.mtu,
 		Dialer:   tunbridge.Split(tunbridge.Metered(dialer, &c.up, &c.down), localNetwork, c.around),
-		DNS:      c.dns,
+		DNS:      dns,
 		OnError:  func(err error) { c.log.add("%s", sayf("logConn", err)) },
 	})
 	if err != nil {
@@ -518,6 +526,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	}
 	c.dialer, c.adapter, c.bridge = dialer, adapter, bridge
 	c.node, c.ping = node, ping
+	c.dnsInUse = dnsAddr.String()
 	c.until, c.limitBytes, c.leftBytes = subscriptionOf(dialer)
 	c.known = dialer.Subscription()
 	// Про обновление узнаём здесь же: подписка приходит при подключении, а
@@ -560,6 +569,7 @@ func (c *Controller) Disconnect() {
 	c.state = StateIdle
 	c.reason = ""
 	c.node = client.Node{}
+	c.dnsInUse = ""
 	c.until, c.limitBytes, c.leftBytes = "", 0, 0
 	c.since = time.Time{}
 	c.mu.Unlock()

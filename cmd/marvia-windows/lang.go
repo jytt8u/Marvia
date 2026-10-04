@@ -90,6 +90,8 @@ var messages = map[string]map[string]string{
 		"sellerNoLink":     "продавец не оставил такой ссылки",
 		"sellerBadLink":    "ссылка продавца не прошла проверку и не открыта",
 		"logSellerBadLink": "ссылка продавца отвергнута: %v",
+		"dnsBad":           "нужен адрес IPv4 вида 1.1.1.1",
+		"dnsLocal":         "это адрес локальной сети: из туннеля он не виден",
 	},
 	"en": {
 		"webViewTitle":    "Marvia needs WebView2 to display its window",
@@ -131,6 +133,8 @@ var messages = map[string]map[string]string{
 		"sellerNoLink":     "your seller left no such link",
 		"sellerBadLink":    "the seller's link failed the check and was not opened",
 		"logSellerBadLink": "seller's link rejected: %v",
+		"dnsBad":           "an IPv4 address like 1.1.1.1 is needed",
+		"dnsLocal":         "this is a local network address: it is not visible from the tunnel",
 	},
 }
 

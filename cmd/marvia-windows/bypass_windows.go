@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/jytt8u/marvia/internal/client"
@@ -130,6 +131,8 @@ func (c *Controller) Settings() SettingsView {
 		RuCount:       c.bypass.Load().Len(),
 		RuError:       c.ruErr,
 		LANOutside:    c.settings.LANOutside,
+		DNS:           dnsHost(c.settings.resolver(c.dns)),
+		DNSInUse:      c.dnsInUse,
 	}
 }
 
@@ -150,6 +153,16 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	}
 	if p.LANOutside != nil {
 		next.LANOutside = *p.LANOutside
+	}
+	if p.DNS != nil {
+		want := strings.TrimSpace(*p.DNS)
+		if want != "" {
+			if err := checkDNS(want); err != nil {
+				c.mu.Unlock()
+				return c.Settings(), errors.New(say(err.Error()))
+			}
+		}
+		next.DNS = want
 	}
 	account := c.account
 	c.mu.Unlock()
@@ -174,4 +187,13 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 		}
 	}
 	return c.Settings(), nil
+}
+
+// dnsHost — адрес резолвера без порта, как его показывает окно.
+func dnsHost(hostPort string) string {
+	host, _, err := net.SplitHostPort(hostPort)
+	if err != nil {
+		return hostPort
+	}
+	return host
 }

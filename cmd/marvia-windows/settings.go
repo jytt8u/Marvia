@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -28,6 +30,12 @@ type pcSettings struct {
 	// сеть» — это чужая сеть, и пускать туда трафик мимо туннеля человек
 	// решает сам.
 	LANOutside bool `json:"lan_outside,omitempty"`
+
+	// DNS — чей резолвер отвечает на запросы имён: адрес IPv4 без порта.
+	// Пусто — тот, что задан флагом -dns (по умолчанию Cloudflare). Сами
+	// запросы в любом случае идут через туннель; выбор только в том, кто на
+	// другом конце: у кого-то есть фильтр рекламы, у кого-то нет.
+	DNS string `json:"dns,omitempty"`
 }
 
 // SettingsView — настройки подключения и правда о них для окна.
@@ -40,12 +48,20 @@ type SettingsView struct {
 	RuError string `json:"ru_error,omitempty"`
 
 	LANOutside bool `json:"lan_outside"`
+
+	// DNS — выбранный резолвер; DNSInUse — тот, с которым поднят туннель.
+	// Разные — значит выбор применится при следующем подключении: адрес
+	// резолвера стоит на адаптере и в политике имён системы, а их меняют
+	// только вместе с адаптером.
+	DNS      string `json:"dns"`
+	DNSInUse string `json:"dns_in_use,omitempty"`
 }
 
 // SettingsPatch — что окно просит поменять; nil — не трогать.
 type SettingsPatch struct {
-	BypassRussian *bool `json:"bypass_russian"`
-	LANOutside    *bool `json:"lan_outside"`
+	BypassRussian *bool   `json:"bypass_russian"`
+	LANOutside    *bool   `json:"lan_outside"`
+	DNS           *string `json:"dns"`
 }
 
 // settingsFile — где лежат настройки подключения.
@@ -151,4 +167,62 @@ func saveRuRoutes(dir string, prefixes []string) error {
 // камеры, — которое иначе ушло бы на ноду за границей и там пропало.
 func homeNetwork(ip netip.Addr) bool {
 	return ip.IsPrivate()
+}
+
+// dnsChoices — известные резолверы, те же, что на телефоне: Cloudflare,
+// Google, Quad9, AdGuard. Свой адрес принимается, если прошёл checkDNS.
+var dnsChoices = []string{"1.1.1.1", "8.8.8.8", "9.9.9.9", "94.140.14.14"}
+
+var (
+	errDNSBad   = errors.New("dnsBad")
+	errDNSLocal = errors.New("dnsLocal")
+)
+
+// checkDNS проверяет свой адрес резолвера — те же правила, что у телефона.
+//
+// Опечатка здесь означает «интернет не работает» без единой подсказки,
+// почему, поэтому строго: четыре числа без ведущих нулей (010 одни читают
+// восьмеричным, другие десятичным). Локальный адрес отвергается отдельно и с
+// причиной: запрос имени уходит в туннель, и роутер 192.168.1.1 оттуда не
+// виден, а нода к частным адресам не ходит. IPv6 не берём: при ноде без
+// IPv6 такой резолвер молча перестал бы отвечать.
+func checkDNS(address string) error {
+	parts := strings.Split(strings.TrimSpace(address), ".")
+	if len(parts) != 4 {
+		return errDNSBad
+	}
+	var n [4]int
+	for i, p := range parts {
+		if p == "" || len(p) > 3 || (len(p) > 1 && p[0] == '0') {
+			return errDNSBad
+		}
+		for _, r := range p {
+			if r < '0' || r > '9' {
+				return errDNSBad
+			}
+			n[i] = n[i]*10 + int(r-'0')
+		}
+		if n[i] > 255 {
+			return errDNSBad
+		}
+	}
+	a, b := n[0], n[1]
+	local := a == 0 || a == 10 || a == 127 || a >= 224 ||
+		(a == 100 && b >= 64 && b <= 127) ||
+		(a == 169 && b == 254) ||
+		(a == 172 && b >= 16 && b <= 31) ||
+		(a == 192 && b == 168)
+	if local {
+		return errDNSLocal
+	}
+	return nil
+}
+
+// resolver — куда слать запросы имён при подключении, в виде host:port.
+// Испорченный выбор в файле не ломает имена, а откатывается на флаг.
+func (s pcSettings) resolver(fallback string) string {
+	if s.DNS != "" && checkDNS(s.DNS) == nil {
+		return net.JoinHostPort(strings.TrimSpace(s.DNS), "53")
+	}
+	return fallback
 }

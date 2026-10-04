@@ -133,6 +133,8 @@ func (c *Controller) Settings() SettingsView {
 		LANOutside:    c.settings.LANOutside,
 		DNS:           dnsHost(c.settings.resolver(c.dns)),
 		DNSInUse:      c.dnsInUse,
+		Fragment:      c.settings.Fragment,
+		FragmentInUse: c.fragmentInUse,
 	}
 }
 
@@ -153,6 +155,9 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	}
 	if p.LANOutside != nil {
 		next.LANOutside = *p.LANOutside
+	}
+	if p.Fragment != nil {
+		next.Fragment = *p.Fragment
 	}
 	if p.DNS != nil {
 		want := strings.TrimSpace(*p.DNS)

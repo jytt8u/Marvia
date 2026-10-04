@@ -399,6 +399,8 @@
   .rows .name { font-size: 14px; font-weight: 600; color: var(--fg); }
   .rows .sub { font-size: 12px; color: var(--dim); }
   .rows .stack { flex-direction: column; align-items: stretch; gap: 10px; }
+  .pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .pick input.code-in { width: 150px; }
   .log { max-height: 220px; max-width: 100%; overflow-x: hidden; overflow-y: auto; font-family: var(--mono); font-size: 11px; display: flex; flex-direction: column; gap: 4px; user-select: text; }
   .log .ln { display: flex; gap: 10px; min-width: 0; color: var(--fg); }
   .log .tm { color: var(--dim); flex: none; }
@@ -865,6 +867,21 @@
                   <div class="grow"><span class="name" data-t="lanOutside"></span><span class="sub" data-t="lanOutsideHint"></span><span class="sub" id="lan-msg"></span></div>
                   <button class="chip" id="lan" type="button" aria-pressed="false"></button>
                 </div>
+                <!--
+                  Резолвер: те же четыре, что на телефоне, и свой адрес. Сами
+                  запросы имён идут через туннель при любом выборе.
+                -->
+                <div class="stack">
+                  <div class="grow"><span class="name" data-t="dnsTitle"></span><span class="sub" data-t="dnsHint"></span><span class="sub" id="dns-msg"></span></div>
+                  <div class="pick" id="dns-pick">
+                    <button class="chip" type="button" data-dns="1.1.1.1" aria-pressed="false">Cloudflare</button>
+                    <button class="chip" type="button" data-dns="8.8.8.8" aria-pressed="false">Google</button>
+                    <button class="chip" type="button" data-dns="9.9.9.9" aria-pressed="false">Quad9</button>
+                    <button class="chip" type="button" data-dns="94.140.14.14" aria-pressed="false">AdGuard</button>
+                    <input type="text" class="code-in" id="dns-custom" autocomplete="off" spellcheck="false" inputmode="decimal" maxlength="15">
+                    <button class="chip" id="dns-save" type="button" data-t="dnsSave"></button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1075,6 +1092,10 @@ const T = {
     sellerFrom: "От продавца", sellerRenew: "Продлить", sellerSupport: "Поддержка", sellerSeen: "Понятно",
     sellerExpiry: (n) => n <= 1 ? "Доступ кончится в ближайшие сутки" : "Доступ кончится через " + n + (n < 5 ? " дня" : " дней"),
     sellerTraffic: (p) => "Трафика осталось " + p + "%",
+    dnsTitle: "Запросы имён (DNS)",
+    dnsHint: "Чей резолвер отвечает на запросы имён. Сами запросы при любом выборе идут через туннель: выбор только в том, кто на другом конце, — у AdGuard, например, есть фильтр рекламы.",
+    dnsSave: "Свой адрес", dnsCustom: "свой, например 1.0.0.1",
+    dnsNext: "Применится при следующем подключении",
     lanOutside: "Домашняя сеть мимо туннеля",
     lanOutsideHint: "Принтер, сетевой диск или камера — частные адреса 10.x, 172.16–31.x и 192.168.x идут напрямую. Свою подсеть Windows и так ведёт мимо туннеля — это для соседних. В чужом Wi-Fi домашняя сеть чужая: включай осознанно.",
     pages: {
@@ -1214,6 +1235,10 @@ const T = {
     sellerFrom: "From your seller", sellerRenew: "Renew", sellerSupport: "Support", sellerSeen: "Got it",
     sellerExpiry: (n) => n <= 1 ? "Access ends within a day" : "Access ends in " + n + " days",
     sellerTraffic: (p) => p + "% of traffic left",
+    dnsTitle: "Name lookups (DNS)",
+    dnsHint: "Whose resolver answers name lookups. Whatever you choose, the lookups themselves go through the tunnel — the choice is only who is at the other end; AdGuard, for one, filters ads.",
+    dnsSave: "Own address", dnsCustom: "own, e.g. 1.0.0.1",
+    dnsNext: "Applies on the next connection",
     lanOutside: "Home network around the tunnel",
     lanOutsideHint: "Printer, network drive or camera — private addresses 10.x, 172.16–31.x and 192.168.x go directly. Windows already keeps your own subnet outside the tunnel — this is for the neighbouring ones. On someone else's Wi-Fi the home network is theirs: turn it on deliberately.",
     pages: {
@@ -2353,6 +2378,20 @@ function paintConn() {
   const lan = $("lan");
   lan.textContent = conn.lan_outside ? d.toggleOn : d.toggleOff;
   lan.setAttribute("aria-pressed", String(!!conn.lan_outside));
+
+  // Свой адрес, которого нет среди четырёх, показываем в поле: иначе
+  // человек не увидел бы, что выбрано.
+  let known = false;
+  for (const b of document.querySelectorAll("#dns-pick [data-dns]")) {
+    const mine = b.dataset.dns === conn.dns;
+    known = known || mine;
+    b.setAttribute("aria-pressed", String(mine));
+  }
+  const custom = $("dns-custom");
+  custom.placeholder = d.dnsCustom;
+  if (document.activeElement !== custom) custom.value = known ? "" : conn.dns || "";
+  $("dns-save").setAttribute("aria-pressed", String(!known));
+  $("dns-msg").textContent = conn.dns_in_use && conn.dns_in_use !== conn.dns ? d.dnsNext : "";
 }
 async function loadConn() {
   try {
@@ -2377,6 +2416,14 @@ async function changeConn(button, patch, msg) {
 }
 on("bypass-ru", "click", () => changeConn($("bypass-ru"), { bypass_russian: !conn.bypass_russian }, "bypass-ru-msg"));
 on("lan", "click", () => changeConn($("lan"), { lan_outside: !conn.lan_outside }, "lan-msg"));
+for (const b of document.querySelectorAll("#dns-pick [data-dns]")) {
+  b.addEventListener("click", () => changeConn(b, { dns: b.dataset.dns }, "dns-msg"));
+}
+// Свой адрес проверяет программа — те же правила, что на телефоне, — и
+// причина отказа встаёт под строкой, а не всплывает при подключении как
+// «интернет не работает».
+on("dns-save", "click", () => changeConn($("dns-save"), { dns: $("dns-custom").value.trim() }, "dns-msg"));
+on("dns-custom", "keydown", (e) => { if (e.key === "Enter") $("dns-save").click(); });
 loadConn();
 
 on("save", "click", async () => {

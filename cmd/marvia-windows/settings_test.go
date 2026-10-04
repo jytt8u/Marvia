@@ -67,3 +67,37 @@ func TestHomeNetworkIsPrivateAddressesOnly(t *testing.T) {
 		}
 	}
 }
+
+// Свой резолвер проверяется до сохранения, и локальный адрес отличается от
+// опечатки: у них разные подсказки человеку.
+func TestOwnResolverIsCheckedAndLocalOneIsNamedAsSuch(t *testing.T) {
+	for _, s := range []string{"1.0.0.1", "77.88.8.8", "94.140.14.14"} {
+		if err := checkDNS(s); err != nil {
+			t.Errorf("%s отвергнут: %v", s, err)
+		}
+	}
+	for _, s := range []string{"", "1.1.1", "1.1.1.1.1", "010.1.1.1", "256.1.1.1", "1.1.1.a", "::1", "1.1.1.1:53"} {
+		if err := checkDNS(s); err != errDNSBad {
+			t.Errorf("%q: %v, ожидалась опечатка", s, err)
+		}
+	}
+	for _, s := range []string{"192.168.1.1", "10.0.0.1", "172.20.0.1", "127.0.0.1", "100.64.0.1", "169.254.1.1", "224.0.0.1"} {
+		if err := checkDNS(s); err != errDNSLocal {
+			t.Errorf("%q: %v, ожидался локальный", s, err)
+		}
+	}
+}
+
+// Выбранный резолвер уходит в подключение с портом 53, а испорченный выбор
+// в файле откатывается на флаг, а не ломает имена.
+func TestChosenResolverReachesTheTunnelAndJunkFallsBack(t *testing.T) {
+	if got := (pcSettings{DNS: "9.9.9.9"}).resolver("1.1.1.1:53"); got != "9.9.9.9:53" {
+		t.Errorf("выбор: %q", got)
+	}
+	if got := (pcSettings{}).resolver("1.1.1.1:53"); got != "1.1.1.1:53" {
+		t.Errorf("без выбора: %q", got)
+	}
+	if got := (pcSettings{DNS: "192.168.0.1"}).resolver("1.1.1.1:53"); got != "1.1.1.1:53" {
+		t.Errorf("испорченный выбор: %q", got)
+	}
+}

@@ -17,6 +17,7 @@ import (
 
 	"github.com/jytt8u/marvia/internal/client"
 	"github.com/jytt8u/marvia/internal/foreign"
+	"github.com/jytt8u/marvia/internal/routes"
 	"github.com/jytt8u/marvia/internal/tunbridge"
 	"github.com/jytt8u/marvia/internal/vp1"
 	"github.com/jytt8u/marvia/internal/wintun"
@@ -130,6 +131,23 @@ type Controller struct {
 	since   time.Time
 	hist    history
 	traffic trafficStats
+
+	// settings — настройки подключения из окна; см. settings.go.
+	settings pcSettings
+
+	// bypass — российские подсети, которые сейчас идут мимо туннеля; nil —
+	// обход выключен или списка нет. Указатель, а не поле под замком: его
+	// читает мост на каждое новое соединение, и ждать ради этого замок
+	// контроллера, который держат подключение и окно, нельзя. Он же даёт
+	// включить и выключить обход на ходу, без переподключения.
+	bypass atomic.Pointer[routes.Set]
+
+	// ruErr — почему российский список не скачался в последний раз; пусто
+	// — скачался или не пробовали. Окно показывает его под переключателем:
+	// включённый тумблер без списка ничего не уводит, и человек должен это
+	// видеть, а не гадать, почему банк всё ещё видит заграницу.
+	ruErr string
+	ruMu  sync.Mutex
 }
 
 // NewController готовит управление, подхватывая сохранённую ссылку доступа.
@@ -138,6 +156,12 @@ func NewController(dns string, mtu uint32, log *journal) *Controller {
 	c.account = readAccount()
 	if path, err := accountPath(); err == nil {
 		c.traffic.load(filepath.Join(filepath.Dir(path), "traffic.json"), time.Now())
+	}
+	if dir, err := settingsDir(); err == nil {
+		c.settings = loadSettings(dir)
+		if c.settings.BypassRussian {
+			c.applyRussian(dir)
+		}
 	}
 	go c.keepHistory()
 	return c
@@ -289,7 +313,15 @@ func (c *Controller) Connect() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 	c.connectCtx = ctx
+	bypass := c.settings.BypassRussian
 	c.mu.Unlock()
+
+	// Устаревший список обновляем рядом с подключением, а не перед ним:
+	// подключение не должно ждать панель. Свежий список начнёт действовать
+	// на новых соединениях, как только скачается.
+	if bypass {
+		go c.refreshRussian(account, false)
+	}
 
 	go c.connect(ctx, account)
 	return nil
@@ -433,10 +465,14 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 		return err
 	}
 
+	// Счётчик стоит внутри развилки, а не снаружи: мимо туннеля идёт
+	// обычная сеть компьютера, и в расход туннеля она попадать не должна —
+	// на телефоне такие подсети до моста не доходят вовсе и тоже не
+	// считаются.
 	bridge, err := tunbridge.Start(tunbridge.Config{
 		Endpoint: adapter.Endpoint(),
 		MTU:      c.mtu,
-		Dialer:   tunbridge.Metered(dialer, &c.up, &c.down),
+		Dialer:   tunbridge.Split(tunbridge.Metered(dialer, &c.up, &c.down), localNetwork, c.around),
 		DNS:      c.dns,
 		OnError:  func(err error) { c.log.add("%s", sayf("logConn", err)) },
 	})

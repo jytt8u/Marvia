@@ -83,6 +83,10 @@ var messages = map[string]map[string]string{
 		"autostartFailed": "планировщик отказал: задачу может поставить только администратор",
 		"logAutostartOn":  "запуск вместе с Windows включён",
 		"logAutostartOff": "запуск вместе с Windows выключен",
+		"bypassForeign":   "этот список даёт только панель Marvia, а подписка чужая",
+		"logBypassCount":  "российских подсетей мимо туннеля: %d",
+		"logBypassFailed": "российский список не скачался: %v",
+		"logBypassOff":    "российские сайты снова идут через туннель",
 	},
 	"en": {
 		"webViewTitle":    "Marvia needs WebView2 to display its window",
@@ -117,6 +121,10 @@ var messages = map[string]map[string]string{
 		"autostartFailed": "the task scheduler refused: only an administrator can create the task",
 		"logAutostartOn":  "start with Windows enabled",
 		"logAutostartOff": "start with Windows disabled",
+		"bypassForeign":   "only a Marvia panel provides this list, and this subscription is not one",
+		"logBypassCount":  "Russian subnets around the tunnel: %d",
+		"logBypassFailed": "the Russian list did not download: %v",
+		"logBypassOff":    "Russian sites go through the tunnel again",
 	},
 }
 

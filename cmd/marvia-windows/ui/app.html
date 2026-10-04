@@ -819,6 +819,21 @@
           </div>
 
           <div class="col">
+            <!--
+              Подключение: что идёт мимо туннеля и как. Каждая строка здесь
+              меняет работу моста или ядра; строк, за которыми ничего нет, тут
+              не бывает.
+            -->
+            <div class="group">
+              <div class="k" data-t="settingsConn"></div>
+              <div class="rows">
+                <div>
+                  <div class="grow"><span class="name" data-t="bypassRu"></span><span class="sub" data-t="bypassRuHint"></span><span class="sub" id="bypass-ru-msg"></span></div>
+                  <button class="chip" id="bypass-ru" type="button" aria-pressed="false"></button>
+                </div>
+              </div>
+            </div>
+
             <div class="group">
               <div class="k" data-t="settingsApp"></div>
               <div class="rows">
@@ -1017,6 +1032,12 @@ const T = {
     updateTitle: (v) => "Есть новая версия " + v, updateOpen: "Скачать", updateHint: "Ссылка ведёт на сервер того, кто дал тебе доступ, а не в магазин: оттуда приложение качается и тогда, когда магазины не открываются. Скачал — закрой это окно и запусти новый файл.",
     autostart: "Запускать вместе с Windows", autostartHint: "Без окна, в трее; туннель поднимется сам, если ключ сохранён. Ставится задача планировщика с правами администратора — так Windows не спрашивает согласия при каждом входе.",
     autostartOn: "Включено", autostartOff: "Выключено",
+    settingsConn: "Подключение", toggleOn: "Включено", toggleOff: "Выключено",
+    bypassRu: "Российские сайты напрямую",
+    bypassRuHint: "Банки, госуслуги и всё, что не отвечает заграничным адресам, идут мимо туннеля — по списку российских подсетей от панели продавца. Действует сразу, без переподключения; запросы имён всё равно идут через туннель.",
+    bypassRuCount: (n) => "Мимо туннеля подсетей: " + n,
+    bypassRuNone: "Список ещё не скачан — пока ничего не уводится",
+    bypassRuFailed: (e) => "Список не скачался: " + e,
     pages: {
       home: ["Туннель", "Состояние и трафик"],
       nodes: ["Серверы", "Через какой идти"],
@@ -1145,6 +1166,12 @@ const T = {
     updateTitle: (v) => "New version " + v + " available", updateOpen: "Download", updateHint: "The link goes to the server of whoever gave you access, not to a store: it works even when stores do not. Once downloaded, close this window and run the new file.",
     autostart: "Start with Windows", autostartHint: "Without a window, in the tray; the tunnel comes up by itself if a key is saved. A scheduler task with administrator rights is created, so Windows does not ask for consent at every sign-in.",
     autostartOn: "On", autostartOff: "Off",
+    settingsConn: "Connection", toggleOn: "On", toggleOff: "Off",
+    bypassRu: "Russian sites directly",
+    bypassRuHint: "Banks, government services and everything that ignores foreign addresses go around the tunnel — by the list of Russian subnets from your seller's panel. Applies at once, no reconnect; name lookups still go through the tunnel.",
+    bypassRuCount: (n) => "Subnets around the tunnel: " + n,
+    bypassRuNone: "The list is not downloaded yet — nothing goes around",
+    bypassRuFailed: (e) => "The list did not download: " + e,
     pages: {
       home: ["Tunnel", "State and traffic"],
       nodes: ["Servers", "Which one to go through"],
@@ -1303,6 +1330,7 @@ function paintStatic() {
 
   paintHead();
   paintTheme();
+  paintConn();
 }
 
 async function setLang(next) {
@@ -2215,6 +2243,46 @@ on("autostart", "click", async () => {
 paintAutostart();
 
 on("proxy-off", "click", dropProxy);
+
+// Настройки подключения: состояние берём у программы, а не помним сами —
+// под переключателем нужна правда о списке, а она есть только там.
+let conn = null;
+function paintConn() {
+  if (!conn) return;
+  const d = L();
+  const ru = $("bypass-ru");
+  ru.textContent = conn.bypass_russian ? d.toggleOn : d.toggleOff;
+  ru.setAttribute("aria-pressed", String(!!conn.bypass_russian));
+  // Включённый переключатель без списка ничего не уводит — человек должен
+  // это видеть, а не гадать, почему банк всё ещё видит заграницу.
+  $("bypass-ru-msg").textContent = !conn.bypass_russian ? ""
+    : conn.ru_error ? d.bypassRuFailed(conn.ru_error)
+    : conn.ru_count ? d.bypassRuCount(conn.ru_count)
+    : d.bypassRuNone;
+}
+async function loadConn() {
+  try {
+    conn = await api("GET", "api/settings");
+    paintConn();
+  } catch (_) { /* покажем при следующем заходе */ }
+}
+// changeConn отправляет одну правку и рисует то, что ответила программа.
+// Кнопку держим нажатой до ответа: включение обхода качает список и может
+// занять секунды, а второе нажатие посреди них отменило бы первое.
+async function changeConn(button, patch, msg) {
+  if (!conn) return;
+  button.disabled = true;
+  try {
+    conn = await api("POST", "api/settings", patch);
+    paintConn();
+  } catch (err) {
+    $(msg).textContent = err.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+on("bypass-ru", "click", () => changeConn($("bypass-ru"), { bypass_russian: !conn.bypass_russian }, "bypass-ru-msg"));
+loadConn();
 
 on("save", "click", async () => {
   const msg = $("save-msg");

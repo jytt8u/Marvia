@@ -179,3 +179,18 @@ func SaveCache(path, subURL string, sub Subscription) error {
 
 	return os.Rename(tmp.Name(), path)
 }
+
+// CacheFile — свой файл кэша на каждую подписку в каталоге dir.
+//
+// Доступ у человека бывает от двух продавцов сразу, а общий файл помнил бы
+// только последнего: LoadCache сверяет отпечаток ссылки и чужой кэш
+// отбрасывает, и каждая смена ключа стоила бы похода в панель. Имя — от
+// отпечатка адреса подписки, чтобы токен не лежал в имени файла. Общее для
+// телефона и компьютера: так одна подписка на обоих лежит под одним именем.
+func CacheFile(dir, subURL string) string {
+	if dir == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(subURL))
+	return filepath.Join(dir, "subscription-"+hex.EncodeToString(sum[:4])+".json")
+}

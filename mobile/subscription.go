@@ -2,13 +2,10 @@ package mobile
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -189,18 +186,9 @@ func viewJSON(sub client.Subscription, fetched time.Time, stale bool) (string, e
 	return string(out), nil
 }
 
-// accountCachePath — свой файл кэша на каждую подписку.
-//
-// Доступ у человека бывает от двух продавцов сразу, а общий файл помнил бы
-// только последнего: LoadCache сверяет отпечаток ссылки и чужой кэш
-// отбрасывает. Имя — от отпечатка адреса подписки, чтобы токен не лежал в
-// имени файла.
+// accountCachePath — свой файл кэша на каждую подписку; см. client.CacheFile.
 func accountCachePath(dir, subURL string) string {
-	if dir == "" {
-		return ""
-	}
-	sum := sha256.Sum256([]byte(subURL))
-	return filepath.Join(dir, "subscription-"+hex.EncodeToString(sum[:4])+".json")
+	return client.CacheFile(dir, subURL)
 }
 
 // ForgetSubscription стирает кэш подписки: человек удалил ключ, и список

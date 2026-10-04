@@ -139,6 +139,9 @@ type Controller struct {
 	// settings — настройки подключения из окна; см. settings.go.
 	settings pcSettings
 
+	// keys — все сохранённые ключи; рабочий из них — account. См. keys.go.
+	keys []savedKey
+
 	// bypass — российские подсети, которые сейчас идут мимо туннеля; nil —
 	// обход выключен или списка нет. Указатель, а не поле под замком: его
 	// читает мост на каждое новое соединение, и ждать ради этого замок
@@ -174,8 +177,12 @@ type Controller struct {
 func NewController(dns string, mtu uint32, log *journal) *Controller {
 	c := &Controller{state: StateIdle, dns: dns, mtu: mtu, log: log}
 	c.account = readAccount()
+	adoptLegacyCache(c.account)
 	c.known = knownSubscription(c.account)
 	c.reminded = readUISetting(remindedSetting)
+	if dir, err := settingsDir(); err == nil {
+		c.keys = loadKeys(dir, c.account)
+	}
 	if path, err := accountPath(); err == nil {
 		c.traffic.load(filepath.Join(filepath.Dir(path), "traffic.json"), time.Now())
 	}
@@ -289,6 +296,13 @@ func (c *Controller) Account() string {
 // Проверяем тем же разбором, каким потом будем подключаться: сказать «ссылка
 // не та» сразу при вставке гораздо лучше, чем после неудачной попытки.
 func (c *Controller) SetAccount(link string) error {
+	return c.AddKey("", link)
+}
+
+// AddKey проверяет ссылку, кладёт её в список ключей и делает рабочей —
+// как «+» на экране «Серверы» телефона. Имя необязательно: без него берётся
+// метка из ссылки или домен продавца.
+func (c *Controller) AddKey(name, link string) error {
 	link = strings.TrimSpace(link)
 	// Чужая ссылка ноды проверяется сразу, адрес чужой подписки — при первом
 	// походе: что по нему лежит, не узнать, не сходив.
@@ -302,16 +316,36 @@ func (c *Controller) SetAccount(link string) error {
 		return err
 	}
 
+	dir, err := settingsDir()
+	if err != nil {
+		return err
+	}
 	c.mu.Lock()
-	c.account = link
+	keys := withKey(c.keys, name, link)
+	changed := link != c.account
+	up := c.state != StateIdle && c.state != StateFailed
 	c.mu.Unlock()
-
+	if err := saveKeys(dir, keys); err != nil {
+		return err
+	}
 	if err := writeAccount(link); err != nil {
 		return err
 	}
+	c.mu.Lock()
+	c.keys = keys
+	c.account = link
+	c.mu.Unlock()
 	// Кнопки продавца — от нового ключа, а не от прежнего: «Продлить» чужого
 	// магазина хуже, чем никакого.
 	c.rememberSubscription(link)
+
+	// Новый ключ стал рабочим — туннель переподнимается на нём, как при
+	// «Сделать рабочим»: держать трафик на прежнем, показывая в окне новый,
+	// значило бы врать, через чьи серверы он идёт.
+	if changed && up {
+		c.Disconnect()
+		return c.Connect()
+	}
 	return nil
 }
 
@@ -446,7 +480,7 @@ func (c *Controller) raiseMarvia(ctx context.Context, link string, set pcSetting
 	dialer, measurements, err := client.Supervise(ctx, client.ConnectConfig{
 		Account:   account,
 		Key:       key,
-		CachePath: cachePath(),
+		CachePath: cachePathFor(account.SubscriptionURL),
 		Dial:      client.Options{Fragment: set.Fragment},
 		Log:       c.log.add,
 	}, c.events(ctx))
@@ -841,16 +875,47 @@ func accountPath() (string, error) {
 	return filepath.Join(dir, "account"), nil
 }
 
-// cachePath — кэш подписки, рядом со ссылкой доступа.
+// cachePathFor — кэш подписки, рядом со ссылкой доступа, свой у каждого
+// ключа: смена рабочего ключа туда-обратно не должна стоить похода в панель.
 //
 // Пустая строка означает, что каталога настроек нет: тогда подключаемся без
 // кэша, как раньше, — это медленнее и заметнее, но работает.
-func cachePath() string {
+func cachePathFor(subURL string) string {
 	dir, err := settingsDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "subscription.json")
+	return client.CacheFile(dir, subURL)
+}
+
+// adoptLegacyCache переносит кэш подписки из общего файла прежних версий
+// в свой файл рабочего ключа — один раз, при первом запуске новой версии.
+//
+// Без этого после обновления кнопок продавца в окне не было бы до первого
+// подключения, а само подключение сходило бы в панель за списком, который
+// уже лежит на диске. LoadCache сверяет отпечаток адреса подписки, так что
+// кэш другого продавца под чужое имя не переедет.
+func adoptLegacyCache(link string) {
+	if link == "" || foreign.IsForeign(link) {
+		return
+	}
+	account, err := client.ParseAccountLink(link)
+	if err != nil {
+		return
+	}
+	dir, err := settingsDir()
+	if err != nil {
+		return
+	}
+	legacy := filepath.Join(dir, "subscription.json")
+	fresh := cachePathFor(account.SubscriptionURL)
+	if _, err := os.Stat(fresh); err == nil {
+		return
+	}
+	if _, err := client.LoadCache(legacy, account.SubscriptionURL); err != nil {
+		return
+	}
+	_ = os.Rename(legacy, fresh)
 }
 
 func readAccount() string {

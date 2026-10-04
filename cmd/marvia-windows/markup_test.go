@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -176,6 +177,65 @@ func TestEveryLookIsNamedInBothLanguages(t *testing.T) {
 		got := strings.Count(l[1], `"`) / 2
 		if got != want {
 			t.Errorf("словарь %d: названий %d, видов в таблице %d", i+1, got, want)
+		}
+	}
+}
+
+// То же для подписок через on("…"): она не падает на пропавшем элементе, а
+// пишет в консоль и молча не вешает обработчик — кнопка остаётся, а нажатие
+// ничего не делает. Нарисованная кнопка без действия — то, чего в окне быть
+// не должно.
+func TestEveryHandlerTargetExists(t *testing.T) {
+	raw, err := os.ReadFile("ui/app.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	page := string(raw)
+	have := make(map[string]bool)
+	for _, m := range regexp.MustCompile(`id="([a-z0-9-]+)"`).FindAllStringSubmatch(page, -1) {
+		have[m[1]] = true
+	}
+	for _, m := range regexp.MustCompile(`\bon\("([a-z0-9-]+)"`).FindAllStringSubmatch(page, -1) {
+		if !have[m[1]] {
+			t.Errorf("обработчик вешается на #%s, а в разметке его нет", m[1])
+		}
+	}
+}
+
+// Каждое поле, которое окно шлёт в api/settings, программа понимает.
+//
+// Ручка разбирает тело строго, и опечатка в имени поля превратилась бы в
+// «не разобрал запрос» на каждом нажатии — переключатель, который ни разу
+// не переключился.
+func TestEverySettingTheWindowSendsIsKnown(t *testing.T) {
+	raw, err := os.ReadFile("ui/app.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	known := make(map[string]bool)
+	typ := reflect.TypeOf(SettingsPatch{})
+	for i := 0; i < typ.NumField(); i++ {
+		name, _, _ := strings.Cut(typ.Field(i).Tag.Get("json"), ",")
+		known[name] = true
+	}
+	sent := regexp.MustCompile(`changeConn\([^,]+, \{ ([a-z_]+):`).FindAllStringSubmatch(string(raw), -1)
+	if len(sent) == 0 {
+		t.Fatal("окно не шлёт ни одной настройки — разбор страницы сломался")
+	}
+	for _, m := range sent {
+		if !known[m[1]] {
+			t.Errorf("окно шлёт %q, а SettingsPatch такого поля не знает", m[1])
+		}
+	}
+	// И обратно: настройка, которую программа принимает, но окно не шлёт, —
+	// это ручка без кнопки, заготовка, которой в коде делать нечего.
+	shown := make(map[string]bool)
+	for _, m := range sent {
+		shown[m[1]] = true
+	}
+	for name := range known {
+		if !shown[name] {
+			t.Errorf("SettingsPatch знает %q, а в окне нет кнопки, которая его шлёт", name)
 		}
 	}
 }

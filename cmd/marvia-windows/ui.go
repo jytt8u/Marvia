@@ -119,6 +119,8 @@ func serveUI(ctl *Controller, log *journal, onWindow *func(windowRequest)) (stri
 	mux.HandleFunc("POST "+prefix+"/api/window", u.window)
 	mux.HandleFunc("GET "+prefix+"/api/autostart", u.getAutostart)
 	mux.HandleFunc("POST "+prefix+"/api/autostart", u.setAutostart)
+	mux.HandleFunc("GET "+prefix+"/api/settings", u.getSettings)
+	mux.HandleFunc("POST "+prefix+"/api/settings", u.setSettings)
 
 	// Шрифты и знак — общие с панелью, из того же пакета. Под тем же
 	// одноразовым ключом: адреса под ним не угадать, и чужой программе на
@@ -356,4 +358,26 @@ func (u *ui) setAutostart(w http.ResponseWriter, r *http.Request) {
 		u.log.add("%s", say("logAutostartOff"))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"on": autostartOn()})
+}
+
+func (u *ui) getSettings(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, u.ctl.Settings())
+}
+
+// setSettings меняет настройки подключения. Строгий разбор: опечатка в
+// имени поля должна стать ошибкой, а не молча ничего не поменять.
+func (u *ui) setSettings(w http.ResponseWriter, r *http.Request) {
+	var body SettingsPatch
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": say("badRequest")})
+		return
+	}
+	view, err := u.ctl.UpdateSettings(body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
 }

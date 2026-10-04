@@ -139,3 +139,64 @@ func TestListIsReadTwiceTheSame(t *testing.T) {
 		t.Fatalf("первый раз %d подсетей, второй %d", len(first), len(second))
 	}
 }
+
+// Набор для поиска отвечает так же, как перебор всех подсетей: и на адресах
+// из списка, и на соседних с краями, и на чужих.
+func TestSetAnswersLikeTheFullList(t *testing.T) {
+	raw, _ := routes.RussianPrefixes()
+	list := prefixes(t)
+	set := routes.NewSet(raw)
+	if set.Len() != len(raw) {
+		t.Fatalf("принято %d подсетей из %d", set.Len(), len(raw))
+	}
+
+	var probes []netip.Addr
+	for i, p := range list {
+		if i%7 != 0 {
+			continue
+		}
+		first := p.Masked().Addr()
+		probes = append(probes, first, first.Prev())
+		last := first
+		for j := 0; j < 1<<(32-p.Bits())-1 && j < 1<<16; j++ {
+			last = last.Next()
+		}
+		probes = append(probes, last, last.Next())
+	}
+	for _, s := range []string{"8.8.8.8", "1.1.1.1", "192.168.1.1", "77.88.55.242", "::1", "2a02:6b8::2:242"} {
+		probes = append(probes, netip.MustParseAddr(s))
+	}
+	for _, ip := range probes {
+		if !ip.IsValid() {
+			continue
+		}
+		if got, want := set.Contains(ip), covers(list, ip.String()); got != want {
+			t.Errorf("%s: набор говорит %v, перебор — %v", ip, got, want)
+		}
+	}
+}
+
+// Пересекающиеся, вложенные и смежные подсети, IPv6 и битые строки не
+// сбивают поиск.
+func TestSetHandlesOverlapsFamiliesAndJunk(t *testing.T) {
+	set := routes.NewSet([]string{"10.0.0.0/8", "10.1.0.0/16", "11.0.0.0/8", "мусор", "2001:db8::/32", "192.0.2.7/32"})
+	if set.Len() != 5 {
+		t.Errorf("принято %d, ожидалось 5", set.Len())
+	}
+	in := []string{"10.0.0.0", "10.255.255.255", "11.200.0.1", "2001:db8::1", "192.0.2.7", "::ffff:10.1.2.3"}
+	out := []string{"9.255.255.255", "12.0.0.0", "2001:db9::", "192.0.2.8", "::a00:1"}
+	for _, s := range in {
+		if !set.Contains(netip.MustParseAddr(s)) {
+			t.Errorf("%s должен входить", s)
+		}
+	}
+	for _, s := range out {
+		if set.Contains(netip.MustParseAddr(s)) {
+			t.Errorf("%s не должен входить", s)
+		}
+	}
+	var empty *routes.Set
+	if empty.Contains(netip.MustParseAddr("10.0.0.1")) || empty.Len() != 0 {
+		t.Error("пустой набор что-то содержит")
+	}
+}

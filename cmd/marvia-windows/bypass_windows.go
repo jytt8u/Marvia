@@ -40,7 +40,7 @@ var localNetwork = tunbridge.DialerFunc{
 
 // around — идти ли к адресу мимо туннеля.
 func (c *Controller) around(ip netip.Addr) bool {
-	return c.bypass.Load().Contains(ip)
+	return (c.lan.Load() && homeNetwork(ip)) || c.bypass.Load().Contains(ip)
 }
 
 // applyRussian ставит скачанный список в работу. Списка нет — обход ничего
@@ -129,6 +129,7 @@ func (c *Controller) Settings() SettingsView {
 		BypassRussian: c.settings.BypassRussian,
 		RuCount:       c.bypass.Load().Len(),
 		RuError:       c.ruErr,
+		LANOutside:    c.settings.LANOutside,
 	}
 }
 
@@ -147,6 +148,9 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	if p.BypassRussian != nil {
 		next.BypassRussian = *p.BypassRussian
 	}
+	if p.LANOutside != nil {
+		next.LANOutside = *p.LANOutside
+	}
 	account := c.account
 	c.mu.Unlock()
 
@@ -156,6 +160,7 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	c.mu.Lock()
 	c.settings = next
 	c.mu.Unlock()
+	c.lan.Store(next.LANOutside)
 
 	if p.BypassRussian != nil {
 		if !next.BypassRussian {

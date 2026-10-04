@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +22,12 @@ type pcSettings struct {
 	// панели продавца. Выключено по умолчанию, как на телефоне: решение,
 	// что банк должен видеть настоящий адрес, принимает человек.
 	BypassRussian bool `json:"bypass_russian,omitempty"`
+
+	// LANOutside — частные адреса (домашняя сеть) мимо туннеля. Выключено по
+	// умолчанию по той же причине, что на телефоне: в чужом Wi-Fi «домашняя
+	// сеть» — это чужая сеть, и пускать туда трафик мимо туннеля человек
+	// решает сам.
+	LANOutside bool `json:"lan_outside,omitempty"`
 }
 
 // SettingsView — настройки подключения и правда о них для окна.
@@ -31,11 +38,14 @@ type SettingsView struct {
 	// RuError — почему список не скачался. Оба нужны под переключателем.
 	RuCount int    `json:"ru_count"`
 	RuError string `json:"ru_error,omitempty"`
+
+	LANOutside bool `json:"lan_outside"`
 }
 
 // SettingsPatch — что окно просит поменять; nil — не трогать.
 type SettingsPatch struct {
 	BypassRussian *bool `json:"bypass_russian"`
+	LANOutside    *bool `json:"lan_outside"`
 }
 
 // settingsFile — где лежат настройки подключения.
@@ -129,4 +139,16 @@ func saveRuRoutes(dir string, prefixes []string) error {
 		return err
 	}
 	return nil
+}
+
+// homeNetwork — адрес из домашней сети: частные диапазоны IPv4 (10/8,
+// 172.16/12, 192.168/16) — те же, что исключает телефон, — и их IPv6-пара
+// fc00::/7.
+//
+// Свою подсеть Windows и без того ведёт мимо туннеля: её маршрут точнее
+// половин /1, которыми туннель забирает трафик. Переключатель нужен для
+// остального частного — соседней подсети за роутером, сетевого диска,
+// камеры, — которое иначе ушло бы на ноду за границей и там пропало.
+func homeNetwork(ip netip.Addr) bool {
+	return ip.IsPrivate()
 }

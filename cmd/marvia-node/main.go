@@ -413,15 +413,17 @@ func setupPanelUsers(ctx context.Context, opts serverOptions) (*users.Registry, 
 		OnEnabled: func() {
 			log.Printf("нода снова включена в панели: возобновляю обслуживание")
 		},
-		OnUpgrade: func(target string) {
+		// release, а не target: в коде ноды target — это куда шёл покупатель,
+		// и проверка журнала (internal/redact) такие имена не пропускает.
+		OnUpgrade: func(release string) {
 			// Просьба кладётся рядом с бинарником: это каталог ноды, куда у
 			// неё есть право писать, и его же сторожит служба обновления.
 			home := nodeHome()
 			if err := updater.Request(home); err != nil {
-				log.Printf("панель просит обновиться до %s, но просьба не легла в %s: %v", target, home, err)
+				log.Printf("панель просит обновиться до %s, но просьба не легла в %s: %v", release, home, err)
 				return
 			}
-			log.Printf("панель просит обновиться до %s: просьба передана службе обновления", target)
+			log.Printf("панель просит обновиться до %s: просьба передана службе обновления", release)
 		},
 	})
 

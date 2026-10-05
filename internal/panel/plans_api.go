@@ -109,7 +109,7 @@ func (a *API) renewUser(w http.ResponseWriter, r *http.Request) {
 	}
 	plan, _ := a.store.GetPlan(r.Context(), body.PlanID)
 	user = visible(r, []User{user})[0]
-	a.remember(r, scope, map[string]any{"user": user})
+	a.remember(r, scope, user.ID, map[string]any{"user": user})
 	a.record(r, EventUserRenew, Event{UserID: user.ID, Detail: plan.Name})
 	ok(w, map[string]any{"user": user})
 }

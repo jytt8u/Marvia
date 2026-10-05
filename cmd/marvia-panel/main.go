@@ -26,6 +26,7 @@ import (
 
 	"github.com/jytt8u/marvia/internal/envvar"
 	"github.com/jytt8u/marvia/internal/panel"
+	"github.com/jytt8u/marvia/internal/redact"
 	"github.com/jytt8u/marvia/internal/updater"
 	"github.com/jytt8u/marvia/internal/vp1"
 )
@@ -173,23 +174,10 @@ func run(opts options) error {
 		log.Printf("ВНИМАНИЕ: копии базы не шифруются — задай -backup-key, если увозишь их с сервера")
 	}
 
-	// Ключи идемпотентности нужны сутки, а копятся со скоростью продаж.
-	if err := store.ForgetStaleIdempotency(context.Background()); err != nil {
-		log.Printf("не вышло убрать старые ключи идемпотентности: %v", err)
-	}
-
-	// История расхода копится строкой на человека, ноду и сутки. Год с запасом
-	// — это и графики за любой разумный период, и база, которую не стыдно
-	// каждый день качать к себе.
-	if err := store.ForgetOldUsage(context.Background(), 400); err != nil {
-		log.Printf("не вышло убрать старую историю расхода: %v", err)
-	}
-
-	// Журнал действий тоже не вечен: три месяца отвечают на спор об оплате,
-	// а дальше запись становится грузом, который жалко потерять и опасно
-	// хранить.
-	if err := store.ForgetOldEvents(context.Background(), panel.EventsKeepDays); err != nil {
-		log.Printf("не вышло убрать старые записи журнала: %v", err)
+	// Всё, что хранится ограниченный срок, убирается сразу при запуске: сроки
+	// и их причины — в internal/panel/retention.go.
+	if err := store.Forget(context.Background()); err != nil {
+		log.Printf("уборка старых записей: %v", err)
 	}
 
 	// Адреса выясняются один раз, при запуске, и уезжают в ссылки доступа.
@@ -209,22 +197,18 @@ func run(opts options) error {
 		WithPanelIPs(addresses).
 		WithVersion(version).
 		WithHome(filepath.Dir(opts.dbPath))
-	server := &http.Server{
-		Addr:              opts.listen,
-		Handler:           api.Handler(),
-		ReadHeaderTimeout: 10 * time.Second,
-		// Тела запросов к панели не больше мегабайта, и минуты на них хватает
-		// с запасом. Без предела медленный клиент держит соединение и
-		// горутину сколько захочет — так панель кладут, не зная ни одного
-		// токена. WriteTimeout не ставим: приложения покупателю отдаются
-		// отсюда же, и на плохом мобильном десятки мегабайт идут дольше.
-		ReadTimeout: time.Minute,
-		IdleTimeout: 2 * time.Minute,
-		TLSConfig:   &tls.Config{MinVersion: tls.VersionTLS12},
-	}
+	server := newServer(opts.listen, api.Handler())
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// Уборка по сроку идёт и дальше, а не только при запуске: панель
+	// работает месяцами, и разовая чистка на старте означала бы, что
+	// обещанные сроки хранения соблюдаются лишь у тех, кто часто её
+	// перезапускает.
+	go store.KeepForgetting(ctx, panel.ForgetEvery, func(err error) {
+		log.Printf("уборка старых записей: %v", err)
+	})
 
 	// Копии базы снимает сама панель. Продавец, которому надо помнить про
 	// cron, однажды про него не вспомнит — а panel.db это все его покупатели
@@ -286,6 +270,28 @@ func run(opts options) error {
 	}
 }
 
+// newServer собирает HTTP-сервер панели.
+func newServer(listen string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              listen,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		// Тела запросов к панели не больше мегабайта, и минуты на них хватает
+		// с запасом. Без предела медленный клиент держит соединение и
+		// горутину сколько захочет — так панель кладут, не зная ни одного
+		// токена. WriteTimeout не ставим: приложения покупателю отдаются
+		// отсюда же, и на плохом мобильном десятки мегабайт идут дольше.
+		ReadTimeout: time.Minute,
+		IdleTimeout: 2 * time.Minute,
+		TLSConfig:   &tls.Config{MinVersion: tls.VersionTLS12},
+		// Свой журнал ошибок, а не стандартный. Стандартный net/http пишет
+		// «TLS handshake error from 203.0.113.7:51234» — а к панели за
+		// подпиской ходят покупатели, и журнал превращался в список их
+		// адресов. Строка остаётся, адрес заменяется пометкой.
+		ErrorLog: redact.Logger(),
+	}
+}
+
 // serveACME поднимает панель с сертификатом, который она получает сама.
 //
 // Своё ACME появилось не от недоверия к certbot, а потому что продавец,
@@ -318,6 +324,7 @@ func serveACME(server *http.Server, opts options) error {
 				Addr:              opts.acmeHTTP,
 				Handler:           manager.HTTPHandler(nil),
 				ReadHeaderTimeout: 10 * time.Second,
+				ErrorLog:          redact.Logger(),
 			}
 			if err := challenge.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Printf("ВНИМАНИЕ: не занять %s для проверки ACME: %v", opts.acmeHTTP, err)

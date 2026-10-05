@@ -83,18 +83,21 @@ func (s *Store) RememberedResponse(ctx context.Context, key, scope string) (stri
 
 // RememberResponse запоминает ответ операции под ключом.
 //
+// userID — чей это ответ: в нём лежит сам покупатель, и удаление покупателя
+// уносит запись вместе с ним.
+//
 // Гонку двух одновременных повторов разрешает сама база: ключ — первичный
 // ключ таблицы, второй вставке достанется конфликт, и мы его проглотим —
 // сохранённый ответ там уже правильный.
-func (s *Store) RememberResponse(ctx context.Context, key, scope, response string) error {
+func (s *Store) RememberResponse(ctx context.Context, key, scope, response string, userID int64) error {
 	key = strings.TrimSpace(key)
 	if key == "" {
 		return nil
 	}
 
 	_, err := s.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO idempotency (key, scope, response, created_at) VALUES (?, ?, ?, ?)`,
-		key, scope, response, format(time.Now().UTC()),
+		`INSERT OR IGNORE INTO idempotency (key, scope, response, created_at, user_id) VALUES (?, ?, ?, ?, ?)`,
+		key, scope, response, format(time.Now().UTC()), nullID(userID),
 	)
 	return err
 }

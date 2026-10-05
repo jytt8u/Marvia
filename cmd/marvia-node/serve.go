@@ -14,6 +14,7 @@ import (
 	"github.com/jytt8u/marvia/internal/inbound"
 	"github.com/jytt8u/marvia/internal/metered"
 	"github.com/jytt8u/marvia/internal/mux"
+	"github.com/jytt8u/marvia/internal/redact"
 	"github.com/jytt8u/marvia/internal/relay"
 	"github.com/jytt8u/marvia/internal/rewind"
 	"github.com/jytt8u/marvia/internal/users"
@@ -397,7 +398,7 @@ func meterLoop(meter *metered.Conn, session *users.Session, closer io.Closer, do
 			// это заметить, иначе человек пользуется сервисом до тех пор,
 			// пока сам не переподключится.
 			if err := session.Valid(); err != nil {
-				log.Printf("доступ прекращён посреди сессии (%v), отключаем", err)
+				log.Printf("доступ прекращён посреди сессии (%s), отключаем", why(err))
 				_ = closer.Close()
 				return
 			}
@@ -466,5 +467,7 @@ func why(err error) string {
 		return why(op.Err)
 	}
 
-	return err.Error()
+	// Последний рубеж для ошибок, которые адрес носят не отдельным полем, а
+	// уже внутри текста: обёртки чужих библиотек, TLS, QUIC.
+	return redact.Error(err)
 }

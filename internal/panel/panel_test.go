@@ -24,6 +24,10 @@ type harness struct {
 	t      *testing.T
 	server *httptest.Server
 	dist   string // каталог, из которого панель раздаёт бинарники нодам
+
+	// store — та же база, что за сервером: обещания о хранении проверяются
+	// по ней, а не по ответам API.
+	store *panel.Store
 }
 
 func newHarness(t *testing.T) *harness {
@@ -40,7 +44,7 @@ func newHarness(t *testing.T) *harness {
 	server := httptest.NewServer(api.Handler())
 	t.Cleanup(server.Close)
 
-	return &harness{t: t, server: server, dist: dist}
+	return &harness{t: t, server: server, dist: dist, store: store}
 }
 
 // do выполняет запрос и разбирает ответ.

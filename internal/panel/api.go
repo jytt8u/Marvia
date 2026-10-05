@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jytt8u/marvia/internal/look"
+	"github.com/jytt8u/marvia/internal/redact"
 	"github.com/jytt8u/marvia/internal/routes"
 	"github.com/jytt8u/marvia/internal/seller"
 	"github.com/jytt8u/marvia/internal/users"
@@ -342,7 +343,7 @@ func (a *API) createUser(w http.ResponseWriter, r *http.Request) {
 	// свойство на сутки хранения. Поэтому повтор получает того же покупателя,
 	// created=false и ссылки без ключа: доступ выдан один раз, и если бот его
 	// потерял, выдаётся новый набор, а не старый.
-	a.remember(r, scope, map[string]any{
+	a.remember(r, scope, user.ID, map[string]any{
 		"user":    user,
 		"created": false,
 		"issued":  []Issued{},
@@ -472,7 +473,7 @@ func (a *API) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.remember(r, scope, map[string]any{"user": user})
+	a.remember(r, scope, user.ID, map[string]any{"user": user})
 	a.record(r, EventUserUpdate, Event{UserID: user.ID, Detail: updateDetail(p.UpdateUserParams, p.ExtendBy)})
 	ok(w, map[string]any{"user": user})
 }
@@ -512,7 +513,8 @@ func (a *API) replayed(w http.ResponseWriter, r *http.Request, scope string) boo
 }
 
 // remember запоминает ответ под ключом идемпотентности, если он был задан.
-func (a *API) remember(r *http.Request, scope string, payload any) {
+// userID — о ком ответ: с удалением покупателя уходит и он.
+func (a *API) remember(r *http.Request, scope string, userID int64, payload any) {
 	key := strings.TrimSpace(r.Header.Get(idempotencyHeader))
 	if key == "" {
 		return
@@ -524,7 +526,7 @@ func (a *API) remember(r *http.Request, scope string, payload any) {
 	// Неудачу записи глотаем намеренно: операция уже прошла, и отвечать
 	// продавцу ошибкой из-за незапомненного ответа хуже, чем рискнуть
 	// повтором. Худший случай здесь — ровно то поведение, что было раньше.
-	_ = a.store.RememberResponse(r.Context(), key, scope, string(body))
+	_ = a.store.RememberResponse(r.Context(), key, scope, string(body), userID)
 }
 
 func (a *API) deleteUser(w http.ResponseWriter, r *http.Request) {
@@ -1102,7 +1104,10 @@ func decodeBody(w http.ResponseWriter, r *http.Request, dst any, strict bool) bo
 func ok(w http.ResponseWriter, payload any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.Printf("отправка ответа: %v", err)
+		// Ошибка записи в оборванное соединение несёт оба его конца: «write
+		// tcp 192.0.2.1:443->203.0.113.7:51234: broken pipe». Второй — это
+		// покупатель, пришедший за подпиской.
+		log.Printf("отправка ответа: %s", redact.Error(err))
 	}
 }
 

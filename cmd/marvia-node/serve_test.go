@@ -54,6 +54,8 @@ func TestWhyNeverNamesTheDestination(t *testing.T) {
 			Op: "dial", Net: "tcp", Addr: tcpAddr,
 			Err: os.NewSyscallError("connect", syscall.ECONNREFUSED),
 		}),
+		// Чужая библиотека кладёт адрес прямо в текст, отдельного поля нет.
+		"адрес в тексте чужой ошибки": errors.New("handshake with " + secretIP + ":" + secretPort + " timed out"),
 	}
 
 	for name, err := range cases {

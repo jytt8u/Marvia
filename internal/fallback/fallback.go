@@ -11,6 +11,8 @@ package fallback
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -97,8 +99,11 @@ func (h *Handler) Serve(conn net.Conn) {
 		Handler:           h.handler,
 		ReadHeaderTimeout: readHeaderTimeout,
 		IdleTimeout:       idleTimeout,
-		// Своих логов не пишем: чужие сканеры не должны раздувать наш журнал.
-		ErrorLog: nil,
+		// Своих логов не пишем: чужие сканеры не должны раздувать наш журнал,
+		// а свои покупатели с истёкшей подпиской попадают сюда же — и строка
+		// «http: panic serving <адрес>» была бы записью об их адресе. Пустой
+		// ErrorLog молчанием не был: net/http тогда пишет в стандартный журнал.
+		ErrorLog: log.New(io.Discard, "", 0),
 	}
 
 	listener.offer(&notifyConn{Conn: conn, onClose: listener.Close})

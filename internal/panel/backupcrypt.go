@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"golang.org/x/crypto/nacl/box"
+	"golang.org/x/crypto/scrypt"
 
 	"github.com/jytt8u/marvia/internal/vp1"
 )
@@ -22,14 +24,14 @@ import (
 // Отсюда требование: копия должна быть нечитаемой без ключа, которого на
 // сервере нет.
 //
-// Поэтому здесь не пароль, а пара ключей. Панель знает только **публичный** —
+// Поэтому панель знает только **публичный** ключ —
 // им можно зашифровать и нельзя расшифровать. Приватный человек держит у себя:
 // в менеджере паролей, на бумаге, где угодно вне сервера. Изъятая панель даёт
 // изъявшему шифротекст и публичный ключ, то есть ничего.
 //
-// Пароль работал бы хуже ровно этим: чтобы шифровать по расписанию, панель
-// должна знать его во время работы, то есть он лежал бы в unit-файле рядом с
-// базой — и изъятие сервера выдавало бы и то и другое.
+// Парольный режим выводит приватный ключ через готовый scrypt только при
+// настройке и восстановлении. На сервере остаются соль и публичный ключ:
+// расписание переживает перезапуск, а пароль рядом с копией не появляется.
 //
 // Примитив взят готовый: crypto_box_seal из nacl/box — X25519, XSalsa20 и
 // Poly1305. Отправитель анонимный: на каждую копию берётся одноразовая пара
@@ -59,6 +61,10 @@ const maxSealedBackup = 512 << 20
 // что его нет, нельзя — на общем сервере с чужими процессами это имеет
 // значение.
 func SealBackup(path string, recipient []byte) (string, error) {
+	return sealBackup(path, recipient, backupMagic)
+}
+
+func sealBackup(path string, recipient, header []byte) (string, error) {
 	if len(recipient) != 32 {
 		return "", fmt.Errorf("ключ для копий: длина %d байт, ожидается 32", len(recipient))
 	}
@@ -85,7 +91,7 @@ func SealBackup(path string, recipient []byte) (string, error) {
 	}
 
 	out := path + sealedSuffix
-	body := append(append([]byte{}, backupMagic...), sealed...)
+	body := append(append([]byte{}, header...), sealed...)
 	if err := os.WriteFile(out, body, 0o600); err != nil {
 		return "", fmt.Errorf("запись зашифрованной копии: %w", err)
 	}
@@ -132,3 +138,66 @@ func OpenSealedBackup(sealed []byte, private []byte) ([]byte, error) {
 
 // sealedSuffix — чем оканчивается зашифрованная копия.
 const sealedSuffix = ".sealed"
+
+var passwordBackupMagic = []byte("MARVIA-BACKUP-PASSWORD-1\n")
+
+const backupSaltSize = 32
+
+// PasswordBackupRecipient оставляет панели только способность зашифровать.
+// Соль случайна для каждой смены пароля; параметры scrypt закреплены версией
+// формата, иначе копию через год было бы нечем открыть.
+func PasswordBackupRecipient(password string) (public, salt []byte, err error) {
+	if strings.TrimSpace(password) == "" {
+		return nil, nil, errors.New("для копий нужен пароль")
+	}
+	salt = make([]byte, backupSaltSize)
+	if _, err = rand.Read(salt); err != nil {
+		return nil, nil, fmt.Errorf("соль для копий: %w", err)
+	}
+	private, err := backupPasswordKey(password, salt)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer clear(private)
+	pair, err := vp1.KeyPairFromPrivate(private)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer clear(pair.Private)
+	return pair.Public, salt, nil
+}
+
+func backupPasswordKey(password string, salt []byte) ([]byte, error) {
+	if strings.TrimSpace(password) == "" || len(salt) != backupSaltSize {
+		return nil, errors.New("для копии нужны пароль и соль правильной длины")
+	}
+	// 32 МиБ памяти замедляют перебор, но не мешают небольшой панели.
+	return scrypt.Key([]byte(password), salt, 32768, 8, 1, 32)
+}
+
+func sealPasswordBackup(path string, recipient, salt []byte) (string, error) {
+	if len(salt) != backupSaltSize {
+		return "", errors.New("не задан пароль для копий")
+	}
+	header := append(append([]byte{}, passwordBackupMagic...), salt...)
+	return sealBackup(path, recipient, header)
+}
+
+// OpenPasswordBackup использует ту же запечатанную коробку, что ключевой режим;
+// своего шифра, нарезки или аутентификации здесь нет.
+func OpenPasswordBackup(sealed []byte, password string) ([]byte, error) {
+	if !bytes.HasPrefix(sealed, passwordBackupMagic) || len(sealed) < len(passwordBackupMagic)+backupSaltSize {
+		return nil, errors.New("это не парольная копия Marvia")
+	}
+	body := sealed[len(passwordBackupMagic):]
+	private, err := backupPasswordKey(password, body[:backupSaltSize])
+	if err != nil {
+		return nil, err
+	}
+	defer clear(private)
+	plain, err := OpenSealedBackup(append(append([]byte{}, backupMagic...), body[backupSaltSize:]...), private)
+	if err != nil {
+		return nil, errors.New("копия не расшифровалась: не тот пароль или файл повреждён")
+	}
+	return plain, nil
+}

@@ -1443,6 +1443,13 @@ function showLinks(title, links, fresh) {
 
   if (links.account) add(d.links.account, links.account);
   if (links.subscription) add(d.links.subscription, links.subscription);
+  // Готовые профили для приложений, которым ссылок мало (formats.go). Только
+  // когда есть VLESS или Trojan: VP1 эти приложения не знают, и профиль без
+  // них панель всё равно не отдаст.
+  if (links.subscription && (links.stock || []).length) {
+    add(d.links.singbox, links.subscription + "?format=singbox");
+    add(d.links.clash, links.subscription + "?format=clash");
+  }
 
   // stock приходит плоским списком: по ссылке на каждую пару «нода + вид
   // доступа». Вид достаём из схемы, ноду — из хвоста после решётки: иначе
@@ -2434,6 +2441,8 @@ const TEXTS = {
         + "и перезапусти панель.",
       newFor: (name) => "Новый доступ для " + name,
       qr: "QR-код", qrAlt: "QR-код ссылки",
+      singbox: "Профиль sing-box — для SFI на iPhone, SFM на Mac, SFA на Android",
+      clash: "Профиль Clash — для Stash, Clash Verge, FlClash",
       telegram: "Скопировать для Telegram",
       telegramText: (link) => "Твой доступ к VPN:\n" + link + "\n\n"
         + "1. Поставь приложение Marvia (или Happ, v2RayTun).\n"
@@ -2796,6 +2805,8 @@ const TEXTS = {
         + "(-sub-base https://your-domain) and restart the panel.",
       newFor: (name) => "New access for " + name,
       qr: "QR code", qrAlt: "QR code of the link",
+      singbox: "sing-box profile — for SFI on iPhone, SFM on Mac, SFA on Android",
+      clash: "Clash profile — for Stash, Clash Verge, FlClash",
       telegram: "Copy for Telegram",
       telegramText: (link) => "Your VPN access:\n" + link + "\n\n"
         + "1. Install the Marvia app (or Happ, v2RayTun).\n"

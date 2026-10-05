@@ -960,6 +960,32 @@ func (a *API) serveSubscription(w http.ResponseWriter, r *http.Request, user Use
 		return
 	}
 
+	// Готовые конфиги для sing-box и Clash — только по явной просьбе, см.
+	// formats.go. Нет ни VLESS, ни Trojan — честно говорим, чего не хватает:
+	// пустой конфиг приложение приняло бы молча и не подключилось.
+	switch r.URL.Query().Get("format") {
+	case "singbox", "sing-box", "clash", "mihomo":
+		eps := stockEndpoints(nodes, user.Credentials, user.Label)
+		var (
+			body []byte
+			err  error
+			kind = "application/json; charset=utf-8"
+		)
+		if f := r.URL.Query().Get("format"); f == "clash" || f == "mihomo" {
+			body, err = clashConfig(eps)
+			kind = "text/yaml; charset=utf-8"
+		} else {
+			body, err = singBoxConfig(eps)
+		}
+		if err != nil {
+			http.Error(w, "у этого доступа нет VLESS или Trojan: попросите продавца выдать их в панели", http.StatusConflict)
+			return
+		}
+		w.Header().Set("Content-Type", kind)
+		_, _ = w.Write(body)
+		return
+	}
+
 	// По умолчанию отдаём то, что понимают чужие приложения. Наши ссылки
 	// сюда не попадают намеренно: на незнакомой схеме часть клиентов
 	// спотыкается и не принимает подписку целиком.

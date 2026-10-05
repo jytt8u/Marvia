@@ -117,8 +117,7 @@ other node. If the selected node is unavailable, the client checks fallbacks.
 | [Remnawave](https://docs.rw/) | Xray panel and nodes | Mihomo/sing-box templates, device controls |
 | [3x-ui](https://docs.sanaei.dev/docs/) | Xray panel | Broad protocol and administration support |
 
-Marvia still lacks automatic monthly quota resets and Clash/sing-box
-subscriptions. Buyers move from Marzban and 3x-ui with their existing keys and
+Marvia still lacks automatic monthly quota resets. Buyers move from Marzban and 3x-ui with their existing keys and
 subscription addresses â [what changes on the way (Russian)](docs/guide.md#Ð¿ÐµÑÐµÐµÐ·Ð´-Ñ-marzban-Ð¸-3x-ui). The linked project documentation
 supports the feature comparison; no matched speed ranking is available.
 
@@ -180,7 +179,7 @@ client in the panel. [Full guide (Russian)](docs/guide.md) · [Bot API](docs/bot
   and testing. [Publication plan (Russian)](docs/google-play.md).
 - Monthly quota resets. Migration from Marzban and 3x-ui does not carry over VMess,
   Shadowsocks, Vision links, or MySQL and PostgreSQL databases.
-- iOS, Clash/sing-box subscriptions, TUIC, Shadowsocks plugins, and per-device
+- iOS, importing Clash/sing-box subscriptions in our apps, TUIC, Shadowsocks plugins, and per-device
   revocation when a key is shared.
 - On Windows: apps around the tunnel, a kill switch, monthly statistics and
   reading a key from a QR image — for now these exist on the phone only.

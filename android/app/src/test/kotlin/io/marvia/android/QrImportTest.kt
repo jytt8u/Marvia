@@ -6,6 +6,7 @@ import com.google.zxing.qrcode.QRCodeWriter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.nio.ByteBuffer
 
 class QrImportTest {
     /**
@@ -55,5 +56,38 @@ class QrImportTest {
     fun pictureWithoutQrGivesNothing() {
         val px = IntArray(400 * 300) { if (it % 7 == 0) 0xFF000000.toInt() else 0xFFFFFFFF.toInt() }
         assertNull(QrImport.decode(400, 300, px))
+    }
+
+    @Test
+    fun cameraYuvFrameReadsTheSameKeyWithPaddingCropAndRotation() {
+        val key = "marvia://k3j9x2mq8w1z4v7pQwErTy@panel.example.com/sub/AbCdEf0123456789#Мой доступ"
+        val (width, height, pixels) = screenshot(key)
+        val frameHeight = height + 40
+        for (pixelStride in listOf(1, 2)) for (rotation in listOf(0, 90, 180, 270)) {
+            val left = 8
+            val top = 5
+            val offset = 11
+            val rowStride = (width + left) * pixelStride + 17
+            // Ненулевая позиция, межстрочные отступы и U/V после Y:
+            // декодер должен увидеть только яркость выбранного кадра.
+            val ySize = (frameHeight + top) * rowStride
+            val yuv = ByteBuffer.allocateDirect(offset + ySize + ySize / 2)
+            for (i in 0 until yuv.limit()) yuv.put(i, 0x80.toByte())
+            for (y in 0 until frameHeight) for (x in 0 until width) {
+                val luma = if (y < height) pixels[y * width + x] and 0xff else 0xf2
+                yuv.put(offset + (y + top) * rowStride + (x + left) * pixelStride, luma.toByte())
+            }
+            yuv.position(offset)
+            assertEquals("шаг $pixelStride, поворот $rotation", key,
+                QrImport.decodeYuv(width, frameHeight, yuv.asReadOnlyBuffer(), rowStride, pixelStride, rotation, left, top))
+            assertEquals(offset, yuv.position())
+        }
+    }
+
+    @Test
+    fun blankOrTruncatedCameraFrameDoesNotProduceAKey() {
+        assertNull(QrImport.decodeYuv(320, 240, ByteBuffer.wrap(ByteArray(320 * 240) { 120 }), 320, 1))
+        assertNull(QrImport.decodeYuv(320, 240, ByteBuffer.allocate(10), 320, 1))
+        assertNull(QrImport.decodeYuv(0, 240, ByteBuffer.allocate(10), 320, 1))
     }
 }

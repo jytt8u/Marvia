@@ -98,6 +98,20 @@
                 android:tag="acc"
                 android:textColor="@color/veil_link"
                 android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/cameraButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:contentDescription="@string/key_camera_description"
+                android:minHeight="48dp"
+                android:gravity="center"
+                android:paddingHorizontal="6dp"
+                android:text="@string/key_camera"
+                android:tag="acc"
+                android:textColor="@color/veil_link"
+                android:textSize="14sp" />
         </LinearLayout>
 
         <TextView

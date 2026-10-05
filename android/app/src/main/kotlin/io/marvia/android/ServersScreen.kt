@@ -1,6 +1,7 @@
 package io.marvia.android
 
 import android.content.ClipboardManager
+import android.content.Intent
 import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.View
@@ -95,24 +96,29 @@ class ServersScreen(
     // --------------------------------------------------------- подписки
 
     /**
-     * askWhereFrom — откуда взять ссылку: из буфера или набрать руками.
-     *
-     * Два пути, потому что ссылку присылают в чате: чаще её копируют, и
-     * тогда одно нажатие лучше поля ввода. Руками — когда буфер занят
-     * другим или человек хочет назвать подписку по-своему.
+     * Ключ приходит строкой, картинкой или показан на другом экране.
+     * Все способы доступны и после добавления первой подписки.
      */
     private fun askWhereFrom() {
         val items = listOf(
             host.getString(R.string.servers_add_clipboard),
             host.getString(R.string.servers_add_qr),
+            host.getString(R.string.key_camera),
             host.getString(R.string.servers_add_manual),
         )
         ChoiceSheet.show(host, theme(), host.getString(R.string.servers_add_key), items) { which ->
             when (which) {
                 0 -> fromClipboard()
                 1 -> pickQr.launch("image/*")
+                2 -> scanQr.launch(Intent(host, QrCameraActivity::class.java))
                 else -> byHand()
             }
+        }
+    }
+
+    private val scanQr = host.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == AppCompatActivity.RESULT_OK) {
+            result.data?.getStringExtra(QrCameraActivity.EXTRA_KEY)?.let { add("", it) }
         }
     }
 
@@ -284,7 +290,8 @@ class ServersScreen(
             val active = p.sub.link == store.accountLink
             val json = withContext(Dispatchers.IO) {
                 try {
-                    Mobile.subscription(p.sub.link, store.cacheDir(), refresh)
+                    if (core == null) Mobile.subscription(p.sub.link, store.cacheDir(), refresh)
+                    else core.subscription(p.sub.link, store.cacheDir(), refresh)
                 } catch (t: Throwable) {
                     p.error = human(t)
                     ""

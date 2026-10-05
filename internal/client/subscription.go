@@ -259,6 +259,12 @@ func (s Subscription) Remaining() int64 {
 // уходит в SNI и по нему проверяется сертификат. Пусто — обычный путь через
 // системный резолвер.
 func FetchSubscription(ctx context.Context, subURL string, pinned []netip.Addr) (Subscription, error) {
+	return FetchSubscriptionWithClient(ctx, subURL, subscriptionClient(pinned))
+}
+
+// FetchSubscriptionWithClient сохраняет разбор и защиту перенаправлений,
+// когда мобильный клиент задаёт транспорт через уже работающий туннель.
+func FetchSubscriptionWithClient(ctx context.Context, subURL string, httpClient *http.Client) (Subscription, error) {
 	ctx, cancel := context.WithTimeout(ctx, subscriptionTimeout)
 	defer cancel()
 
@@ -267,7 +273,7 @@ func FetchSubscription(ctx context.Context, subURL string, pinned []netip.Addr) 
 		return Subscription{}, withoutSecret(err)
 	}
 
-	resp, err := subscriptionClient(pinned).Do(req)
+	resp, err := httpguard.SubscriptionClient(httpClient).Do(req)
 	if err != nil {
 		return Subscription{}, fmt.Errorf("запрос подписки: %w", withoutSecret(err))
 	}

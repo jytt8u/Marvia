@@ -102,6 +102,7 @@ class Store(context: Context) {
             .sortedBy { it.name.lowercase() }
         set(value) {
             prefs.edit().putStringSet(KEY_SUBSCRIPTIONS, value.map(::rowOf).toSet()).apply()
+            SubscriptionRefresh.sync(app, value.isNotEmpty())
         }
 
     /** addSubscription кладёт подписку и делает её рабочей. Повтор той же ссылки не двоится. */
@@ -638,6 +639,7 @@ class Store(context: Context) {
         backdropFile().delete()
         logoFile().delete()
         prefs.edit().clear().apply()
+        SubscriptionRefresh.sync(app, false)
     }
 
     /** Каталог, который приложение отдаёт ядру под кэш подписки. */

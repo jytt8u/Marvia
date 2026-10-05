@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"net/http"
 	"net/netip"
 	"net/url"
 	"os"
@@ -73,6 +74,12 @@ const fetchTimeout = 20 * time.Second
 // Load отдаёт чужую подписку: ссылки — как есть, адрес — из свежего кэша,
 // из сети или, если сеть молчит, из старого кэша (stale).
 func Load(link, cachePath string, refresh bool) (sub Subscription, fetched time.Time, stale bool, err error) {
+	return LoadWithClient(link, cachePath, refresh, http.DefaultClient)
+}
+
+// LoadWithClient использует тот же кэш и для фонового запроса через VPN:
+// отдельный загрузчик потерял бы заголовки о сроке и напоминания продавца.
+func LoadWithClient(link, cachePath string, refresh bool, httpClient *http.Client) (sub Subscription, fetched time.Time, stale bool, err error) {
 	link = strings.TrimSpace(link)
 	if IsLink(FirstLine(link)) {
 		// Одна ссылка или несколько столбиком: подписка без панели.
@@ -92,7 +99,7 @@ func Load(link, cachePath string, refresh bool) (sub Subscription, fetched time.
 
 	ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
 	defer cancel()
-	body, meta, ferr := FetchRaw(ctx, link)
+	body, meta, ferr := FetchRawWithClient(ctx, link, httpClient)
 	if ferr != nil {
 		if cached.Body != "" {
 			return fromCache(), time.Unix(cached.FetchedAt, 0), true, nil

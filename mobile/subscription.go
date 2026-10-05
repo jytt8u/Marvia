@@ -212,9 +212,7 @@ func accountCachePath(dir, subURL string) string {
 // его нод на телефоне оставаться не должен.
 func ForgetSubscription(accountLink, cacheDir string) {
 	if isForeign(accountLink) {
-		if path := foreign.CachePath(cacheDir, accountLink); path != "" {
-			_ = os.Remove(path)
-		}
+		foreign.ForgetCache(cacheDir, accountLink)
 		return
 	}
 	account, err := client.ParseAccountLink(accountLink)

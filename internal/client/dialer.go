@@ -127,10 +127,18 @@ func NewDialer(node Node, key vp1.KeyPair, opts Options) (*Dialer, error) {
 		if err != nil {
 			return nil, err
 		}
+		// VP1 принимает net.Conn, а не context: отмена внешней сети должна
+		// закрыть и этот этап, не дожидаясь десятисекундного тайм-аута.
+		stop := context.AfterFunc(ctx, func() { _ = raw.Close() })
 		conn, err := vp1.ClientHandshake(raw, key, serverPub)
+		stopped := stop()
 		if err != nil {
 			_ = raw.Close()
 			return nil, err
+		}
+		if !stopped || ctx.Err() != nil {
+			_ = conn.Close()
+			return nil, ctx.Err()
 		}
 		return conn, nil
 	}, 0, 0)

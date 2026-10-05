@@ -101,7 +101,9 @@ type Pool struct {
 	closed   bool
 
 	// done останавливает сборщик, когда пул закрывают.
-	done chan struct{}
+	done   chan struct{}
+	life   context.Context
+	cancel context.CancelFunc
 
 	// dialMu не даёт двум хендшейкам идти одновременно, lastDial хранит
 	// время последнего, чтобы выдержать разбег.
@@ -205,6 +207,7 @@ func NewPool(dial DialFunc, maxSessions, maxStreams int) *Pool {
 // newPool — тот же конструктор с настраиваемым шагом сборщика: тест не может
 // ждать минуту, а в бою шаг всегда один.
 func newPool(dial DialFunc, maxSessions, maxStreams int, reap time.Duration) *Pool {
+	life, cancel := context.WithCancel(context.Background())
 	p := &Pool{
 		dial:        dial,
 		maxSessions: maxSessions,
@@ -212,6 +215,8 @@ func newPool(dial DialFunc, maxSessions, maxStreams int, reap time.Duration) *Po
 		now:         time.Now,
 		rotateAfter: func() time.Duration { return rotateMin + time.Duration(mrand.Int64N(int64(rotateMax-rotateMin))) },
 		done:        make(chan struct{}),
+		life:        life,
+		cancel:      cancel,
 	}
 	go p.reap(reap)
 	return p
@@ -277,6 +282,7 @@ func (p *Pool) Close() error {
 	// поэтому останавливаем сборщик только на первом.
 	if !p.closed {
 		p.closed = true
+		p.cancel()
 		close(p.done)
 	}
 	p.mu.Unlock()
@@ -317,8 +323,17 @@ func (p *Pool) session(ctx context.Context) (*yamux.Session, error) {
 // при этом не удерживается: дозвон занимает секунды, и вешать на него весь пул
 // нельзя.
 func (p *Pool) spawn(ctx context.Context) (*yamux.Session, error) {
+	// Закрытие старого дозвона при смене сети отменяет и рукопожатие,
+	// иначе очередь новых потоков ждала бы его прежнего тайм-аута.
+	ctx, cancel := context.WithCancel(ctx)
+	stop := context.AfterFunc(p.life, cancel)
+	defer stop()
+	defer cancel()
 	p.dialMu.Lock()
 	defer p.dialMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 
 	// Пока стояли в очереди, соседняя горутина могла поднять сессию, и место
 	// в ней уже есть. Тогда лишнее соединение открывать незачем.

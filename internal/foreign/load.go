@@ -45,9 +45,10 @@ func FirstLine(s string) string {
 // без туннеля, а панель продавца бывает недоступна именно тогда, когда
 // туннель и нужен.
 type cacheFile struct {
-	FetchedAt int64  `json:"fetched_at"`
-	Userinfo  string `json:"userinfo"`
-	Body      string `json:"body"`
+	Subscription string `json:"subscription"`
+	FetchedAt    int64  `json:"fetched_at"`
+	Userinfo     string `json:"userinfo"`
+	Body         string `json:"body"`
 
 	// Seller — поддержка, продление и объявление. Кэш постарше их не знает,
 	// и тогда кнопок просто нет до следующего похода в панель.
@@ -60,8 +61,22 @@ func CachePath(dir, link string) string {
 	if dir == "" {
 		return ""
 	}
+	return filepath.Join(dir, "foreign-"+subscriptionFingerprint(link)+".json")
+}
+
+func subscriptionFingerprint(link string) string {
 	sum := sha256.Sum256([]byte(strings.TrimSpace(link)))
-	return filepath.Join(dir, "foreign-"+hex.EncodeToString(sum[:4])+".json")
+	return hex.EncodeToString(sum[:])
+}
+
+// Удаление подписки убирает и старый короткий файл: там тоже лежат пароли.
+func ForgetCache(dir, link string) {
+	if dir == "" {
+		return
+	}
+	fingerprint := subscriptionFingerprint(link)
+	_ = os.Remove(CachePath(dir, link))
+	_ = os.Remove(filepath.Join(dir, "foreign-"+fingerprint[:8]+".json"))
 }
 
 // Fresh — сколько чужая подписка считается свежей. Сутки, как у своей: ноды у
@@ -92,8 +107,13 @@ func LoadWithClient(link, cachePath string, refresh bool, httpClient *http.Clien
 	}
 
 	cached := readCache(cachePath)
+	// Имя файла не доказывает принадлежность: старый короткий хеш мог совпасть.
+	if cached.Subscription != subscriptionFingerprint(link) {
+		cached = cacheFile{}
+	}
 	fromCache := cached.subscription
-	if !refresh && cached.Body != "" && time.Since(time.Unix(cached.FetchedAt, 0)) < Fresh {
+	age := time.Since(time.Unix(cached.FetchedAt, 0))
+	if !refresh && cached.Body != "" && age >= 0 && age < Fresh {
 		return fromCache(), time.Unix(cached.FetchedAt, 0), false, nil
 	}
 
@@ -119,7 +139,7 @@ func LoadWithClient(link, cachePath string, refresh bool, httpClient *http.Clien
 		return sub, time.Time{}, false, err
 	}
 	if cachePath != "" {
-		raw, _ := json.Marshal(cacheFile{FetchedAt: time.Now().Unix(), Userinfo: meta.Userinfo, Body: string(body), Seller: meta.Seller})
+		raw, _ := json.Marshal(cacheFile{Subscription: subscriptionFingerprint(link), FetchedAt: time.Now().Unix(), Userinfo: meta.Userinfo, Body: string(body), Seller: meta.Seller})
 		// Во временный и переименованием: оборванная запись не должна
 		// оставить кэш, который потом не прочитается.
 		tmp := cachePath + ".tmp"
@@ -144,7 +164,7 @@ func Cached(link, cachePath string) (Subscription, bool) {
 		return sub, len(sub.Links) > 0
 	}
 	cached := readCache(cachePath)
-	if cached.Body == "" {
+	if cached.Body == "" || cached.Subscription != subscriptionFingerprint(link) {
 		return Subscription{}, false
 	}
 	return cached.subscription(), true

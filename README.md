@@ -10,14 +10,14 @@
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [فارسی](README.fa.md)
 
-[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.3/marvia-android.apk)
-[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3)
+[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.2/marvia-android.apk)
+[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.2)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#установка-панели)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
-**Стадия — alpha, `0.13.0-alpha.3`.** Выпуск 1.0 отложен до проверки на
+**Стадия — alpha, `0.13.0-alpha.4`.** Выпуск 1.0 отложен до проверки на
 реальных устройствах и сетях — [критерии](docs/development-plan.md).
-Свежая тестовая сборка — [v0.13.0-alpha.3](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3); стабильной она не объявляется.
+Свежая тестовая сборка — [v0.13.0-alpha.2](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.2); стабильной она не объявляется.
 
 [Свой VPN с нуля](docs/start-from-zero.md) · [Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
 
@@ -123,16 +123,16 @@ Marvia пока уступает по автоматическому месяч�
 
 ## Начать
 
-> **Получили ключ?** Скачайте [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.3/marvia-android.apk)
-> или [установщик Windows](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3) (`marvia-windows-setup.exe`;
+> **Получили ключ?** Скачайте [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.2/marvia-android.apk)
+> или [установщик Windows](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.2) (`marvia-windows-setup.exe`;
 > [подробнее](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)),
 > добавьте ссылку `marvia://…` в приложении и подключитесь.
 
 Android также принимает VLESS, VMess, Trojan, Shadowsocks, Hysteria2 и WireGuard.
 В Google Play приложения пока нет.
 
-Выпуск 0.13.0-alpha.3 — тестовый: полный установщик Windows и APK собраны
-на GitHub из метки, но их проверка на реальных устройствах ещё не завершена.
+Публичная alpha.2 — тестовая; alpha.4 пока подготовлена локально.
+Полная проверка на реальных устройствах ещё не завершена.
 Известные ограничения — в [списке изменений](CHANGELOG.md).
 
 ### Как проверить, что файл настоящий

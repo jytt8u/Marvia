@@ -592,4 +592,6 @@
     <string name="seller_remind_traffic">Осталось %1$d%% трафика. Продлите заранее, чтобы ничего не встало.</string>
     <string name="seller_channel">Напоминания о доступе</string>
     <string name="seller_channel_desc">Когда подходит срок или кончается трафик</string>
+    <string name="trouble_network_changing">сеть изменилась — восстанавливаем соединение</string>
+    <string name="trouble_network_offline">нет внешней сети — ждём Wi-Fi или мобильный интернет</string>
 </resources>

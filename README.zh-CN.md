@@ -9,13 +9,13 @@
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [فارسی](README.fa.md)
 
-[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.3/marvia-android.apk)
-[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3)
+[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.2/marvia-android.apk)
+[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.2)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#安装面板)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
-**当前阶段：alpha，`0.13.0-alpha.3`。** 1.0 推迟发布，直到在真实设备和网络上完成验证——
-[标准（俄语）](docs/development-plan.md)。最新测试版本为 [v0.13.0-alpha.3](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3)，不宣称稳定。
+**当前阶段：alpha，`0.13.0-alpha.4`。** 1.0 推迟发布，直到在真实设备和网络上完成验证——
+[标准（俄语）](docs/development-plan.md)。最新测试版本为 [v0.13.0-alpha.2](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.2)，不宣称稳定。
 
 [从零搭建自己的 VPN（俄语）](docs/start-from-zero.md) · [Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
 
@@ -118,8 +118,8 @@ Marvia 尚缺少每月自动重置额度。从 Marzban 和 3x-ui
 
 ## 开始使用
 
-> **已有密钥？** 下载 [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.3/marvia-android.apk)
-> 或 [Windows 安装程序](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3)（`marvia-windows-setup.exe`；
+> **已有密钥？** 下载 [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.2/marvia-android.apk)
+> 或 [Windows 安装程序](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.2)（`marvia-windows-setup.exe`；
 > [详细说明（俄语）](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)），
 > 在应用中添加 `marvia://…` 链接，然后连接。
 
@@ -148,8 +148,8 @@ gh attestation verify SHA256SUMS --bundle SHA256SUMS.sigstore.json --repo jytt8u
 
 ### 安装面板
 
-0.13.0-alpha.3 是测试版本：完整 Windows 安装包与 APK 已由 GitHub 根据标签构建，
-但尚未完成真实设备验证。已知限制见[更新日志（俄语）](CHANGELOG.md)。
+公开的 alpha.2 是测试版本；alpha.4 目前在本地准备，尚未完成真实设备验证。
+已知限制见[更新日志（俄语）](CHANGELOG.md)。
 单个 VPS 上面板使用 8443，节点使用 443；请先阅读[完整安装步骤](docs/start-from-zero.md)。
 
 需要 Linux 服务器和已配置 A 记录的域名。从[官方版本](https://github.com/jytt8u/marvia/releases/latest)

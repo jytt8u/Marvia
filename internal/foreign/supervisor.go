@@ -57,10 +57,14 @@ type Supervisor struct {
 	// бросают работу, а не доживают свои сорок секунд. closed не даёт
 	// поставить движок, поднятый уже после закрытия, — иначе он жил бы
 	// дальше, и закрыть его было бы некому. done закрывает watch на выходе.
-	life   context.Context
-	cancel context.CancelFunc
-	closed bool
-	done   chan struct{}
+	life          context.Context
+	cancel        context.CancelFunc
+	closed        bool
+	done          chan struct{}
+	networkCtx    context.Context
+	networkCancel context.CancelFunc
+	networkWake   chan struct{}
+	offline       bool
 
 	// opts — с какими настройками поднимаются движки.
 	opts Options
@@ -79,11 +83,13 @@ type Options struct {
 // newSupervisor собирает надзор без запущенного движка.
 func newSupervisor(sub Subscription, prefer int64, events client.Events, opts Options) *Supervisor {
 	life, cancel := context.WithCancel(context.Background())
+	networkCtx, networkCancel := context.WithCancel(life)
 	return &Supervisor{
 		sub: sub, selected: prefer, events: events, opts: opts,
 		measured: map[int64]client.Measurement{},
 		stop:     make(chan struct{}),
 		life:     life, cancel: cancel,
+		networkCtx: networkCtx, networkCancel: networkCancel, networkWake: make(chan struct{}, 1),
 		every: watchEvery, dead: deadAfter,
 	}
 }
@@ -136,6 +142,9 @@ func Supervise(ctx context.Context, sub Subscription, prefer int64, events clien
 // pick меряет ноды и отдаёт движок победителя; остальные закрывает.
 // Выбранная руками выигрывает, если жива, — иначе самая быстрая.
 func (s *Supervisor) pick(ctx context.Context, links []Link, prefer int64) ([]client.Measurement, *Engine) {
+	s.mu.Lock()
+	networkCtx := s.networkCtx
+	s.mu.Unlock()
 	type result struct {
 		m client.Measurement
 		e *Engine
@@ -147,8 +156,17 @@ func (s *Supervisor) pick(ctx context.Context, links []Link, prefer int64) ([]cl
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sem <- struct{}{}
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				out[i] = result{m: client.Measurement{Node: nodeOf(l), Err: ctx.Err()}}
+				return
+			}
 			defer func() { <-sem }()
+			if err := ctx.Err(); err != nil {
+				out[i] = result{m: client.Measurement{Node: nodeOf(l), Err: err}}
+				return
+			}
 			n := nodeOf(l)
 			e, err := StartWith(l, s.opts)
 			if err != nil {
@@ -184,6 +202,17 @@ func (s *Supervisor) pick(ctx context.Context, links []Link, prefer int64) ([]cl
 	measurements := make([]client.Measurement, len(out))
 	var winner *Engine
 	s.mu.Lock()
+	// Отмена маршрута важнее успешного ответа, полученного до неё. В том
+	// числе результаты ручного замера не должны менять состояние новой сети.
+	if s.closed || s.offline || ctx.Err() != nil || s.networkCtx != networkCtx || networkCtx.Err() != nil {
+		s.mu.Unlock()
+		for _, r := range out {
+			if r.e != nil {
+				_ = r.e.Close()
+			}
+		}
+		return nil, nil
+	}
 	for i, r := range out {
 		measurements[i] = r.m
 		s.measured[r.m.Node.ID] = r.m
@@ -201,15 +230,30 @@ func (s *Supervisor) pick(ctx context.Context, links []Link, prefer int64) ([]cl
 func (s *Supervisor) watch() {
 	defer close(s.done)
 	fails := 0
-	t := time.NewTicker(s.every)
+	troubled := false
+	t := time.NewTimer(s.every)
 	defer t.Stop()
 	for {
 		select {
 		case <-s.stop:
 			return
 		case <-t.C:
+		case <-s.networkWake:
+			if !t.Stop() {
+				select {
+				case <-t.C:
+				default:
+				}
+			}
+			fails = 0
+			troubled = true
 		}
-		ctx, cancel := context.WithTimeout(s.life, probeTimeout)
+		networkCtx, offline := s.network()
+		if offline {
+			t.Reset(s.every)
+			continue
+		}
+		ctx, cancel := context.WithTimeout(networkCtx, probeTimeout)
 		_, err := s.Ping(ctx)
 		cancel()
 		if s.stopped() {
@@ -217,18 +261,24 @@ func (s *Supervisor) watch() {
 			// смерть ноды, и ни переезжать, ни сообщать о беде не надо.
 			return
 		}
+		if networkCtx.Err() != nil {
+			continue
+		}
 		if err == nil {
-			if fails >= s.dead && s.events.OnRecovered != nil {
+			if (troubled || fails >= s.dead) && s.events.OnRecovered != nil {
 				s.events.OnRecovered()
 			}
 			fails = 0
+			troubled = false
+			t.Reset(s.every)
 			continue
 		}
 		fails++
 		if fails < s.dead {
+			t.Reset(2 * time.Second)
 			continue
 		}
-		moved := s.move()
+		moved := s.move(networkCtx)
 		if s.stopped() {
 			return
 		}
@@ -237,11 +287,18 @@ func (s *Supervisor) watch() {
 			// листа: иначе одна её неудача сразу гнала бы дальше, а удачная
 			// проверка давала бы ложное «нода снова отвечает».
 			fails = 0
+			troubled = false
+			t.Reset(s.every)
 			continue
 		}
+		if networkCtx.Err() != nil {
+			continue
+		}
+		troubled = true
 		if s.events.OnTrouble != nil {
 			s.events.OnTrouble("no-node")
 		}
+		t.Reset(20 * time.Second)
 	}
 }
 
@@ -256,7 +313,7 @@ func (s *Supervisor) stopped() bool {
 }
 
 // move ищет живую ноду среди остальных и ставит её на место умершей.
-func (s *Supervisor) move() bool {
+func (s *Supervisor) move(networkCtx context.Context) bool {
 	s.mu.Lock()
 	dead := s.current.ID
 	var others []Link
@@ -269,13 +326,13 @@ func (s *Supervisor) move() bool {
 	if len(others) == 0 {
 		return false
 	}
-	ctx, cancel := context.WithTimeout(s.life, switchBudget)
+	ctx, cancel := context.WithTimeout(networkCtx, switchBudget)
 	defer cancel()
 	_, winner := s.pick(ctx, others, 0)
 	if winner == nil {
 		return false
 	}
-	return s.swap(winner)
+	return s.swapInNetwork(ctx, winner)
 }
 
 // swap ставит новый движок. Старый закрывается — его потоки рвутся, и
@@ -286,8 +343,12 @@ func (s *Supervisor) move() bool {
 // к ноде, и закрыть его было бы некому. Нода та же, что сейчас: выбор уже
 // текущей ноды не должен рвать ей соединения ради того же самого.
 func (s *Supervisor) swap(e *Engine) bool {
+	return s.swapInNetwork(nil, e)
+}
+
+func (s *Supervisor) swapInNetwork(ctx context.Context, e *Engine) bool {
 	s.mu.Lock()
-	if s.closed {
+	if s.closed || (ctx != nil && ctx.Err() != nil) {
 		s.mu.Unlock()
 		_ = e.Close()
 		return false
@@ -316,6 +377,9 @@ func (s *Supervisor) now() (*Engine, error) {
 	defer s.mu.Unlock()
 	if s.engine == nil {
 		return nil, errors.New("подключение закрыто")
+	}
+	if s.offline {
+		return nil, errors.New("нет внешней сети")
 	}
 	return s.engine, nil
 }
@@ -360,7 +424,12 @@ func (s *Supervisor) Measurement() client.Measurement {
 // не рвать ей соединения ради замера.
 func (s *Supervisor) Measure(ctx context.Context) []client.Measurement {
 	s.mu.Lock()
+	if s.closed || s.offline || s.engine == nil {
+		s.mu.Unlock()
+		return nil
+	}
 	cur := s.current.ID
+	networkCtx := s.networkCtx
 	var others []Link
 	for _, l := range s.sub.Links {
 		if NodeID(l) != cur {
@@ -369,12 +438,20 @@ func (s *Supervisor) Measure(ctx context.Context) []client.Measurement {
 	}
 	s.mu.Unlock()
 
-	_, _ = s.Ping(ctx)
-	results, winner := s.pickAll(ctx, others)
+	measureCtx, cancel := context.WithCancel(networkCtx)
+	stop := context.AfterFunc(ctx, cancel)
+	defer stop()
+	defer cancel()
+	_, _ = s.Ping(measureCtx)
+	results, winner := s.pickAll(measureCtx, others)
 	if winner != nil {
 		_ = winner.Close()
 	}
 	s.mu.Lock()
+	if s.closed || s.offline || s.networkCtx != networkCtx || measureCtx.Err() != nil || ctx.Err() != nil {
+		s.mu.Unlock()
+		return nil
+	}
 	all := append([]client.Measurement{s.measured[cur]}, results...)
 	s.mu.Unlock()
 	sort.SliceStable(all, func(i, j int) bool { return all[i].Node.ID == cur && all[j].Node.ID != cur })
@@ -397,8 +474,10 @@ func (s *Supervisor) Ping(ctx context.Context) (time.Duration, error) {
 	}
 	rtt, err := e.Probe(ctx)
 	s.mu.Lock()
-	m := client.Measurement{Node: s.current, Latency: rtt, RTT: rtt, Err: err}
-	s.measured[s.current.ID] = m
+	if s.engine == e && !s.offline {
+		m := client.Measurement{Node: s.current, Latency: rtt, RTT: rtt, Err: err}
+		s.measured[s.current.ID] = m
+	}
 	s.mu.Unlock()
 	return rtt, err
 }
@@ -406,6 +485,11 @@ func (s *Supervisor) Ping(ctx context.Context) (time.Duration, error) {
 // Select переводит на выбранную ноду; ноль — к самой быстрой.
 func (s *Supervisor) Select(ctx context.Context, id int64) error {
 	s.mu.Lock()
+	if s.closed || s.offline || s.engine == nil {
+		s.mu.Unlock()
+		return errors.New("нет доступного подключения")
+	}
+	networkCtx := s.networkCtx
 	s.selected = id
 	var target []Link
 	for _, l := range s.sub.Links {
@@ -417,11 +501,19 @@ func (s *Supervisor) Select(ctx context.Context, id int64) error {
 	if len(target) == 0 {
 		return errors.New("такой ноды в подписке нет")
 	}
-	_, winner := s.pick(ctx, target, id)
+	selectCtx, cancel := context.WithCancel(networkCtx)
+	stop := context.AfterFunc(ctx, cancel)
+	defer stop()
+	defer cancel()
+	_, winner := s.pick(selectCtx, target, id)
 	if winner == nil {
 		return errors.New("нода не отвечает")
 	}
-	if !s.swap(winner) {
+	if ctx.Err() != nil {
+		_ = winner.Close()
+		return ctx.Err()
+	}
+	if !s.swapInNetwork(selectCtx, winner) {
 		return errors.New("подключение закрыто")
 	}
 	return nil

@@ -67,7 +67,7 @@ func TestForeignSellerLinksFollowTheSameRules(t *testing.T) {
 
 func TestTamperedForeignCacheIsCleanedOnLoad(t *testing.T) {
 	cache := filepath.Join(t.TempDir(), "foreign.json")
-	raw := `{"fetched_at":1,"body":"trojan://p@node.example.test:443",` +
+	raw := `{"subscription":"` + subscriptionFingerprint("https://127.0.0.1:1/sub/x") + `","fetched_at":1,"body":"trojan://p@node.example.test:443",` +
 		`"seller":{"support_url":"javascript:alert(1)","renew_url":"","announce":"ok"}}`
 	if err := os.WriteFile(cache, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
@@ -83,7 +83,7 @@ func TestTamperedForeignCacheIsCleanedOnLoad(t *testing.T) {
 	}
 }
 
-// Старый кэш читается без похода в сеть, и подправленный руками — тоже
+// Привязанный к подписке кэш читается без похода в сеть, и подправленный руками — тоже
 // через чистку: окно отдаст эти ссылки системе.
 func TestCachedForeignSubscriptionNeedsNoNetworkAndIsCleaned(t *testing.T) {
 	cache := filepath.Join(t.TempDir(), "foreign.json")
@@ -93,7 +93,7 @@ func TestCachedForeignSubscriptionNeedsNoNetworkAndIsCleaned(t *testing.T) {
 	if _, ok := Cached(link, cache); ok {
 		t.Fatal("без файла кэш нашёлся")
 	}
-	raw := `{"fetched_at":1,"body":"trojan://p@node.example.test:443",` +
+	raw := `{"subscription":"` + subscriptionFingerprint(link) + `","fetched_at":1,"body":"trojan://p@node.example.test:443",` +
 		`"seller":{"support_url":"javascript:alert(1)","renew_url":"https://shop.example/renew","announce":"ok"}}`
 	if err := os.WriteFile(cache, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)

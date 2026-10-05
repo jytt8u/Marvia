@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -134,6 +135,13 @@ type Supervisor struct {
 	// только, что упало хоть одно.
 	suspect chan struct{}
 
+	// Смена сети отменяет работу на старом маршруте, включая долгий переезд.
+	life          context.Context
+	networkCtx    context.Context
+	networkCancel context.CancelFunc
+	networkWake   chan struct{}
+	offline       bool
+
 	// fails — сколько дозвонов подряд не дошли до ноды.
 	fails atomic.Int32
 
@@ -159,15 +167,20 @@ func Supervise(ctx context.Context, cfg ConnectConfig, events Events) (*Supervis
 	// Сторож живёт своей жизнью, а не жизнью вызова: ctx у Connect кончается
 	// вместе с подключением, а следить надо всё время, пока стоит туннель.
 	watchCtx, cancel := context.WithCancel(context.Background())
+	networkCtx, networkCancel := context.WithCancel(watchCtx)
 
 	s := &Supervisor{
-		dialer:  dialer,
-		cfg:     cfg,
-		log:     logf,
-		events:  events,
-		suspect: make(chan struct{}, 1),
-		cancel:  cancel,
-		done:    make(chan struct{}),
+		dialer:        dialer,
+		cfg:           cfg,
+		log:           logf,
+		events:        events,
+		suspect:       make(chan struct{}, 1),
+		cancel:        cancel,
+		done:          make(chan struct{}),
+		life:          watchCtx,
+		networkCtx:    networkCtx,
+		networkCancel: networkCancel,
+		networkWake:   make(chan struct{}, 1),
 	}
 
 	go s.watch(watchCtx)
@@ -298,27 +311,38 @@ func (s *Supervisor) Nodes() []Node {
 // откроется нода, а не как она работает через другую ноду.
 func (s *Supervisor) Measure(ctx context.Context) []Measurement {
 	s.mu.Lock()
-	cfg := s.cfg
-	current := s.dialer
-	var nodes []Node
-	if current != nil {
-		nodes = current.Subscription().Nodes
+	if s.closed || s.offline || s.dialer == nil {
+		s.mu.Unlock()
+		return nil
 	}
+	cfg := s.cfg
+	d := s.dialer
+	nodes := d.Subscription().Nodes
+	networkCtx := s.networkCtx
 	s.mu.Unlock()
 
 	if len(nodes) == 0 {
 		return nil
 	}
-	results := measureAround(ctx, nodes, current, cfg.Key, cfg.Dial)
+	measureCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	if networkCtx != nil {
+		stop := context.AfterFunc(networkCtx, cancel)
+		defer stop()
+	}
+	results := measureAround(measureCtx, nodes, d, cfg.Key, cfg.Dial)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.dialer != nil {
-		for _, m := range results {
-			if m.Node.ID == s.dialer.Node().ID {
-				m.dialer = nil
-				s.dialer.measurement.Store(&m)
-				break
-			}
+	// Даже тот же номер ноды уже относится к другому маршруту после смены
+	// сети. Поздний результат не должен возвращать старый пинг в интерфейс.
+	if s.closed || s.offline || s.dialer != d || measureCtx.Err() != nil {
+		return nil
+	}
+	for _, m := range results {
+		if m.Node.ID == d.Node().ID {
+			m.dialer = nil
+			d.measurement.Store(&m)
+			break
 		}
 	}
 	return results
@@ -407,6 +431,9 @@ func (s *Supervisor) current() (*Dialer, error) {
 	if s.dialer == nil {
 		return nil, errors.New("туннель закрыт")
 	}
+	if s.offline {
+		return nil, fmt.Errorf("нет внешней сети: %w", vp1.ErrNodeUnreachable)
+	}
 	return s.dialer, nil
 }
 
@@ -428,10 +455,13 @@ func (s *Supervisor) watch(ctx context.Context) {
 	// обратное, когда она вернётся.
 	troubled := false
 	for {
+		networkChanged := false
 		select {
 		case <-ctx.Done():
 			return
 		case <-timer.C:
+		case <-s.networkWake:
+			networkChanged = true
 		case <-s.suspect:
 			// Соединения уже падают. Ждать расписания нечего: то, что должна
 			// была выяснить проверка, трафик выяснил за нас.
@@ -442,18 +472,46 @@ func (s *Supervisor) watch(ctx context.Context) {
 				}
 			}
 		}
+		if networkChanged {
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			misses = 0
+			byWarmup = false
+			troubled = true
+		}
+		s.mu.Lock()
+		networkCtx := s.networkCtx
+		offline := s.offline
+		d := s.dialer
+		s.mu.Unlock()
+		if networkCtx == nil {
+			networkCtx = ctx
+		}
+		if offline {
+			timer.Reset(probeEvery)
+			continue
+		}
 
-		d, err := s.current()
-		if err != nil {
+		if d == nil {
 			return
 		}
+		var err error
 
 		// Щупаем тем же замером, каким выбирали ноду: он проходит весь путь —
 		// сессия, поток, ответ ноды, — и потому ловит не только оборванный
 		// провод, но и ноду, которая жива, а обслуживать перестала.
-		probe, cancel := context.WithTimeout(ctx, probeTimeout)
-		if byWarmup {
+		probe, cancel := context.WithTimeout(networkCtx, probeTimeout)
+		if byWarmup || networkChanged {
 			err = d.Warmup(probe)
+			if err == nil && networkChanged {
+				if rtt, pingErr := d.pool.Ping(probe); pingErr == nil {
+					d.recordRTT(rtt)
+				}
+			}
 		} else {
 			_, err = d.MeasureFetch(probe, probeSample)
 		}
@@ -461,6 +519,9 @@ func (s *Supervisor) watch(ctx context.Context) {
 
 		if ctx.Err() != nil {
 			return
+		}
+		if networkCtx.Err() != nil {
+			continue
 		}
 
 		// Замер не умеет старая нода: она видит незнакомый вид запроса и
@@ -476,12 +537,15 @@ func (s *Supervisor) watch(ctx context.Context) {
 		// Поэтому при первой же неудаче спрашиваем ноду проще: подняться до
 		// готовности она обязана уметь в любой версии. Ответила — она жива,
 		// просто старая, и дальше спрашиваем только так.
-		if err != nil && !byWarmup {
-			check, cancelCheck := context.WithTimeout(ctx, probeTimeout)
+		if err != nil && !byWarmup && !networkChanged {
+			check, cancelCheck := context.WithTimeout(networkCtx, probeTimeout)
 			warmErr := d.Warmup(check)
 			cancelCheck()
 			if ctx.Err() != nil {
 				return
+			}
+			if networkCtx.Err() != nil {
+				continue
 			}
 			if warmErr == nil {
 				byWarmup = true
@@ -520,13 +584,16 @@ func (s *Supervisor) watch(ctx context.Context) {
 		}
 
 		s.log("нода %s не отвечает на %d проверки подряд: %v", d.Node().Title(), misses, err)
-		if s.move(ctx, d) {
+		if s.move(networkCtx, d) {
 			misses = 0
 			s.fails.Store(0)
 			// Вывод «нода старая» относился к прежней ноде. Новую спрашиваем
 			// полным замером, пока она сама не покажет обратное.
 			byWarmup = false
 			timer.Reset(probeEvery)
+			continue
+		}
+		if networkCtx.Err() != nil {
 			continue
 		}
 
@@ -543,12 +610,7 @@ func (s *Supervisor) watch(ctx context.Context) {
 
 		// Переехать не вышло — подождём и попробуем снова. Счётчик не
 		// сбрасываем: следующая же неудачная проверка снова приведёт сюда.
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(retryAfter):
-		}
-		timer.Reset(probeSoon)
+		timer.Reset(retryAfter)
 	}
 }
 
@@ -582,7 +644,7 @@ func (s *Supervisor) move(ctx context.Context, dead *Dialer) bool {
 	}
 
 	s.mu.Lock()
-	if s.closed {
+	if s.closed || s.dialer != dead || pick.Err() != nil {
 		s.mu.Unlock()
 		_ = fresh.Close()
 		return false

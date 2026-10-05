@@ -306,6 +306,7 @@ func (t *Tunnel) switched(n client.Node) {
 	t.mu.Lock()
 	t.nodeName = n.Title()
 	t.lastError = ""
+	t.troubleCode = ""
 	bridge := t.bridge
 	t.mu.Unlock()
 
@@ -344,6 +345,7 @@ func (t *Tunnel) trouble(code string) {
 func (t *Tunnel) recovered() {
 	t.mu.Lock()
 	t.troubleCode = ""
+	t.lastError = ""
 	t.mu.Unlock()
 }
 
@@ -355,6 +357,27 @@ func (t *Tunnel) Trouble() string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.troubleCode
+}
+
+// NetworkChanged передаёт смену внешней сети, сохраняя TUN и учёт сессии.
+// Закрытая служба не должна запускать дозвон из позднего Android callback.
+func (t *Tunnel) NetworkChanged(available bool) {
+	t.mu.Lock()
+	if !t.running {
+		t.mu.Unlock()
+		return
+	}
+	dialer := t.dialer
+	if available {
+		t.troubleCode = "network-changing"
+	} else {
+		t.troubleCode = "network-offline"
+	}
+	t.lastError = ""
+	t.mu.Unlock()
+	if aware, ok := dialer.(interface{ NetworkChanged(bool) }); ok {
+		aware.NetworkChanged(available)
+	}
 }
 
 // Stop закрывает туннель. Безопасно вызывать несколько раз.

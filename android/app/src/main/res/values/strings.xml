@@ -617,4 +617,6 @@
     <string name="seller_remind_traffic">%1$d%% of traffic left. Renew in advance so nothing stops.</string>
     <string name="seller_channel">Access reminders</string>
     <string name="seller_channel_desc">When access is about to end or traffic runs low</string>
+    <string name="trouble_network_changing">network changed — restoring the connection</string>
+    <string name="trouble_network_offline">no underlying network — waiting for Wi-Fi or mobile data</string>
 </resources>

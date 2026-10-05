@@ -149,7 +149,7 @@ or on a computer with `apksigner verify --print-certs marvia-android.apk` from
 the Android SDK. A different fingerprint means it is not our file. Once
 installed, Android refuses updates signed with another key.
 
-**The APK from 0.13.0-alpha.3 on, panel, node and Windows** files are built
+**The APK from 0.13.0-alpha.2 on, panel, node and Windows** files are built
 on GitHub from the tag. APKs of earlier releases were built by the author
 locally: their signature proves who released them, not which source they were
 built from. The

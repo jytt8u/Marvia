@@ -138,7 +138,7 @@ Android 还支持 VLESS、VMess、Trojan、Shadowsocks、Hysteria2 和 WireGuard
 Android SDK 的 `apksigner verify --print-certs marvia-android.apk`。指纹不同即不是我们的文件。
 安装后，Android 会拒绝用其他密钥签名的更新。
 
-**自 0.13.0-alpha.3 起的 APK，以及面板、节点和 Windows** 文件由 GitHub 根据标签构建。
+**自 0.13.0-alpha.2 起的 APK，以及面板、节点和 Windows** 文件由 GitHub 根据标签构建。
 更早版本的 APK 由作者本人构建，其签名只证明发布者身份，不证明由哪份源码构建。
 所有文件的校验和经 Sigstore 签名：
 

@@ -7,11 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/nacl/box"
 )
 
 // Оповещения продавцу.
@@ -230,31 +237,42 @@ func (a *Alerts) checkExpiring(ctx context.Context, cfg AlertSettings) {
 // нужен, а беда важная: о несделанных копиях узнают обычно в тот день, когда
 // они понадобились.
 func (a *Alerts) BackupFailed(ctx context.Context, cause error) {
+	a.backupFailed(ctx, "backup-failed", "Копия базы не снялась: ", "Копия базы снова снимается.", cause)
+}
+
+func (a *Alerts) RemoteBackupFailed(ctx context.Context, cause error) {
+	a.backupFailed(ctx, "remote-backup-failed", "Резервная копия не создана или не доставлена: ", "Резервная копия снова доставляется.", cause)
+}
+
+func (a *Alerts) backupFailed(ctx context.Context, key, failure, recovery string, cause error) {
 	cfg, err := a.store.AlertSettings(ctx)
 	if err != nil || !cfg.Ready() {
 		return
 	}
 
-	const key = "backup-failed"
 	if cause == nil {
 		if a.already(key) {
-			a.mark(key, false)
-			a.say(ctx, cfg, "Копия базы снова снимается.")
+			if a.say(ctx, cfg, recovery) {
+				a.mark(key, false)
+			}
 		}
 		return
 	}
 	if a.already(key) {
 		return
 	}
-	a.mark(key, true)
-	a.say(ctx, cfg, "Копия базы не снялась: "+cause.Error())
+	// Неотправленное предупреждение не считается доставленным: следующая
+	// попытка должна повторить его, когда Telegram вернётся.
+	if a.say(ctx, cfg, failure+cause.Error()) {
+		a.mark(key, true)
+	}
 }
 
 // say отправляет сообщение, не роняя панель из-за недоступного телеграма.
-func (a *Alerts) say(ctx context.Context, cfg AlertSettings, text string) {
+func (a *Alerts) say(ctx context.Context, cfg AlertSettings, text string) bool {
 	ctx, cancel := context.WithTimeout(ctx, telegramTimeout)
 	defer cancel()
-	_ = a.send(ctx, cfg, text)
+	return a.send(ctx, cfg, text) == nil
 }
 
 func (a *Alerts) already(key string) bool {
@@ -322,6 +340,105 @@ func sendTelegram(ctx context.Context, cfg AlertSettings, text string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("телеграм ответил %s", resp.Status)
+	}
+	var result struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&result); err != nil || !result.OK {
+		return errors.New("телеграм не подтвердил сообщение")
+	}
+	return nil
+}
+
+// sendBackupDocument заполняет ограниченный набор сообщений вместо удаления
+// недельных копий: Bot API не удаляет сообщения старше 48 часов, но разрешает
+// менять документ собственного сообщения. Открытый снимок сюда не принимается.
+func sendBackupDocument(ctx context.Context, cfg AlertSettings, path string, messageID int64) (int64, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, errors.New("файл копии недоступен")
+	}
+	if info.Size() > 50_000_000 {
+		return 0, errors.New("копия больше лимита Telegram 50 МБ; используй S3")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return 0, errors.New("копия не прочиталась")
+	}
+	if !bytes.HasPrefix(raw, passwordBackupMagic) || len(raw) <= len(passwordBackupMagic)+backupSaltSize+box.AnonymousOverhead {
+		return 0, errors.New("в Telegram принимается только зашифрованная парольная копия")
+	}
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	if err := form.WriteField("chat_id", cfg.ChatID); err != nil {
+		return 0, err
+	}
+	method := "sendDocument"
+	if messageID != 0 {
+		method = "editMessageMedia"
+		if err := form.WriteField("message_id", strconv.FormatInt(messageID, 10)); err != nil {
+			return 0, err
+		}
+		media, _ := json.Marshal(map[string]string{"type": "document", "media": "attach://document", "caption": "Зашифрованная резервная копия Marvia · " + filepath.Base(path)})
+		if err := form.WriteField("media", string(media)); err != nil {
+			return 0, err
+		}
+	} else {
+		if err := form.WriteField("caption", "Зашифрованная резервная копия Marvia"); err != nil {
+			return 0, err
+		}
+	}
+	part, err := form.CreateFormFile("document", filepath.Base(path))
+	if err != nil {
+		return 0, err
+	}
+	if _, err := part.Write(raw); err != nil {
+		return 0, err
+	}
+	if err := form.Close(); err != nil {
+		return 0, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.telegram.org/bot"+cfg.BotToken+"/"+method, &body)
+	if err != nil {
+		return 0, errors.New("не удалось подготовить отправку в Telegram")
+	}
+	req.Header.Set("Content-Type", form.FormDataContentType())
+	client := &http.Client{Timeout: 5 * time.Minute, CheckRedirect: refuseBackupRedirect}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, errors.New("телеграм недоступен при отправке копии")
+	}
+	defer resp.Body.Close()
+	var result struct {
+		OK     bool `json:"ok"`
+		Result struct {
+			MessageID int64 `json:"message_id"`
+		} `json:"result"`
+	}
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&result) != nil || !result.OK || result.Result.MessageID == 0 {
+		return 0, fmt.Errorf("телеграм не подтвердил копию (код %d)", resp.StatusCode)
+	}
+	return result.Result.MessageID, nil
+}
+
+func deleteBackupDocument(ctx context.Context, cfg AlertSettings, messageID int64) error {
+	form := url.Values{"chat_id": {cfg.ChatID}, "message_id": {strconv.FormatInt(messageID, 10)}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.telegram.org/bot"+cfg.BotToken+"/deleteMessage", strings.NewReader(form.Encode()))
+	if err != nil {
+		return errors.New("не удалось подготовить удаление копии")
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	client := &http.Client{Timeout: telegramTimeout, CheckRedirect: refuseBackupRedirect}
+	resp, err := client.Do(req)
+	if err != nil {
+		return errors.New("телеграм недоступен при удалении копии")
+	}
+	defer resp.Body.Close()
+	var result struct {
+		OK bool `json:"ok"`
+	}
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&result) != nil || !result.OK {
+		return errors.New("телеграм не разрешил удалить сообщение с копией")
 	}
 	return nil
 }

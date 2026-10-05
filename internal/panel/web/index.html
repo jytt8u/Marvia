@@ -747,6 +747,42 @@
             </div>
 
             <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
+              <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.bk.title }}</div>
+              <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.bk.what }}</div>
+              <label><input id="bk-on" type="checkbox" /> {{ d18.bk.on }}</label>
+              <label for="bk-time">{{ d18.bk.time }}</label>
+              <input id="bk-time" type="time" style="{{ inputStyle }}" />
+              <label for="bk-keep">{{ d18.bk.keep }}</label>
+              <input id="bk-keep" type="number" min="1" max="365" style="{{ inputStyle }}" />
+              <label for="bk-password">{{ d18.bk.password }}</label>
+              <input id="bk-password" type="password" autocomplete="new-password" maxlength="4096" style="{{ inputStyle }}" />
+              <div style="font-size: 12px; line-height: 1.45; color: var(--dim);">{{ d18.bk.passwordNote }}</div>
+              <label><input id="bk-telegram" type="checkbox" /> {{ d18.bk.telegram }}</label>
+              <div style="font-size: 12px; line-height: 1.45; color: var(--dim);">{{ d18.bk.telegramNote }}</div>
+              <label><input id="bk-s3" type="checkbox" /> {{ d18.bk.s3 }}</label>
+              <label for="bk-endpoint">{{ d18.bk.endpoint }}</label>
+              <input id="bk-endpoint" type="url" placeholder="https://s3.example.com" style="{{ inputStyle }}" />
+              <label for="bk-region">{{ d18.bk.region }}</label>
+              <input id="bk-region" type="text" placeholder="us-east-1" style="{{ inputStyle }}" />
+              <label for="bk-bucket">{{ d18.bk.bucket }}</label>
+              <input id="bk-bucket" type="text" style="{{ inputStyle }}" />
+              <label for="bk-prefix">{{ d18.bk.prefix }}</label>
+              <input id="bk-prefix" type="text" placeholder="marvia-panel/" style="{{ inputStyle }}" />
+              <label for="bk-access">{{ d18.bk.access }}</label>
+              <input id="bk-access" type="text" autocomplete="off" style="{{ inputStyle }}" />
+              <label for="bk-secret">{{ d18.bk.secret }}</label>
+              <input id="bk-secret" type="password" autocomplete="new-password" style="{{ inputStyle }}" />
+              <label for="bk-session">{{ d18.bk.session }}</label>
+              <input id="bk-session" type="password" autocomplete="new-password" style="{{ inputStyle }}" />
+              <div style="font-size: 12px; line-height: 1.45; color: var(--dim);">{{ d18.bk.s3Note }}</div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button type="button" style="{{ ctaStyle }}" onClick="{{ saveScheduledBackups }}">{{ d18.bk.save }}</button>
+                <button type="button" style="{{ ghostBtn }}" onClick="{{ runScheduledBackup }}">{{ d18.bk.run }}</button>
+              </div>
+              <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ d18.bk.runNote }} {{ scheduledBackupStatus }}</div>
+            </div>
+
+            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
               <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.seller.title }}</div>
               <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.seller.what }}</div>
 
@@ -1214,6 +1250,11 @@ async function loadAlerts() {
     // их заново, а падать из-за этого панель не должна.
     state.alerts = null;
   }
+  try {
+    state.scheduledBackups = await api("/api/v1/backups");
+  } catch (_) {
+    state.scheduledBackups = null;
+  }
   // Связь с покупателем живёт на той же странице: это тоже настройки
   // продавца, и тоже только для админа.
   try {
@@ -1234,6 +1275,20 @@ function fillAlerts() {
   on.checked = !!cfg.enabled;
   document.getElementById("al-chat").value = cfg.chat_id || "";
   document.getElementById("al-token").placeholder = cfg.has_token ? L().alerts.tokenSaved : L().alerts.tokenHint;
+  const bk = state.scheduledBackups || {};
+  const s3 = bk.s3 || {};
+  document.getElementById("bk-on").checked = !!bk.enabled;
+  document.getElementById("bk-telegram").checked = !!bk.telegram;
+  document.getElementById("bk-s3").checked = !!s3.enabled;
+  document.getElementById("bk-time").value = bk.time || "03:00";
+  document.getElementById("bk-keep").value = bk.keep || 7;
+  document.getElementById("bk-password").placeholder = bk.has_password ? L().bk.passwordSet : L().bk.passwordNeeded;
+  document.getElementById("bk-secret").placeholder = bk.has_s3_secret ? L().bk.secretSet : L().bk.secretPh;
+  document.getElementById("bk-session").placeholder = bk.has_s3_session ? L().bk.sessionSet : L().bk.optional;
+  for (const field of ["endpoint", "region", "bucket", "prefix"]) {
+    document.getElementById("bk-" + field).value = s3[field] || "";
+  }
+  document.getElementById("bk-access").value = s3.access_key || "";
   const sl = state.seller || {};
   document.getElementById("sl-support").value = sl.support_url || "";
   document.getElementById("sl-renew").value = sl.renew_url || "";
@@ -2245,6 +2300,24 @@ const TEXTS = {
     cta: { clients: "+ Клиент", nodes: "+ Нода", keys: "+ Ключ", plans: "Тарифы" },
     search: "Поиск по имени или номеру у бота",
     mode: { label: "Расширенный режим", on: "Все разделы и тонкие настройки нод", off: "Включи, чтобы видеть ключи ботов, журнал, обновления, статистику и вид" },
+    bk: {
+      title: "Резервные копии вне сервера",
+      what: "Раз в сутки панель отправляет зашифрованную базу. Сначала включи оповещения выше: туда придёт сообщение о сбое.",
+      on: "Включить ежедневную отправку", time: "Время по UTC (Москва: UTC + 3)",
+      keep: "Сколько последних копий хранить (1–365)", password: "Пароль копий",
+      passwordNote: "Пароль сохрани вне сервера: панель его не хранит и восстановить не сможет. Пустое поле оставляет прежний пароль; после смены старые копии открываются прежним.",
+      telegram: "В чат оповещений Telegram",
+      telegramNote: "Лимит файла — 50 МБ. Последние N копий занимают N сообщений: старый документ заменяется новым. При смене бота или чата прежние сообщения остаются там; при уменьшении N сообщения старше 48 часов нужно удалить вручную.",
+      s3: "В S3-совместимое хранилище", endpoint: "Адрес S3", region: "Регион S3", bucket: "Бакет",
+      prefix: "Отдельный префикс этой панели", access: "Идентификатор ключа S3", secret: "Секретный ключ S3",
+      session: "Токен временной сессии S3 (если нужен)",
+      s3Note: "Пустые поля секретов S3 оставляют сохранённые значения. Для постоянного ключа оставь токен сессии пустым при первой настройке. При смене хранилища старые копии остаются в прежнем.",
+      save: "Сохранить расписание", run: "Отправить копию сейчас", runNote: "Кнопка отправки использует сохранённые настройки.",
+      passwordSet: "пароль уже задан", passwordNeeded: "обязателен при первом включении",
+      secretSet: "секретный ключ сохранён", secretPh: "секретный ключ", sessionSet: "токен сессии сохранён", optional: "необязателен",
+      last: "Последняя доставка: ", never: "Копия ещё не отправлялась",
+      saved: "Расписание копий сохранено", sending: "Снимаю и отправляю зашифрованную копию…", delivered: "Зашифрованная копия доставлена",
+    },
     bulk: {
       button: (n) => "Со списком · " + n, title: "Действие со списком",
       intro: (n) => "Сделать одно действие сразу с " + n + " " + pluralRU(n, "клиентом", "клиентами", "клиентами")
@@ -2620,6 +2693,24 @@ const TEXTS = {
     cta: { clients: "+ Client", nodes: "+ Node", keys: "+ Key", plans: "Plans" },
     search: "Search by name or bot id",
     mode: { label: "Advanced mode", on: "Every section and fine node settings", off: "Turn on to see bot keys, the log, updates, statistics and appearance" },
+    bk: {
+      title: "Backups off the server",
+      what: "Once a day the panel sends out an encrypted copy of its database. Turn on the alerts above first: a failure is reported there.",
+      on: "Send a copy every day", time: "Time in UTC (Moscow is UTC + 3)",
+      keep: "How many latest copies to keep (1–365)", password: "Backup password",
+      passwordNote: "Keep the password off the server: the panel does not store it and cannot recover it. An empty field keeps the current password; after a change, older copies open with the old one.",
+      telegram: "To the Telegram alerts chat",
+      telegramNote: "The file limit is 50 MB. The latest N copies take N messages: the oldest document is replaced. After changing the bot or chat, old messages stay there; when lowering N, messages older than 48 hours must be deleted by hand.",
+      s3: "To S3-compatible storage", endpoint: "S3 endpoint", region: "S3 region", bucket: "Bucket",
+      prefix: "A prefix of this panel's own", access: "S3 access key ID", secret: "S3 secret key",
+      session: "S3 session token (if needed)",
+      s3Note: "Empty S3 secret fields keep the saved values. For a permanent key, leave the session token empty on first setup. After switching storage, old copies stay in the previous one.",
+      save: "Save schedule", run: "Send a copy now", runNote: "Sending uses the saved settings.",
+      passwordSet: "password is set", passwordNeeded: "required when turning on",
+      secretSet: "secret key saved", secretPh: "secret key", sessionSet: "session token saved", optional: "optional",
+      last: "Last delivered: ", never: "No copy sent yet",
+      saved: "Backup schedule saved", sending: "Taking and sending an encrypted copy…", delivered: "Encrypted copy delivered",
+    },
     bulk: {
       button: (n) => "With the list · " + n, title: "Action on the list",
       intro: (n) => "Do one action for " + n + (n === 1 ? " client" : " clients")
@@ -3867,6 +3958,33 @@ function renderVals() {
       });
       await loadAlerts();
       toast(d.alerts.saved);
+    }),
+
+    scheduledBackupStatus: state.scheduledBackups?.last_error
+      || (state.scheduledBackups?.last_success && !state.scheduledBackups.last_success.startsWith("0001-")
+        ? d18.bk.last + new Date(state.scheduledBackups.last_success).toLocaleString(state.lang === "en" ? "en-GB" : "ru-RU") : d18.bk.never),
+    saveScheduledBackups: () => act(async () => {
+      await api("/api/v1/backups", "PUT", {
+        enabled: document.getElementById("bk-on").checked,
+        time: val("bk-time"), keep: Number(val("bk-keep")),
+        password: document.getElementById("bk-password").value,
+        telegram: document.getElementById("bk-telegram").checked,
+        s3: {
+          enabled: document.getElementById("bk-s3").checked,
+          endpoint: val("bk-endpoint"), region: val("bk-region"), bucket: val("bk-bucket"),
+          prefix: val("bk-prefix"), access_key: val("bk-access"),
+          secret_key: val("bk-secret"), session_token: val("bk-session"),
+        },
+      });
+      await loadAlerts();
+      toast(L().bk.saved);
+    }),
+    runScheduledBackup: () => act(async () => {
+      toast(L().bk.sending);
+      try {
+        await api("/api/v1/backups/run", "POST");
+        toast(L().bk.delivered);
+      } finally { await loadAlerts(); }
     }),
 
     // Проверяет панель, а не страница: правила одни с клиентом (internal/

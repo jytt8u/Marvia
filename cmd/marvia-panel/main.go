@@ -90,6 +90,8 @@ func main() {
 
 	newToken := flag.Bool("new-token", false, "выпустить админский токен и выйти")
 	showVersion := flag.Bool("version", false, "показать версию и выйти")
+	verifyBackup := flag.String("verify-backup", "", "проверить парольную копию и выйти (пароль из stdin или MARVIA_BACKUP_PASSWORD)")
+	backupOutput := flag.String("backup-output", "", "при проверке сохранить восстановленную базу в новый файл")
 	installUpdater := flag.Bool("install-updater", false, "поставить службу обновления по кнопке в панели и выйти (нужен root)")
 
 	var imp importOptions
@@ -100,6 +102,17 @@ func main() {
 	flag.BoolVar(&imp.apply, "import-apply", false, "записать перенос в базу панели, а не только показать отчёт")
 
 	flag.Parse()
+	if *verifyBackup != "" {
+		if err := runVerifyBackup(os.Stdout, os.Stdin, *verifyBackup, *backupOutput); err != nil {
+			fmt.Fprintf(os.Stderr, "проверка копии: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if *backupOutput != "" {
+		fmt.Fprintln(os.Stderr, "-backup-output работает только с -verify-backup")
+		os.Exit(1)
+	}
 
 	if *showVersion {
 		fmt.Println("marvia-panel", version)
@@ -192,10 +205,16 @@ func run(opts options) error {
 	// Оповещения. Пока их не включили в панели, наружу они не
 	// ходят вовсе — и панель не светит свой адрес телеграму.
 	alerts := panel.NewAlerts(store)
+	backupDir := opts.backupDir
+	if backupDir == "" {
+		backupDir = filepath.Join(filepath.Dir(opts.dbPath), "backup")
+	}
+	scheduled := panel.NewScheduledBackups(store, alerts, filepath.Join(backupDir, "scheduled"))
 
 	api := panel.NewAPI(store, opts.adminToken, opts.subBase, opts.distDir).
 		WithPanelIPs(addresses).
 		WithVersion(version).
+		WithScheduledBackups(scheduled).
 		WithHome(filepath.Dir(opts.dbPath))
 	server := newServer(opts.listen, api.Handler())
 
@@ -213,10 +232,6 @@ func run(opts options) error {
 	// Копии базы снимает сама панель. Продавец, которому надо помнить про
 	// cron, однажды про него не вспомнит — а panel.db это все его покупатели
 	// и все оплаченные ими месяцы.
-	backupDir := opts.backupDir
-	if backupDir == "" {
-		backupDir = filepath.Join(filepath.Dir(opts.dbPath), "backup")
-	}
 	if opts.backupEvery > 0 {
 		log.Printf("копии базы: каждые %s в %s, храним %d",
 			opts.backupEvery, backupDir, opts.backupKeep)
@@ -233,6 +248,9 @@ func run(opts options) error {
 	}
 
 	go alerts.Watch(ctx, 0)
+	go scheduled.Watch(ctx, func(err error) {
+		log.Printf("резервная копия не создана или не доставлена: %v", err)
+	})
 
 	go func() {
 		<-ctx.Done()

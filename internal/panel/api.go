@@ -29,10 +29,11 @@ import (
 //   - токен ноды — только свой список пользователей и отправка статистики;
 //   - подписка по токену — без авторизации, токен и есть секрет.
 type API struct {
-	store      *Store
-	adminToken string
-	subBase    string // базовый адрес подписок, например https://sub.example.com
-	distDir    string // где лежат бинарники для раздачи новым нодам
+	store            *Store
+	scheduledBackups *ScheduledBackups
+	adminToken       string
+	subBase          string // базовый адрес подписок, например https://sub.example.com
+	distDir          string // где лежат бинарники для раздачи новым нодам
 
 	// panelIPs вписываются в ссылку доступа, чтобы клиент не спрашивал имя
 	// домена подписки у резолвера провайдера. Подробности — в links.go.
@@ -100,6 +101,9 @@ func (a *API) Handler() http.Handler {
 
 	// Копия базы. Тоже только админским: в ней лежит вся панель целиком.
 	mux.HandleFunc("GET /api/v1/backup", a.admin(a.downloadBackup))
+	mux.HandleFunc("GET /api/v1/backups", a.admin(a.getBackupSettings))
+	mux.HandleFunc("PUT /api/v1/backups", a.admin(a.setBackupSettings))
+	mux.HandleFunc("POST /api/v1/backups/run", a.admin(a.runBackup))
 
 	// Оповещения — только админским токеном: в настройках лежит токен бота
 	// продавца, а им можно писать от его имени кому угодно.

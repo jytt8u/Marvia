@@ -129,7 +129,7 @@ func pruneBackups(dir string, keep int) error {
 	names := make([]string, 0, len(entries))
 	for _, e := range entries {
 		name := e.Name()
-		if e.IsDir() || !strings.HasPrefix(name, backupPrefix) || !strings.HasSuffix(name, backupSuffix) {
+		if e.IsDir() || !strings.HasPrefix(name, backupPrefix) || (!strings.HasSuffix(name, backupSuffix) && !strings.HasSuffix(name, backupSuffix+sealedSuffix)) {
 			// Чужие файлы в каталоге не наше дело: удалять то, чего не
 			// создавали, нельзя.
 			continue

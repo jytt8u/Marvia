@@ -343,7 +343,7 @@ func Open(path string) (*Store, error) {
 	// SQLite не любит параллельных писателей, а выигрыш от пула здесь нулевой.
 	db.SetMaxOpenConns(1)
 
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := db.Exec(schema + webhookSchema); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("создание схемы: %w", err)
 	}
@@ -611,6 +611,11 @@ func (s *Store) CreateUser(ctx context.Context, p CreateUserParams) (User, []Iss
 		creds = append(creds, Credential{ID: credID, Kind: kind, Secret: stored, CreatedAt: now})
 	}
 
+	// Создание и его оповещение неделимы: бот не должен потерять продажу
+	// при перезапуске панели сразу после выдачи доступа.
+	if err := queueUserWebhookTx(ctx, tx, id, EventUserCreate); err != nil {
+		return User{}, nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return User{}, nil, err
 	}
@@ -673,12 +678,42 @@ func (s *Store) UpdateUser(ctx context.Context, id int64, p UpdateUserParams) (U
 
 	args = append(args, id)
 	query := "UPDATE users SET " + join(sets, ", ") + " WHERE id = ?"
-	res, err := s.db.ExecContext(ctx, query, args...)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return User{}, err
+	}
+	defer tx.Rollback()
+	before, err := scanWebhookUser(tx.QueryRowContext(ctx, webhookUserSQL+` WHERE id = ?`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return User{}, ErrNotFound
+	}
+	if err != nil {
+		return User{}, err
+	}
+	res, err := tx.ExecContext(ctx, query, args...)
 	if err != nil {
 		return User{}, fmt.Errorf("обновление пользователя: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return User{}, ErrNotFound
+	}
+	if p.ExpiresAt != nil && (before.ExpiresAt == nil || !p.ExpiresAt.Equal(*before.ExpiresAt)) {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM webhook_state WHERE key = ?`, fmt.Sprintf("%s:%d", WebhookUserExpired, id)); err != nil {
+			return User{}, err
+		}
+		if before.ExpiresAt != nil && p.ExpiresAt.After(*before.ExpiresAt) {
+			if err := queueUserWebhookTx(ctx, tx, id, EventUserRenew); err != nil {
+				return User{}, err
+			}
+		}
+	}
+	if p.TrafficLimit != nil && before.TrafficLimit != *p.TrafficLimit {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM webhook_state WHERE user_id = ? AND key IN (?, ?)`, id, fmt.Sprintf("%s:%d", WebhookTrafficLow, id), fmt.Sprintf("%s:%d", WebhookTrafficEmpty, id)); err != nil {
+			return User{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return User{}, err
 	}
 	return s.GetUser(ctx, id)
 }
@@ -1621,6 +1656,12 @@ func (s *Store) ExtendUser(ctx context.Context, id int64, d time.Duration) (User
 		`UPDATE users SET expires_at = ? WHERE id = ?`, format(base.Add(d)), id)
 	if err != nil {
 		return User{}, fmt.Errorf("продление подписки: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM webhook_state WHERE key = ?`, fmt.Sprintf("%s:%d", WebhookUserExpired, id)); err != nil {
+		return User{}, err
+	}
+	if err := queueUserWebhookTx(ctx, tx, id, EventUserRenew); err != nil {
+		return User{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return User{}, err

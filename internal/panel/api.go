@@ -119,6 +119,10 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/updates/panel", a.admin(a.upgradePanel))
 	mux.HandleFunc("POST /api/v1/updates/nodes", a.admin(a.upgradeNodes))
 	mux.HandleFunc("PUT /api/v1/alerts", a.admin(a.setAlerts))
+	// Получатели видят метки покупателей, а подпись даёт доверие ботам:
+	// ни адреса доставки, ни секрет не может менять ключ бота.
+	mux.HandleFunc("GET /api/v1/webhooks", a.admin(a.getWebhooks))
+	mux.HandleFunc("PUT /api/v1/webhooks", a.admin(a.setWebhooks))
 
 	// Связь с покупателем: поддержка, «Продлить», объявление. Читать можно
 	// ключом с правом read — бот продавца шлёт покупателю ту же ссылку

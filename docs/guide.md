@@ -2670,6 +2670,9 @@ curl https://panel.example.com/api/v1/apps -H "Authorization: Bearer $MARVIA_ADM
 | `POST` | `/api/v1/users/{id}/reset-traffic` | обнулить расход, не трогая срок |
 | `GET` | `/api/v1/plans` | тарифы (заводит и правит только админ: `POST`, `PATCH`, `DELETE`) |
 | `POST` | `/api/v1/qr` | QR-код ссылки картинкой SVG |
+| `GET` · `PUT` | `/api/v1/webhooks` | вебхуки для бота: адреса, секрет подписи (только админским токеном) |
+| `GET` · `PUT` | `/api/v1/backups` | копии вне сервера по расписанию (только админским токеном) |
+| `POST` | `/api/v1/backups/run` | снять и отправить копию сейчас (только админским токеном) |
 | `POST` | `/api/v1/users/bulk` | одно действие над списком: `renew`, `extend`, `enable`, `disable`, `reset` (до 5000 за раз) |
 | `GET` | `/api/v1/users.csv` | клиенты таблицей CSV, без токенов и ключей |
 | `POST` | `/api/v1/credentials/{id}/rotate` | сменить утёкший ключ, оставив набор на месте |

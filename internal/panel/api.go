@@ -915,6 +915,15 @@ func (a *API) legacySubscription(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) serveSubscription(w http.ResponseWriter, r *http.Request, user User) {
+	// Адрес один, ответы разные: прокси не должен сохранить страницу вместо
+	// подписки, а браузер — хранить токен и одноразовый nonce на диске.
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Vary", "Accept, User-Agent, Accept-Language, Sec-Fetch-Mode, Sec-Fetch-Dest")
+	if wantsBuyerPage(r) {
+		a.buyerPage(w, r, user)
+		return
+	}
+
 	nodes, err := a.store.ListNodes(r.Context())
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())

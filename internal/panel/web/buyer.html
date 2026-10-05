@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="{{.Text.Language}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{{.Text.Title}} · Marvia</title>
+  <link rel="icon" href="data:,">
+  <style nonce="{{.Nonce}}">
+    :root { color-scheme: light; --paper: #f5f6f4; --surface: #fff; --ink: #1e2d29; --muted: #5d6b65; --line: #dce3dd; --accent: #17664c; --soft: #e8f2ec; --warning: #894315; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 880px; margin: auto; padding: 36px 24px 48px; }
+    header { margin-bottom: 28px; }
+    .brand { color: var(--accent); font-size: 18px; font-weight: 750; letter-spacing: -.5px; }
+    h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.15; letter-spacing: -1px; margin: 24px 0 12px; }
+    h2 { font-size: 21px; line-height: 1.35; margin: 0 0 12px; }
+    p { margin: 0 0 12px; }
+    .muted { color: var(--muted); }
+    .label, .announcement p { overflow-wrap: anywhere; }
+    .status { display: inline-block; margin-bottom: 14px; padding: 6px 12px; border-radius: 8px; background: var(--soft); color: var(--accent); font-weight: 650; }
+    .attention { color: var(--warning); }
+    dl { display: grid; grid-template-columns: 1fr 1fr; margin: 0; gap: 20px; padding: 20px 0; border-top: 1px solid var(--line); }
+    dt { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
+    dd { margin: 0; font-size: 18px; font-weight: 600; }
+    dd small { display: block; margin-top: 4px; font-size: 14px; font-weight: 400; color: var(--muted); }
+    section { padding: 24px; margin-top: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+    .connection { display: grid; grid-template-columns: minmax(0, 1fr) 208px; align-items: center; gap: 28px; }
+    figure { margin: 0; text-align: center; }
+    figure img { display: block; width: 208px; height: 208px; max-width: 100%; background: white; image-rendering: pixelated; }
+    figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; }
+    label { display: block; font-size: 14px; font-weight: 600; margin: 18px 0 6px; }
+    textarea { display: block; width: 100%; min-height: 96px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 14px/1.5 ui-monospace, monospace; background: var(--paper); color: var(--ink); overflow-wrap: anywhere; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 10px 18px; border: 1px solid var(--accent); border-radius: 8px; text-decoration: none; font-weight: 650; color: var(--accent); }
+    .downloads .button:first-child { background: var(--accent); color: white; }
+    a:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    .native-key { font-size: 14px; margin: 16px 0 0; }
+    footer { margin-top: 24px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 600px) {
+      main { padding: 24px 16px 36px; }
+      section { padding: 20px; }
+      dl, .connection { grid-template-columns: 1fr; }
+      figure { justify-self: center; }
+      .actions { flex-direction: column; }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { color-scheme: dark; --paper: #14201b; --surface: #1c2a24; --ink: #edf3ee; --muted: #adbbb2; --line: #35453c; --accent: #91dcb4; --soft: #263d30; --warning: #ffc18c; }
+      .downloads .button:first-child { color: #14201b; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand">Marvia</div>
+    <h1>{{.Text.Title}}</h1>
+    {{if .Label}}<p class="label">{{.Label}}</p>{{end}}
+    <p class="muted">{{.Text.Intro}}</p>
+  </header>
+  <div class="status{{if .Attention}} attention{{end}}" aria-label="{{.Text.Status}}">{{.Status}}</div>
+  <dl>
+    <div><dt>{{.Text.Term}}</dt><dd>{{.Term}}</dd></div>
+    <div><dt>{{.Text.Traffic}}</dt><dd>{{.Traffic}}<small>{{.Used}}</small></dd></div>
+  </dl>
+  {{if or .Seller.RenewURL .Seller.SupportURL}}
+  <nav class="actions" aria-label="{{.Text.Support}}">
+    {{if .Seller.RenewURL}}<a class="button" href="{{.Seller.RenewURL}}" rel="noreferrer noopener">{{.Text.Renew}}</a>{{end}}
+    {{if .Seller.SupportURL}}<a class="button" href="{{.Seller.SupportURL}}" rel="noreferrer noopener">{{.Text.Support}}</a>{{end}}
+  </nav>
+  {{end}}
+  {{if .Seller.Announce}}
+  <section class="announcement"><h2>{{.Text.Announcement}}</h2><p>{{.Seller.Announce}}</p></section>
+  {{end}}
+  <section class="connection">
+    <div>
+      <h2>{{.Text.Connect}}</h2>
+      <p class="muted">{{.Text.Instructions}}</p>
+      <label for="subscription-url">{{.Text.Link}}</label>
+      <textarea id="subscription-url" readonly spellcheck="false" dir="ltr">{{.SubscriptionURL}}</textarea>
+    </div>
+    <figure><img src="{{.QR}}" width="320" height="320" alt="{{.Text.QR}}"><figcaption>{{.Text.QR}}</figcaption></figure>
+  </section>
+  <section class="downloads">
+    <h2>{{.Text.Downloads}}</h2>
+    {{if .Apps}}<div class="actions">{{range .Apps}}<a class="button" href="{{.URL}}" download rel="noreferrer">{{.Label}}</a>{{end}}</div>
+    {{else}}<p class="muted">{{.Text.NoApps}}</p>{{end}}
+    <p class="native-key muted">{{.Text.NativeKey}}</p>
+  </section>
+  <footer>{{.Text.Private}}</footer>
+</main>
+</body>
+</html>

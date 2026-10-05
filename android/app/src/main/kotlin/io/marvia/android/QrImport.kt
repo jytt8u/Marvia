@@ -9,13 +9,16 @@ import com.google.zxing.BinaryBitmap
 import com.google.zxing.DecodeHintType
 import com.google.zxing.NotFoundException
 import com.google.zxing.RGBLuminanceSource
+import com.google.zxing.LuminanceSource
+import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.ReaderException
 import com.google.zxing.common.GlobalHistogramBinarizer
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
+import java.nio.ByteBuffer
 
 /**
- * QrImport — ключ с картинки QR-кода.
+ * QrImport — один декодер ключа для картинки и кадра камеры.
  *
  * Продавцы часто присылают ключ не строкой, а QR-кодом — скриншотом в чат, —
  * и покупатель переписывал бы его руками, если бы было с чего. Распознаём с
@@ -63,28 +66,57 @@ object QrImport {
      * его обычным тестом, без телефона.
      */
     fun decode(width: Int, height: Int, pixels: IntArray): String? {
+        return decodeSource(RGBLuminanceSource(width, height, pixels))
+    }
+
+    /**
+     * QR различается по яркости, поэтому U и V не нужны. У разных камер
+     * строки Y дополнены до разной длины: копирование всего буфера подряд
+     * исказило бы изображение. Позиция буфера и отступ кадра тоже учитываются.
+     */
+    fun decodeYuv(
+        width: Int, height: Int, yPlane: ByteBuffer, rowStride: Int, pixelStride: Int,
+        rotationDegrees: Int = 0, left: Int = 0, top: Int = 0,
+    ): String? {
+        if (width <= 0 || height <= 0 || rowStride <= 0 || pixelStride <= 0 || left < 0 || top < 0) return null
+        if (rotationDegrees !in listOf(0, 90, 180, 270)) return null
+        val start = yPlane.position().toLong() + top.toLong() * rowStride + left.toLong() * pixelStride
+        val end = start + (height - 1L) * rowStride + (width - 1L) * pixelStride
+        if (end >= yPlane.limit() || width.toLong() * height > Int.MAX_VALUE) return null
+        val rotated = rotationDegrees == 90 || rotationDegrees == 270
+        val w = if (rotated) height else width
+        val h = if (rotated) width else height
+        val packed = ByteArray(w * h)
+        for (y in 0 until height) for (x in 0 until width) {
+            val index = when (rotationDegrees) {
+                90 -> x * w + height - 1 - y
+                180 -> (height - 1 - y) * w + width - 1 - x
+                270 -> (width - 1 - x) * w + y
+                else -> y * w + x
+            }
+            packed[index] = yPlane.get((start + y.toLong() * rowStride + x.toLong() * pixelStride).toInt())
+        }
+        return decodeSource(PlanarYUVLuminanceSource(packed, w, h, 0, 0, w, h, false))
+    }
+
+    private fun decodeSource(original: LuminanceSource): String? {
         // Сначала как есть, потом мельче. ZXing не находит крупный и очень
         // чёткий код: при модуле больше трёх точек он теряет искатели, хотя
         // тот же код вдвое мельче читает уверенно. Скриншот QR с компьютера —
         // ровно такой случай, поэтому уменьшаем, как это делают сканеры.
-        var w = width
-        var h = height
-        var px = pixels
+        var source = original
         for (step in 0..2) {
-            readAny(w, h, px)?.let { return it }
-            if (w < 200 || h < 200) break
-            px = halve(w, h, px)
-            w /= 2
-            h /= 2
+            readAny(source)?.let { return it }
+            if (source.width < 200 || source.height < 200) break
+            source = halve(source)
         }
         // Последняя попытка — код без фона вокруг: вырезанный из окна или
         // присланный файлом картинки.
-        return read(BinaryBitmap(HybridBinarizer(RGBLuminanceSource(width, height, pixels))),
+        return read(BinaryBitmap(HybridBinarizer(original)),
             mapOf(DecodeHintType.PURE_BARCODE to true))
     }
 
-    private fun readAny(width: Int, height: Int, pixels: IntArray): String? {
-        val source = RGBLuminanceSource(width, height, pixels)
+    private fun readAny(source: LuminanceSource): String? {
         val hints = mapOf(
             DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
             // Скриншот чата: код мелкий, вокруг текст и пузыри сообщений.
@@ -107,20 +139,20 @@ object QrImport {
         return text?.trim()?.takeIf { it.isNotEmpty() }
     }
 
-    /** halve уменьшает вдвое, усредняя каждые четыре точки по яркости. */
-    private fun halve(width: Int, height: Int, pixels: IntArray): IntArray {
+    private fun halve(source: LuminanceSource): LuminanceSource {
+        val width = source.width
+        val height = source.height
+        val pixels = source.matrix
         val w = width / 2
         val h = height / 2
-        val out = IntArray(w * h)
+        val out = ByteArray(w * h)
         for (y in 0 until h) for (x in 0 until w) {
             var sum = 0
             for (dy in 0..1) for (dx in 0..1) {
-                val p = pixels[(y * 2 + dy) * width + x * 2 + dx]
-                sum += ((p shr 16 and 0xFF) + (p shr 8 and 0xFF) + (p and 0xFF)) / 3
+                sum += pixels[(y * 2 + dy) * width + x * 2 + dx].toInt() and 0xFF
             }
-            val g = sum / 4
-            out[y * w + x] = (0xFF shl 24) or (g shl 16) or (g shl 8) or g
+            out[y * w + x] = (sum / 4).toByte()
         }
-        return out
+        return PlanarYUVLuminanceSource(out, w, h, 0, 0, w, h, false)
     }
 }

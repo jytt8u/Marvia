@@ -60,6 +60,9 @@ object SellerChannel {
      * напоминание, а после продления — новое: человека не дёргают каждый
      * день, но и следующий срок не пропускают.
      */
+    // Экран и фоновая работа могут получить один ответ одновременно:
+    // проверка ключа и его сохранение должны оставаться одним действием.
+    @Synchronized
     fun remind(context: Context, store: Store, subName: String, link: String, kind: String, value: Long, key: String, renewUrl: String) {
         val seen = LinkedHashSet(store.reminded(link))
         if (!firstTime(seen, key)) return

@@ -30,6 +30,7 @@ class MarviaApp : Application() {
         if (!last.isNullOrBlank()) {
             Journal.add(getString(R.string.log_crashed, last.lineSequence().drop(1).firstOrNull().orEmpty().trim()), Journal.Level.ERROR)
         }
+        SubscriptionRefresh.sync(this, Store(this).subscriptions.isNotEmpty())
     }
 
     companion object {

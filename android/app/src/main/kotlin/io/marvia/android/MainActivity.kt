@@ -129,6 +129,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val scanQr = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.getStringExtra(QrCameraActivity.EXTRA_KEY)?.let { ui.keyScreen.keyInput.setText(it) }
+        }
+    }
+
     /** Своя картинка под значок в шапке — тем же путём, что фон. */
     private val pickLogo = registerForActivityResult(
         ActivityResultContracts.GetContent(),
@@ -679,6 +685,7 @@ class MainActivity : AppCompatActivity() {
         val k = ui.keyScreen
         k.pasteButton.setOnClickListener { paste() }
         k.qrButton.setOnClickListener { pickQr.launch("image/*") }
+        k.cameraButton.setOnClickListener { scanQr.launch(Intent(this, QrCameraActivity::class.java)) }
         k.keySaveButton.setOnClickListener { onKeyButton() }
         // Ошибка относится к тексту, который в поле был, а не к новому: после
         // вставки или QR красная строка про прежний ключ только путает.

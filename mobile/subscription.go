@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -58,8 +59,19 @@ type SubscriptionView struct {
 // кэш есть, отдаётся кэш с пометкой Stale. Ошибка — только когда показать
 // нечего совсем.
 func Subscription(accountLink, cacheDir string, refresh bool) (string, error) {
+	return subscription(accountLink, cacheDir, refresh, nil)
+}
+
+func subscription(accountLink, cacheDir string, refresh bool, httpClient *http.Client) (string, error) {
 	if isForeign(accountLink) {
-		return foreignView(accountLink, cacheDir, refresh)
+		if httpClient == nil {
+			return foreignView(accountLink, cacheDir, refresh)
+		}
+		sub, fetched, stale, err := foreign.LoadWithClient(accountLink, foreign.CachePath(cacheDir, accountLink), refresh, httpClient)
+		if err != nil {
+			return "", fail(FailPanel, err)
+		}
+		return viewJSON(foreign.View(sub), fetched, stale)
 	}
 	account, err := client.ParseAccountLink(accountLink)
 	if err != nil {
@@ -80,7 +92,12 @@ func Subscription(accountLink, cacheDir string, refresh bool) (string, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), subscriptionTimeout)
 	defer cancel()
-	sub, err := client.FetchSubscription(ctx, account.SubscriptionURL, account.PanelIPs)
+	var sub client.Subscription
+	if httpClient == nil {
+		sub, err = client.FetchSubscription(ctx, account.SubscriptionURL, account.PanelIPs)
+	} else {
+		sub, err = client.FetchSubscriptionWithClient(ctx, account.SubscriptionURL, httpClient)
+	}
 	if err != nil {
 		if len(cached.Nodes()) > 0 {
 			return viewJSON(cached.Subscription, cached.FetchedAt, true)

@@ -111,12 +111,18 @@ type Meta struct {
 // незнакомый многие отдают страницу для браузера, а не список. Ошибка — без
 // адреса: в нём токен подписки, а ошибки уходят в журнал.
 func FetchRaw(ctx context.Context, url string) (body []byte, meta Meta, err error) {
+	return FetchRawWithClient(ctx, url, http.DefaultClient)
+}
+
+// FetchRawWithClient позволяет обновлять чужую подписку внутри туннеля,
+// сохраняя ограничения тела, заголовки продавца и защиту от потери TLS.
+func FetchRawWithClient(ctx context.Context, url string, httpClient *http.Client) (body []byte, meta Meta, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, Meta{}, errors.New("адрес подписки не разбирается")
 	}
 	req.Header.Set("User-Agent", "v2rayNG/1.10.0")
-	resp, err := httpguard.SubscriptionClient(http.DefaultClient).Do(req)
+	resp, err := httpguard.SubscriptionClient(httpClient).Do(req)
 	if err != nil {
 		return nil, Meta{}, errors.New("подписка недоступна")
 	}

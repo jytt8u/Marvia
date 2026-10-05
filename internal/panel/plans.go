@@ -245,6 +245,12 @@ func (s *Store) RenewUser(ctx context.Context, id, planID int64) (User, error) {
 		expires, plan.TrafficLimit, plan.MaxIPs, plan.SpeedLimit, plan.ID, id); err != nil {
 		return User{}, fmt.Errorf("продление по тарифу: %w", err)
 	}
+	if err := resetWebhookUserState(ctx, tx, id); err != nil {
+		return User{}, err
+	}
+	if err := queueUserWebhookTx(ctx, tx, id, EventUserRenew); err != nil {
+		return User{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return User{}, err
 	}
@@ -258,12 +264,23 @@ func (s *Store) RenewUser(ctx context.Context, id, planID int64) (User, error) {
 // момент сброса, и вычитаем это из расхода — и в панели, и в остатке,
 // который получают ноды (см. NodeUsers).
 func (s *Store) ResetTraffic(ctx context.Context, id int64) (User, error) {
-	res, err := s.db.ExecContext(ctx, `UPDATE users SET traffic_offset = `+usedTotalSQL+` WHERE id = ?`, id)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return User{}, err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `UPDATE users SET traffic_offset = `+usedTotalSQL+` WHERE id = ?`, id)
 	if err != nil {
 		return User{}, fmt.Errorf("сброс трафика: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return User{}, ErrNotFound
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM webhook_state WHERE user_id = ? AND key IN (?, ?)`, id, fmt.Sprintf("%s:%d", WebhookTrafficLow, id), fmt.Sprintf("%s:%d", WebhookTrafficEmpty, id)); err != nil {
+		return User{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return User{}, err
 	}
 	return s.GetUser(ctx, id)
 }

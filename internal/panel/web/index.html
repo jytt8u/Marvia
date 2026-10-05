@@ -782,6 +782,27 @@
               <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ d18.bk.runNote }} {{ scheduledBackupStatus }}</div>
             </div>
 
+            <!--
+              Вебхуки: панель сама сообщает боту о событиях. Адреса только
+              https и только наружу; секрет подписи браузер обратно не
+              получает — пустое поле оставляет прежний.
+            -->
+            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
+              <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.wh.title }}</div>
+              <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.wh.what }}</div>
+              <label><input id="wh-on" type="checkbox" /> {{ d18.wh.on }}</label>
+              <label for="wh-urls">{{ d18.wh.urls }}</label>
+              <textarea id="wh-urls" rows="3" spellcheck="false" placeholder="https://bot.example.com/marvia" style="{{ inputStyle }}"></textarea>
+              <label for="wh-secret">{{ d18.wh.secret }}</label>
+              <input id="wh-secret" type="password" autocomplete="new-password" maxlength="256" style="{{ inputStyle }}" />
+              <div style="font-size: 12px; line-height: 1.45; color: var(--dim);">{{ d18.wh.secretNote }}</div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button type="button" style="{{ ctaStyle }}" onClick="{{ saveWebhooks }}">{{ d18.wh.save }}</button>
+                <button type="button" style="{{ ghostBtn }}" onClick="{{ newWebhookSecret }}">{{ d18.wh.generate }}</button>
+              </div>
+              <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ webhookStatus }}</div>
+            </div>
+
             <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
               <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.seller.title }}</div>
               <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.seller.what }}</div>
@@ -1255,6 +1276,11 @@ async function loadAlerts() {
   } catch (_) {
     state.scheduledBackups = null;
   }
+  try {
+    state.webhooks = await api("/api/v1/webhooks");
+  } catch (_) {
+    state.webhooks = null;
+  }
   // Связь с покупателем живёт на той же странице: это тоже настройки
   // продавца, и тоже только для админа.
   try {
@@ -1289,6 +1315,10 @@ function fillAlerts() {
     document.getElementById("bk-" + field).value = s3[field] || "";
   }
   document.getElementById("bk-access").value = s3.access_key || "";
+  const wh = state.webhooks || {};
+  document.getElementById("wh-on").checked = !!wh.enabled;
+  document.getElementById("wh-urls").value = (wh.urls || []).join("\n");
+  document.getElementById("wh-secret").placeholder = wh.has_secret ? L().wh.secretSet : L().wh.secretNeeded;
   const sl = state.seller || {};
   document.getElementById("sl-support").value = sl.support_url || "";
   document.getElementById("sl-renew").value = sl.renew_url || "";
@@ -2300,6 +2330,17 @@ const TEXTS = {
     cta: { clients: "+ Клиент", nodes: "+ Нода", keys: "+ Ключ", plans: "Тарифы" },
     search: "Поиск по имени или номеру у бота",
     mode: { label: "Расширенный режим", on: "Все разделы и тонкие настройки нод", off: "Включи, чтобы видеть ключи ботов, журнал, обновления, статистику и вид" },
+    wh: {
+      title: "Вебхуки для бота",
+      what: "Панель сама сообщает боту: клиент создан, продлён, истёк, трафик кончается или кончился, нода упала или вернулась. Каждый запрос подписан, повторяется до суток, пока бот не ответит 2xx. Ключей и ссылок покупателей в теле нет.",
+      on: "Включить вебхуки", urls: "Адреса бота, по одному в строке (только https://, не больше десяти)",
+      secret: "Секрет подписи (от 32 знаков)",
+      secretNote: "Им бот проверяет X-Marvia-Signature: sha256=HMAC тела. Пустое поле оставляет прежний секрет; после смены неотправленное старым секретом отменяется. Пример проверки — в docs/bot.md.",
+      save: "Сохранить вебхуки", generate: "Новый секрет",
+      secretSet: "секрет задан", secretNeeded: "нужен для включения",
+      pending: (n) => "Включены. В очереди: " + n, off: "Выключены.",
+      saved: "Вебхуки сохранены", generated: "Секрет создан — скопируй его в бота и сохрани",
+    },
     bk: {
       title: "Резервные копии вне сервера",
       what: "Раз в сутки панель отправляет зашифрованную базу. Сначала включи оповещения выше: туда придёт сообщение о сбое.",
@@ -2400,7 +2441,7 @@ const TEXTS = {
         "key.revoke": "отозван ключ бота",
         "alerts.update": "оповещения",
         "seller.update": "связь с покупателем",
-        "user.renew": "продление по тарифу", "user.reset": "сброс трафика",
+        "user.renew": "продление по тарифу", "user.reset": "сброс трафика", "webhooks.update": "настройка вебхуков", "webhook.failed": "вебхук не доставлен",
         "plan.create": "новый тариф", "plan.update": "правка тарифа", "plan.delete": "тариф удалён",
         "panel.upgrade": "обновление панели",
         "nodes.upgrade": "обновление нод",
@@ -2693,6 +2734,17 @@ const TEXTS = {
     cta: { clients: "+ Client", nodes: "+ Node", keys: "+ Key", plans: "Plans" },
     search: "Search by name or bot id",
     mode: { label: "Advanced mode", on: "Every section and fine node settings", off: "Turn on to see bot keys, the log, updates, statistics and appearance" },
+    wh: {
+      title: "Webhooks for the bot",
+      what: "The panel tells the bot itself: client created, renewed, expired, traffic running low or used up, node down or back. Every request is signed and retried for up to a day until the bot answers 2xx. No buyer keys or links in the body.",
+      on: "Turn on webhooks", urls: "Bot addresses, one per line (https:// only, up to ten)",
+      secret: "Signing secret (32+ characters)",
+      secretNote: "The bot checks X-Marvia-Signature with it: sha256=HMAC of the body. An empty field keeps the current secret; after a change, anything unsent under the old one is dropped. A check example is in docs/bot.md.",
+      save: "Save webhooks", generate: "New secret",
+      secretSet: "secret is set", secretNeeded: "required to turn on",
+      pending: (n) => "On. Queued: " + n, off: "Off.",
+      saved: "Webhooks saved", generated: "Secret created — copy it into the bot, then save",
+    },
     bk: {
       title: "Backups off the server",
       what: "Once a day the panel sends out an encrypted copy of its database. Turn on the alerts above first: a failure is reported there.",
@@ -2793,7 +2845,7 @@ const TEXTS = {
         "key.revoke": "bot key revoked",
         "alerts.update": "alerts",
         "seller.update": "customer links",
-        "user.renew": "renewed by plan", "user.reset": "traffic reset",
+        "user.renew": "renewed by plan", "user.reset": "traffic reset", "webhooks.update": "webhook settings", "webhook.failed": "webhook not delivered",
         "plan.create": "new plan", "plan.update": "plan edited", "plan.delete": "plan deleted",
         "panel.upgrade": "panel upgrade",
         "nodes.upgrade": "nodes upgrade",
@@ -3963,6 +4015,29 @@ function renderVals() {
     scheduledBackupStatus: state.scheduledBackups?.last_error
       || (state.scheduledBackups?.last_success && !state.scheduledBackups.last_success.startsWith("0001-")
         ? d18.bk.last + new Date(state.scheduledBackups.last_success).toLocaleString(state.lang === "en" ? "en-GB" : "ru-RU") : d18.bk.never),
+    webhookStatus: state.webhooks
+      ? (state.webhooks.enabled ? d18.wh.pending(state.webhooks.pending || 0) : d18.wh.off) : "",
+    saveWebhooks: () => act(async () => {
+      await api("/api/v1/webhooks", "PUT", {
+        enabled: document.getElementById("wh-on").checked,
+        urls: document.getElementById("wh-urls").value.split("\n").map((s) => s.trim()).filter(Boolean),
+        secret: document.getElementById("wh-secret").value,
+      });
+      document.getElementById("wh-secret").value = "";
+      await loadAlerts();
+      toast(L().wh.saved);
+    }),
+    // Секрет — 32 случайных байта в шестнадцатеричном виде, прямо в браузере.
+    // Показываем его в поле, чтобы продавец скопировал в бота: после
+    // сохранения панель его больше не отдаст.
+    newWebhookSecret: () => {
+      const bytes = crypto.getRandomValues(new Uint8Array(32));
+      const field = document.getElementById("wh-secret");
+      field.type = "text";
+      field.value = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+      field.select();
+      toast(L().wh.generated);
+    },
     saveScheduledBackups: () => act(async () => {
       await api("/api/v1/backups", "PUT", {
         enabled: document.getElementById("bk-on").checked,

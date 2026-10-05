@@ -341,6 +341,74 @@ curl -X PUT https://panel.example.com/api/v1/seller \
 видит в названии каждой ноды. В приложениях Marvia кнопок пока нет: поля
 доходят до ядра клиента, экран будет следующей версией.
 
+## Вебхуки
+
+Вместо того чтобы опрашивать панель по расписанию, бот может получать события
+сам. Настройка — «Оповещения» → «Вебхуки для бота» (расширенный режим) или
+`PUT /api/v1/webhooks` админским токеном:
+
+```bash
+curl -X PUT https://panel.example.com/api/v1/webhooks \
+  -H "Authorization: Bearer $MARVIA_ADMIN_TOKEN" \
+  -d '{"enabled": true, "urls": ["https://bot.example.com/marvia"], "secret": "<от 32 знаков>"}'
+```
+
+Адреса — только `https://`, до десяти, и только наружу: локальные и
+внутренние сети, `localhost`, нестандартные почтовые порты запрещены, а
+адрес ещё раз проверяется при каждом соединении (имя могли перенаправить на
+внутренний адрес). Перенаправления не выполняются. Пустой `secret` оставляет
+прежний.
+
+| Событие (`X-Marvia-Event`) | Когда |
+|---|---|
+| `user.create` | клиент заведён |
+| `user.renew` | продлён — по тарифу, на срок или массово |
+| `user.expired` | срок вышел |
+| `user.traffic_low` | трафика осталось меньше десятой части |
+| `user.traffic_exhausted` | трафик кончился |
+| `node.down` / `node.up` | нода молчит больше часа / снова на связи |
+
+Состояния приходят один раз на переход, а не каждую минуту, пока они длятся.
+Тело — JSON:
+
+```json
+{"event": "user.expired", "at": "2026-10-05T12:00:00Z",
+ "user": {"id": 17, "label": "tg:123456789", "external_id": "123456789",
+          "expires_at": "2026-10-05T11:59:00Z", "traffic_limit": 53687091200,
+          "used": 1048576, "plan_id": 1}}
+```
+
+Ни токенов подписки, ни ключей в теле нет. Заголовки: `X-Marvia-Signature:
+sha256=<HMAC-SHA256 тела секретом>`, `X-Marvia-Event` и `X-Marvia-Delivery` —
+номер доставки. Повтор несёт тот же номер, по нему бот узнаёт уже
+обработанное. Ответ 2xx — доставлено; иначе повтор с паузой от 30 секунд до
+6 часов, до суток, и очередь переживает перезапуск панели. Не доставленное за
+сутки пишется в журнал.
+
+**Проверяйте подпись по сырому телу**, до разбора JSON — иначе пробелы и
+порядок полей поменяются и HMAC не сойдётся.
+
+Python:
+
+```python
+import hmac, hashlib
+
+def valid(body: bytes, header: str, secret: str) -> bool:
+    want = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(want, header)
+```
+
+Node.js:
+
+```js
+const crypto = require("crypto");
+
+function valid(body, header, secret) {
+  const want = "sha256=" + crypto.createHmac("sha256", secret).update(body).digest("hex");
+  return header.length === want.length && crypto.timingSafeEqual(Buffer.from(want), Buffer.from(header));
+}
+```
+
 ## Коды ответов
 
 | Код | Что значит |

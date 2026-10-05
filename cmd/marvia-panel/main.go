@@ -251,6 +251,7 @@ func run(opts options) error {
 	go scheduled.Watch(ctx, func(err error) {
 		log.Printf("резервная копия не создана или не доставлена: %v", err)
 	})
+	go panel.NewWebhooks(store).Watch(ctx)
 
 	go func() {
 		<-ctx.Done()

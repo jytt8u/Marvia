@@ -1,6 +1,7 @@
 package panel
 
 import (
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -171,6 +172,48 @@ func TestEveryFieldTheCodeReadsExistsOnThePage(t *testing.T) {
 	for _, id := range []string{"sl-support", "sl-renew", "sl-announce"} {
 		if !seen[id] {
 			t.Errorf("поле %q есть на странице, но сохранение его не читает", id)
+		}
+	}
+}
+
+// TestBuyerNameFieldSuggestsAPseudonym — поле имени покупателя прямо говорит,
+// что хватит псевдонима, а почты и телефона панель не спрашивает вовсе.
+//
+// Имя покупателя — подсказка продавцу в списке, ни на что больше оно не
+// влияет. Пустое поле «Имя» продавец заполняет фамилией по привычке, и тогда
+// изъятая панель выдаёт список людей. Подсказка стоит дешевле.
+func TestBuyerNameFieldSuggestsAPseudonym(t *testing.T) {
+	raw, err := webFS.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	page := string(raw)
+
+	hints := regexp.MustCompile(`newLabel: \[[^\]]*\]`).FindAllString(page, -1)
+	if len(hints) != 2 {
+		t.Fatalf("подсказок к имени покупателя %d, ждали по одной на язык", len(hints))
+	}
+	if !strings.Contains(hints[0], "псевдоним") {
+		t.Errorf("русская подсказка не предлагает псевдоним: %s", hints[0])
+	}
+	if !strings.Contains(hints[1], "nickname") {
+		t.Errorf("английская подсказка не предлагает псевдоним: %s", hints[1])
+	}
+
+	for _, bad := range []string{`type="email"`, `type="tel"`, `"email"`, `"phone"`, `email:`, `phone:`} {
+		if strings.Contains(page, bad) {
+			t.Errorf("панель спрашивает о покупателе лишнее: на странице %s", bad)
+		}
+	}
+	for _, params := range []any{CreateUserParams{}, UpdateUserParams{}} {
+		fields := reflect.TypeOf(params)
+		for i := 0; i < fields.NumField(); i++ {
+			tag := strings.ToLower(fields.Field(i).Tag.Get("json"))
+			for _, bad := range []string{"mail", "phone", "tel"} {
+				if strings.Contains(tag, bad) {
+					t.Errorf("%s принимает %s: панель не собирает почту и телефон", fields.Name(), tag)
+				}
+			}
 		}
 	}
 }

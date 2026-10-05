@@ -62,6 +62,11 @@ VP1 access records contain **0 client private keys**; nodes only need public key
 0 reachable known vulnerabilities after dependency updates;
 8.55 million executions across four fuzz targets with no failure found. This is not an independent audit.
 
+**What the seller sees and what they don't.** The panel stores no buyer
+addresses; the node keeps them only for the device limit, in memory, for an
+hour; logs record neither addresses nor sites. What any exit node can still
+see, and what a VPN does not protect — [docs/privacy.md](docs/privacy.md).
+
 ## A faster VP1
 
 <img src="docs/shots/readme-vp1-progress.svg" alt="VP1 before and after optimization: 435.0 → 678.3 MB/s, +55.9% in a local test; medians and ranges of five paired runs" width="1200">

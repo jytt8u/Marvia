@@ -75,6 +75,10 @@ type User struct {
 	// адресов за час (только у тех, кому задан лимит устройств — остальным
 	// нода адреса не считает) и когда последний раз был на связи. Ни адресов,
 	// ни стран, ни истории: это срез, а не журнал.
+	//
+	// LastSeen — одно время на покупателя, без ноды: на какой из них он был в
+	// последний раз, панель не помнит. Для «он вообще подключался?» этого
+	// хватает, а время по каждой ноде было бы картой его переездов.
 	Online   int        `json:"online"`
 	Devices  int        `json:"devices"`
 	LastSeen *time.Time `json:"last_seen,omitempty"`
@@ -192,7 +196,10 @@ CREATE TABLE IF NOT EXISTS users (
     -- Тариф, по которому куплено, и расход на момент последнего сброса (см.
     -- plans.go). Тариф пропадает с удалением тарифа, срок и лимиты остаются.
     plan_id       INTEGER REFERENCES plans(id) ON DELETE SET NULL,
-    traffic_offset INTEGER NOT NULL DEFAULT 0
+    traffic_offset INTEGER NOT NULL DEFAULT 0,
+    -- Когда покупатель в последний раз был на связи — на любой ноде, без
+    -- указания какой. См. forgetWhichNodeWhen.
+    last_seen     TEXT
 );
 
 -- Адреса подписки прежней панели, см. import.go. Отдельной таблицей, а не
@@ -315,11 +322,15 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 
+-- user_id — чей это ответ. В ответе лежит сам покупатель с меткой и ключом
+-- продавца, и удаление покупателя обязано уносить и эту копию, а не ждать
+-- неделю, пока она истечёт.
 CREATE TABLE IF NOT EXISTS idempotency (
     key        TEXT NOT NULL PRIMARY KEY,
     scope      TEXT NOT NULL,
     response   TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE
 );
 `
 
@@ -382,6 +393,8 @@ func migrate(db *sql.DB) error {
 		`ALTER TABLE users ADD COLUMN plan_id INTEGER REFERENCES plans(id) ON DELETE SET NULL`,
 		`ALTER TABLE users ADD COLUMN traffic_offset INTEGER NOT NULL DEFAULT 0`,
 		`CREATE TABLE IF NOT EXISTS sub_aliases (kind TEXT NOT NULL, key TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, secret TEXT NOT NULL DEFAULT '', not_before TEXT, PRIMARY KEY (kind, key))`,
+		`ALTER TABLE users ADD COLUMN last_seen TEXT`,
+		`ALTER TABLE idempotency ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`,
 	}
 
 	for _, step := range steps {
@@ -393,7 +406,41 @@ func migrate(db *sql.DB) error {
 		}
 	}
 
-	return forgetWhoWentWhere(db)
+	if err := forgetWhoWentWhere(db); err != nil {
+		return err
+	}
+	return forgetWhichNodeWhen(db)
+}
+
+// forgetWhichNodeWhen убирает время связи по каждой ноде.
+//
+// Раньше «был на связи» хранился строкой на пару «покупатель — нода» и не
+// исчезал, когда покупатель уходил: панель помнила, когда он в последний раз
+// был на Финляндии, когда на Турции, и так по каждой ноде, где он бывал. Ни
+// один экран этого не читал — показывалось только самое свежее время.
+//
+// Теперь время одно, у самого покупателя, а в presence остаются только те,
+// кто на связи сейчас. Накопленное сворачивается в это одно время, и строки
+// по нодам уходят. То же со временем обновления накопительного расхода: его
+// никто не читал, а по нему восстанавливалось то же самое.
+//
+// Шаги безвредны при повторе и выполняются на каждом запуске: после первого
+// им просто нечего делать.
+func forgetWhichNodeWhen(db *sql.DB) error {
+	steps := []string{
+		`UPDATE users SET last_seen = (SELECT MAX(p.seen_at) FROM presence p WHERE p.user_id = users.id)
+		 WHERE last_seen IS NULL
+		   AND EXISTS (SELECT 1 FROM presence p WHERE p.user_id = users.id AND p.seen_at IS NOT NULL)`,
+		`UPDATE presence SET seen_at = NULL WHERE seen_at IS NOT NULL`,
+		`DELETE FROM presence WHERE conns = 0 AND ips = 0`,
+		`UPDATE usage SET updated_at = '' WHERE updated_at <> ''`,
+	}
+	for _, step := range steps {
+		if _, err := db.Exec(step); err != nil {
+			return fmt.Errorf("свёртка времени связи (%s): %w", step, err)
+		}
+	}
+	return nil
 }
 
 // forgetWhoWentWhere убирает человека из посуточной истории расхода.
@@ -637,15 +684,41 @@ func (s *Store) UpdateUser(ctx context.Context, id int64, p UpdateUserParams) (U
 }
 
 // DeleteUser удаляет подписчика вместе с его ключами и статистикой.
+//
+// И с сохранёнными ответами на повторы оплаты: в них лежит тот же покупатель
+// с меткой, ключом продавца и ссылками. Новые ответы привязаны к нему и уходят
+// каскадом, а записанные до этой привязки находятся по области: продление и
+// продление по тарифу помечены его номером, первая продажа — ключом продавца.
+// Иначе «удалили» ещё неделю значило бы «удалили, но копия лежит».
 func (s *Store) DeleteUser(ctx context.Context, id int64) error {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var external sql.NullString
+	err = tx.QueryRowContext(ctx, `SELECT external_id FROM users WHERE id = ?`, id).Scan(&external)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
 	if err != nil {
 		return fmt.Errorf("удаление пользователя: %w", err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
+
+	extend, renew, create := fmt.Sprintf("extend:%d", id), fmt.Sprintf("renew:%d", id), ""
+	if external.String != "" {
+		create = "create:" + external.String
 	}
-	return nil
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM idempotency WHERE user_id = ? OR scope IN (?, ?) OR (? <> '' AND scope = ?)`,
+		id, extend, renew, create, create); err != nil {
+		return fmt.Errorf("удаление сохранённых ответов: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("удаление пользователя: %w", err)
+	}
+	return tx.Commit()
 }
 
 // GetUser читает подписчика вместе с ключами и расходом.
@@ -728,7 +801,7 @@ func (s *Store) queryUsers(ctx context.Context, where string, args ...any) ([]Us
 		                 WHERE p.user_id = u.id AND n.last_seen >= ?), 0),
 		       COALESCE((SELECT SUM(p.ips) FROM presence p JOIN nodes n ON n.id = p.node_id
 		                 WHERE p.user_id = u.id AND n.last_seen >= ?), 0),
-		       (SELECT MAX(seen_at) FROM presence WHERE user_id = u.id)
+		       u.last_seen
 		FROM users u ` + where
 
 	// Присутствие считается только по нодам, которые выходили на связь
@@ -1304,10 +1377,13 @@ func (s *Store) ReportUsage(ctx context.Context, nodeID int64, report map[string
 			return err
 		}
 
+		// Времени здесь нет намеренно: столбец updated_at остался от прежней
+		// схемы и пишется пустым. По нему читалось бы, когда человек в
+		// последний раз был именно на этой ноде, — см. forgetWhichNodeWhen.
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO usage (user_id, node_id, up, down, updated_at) VALUES (?, ?, ?, ?, ?)
-			ON CONFLICT (user_id, node_id) DO UPDATE SET up = excluded.up, down = excluded.down, updated_at = excluded.updated_at`,
-			userID, nodeID, usage.Up, usage.Down, now); err != nil {
+			INSERT INTO usage (user_id, node_id, up, down, updated_at) VALUES (?, ?, ?, ?, '')
+			ON CONFLICT (user_id, node_id) DO UPDATE SET up = excluded.up, down = excluded.down`,
+			userID, nodeID, usage.Up, usage.Down); err != nil {
 			return fmt.Errorf("запись расхода: %w", err)
 		}
 
@@ -1325,11 +1401,9 @@ func (s *Store) ReportUsage(ctx context.Context, nodeID int64, report map[string
 		// установке: 20 КБ трафика и пустое «был на связи».
 		//
 		// Соединения здесь не трогаем: сейчас он уже мог уйти. Утверждаем
-		// ровно то, что знаем, — что он тут был.
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO presence (user_id, node_id, conns, ips, seen_at) VALUES (?, ?, 0, 0, ?)
-			ON CONFLICT (user_id, node_id) DO UPDATE SET seen_at = excluded.seen_at`,
-			userID, nodeID, now); err != nil {
+		// ровно то, что знаем, — что он был на связи, а на какой ноде, не
+		// запоминаем.
+		if _, err := tx.ExecContext(ctx, `UPDATE users SET last_seen = ? WHERE id = ?`, now, userID); err != nil {
 			return fmt.Errorf("отметка присутствия по расходу: %w", err)
 		}
 
@@ -1375,10 +1449,11 @@ const presenceStale = 90 * time.Second
 
 // ReportPresence принимает от ноды срез «кто на связи прямо сейчас».
 //
-// Срез, а не журнал: на пару «покупатель — нода» одна строка, и каждый
-// отчёт её перезаписывает. Кого в отчёте нет, тот с этой ноды ушёл — числа
-// обнуляются, а время последней связи остаётся: оно и есть ответ на «когда
-// он был в последний раз».
+// Срез, а не журнал: строка есть только у того, кто на связи сейчас, и
+// каждый отчёт её перезаписывает. Кого в отчёте нет, тот с этой ноды ушёл —
+// его строка удаляется. Остаётся только время последней связи у самого
+// покупателя: оно и есть ответ на «когда он был в последний раз», а на какой
+// ноде — не нужно никому, кроме того, кто восстанавливает его маршрут.
 func (s *Store) ReportPresence(ctx context.Context, nodeID int64, presence map[string]users.Presence) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -1404,17 +1479,22 @@ func (s *Store) ReportPresence(ctx context.Context, nodeID int64, presence map[s
 		if err != nil {
 			return err
 		}
-		var seen any
-		if p.Conns > 0 {
-			seen = now
-		}
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO presence (user_id, node_id, conns, ips, seen_at) VALUES (?, ?, ?, ?, ?)
-			ON CONFLICT (user_id, node_id) DO UPDATE SET conns = excluded.conns, ips = excluded.ips,
-				seen_at = COALESCE(excluded.seen_at, presence.seen_at)`,
-			userID, nodeID, p.Conns, p.IPs, seen); err != nil {
+			INSERT INTO presence (user_id, node_id, conns, ips) VALUES (?, ?, ?, ?)
+			ON CONFLICT (user_id, node_id) DO UPDATE SET conns = excluded.conns, ips = excluded.ips`,
+			userID, nodeID, p.Conns, p.IPs); err != nil {
 			return fmt.Errorf("запись присутствия: %w", err)
 		}
+		if p.Conns > 0 {
+			if _, err := tx.ExecContext(ctx, `UPDATE users SET last_seen = ? WHERE id = ?`, now, userID); err != nil {
+				return fmt.Errorf("отметка последней связи: %w", err)
+			}
+		}
+	}
+
+	// Ушедших с этой ноды не помним вовсе.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM presence WHERE node_id = ? AND conns = 0 AND ips = 0`, nodeID); err != nil {
+		return fmt.Errorf("уборка присутствия: %w", err)
 	}
 	return tx.Commit()
 }
@@ -1692,12 +1772,12 @@ func (s *Store) UsageByNode(ctx context.Context, days int) ([]NodeUsage, error) 
 
 // ForgetOldUsage выбрасывает историю старше keep дней.
 //
-// Без этого таблица растёт вечно: строка на человека, ноду и день. У продавца
-// с тысячей покупателей и пятью нодами это пять тысяч строк в сутки, и через
-// год база распухнет там, где её ежедневно копируют на свой компьютер.
+// Без этого таблица растёт вечно: строка на ноду и день. Людей в ней нет, но
+// вечная история — это база, которая только пухнет там, где её ежедневно
+// копируют на свой компьютер.
 func (s *Store) ForgetOldUsage(ctx context.Context, keep int) error {
 	if keep <= 0 {
-		keep = 400
+		keep = UsageKeepDays
 	}
 
 	edge := time.Now().UTC().AddDate(0, 0, -keep).Format("2006-01-02")

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jytt8u/marvia/internal/netpath"
+	"github.com/jytt8u/marvia/internal/redact"
 	"net"
 	"net/http"
 	"net/url"
@@ -90,6 +91,10 @@ func ListenWS(inner net.Listener, cfg WSConfig) (net.Listener, error) {
 	listener.server = &http.Server{
 		Handler:           listener.handler(path, cover),
 		ReadHeaderTimeout: wsHandshakeTimeout,
+		// Стандартный журнал net/http пишет «TLS handshake error from <адрес>»,
+		// и у ноды за CDN или на голом TLS он становился журналом входящих
+		// адресов — тех самых, что нода обещает не хранить.
+		ErrorLog: redact.Logger(),
 	}
 
 	serving := inner

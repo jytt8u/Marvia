@@ -360,3 +360,61 @@ func TestRealityClientRejectsWrongKey(t *testing.T) {
 		t.Fatalf("ожидалась внятная ошибка про сайт прикрытия, получено: %v", err)
 	}
 }
+
+// Записанное приветствие, повторённое позже, нода не должна узнать: иначе
+// цензор, переслав чужой ClientHello через час, увидит ответ ноды вместо
+// сайта прикрытия. Небольшой сбой часов на телефоне при этом не мешает.
+func TestRealityNodeIgnoresHelloFromLongAgo(t *testing.T) {
+	const shortID = "0123456789abcdef"
+	real := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("сайт прикрытия"))
+	}))
+	defer real.Close()
+	parsed, _ := url.Parse(real.URL)
+	pair, err := vp1.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tcp, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln, err := transport.ListenReality(tcp, transport.RealityConfig{
+		Dest: parsed.Host, ServerNames: []string{"example.com"},
+		PrivateKey: pair.Private, ShortIDs: []string{shortID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			_ = conn.Close()
+		}
+	}()
+
+	dial := func(skew time.Duration) error {
+		restore := transport.SetRealityClock(func() time.Time { return time.Now().Add(skew) })
+		defer restore()
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		conn, err := transport.DialReality(ctx, tcp.Addr().String(), transport.RealityDialConfig{
+			ServerName: "example.com", PublicKey: pair.Public, ShortID: shortID,
+		})
+		if err == nil {
+			_ = conn.Close()
+		}
+		return err
+	}
+
+	if err := dial(-10 * time.Minute); err == nil {
+		t.Fatal("нода узнала приветствие десятиминутной давности")
+	}
+	if err := dial(3 * time.Minute); err != nil {
+		t.Fatalf("часы, убежавшие на три минуты, не пустили: %v", err)
+	}
+}

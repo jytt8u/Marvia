@@ -254,6 +254,9 @@
     border-radius: 10px;
   }
   #veil .own { display: flex; flex-direction: column; gap: 16px; }
+  #veil .wizard, #veil .wizard-help { display: flex; flex-direction: column; gap: 8px; }
+  #veil .step { font-size: 13px; color: var(--dim, #6c8a76); }
+  #veil .step.done { color: var(--acc, #46e07a); font-weight: 600; }
   #veil [hidden] { display: none; }
   #veil .plan {
     display: flex;
@@ -1800,6 +1803,10 @@ function newNodeSheet() {
     const cmd = res.command;
 
     const d = L();
+    const before = new Set((state.nodes || []).map((n) => n.id));
+    const steps = el("div", { cls: "wizard" });
+    const help = el("div", { cls: "wizard-help" });
+    help.hidden = true;
     sheet(d.node.newTitle, [
       el("div", { cls: "note", text: d.node.paste }),
       el("pre", { text: cmd }),
@@ -1811,10 +1818,59 @@ function newNodeSheet() {
           toast(d.act.noCopy, true);
         }
       }),
+      steps,
+      help,
       el("div", { cls: "note", text: d.node.invite }),
       el("div", { cls: "note", text: d.node.vars }),
     ], [btn(d.act.done, "", () => { closeSheet(); loadAll(); })]);
+    watchNewNode(steps, help, before);
   });
+}
+
+// watchNewNode ведёт продавца по шагам, пока нода ставится: строка вставлена →
+// нода зарегистрировалась → на связи.
+//
+// Раньше окно показывало строку и молчало, и продавец не знал, ждать ли ещё
+// или что-то сломалось. Больше всего теряются именно здесь: порт 443 занят,
+// файрвол, сервер не видит панель. Если за четыре минуты нода не появилась,
+// окно само показывает, что проверить и какой командой.
+function watchNewNode(steps, help, before) {
+  const d = L();
+  const started = Date.now();
+  const draw = (registered, online, node) => {
+    const mark = (done) => (done ? "✓ " : "… ");
+    steps.replaceChildren(
+      el("div", { cls: "step" + (registered ? " done" : "") }, el("span", { text: mark(registered) + d.node.wizRegistered }),
+        node ? el("span", { cls: "note", text: " · " + (node.name || node.address) }) : null),
+      el("div", { cls: "step" + (online ? " done" : "") }, el("span", { text: mark(online) + d.node.wizOnline })),
+    );
+    if (online) steps.append(el("div", { cls: "note", text: d.node.wizDone }));
+  };
+  const showHelp = () => {
+    if (!help.hidden) return;
+    const origin = location.origin;
+    const parts = [el("div", { cls: "note", text: d.node.wizSlow })];
+    for (const [what, command] of d.node.wizChecks(origin)) {
+      parts.push(el("div", { cls: "note", text: what }), el("pre", { text: command }));
+    }
+    help.replaceChildren(...parts);
+    help.hidden = false;
+  };
+  draw(false, false, null);
+
+  const tick = async () => {
+    if (!steps.isConnected) return; // окно закрыли — перестаём спрашивать панель
+    try {
+      const res = await api("/api/v1/nodes");
+      const fresh = ((res && res.nodes) || []).find((n) => !before.has(n.id));
+      const online = !!fresh && nodeAlive(fresh);
+      draw(!!fresh, online, fresh || null);
+      if (online) { loadAll(); return; }
+    } catch (_) { /* панель на миг недоступна — спросим ещё раз */ }
+    if (Date.now() - started > 4 * 60 * 1000) showHelp();
+    setTimeout(tick, 4000);
+  };
+  setTimeout(tick, 4000);
 }
 
 function nodeSheet(node) {
@@ -2154,7 +2210,7 @@ const TEXTS = {
     dash: {
       traffic: "Трафик · 30 дней", nodes: "Ноды", clients: "Клиенты",
       noNodes: "Ни одной ноды. Заведи первую — панель отдаст установщик.",
-      noClients: "Ни одного клиента. Заведи первого через бота или API.",
+      noClients: "Ни одного клиента. Заведи первого кнопкой «+ Клиент» в разделе «Клиенты» — или через бота.",
       allClients: (n) => "Все " + n + " " + pluralRU(n, "клиент", "клиента", "клиентов") + " →",
     },
 
@@ -2168,7 +2224,8 @@ const TEXTS = {
 
     table: {
       noClients: "Ни одного клиента. Заводи кнопкой сверху или через бота.",
-      noFound: "По запросу никого нет.",
+      noFound: "По запросу никого нет. Проверь имя или сними фильтр.",
+      noInFilter: "Под этот фильтр сейчас никто не попадает. «Все» вернёт полный список.",
       noKeys: "Ключей для ботов пока нет. Ими бот ходит в панель вместо админского токена.",
       prev: "Назад", next: "Вперёд", range: (from, to, total) => from + "–" + to + " из " + total,
     },
@@ -2386,6 +2443,15 @@ const TEXTS = {
 
     node: {
       newTitle: "Новая нода",
+      wizRegistered: "Нода записалась в панель", wizOnline: "Нода на связи",
+      wizDone: "Готово: нода работает, покупатели получат её со следующим обновлением подписки.",
+      wizSlow: "Четыре минуты, а ноды нет. Чаще всего дело в одном из этого — проверь на сервере ноды:",
+      wizChecks: (panel) => [
+        ["Сервер видит панель? Должно ответить ok:", "curl -fsS " + panel + "/healthz"],
+        ["Порт 443 не занят другим сайтом? Пусто — свободен:", "ss -ltnp | grep ':443 '"],
+        ["Что пишет установка и служба ноды:", "journalctl -u marvia-node -n 50 --no-pager"],
+        ["Если включён файрвол ufw — открой порт:", "ufw allow 443/tcp"],
+      ],
       paste: "Вставь эту строку на чистом сервере — от root. Всё остальное нода сделает сама: "
         + "выпустит ключи, запишется в панель, поднимет службу и проверит себя.",
       invite: "Приглашение живёт час и срабатывает один раз: оно даёт право только назваться нодой, "
@@ -2506,7 +2572,7 @@ const TEXTS = {
     dash: {
       traffic: "Traffic · 30 days", nodes: "Nodes", clients: "Clients",
       noNodes: "No nodes yet. Add the first one — the panel hands you the installer.",
-      noClients: "No clients yet. Add the first one through the bot or the API.",
+      noClients: "No clients yet. Add the first one with “+ Client” in Clients — or through the bot.",
       allClients: (n) => "All " + n + (n === 1 ? " client" : " clients") + " →",
     },
 
@@ -2520,7 +2586,8 @@ const TEXTS = {
 
     table: {
       noClients: "No clients yet. Add one with the button above, or through the bot.",
-      noFound: "Nothing matches that search.",
+      noFound: "Nothing matches that search. Check the name or clear the filter.",
+      noInFilter: "Nobody fits this filter right now. “All” brings the full list back.",
       noKeys: "No bot keys yet. A bot uses one instead of the admin token.",
       prev: "Back", next: "Next", range: (from, to, total) => from + "–" + to + " of " + total,
     },
@@ -2738,6 +2805,15 @@ const TEXTS = {
 
     node: {
       newTitle: "New node",
+      wizRegistered: "The node registered with the panel", wizOnline: "The node is online",
+      wizDone: "Done: the node works, buyers get it with the next subscription update.",
+      wizSlow: "Four minutes and still no node. Usually it is one of these — check on the node's server:",
+      wizChecks: (panel) => [
+        ["Does the server reach the panel? It should answer ok:", "curl -fsS " + panel + "/healthz"],
+        ["Is port 443 taken by another site? Empty means free:", "ss -ltnp | grep ':443 '"],
+        ["What the installer and the node service say:", "journalctl -u marvia-node -n 50 --no-pager"],
+        ["If the ufw firewall is on, open the port:", "ufw allow 443/tcp"],
+      ],
       paste: "Paste this on a clean server, as root. The node does the rest itself: issues keys, "
         + "registers with the panel, starts the service and checks itself.",
       invite: "The invitation lives for an hour and works once: it grants the right to register as a node, "
@@ -3240,7 +3316,7 @@ function renderVals() {
         return [u.label || ("#" + u.id), keyShort(u), shortDate(u.expires_at),
           (u.online ? "● " : "") + String(u.max_ips || "—"), bytes(u.used), status, st];
       }),
-      empty: q ? d18.table.noFound : d18.table.noClients,
+      empty: users.length === 0 ? d18.table.noClients : (q ? d18.table.noFound : d18.table.noInFilter),
       // Строка открывает карточку подписчика. Индекс тот же, что у rows:
       // список строится из shown одним проходом.
       onRow: (i) => () => userSheet(shown[i]),

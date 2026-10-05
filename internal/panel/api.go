@@ -72,6 +72,8 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/users/{id}/renew", a.scoped(ScopeUsers, a.renewUser))
 	mux.HandleFunc("POST /api/v1/users/{id}/reset-traffic", a.scoped(ScopeUsers, a.resetTraffic))
 	mux.HandleFunc("POST /api/v1/qr", a.scoped(ScopeUsers, a.qrCode))
+	mux.HandleFunc("POST /api/v1/users/bulk", a.scoped(ScopeUsers, a.bulkUsers))
+	mux.HandleFunc("GET /api/v1/users.csv", a.scoped(ScopeRead, a.usersCSV))
 
 	// Тарифы. Бот их читает, чтобы продавать то же, что видит продавец, а
 	// меняет только админ: тариф задаёт, сколько получат за деньги все

@@ -412,6 +412,9 @@
             <sc-for list="{{ filterChips }}" as="f">
               <div style="{{ f.style }}" role="button" tabindex="0" aria-pressed="{{ f.pressed }}" onClick="{{ f.onClick }}">{{ f.label }}</div>
             </sc-for>
+            <sc-if value="{{ hasBulk }}">
+              <div style="{{ bulkStyle }}" data-focus="bulk" onClick="{{ doBulk }}">{{ bulkLabel }}</div>
+            </sc-if>
           </div>
         </sc-if>
 
@@ -1116,7 +1119,7 @@ const state = {
 // медленную ручку и на канал из-за границы.
 const API_TIMEOUT = 30000;
 
-async function api(path, method, body) {
+async function api(path, method, body, extraHeaders) {
   let res;
   try {
     res = await fetch(path, {
@@ -1124,7 +1127,8 @@ async function api(path, method, body) {
       signal: AbortSignal.timeout(API_TIMEOUT),
       headers: Object.assign(
         { Authorization: "Bearer " + state.token },
-        body ? { "Content-Type": "application/json" } : {}
+        body ? { "Content-Type": "application/json" } : {},
+        extraHeaders || {}
       ),
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -2046,6 +2050,52 @@ function downloadBackup() {
   });
 }
 
+// bulkSheet — одно действие над теми, кого сейчас показывает список: отбери
+// фильтром «Истекают» и продли всех разом. Удаления здесь нет: стереть сотню
+// одной кнопкой — слишком дорогая ошибка, а отключение обратимо.
+function bulkSheet(list) {
+  const d = L();
+  const ids = list.map((u) => u.id);
+  // Ключ повтора на окно: двойное нажатие или переотправка не продлят дважды.
+  const key = "bulk-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+  const run = (title, body) => act(async () => {
+    if (!await ask(title, d.bulk.confirm(ids.length), d.bulk.go)) return;
+    const res = await api("/api/v1/users/bulk", "POST", Object.assign({ ids }, body), { "Idempotency-Key": key + "-" + body.action });
+    await loadAll();
+    toast(d.bulk.result(res.done, (res.failed || []).length));
+  });
+
+  const parts = [el("div", { cls: "note", text: d.bulk.intro(ids.length) })];
+  if (state.plans.length) {
+    let planID = state.plans[0].id;
+    parts.push(planPicker(state.plans, planID, (id) => { planID = id; }));
+    parts.push(btn(d.bulk.renew, "go", () => run(d.bulk.renew, { action: "renew", plan_id: planID })));
+  } else {
+    parts.push(btn(d.bulk.extend, "go", () => run(d.bulk.extend, { action: "extend", extend_by: "30d" })));
+  }
+  parts.push(el("div", { cls: "row" },
+    btn(d.bulk.enable, "", () => run(d.bulk.enable, { action: "enable" })),
+    btn(d.bulk.disable, "bad", () => run(d.bulk.disable, { action: "disable" })),
+    btn(d.bulk.reset, "", () => run(d.bulk.reset, { action: "reset" }))));
+  parts.push(el("div", { cls: "note", text: d.bulk.csvNote }));
+  parts.push(btn(d.bulk.csv, "", () => downloadCSV()));
+  sheet(d.bulk.title, parts, [btn(d.act.close, "", closeSheet)]);
+}
+
+// downloadCSV — все клиенты таблицей, без токенов и ключей.
+function downloadCSV() {
+  act(async () => {
+    const res = await fetch("/api/v1/users.csv", { headers: { Authorization: "Bearer " + state.token } });
+    if (!res.ok) throw new Error(L().err.code(res.status));
+    const url = URL.createObjectURL(await res.blob());
+    const a = el("a", { href: url, download: "marvia-clients-" + new Date().toISOString().slice(0, 10) + ".csv" });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  });
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    Тема.
 
@@ -2195,6 +2245,17 @@ const TEXTS = {
     cta: { clients: "+ Клиент", nodes: "+ Нода", keys: "+ Ключ", plans: "Тарифы" },
     search: "Поиск по имени или номеру у бота",
     mode: { label: "Расширенный режим", on: "Все разделы и тонкие настройки нод", off: "Включи, чтобы видеть ключи ботов, журнал, обновления, статистику и вид" },
+    bulk: {
+      button: (n) => "Со списком · " + n, title: "Действие со списком",
+      intro: (n) => "Сделать одно действие сразу с " + n + " " + pluralRU(n, "клиентом", "клиентами", "клиентами")
+        + " — теми, кого сейчас показывает список. Сузь фильтром или поиском, если нужно не всех.",
+      renew: "Продлить по тарифу", extend: "+30 дней всем", enable: "Включить", disable: "Отключить", reset: "Обнулить расход",
+      confirm: (n) => "Действие коснётся " + n + " " + pluralRU(n, "клиента", "клиентов", "клиентов") + ". Каждое попадёт в журнал.",
+      go: "Сделать",
+      result: (done, failed) => "Готово: " + done + (failed ? ", не вышло у " + failed : ""),
+      csv: "Выгрузить всех в CSV",
+      csvNote: "Таблица всех клиентов для учёта: имя, срок, тариф, расход. Ключей и ссылок в ней нет.",
+    },
     filters: { label: "Показать клиентов", all: "Все", expiring: "Истекают за 7 дней", traffic: "Кончается трафик", idle: "Не заходили неделю", off: "Отключены" },
 
     start: {
@@ -2559,6 +2620,17 @@ const TEXTS = {
     cta: { clients: "+ Client", nodes: "+ Node", keys: "+ Key", plans: "Plans" },
     search: "Search by name or bot id",
     mode: { label: "Advanced mode", on: "Every section and fine node settings", off: "Turn on to see bot keys, the log, updates, statistics and appearance" },
+    bulk: {
+      button: (n) => "With the list · " + n, title: "Action on the list",
+      intro: (n) => "Do one action for " + n + (n === 1 ? " client" : " clients")
+        + " at once — the ones the list shows now. Narrow it with a filter or search if not everyone.",
+      renew: "Renew by plan", extend: "+30 days for all", enable: "Enable", disable: "Disable", reset: "Reset usage",
+      confirm: (n) => "This touches " + n + (n === 1 ? " client" : " clients") + ". Each one goes into the log.",
+      go: "Do it",
+      result: (done, failed) => "Done: " + done + (failed ? ", failed for " + failed : ""),
+      csv: "Export everyone to CSV",
+      csvNote: "A table of all clients for bookkeeping: name, term, plan, usage. No keys or links in it.",
+    },
     filters: { label: "Show clients", all: "All", expiring: "Expire within 7 days", traffic: "Running out of traffic", idle: "Away for a week", off: "Disabled" },
 
     start: {
@@ -3812,6 +3884,13 @@ function renderVals() {
     // единицы — поле поиска над тремя строками только мешает.
     hasSearch: page === "clients",
     filterChips,
+    // Действия со списком — тем, у кого есть право users: ключу «только
+    // смотреть» кнопка обещала бы то, чего ему не дадут.
+    hasBulk: page === "clients" && state.admin && shown.length > 0,
+    bulkLabel: d18.bulk.button(shown.length),
+    doBulk: () => bulkSheet(shown),
+    bulkStyle: "padding:7px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;"
+      + "margin-left:auto;border:1px solid " + t.acc + ";color:" + t.acc,
     modeOn: String(!!state.advanced),
     modeNote: state.advanced ? d18.mode.on : d18.mode.off,
     doMode: () => setState({ advanced: !state.advanced }),

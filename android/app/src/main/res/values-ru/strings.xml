@@ -506,6 +506,9 @@
     <string name="conn_group_app">Приложение</string>
     <string name="conn_dns">DNS</string>
     <string name="conn_dns_sub">резолвер внутри туннеля</string>
+    <string name="conn_dns_secure">Шифровать запросы имён</string>
+    <string name="conn_dns_secure_sub">нода продавца не видит, какие сайты вы ищете</string>
+    <string name="conn_dns_secure_own">свой адрес шифровать нечем: имена идут открытым DNS через туннель</string>
     <string name="conn_lan">Домашняя сеть мимо туннеля</string>
     <string name="conn_lan_sub">принтер, телевизор, роутер</string>
     <string name="conn_ipv6">IPv6 через туннель</string>

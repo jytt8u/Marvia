@@ -604,6 +604,7 @@ class ThemeScreen(
                 id<TextView>(R.id.dnsValue)?.text = "Cloudflare"
                 id<TextView>(R.id.aboutSub)?.text = host.getString(R.string.about_sub, "0.9.3")
                 id<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switchAutostart)?.isChecked = true
+                id<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switchDnsSecure)?.isChecked = true
                 id<View>(R.id.moreBack)?.isVisible = false
             }
         }

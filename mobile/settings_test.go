@@ -1,6 +1,10 @@
 package mobile
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jytt8u/marvia/internal/tunbridge"
+)
 
 // TestBrokenSettingsDoNotStopTheTunnel: сломанная строка настроек означает
 // умолчания, а не отказ подключаться; незнакомое поле — не ошибка.
@@ -14,5 +18,26 @@ func TestBrokenSettingsDoNotStopTheTunnel(t *testing.T) {
 	}
 	if !got.dial().Fragment {
 		t.Fatal("дробление не дошло до дозвона нод")
+	}
+}
+
+// TestKnownResolverIsEncryptedByDefault: по умолчанию — и у приложения,
+// которое о шифровании имён ещё не знает и поля не присылает, — имена к
+// известному резолверу идут по HTTPS. «Без шифрования» и свой адрес остаются
+// открытым DNS через туннель, как раньше.
+func TestKnownResolverIsEncryptedByDefault(t *testing.T) {
+	old := parseSettings(`{"fragment":false}`)
+	if old.names("1.1.1.1:53", tunbridge.DialerFunc{}) == nil {
+		t.Fatal("известный резолвер по умолчанию не шифруется")
+	}
+	if parseSettings(`{"plain_dns":true}`).names("1.1.1.1:53", tunbridge.DialerFunc{}) != nil {
+		t.Fatal("«без шифрования» не послушались")
+	}
+	if old.names("76.76.2.0:53", tunbridge.DialerFunc{}) != nil {
+		t.Fatal("свой адрес без известного DoH выдан за шифрованный")
+	}
+	// Приложение спрашивает то же самое для надписи под переключателем.
+	if !NamesEncrypted("1.0.0.1") || NamesEncrypted("76.76.2.0") {
+		t.Fatal("надпись под переключателем разошлась с тем, что делает ядро")
 	}
 }

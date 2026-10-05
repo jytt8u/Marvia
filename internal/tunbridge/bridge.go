@@ -103,12 +103,34 @@ type Config struct {
 	// в открытую выдаёт цензору весь список посещённых сайтов.
 	DNS string
 
+	// Names — кто отвечает на перехваченные запросы имён; nil — как раньше:
+	// открытый DNS через туннель к DNS.
+	//
+	// Открытый запрос через туннель прячет имена от провайдера, но не от
+	// ноды: она расшифровывает VP1 и отправляет запрос дальше таким, каким
+	// его написало приложение. С Names запрос к резолверу уходит по HTTPS
+	// (internal/securedns), и нода видит только соединение с резолвером. Мост
+	// при этом отвечает на любой UDP и TCP на порт 53 сам: к ноде не уходит
+	// ни одного открытого запроса, какой бы адрес приложение себе ни
+	// прописало.
+	Names Names
+
 	// NoIPv6 — не пускать IPv6 вовсе, какой бы ни была нода; см. ipv6.go.
 	// Маршрут IPv6 при этом остаётся в туннеле: иначе IPv6 ушёл бы мимо.
 	NoIPv6 bool
 
 	// OnError вызывается на ошибках отдельных соединений. Может быть nil.
 	OnError func(error)
+}
+
+// Names отвечает на запросы имён вместо открытого DNS.
+type Names interface {
+	// Exchange отвечает на сообщение DNS. udp — ответ поедет датаграммой и
+	// обязан влезть в размер, который объявил запрос.
+	Exchange(ctx context.Context, query []byte, udp bool) ([]byte, error)
+
+	// Reset забывает всё, что относилось к прежней ноде.
+	Reset()
 }
 
 // Bridge — работающий мост.
@@ -143,6 +165,7 @@ func Start(cfg Config) (*Bridge, error) {
 	handler := &handler{
 		dialer:  cfg.Dialer,
 		dns:     cfg.DNS,
+		names:   cfg.Names,
 		onError: cfg.OnError,
 	}
 	handler.v6.never = cfg.NoIPv6
@@ -170,10 +193,16 @@ func Start(cfg Config) (*Bridge, error) {
 // же, где старая отвечает отказом. На живой проверке это и случилось — после
 // смерти ноды датаграммы выключались до конца сессии, и человеку оставалось
 // только переподключиться руками, что он и сделал.
+//
+// Резолверу — тоже: его соединения жили в потоках через прежнюю ноду, а
+// ответы из кэша подбирались под её страну.
 func (b *Bridge) NodeChanged() {
 	if b != nil && b.handler != nil {
 		b.handler.noUDP.Store(false)
 		b.handler.v6.reset()
+		if b.handler.names != nil {
+			b.handler.names.Reset()
+		}
 	}
 }
 
@@ -219,6 +248,7 @@ func (b *Bridge) Close() error {
 type handler struct {
 	dialer  Dialer
 	dns     string
+	names   Names
 	onError func(error)
 
 	// noUDP — нода отказалась от датаграмм. Ставится один раз за сессию,
@@ -253,6 +283,14 @@ func (h *handler) failDial(err error) {
 // HandleTCP обслуживает соединение приложения.
 func (h *handler) HandleTCP(conn adapter.TCPConn) {
 	defer conn.Close()
+
+	// Имена по TCP — тот же вопрос, что по UDP: так их спрашивают, когда ответ
+	// не влез в датаграмму. Пропусти мы их к ноде как обычный поток, шифрование
+	// имён обходилось бы любым приложением, которому захотелось TCP.
+	if conn.ID().LocalPort == dnsPort && h.names != nil {
+		h.serveNamesTCP(conn)
+		return
+	}
 
 	target := targetOf(conn.ID().LocalAddress.String(), conn.ID().LocalPort)
 	v6 := target.Type == vp1.AtypIPv6
@@ -333,6 +371,12 @@ func (h *handler) serveUDP(conn adapter.UDPConn) {
 	n, from, err := conn.ReadFrom(first)
 	if err != nil {
 		h.fail(fmt.Errorf("чтение датаграммы до %s: %w", target, err))
+		return
+	}
+	// Раньше проверки IPv6: на вопрос, заданный IPv6-резолверу, мост ответит
+	// сам, и до ноды он не дойдёт — а значит, и её IPv6 тут ни при чём.
+	if isDNS && h.names != nil {
+		h.serveNames(conn, first[:n], from)
 		return
 	}
 	if target.Type == vp1.AtypIPv6 && h.v6.off.Load() {

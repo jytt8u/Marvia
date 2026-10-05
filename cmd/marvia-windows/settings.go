@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/jytt8u/marvia/internal/securedns"
 )
 
 // pcSettings — то, что человек выбрал в настройках подключения.
@@ -36,6 +38,12 @@ type pcSettings struct {
 	// запросы в любом случае идут через туннель; выбор только в том, кто на
 	// другом конце: у кого-то есть фильтр рекламы, у кого-то нет.
 	DNS string `json:"dns,omitempty"`
+
+	// DNSPlain — имена как раньше: открытым DNS через туннель, и нода их
+	// видит. По умолчанию имена к известному резолверу уходят по HTTPS (см.
+	// internal/securedns). Хранится как «открыто», чтобы умолчание —
+	// шифровать — было нулём и в файле, записанном прежней версией.
+	DNSPlain bool `json:"dns_plain,omitempty"`
 
 	// Fragment — резать TLS-приветствие к нодам так, чтобы имя из SNI не
 	// лежало целиком ни в одном TCP-сегменте. Против фильтров по имени.
@@ -75,6 +83,14 @@ type SettingsView struct {
 	DNS      string `json:"dns"`
 	DNSInUse string `json:"dns_in_use,omitempty"`
 
+	// DNSSecure — человек хочет шифровать имена; DNSSecureNow — получится ли
+	// это с выбранным резолвером: свой адрес шифровать нечем, и окно должно
+	// сказать это прямо, а не показывать включённый переключатель, который
+	// ничего не делает. DNSSecureInUse — шифрует ли поднятый туннель.
+	DNSSecure      bool  `json:"dns_secure"`
+	DNSSecureNow   bool  `json:"dns_secure_now"`
+	DNSSecureInUse *bool `json:"dns_secure_in_use,omitempty"`
+
 	// Fragment — выбранное; FragmentInUse — с каким поднят туннель. Дробление
 	// решается при дозвоне до ноды, поэтому новое действует со следующего
 	// подключения.
@@ -94,6 +110,7 @@ type SettingsPatch struct {
 	BypassRussian *bool   `json:"bypass_russian"`
 	LANOutside    *bool   `json:"lan_outside"`
 	DNS           *string `json:"dns"`
+	DNSSecure     *bool   `json:"dns_secure"`
 	Fragment      *bool   `json:"fragment"`
 	IPv6          *bool   `json:"ipv6"`
 	Reports       *bool   `json:"reports"`
@@ -260,6 +277,17 @@ func (s pcSettings) resolver(fallback string) string {
 		return net.JoinHostPort(strings.TrimSpace(s.DNS), "53")
 	}
 	return fallback
+}
+
+// encrypted — пойдут ли имена по HTTPS при этих настройках к этому резолверу
+// (host:port). Нет — если человек выбрал «как раньше» или резолвер свой: для
+// своего адреса мы не знаем ни имени сертификата, ни пути DoH.
+func (s pcSettings) encrypted(resolver string) bool {
+	if s.DNSPlain {
+		return false
+	}
+	_, ok := securedns.For(resolver)
+	return ok
 }
 
 func boolPtr(v bool) *bool { return &v }

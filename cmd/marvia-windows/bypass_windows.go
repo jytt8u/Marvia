@@ -127,17 +127,20 @@ func (c *Controller) Settings() SettingsView {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return SettingsView{
-		BypassRussian: c.settings.BypassRussian,
-		RuCount:       c.bypass.Load().Len(),
-		RuError:       c.ruErr,
-		LANOutside:    c.settings.LANOutside,
-		DNS:           dnsHost(c.settings.resolver(c.dns)),
-		DNSInUse:      c.dnsInUse,
-		Fragment:      c.settings.Fragment,
-		FragmentInUse: c.fragmentInUse,
-		IPv6:          !c.settings.IPv6Off,
-		IPv6InUse:     c.ipv6InUse,
-		Reports:       !c.settings.ReportsOff,
+		BypassRussian:  c.settings.BypassRussian,
+		RuCount:        c.bypass.Load().Len(),
+		RuError:        c.ruErr,
+		LANOutside:     c.settings.LANOutside,
+		DNS:            dnsHost(c.settings.resolver(c.dns)),
+		DNSInUse:       c.dnsInUse,
+		DNSSecure:      !c.settings.DNSPlain,
+		DNSSecureNow:   c.settings.encrypted(c.settings.resolver(c.dns)),
+		DNSSecureInUse: c.dnsSecureInUse,
+		Fragment:       c.settings.Fragment,
+		FragmentInUse:  c.fragmentInUse,
+		IPv6:           !c.settings.IPv6Off,
+		IPv6InUse:      c.ipv6InUse,
+		Reports:        !c.settings.ReportsOff,
 	}
 }
 
@@ -167,6 +170,9 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	}
 	if p.Reports != nil {
 		next.ReportsOff = !*p.Reports
+	}
+	if p.DNSSecure != nil {
+		next.DNSPlain = !*p.DNSSecure
 	}
 	if p.DNS != nil {
 		want := strings.TrimSpace(*p.DNS)

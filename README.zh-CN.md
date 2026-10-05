@@ -112,7 +112,7 @@ VP1 不兼容 WireGuard 或 Xray 客户端。
 | [Remnawave](https://docs.rw/) | Xray 面板和节点 | Mihomo/sing-box 模板、设备控制 |
 | [3x-ui](https://docs.sanaei.dev/docs/) | Xray 面板 | 协议和管理功能较丰富 |
 
-Marvia 尚缺少每月自动重置额度和 Clash/sing-box 订阅格式。从 Marzban 和 3x-ui
+Marvia 尚缺少每月自动重置额度。从 Marzban 和 3x-ui
 迁移时，用户保留原有密钥和订阅地址——[迁移时会有哪些变化（俄语）](docs/guide.md#переезд-с-marzban-и-3x-ui)。功能比较以表中的项目文档为依据；目前没有
 同等条件下的竞品速度排名。
 
@@ -167,7 +167,7 @@ sudo sh install-panel.sh --domain panel.example.com --email you@example.com --po
   [发布计划（俄语）](docs/google-play.md)。
 - 每月自动重置额度。从 Marzban 和 3x-ui 迁移时，VMess、Shadowsocks、
   Vision 链接以及 MySQL 和 PostgreSQL 数据库不会迁移。
-- iOS、Clash/sing-box 订阅、TUIC、Shadowsocks 插件，以及共享密钥时
+- iOS、在我们的应用中导入 Clash/sing-box 订阅、TUIC、Shadowsocks 插件，以及共享密钥时
   单独撤销设备。
 - Windows 上的按应用分流、kill switch、月度统计和从二维码图片读取密钥：
   目前只有手机端具备。

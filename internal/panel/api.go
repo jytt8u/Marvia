@@ -73,10 +73,10 @@ func (a *API) Handler() http.Handler {
 
 	// Управление: ноды. Боту сюда не надо.
 	mux.HandleFunc("GET /api/v1/nodes", a.scoped(ScopeRead, a.listNodes))
-	mux.HandleFunc("POST /api/v1/nodes", a.scoped(ScopeNodes, a.createNode))
+	mux.HandleFunc("POST /api/v1/nodes", a.admin(a.createNode))
 	mux.HandleFunc("PATCH /api/v1/nodes/{id}", a.scoped(ScopeNodes, a.updateNode))
 	mux.HandleFunc("DELETE /api/v1/nodes/{id}", a.scoped(ScopeNodes, a.deleteNode))
-	mux.HandleFunc("POST /api/v1/nodes/invite", a.scoped(ScopeNodes, a.createNodeInvite))
+	mux.HandleFunc("POST /api/v1/nodes/invite", a.admin(a.createNodeInvite))
 
 	// Ключи доступа. Только по админскому токену: ключ, умеющий выпускать
 	// ключи, ничем не отличается от админского — и разделение теряет смысл.

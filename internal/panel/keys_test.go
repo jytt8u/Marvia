@@ -89,7 +89,7 @@ func TestBotKeyCannotTouchNodes(t *testing.T) {
 	}
 
 	// Чужое — нет.
-	code, body = do(t, srv, "POST", "/api/v1/nodes/invite", secret, `{"label":"нода"}`)
+	code, body = do(t, srv, "DELETE", "/api/v1/nodes/1", secret, "")
 	if code != http.StatusForbidden {
 		t.Fatalf("ключ на покупателей добрался до нод: %d %s", code, body)
 	}
@@ -288,5 +288,30 @@ func TestReadOnlyKeyDoesNotSeeBuyerSecrets(t *testing.T) {
 		if !strings.Contains(body, created.User.SubToken) || !strings.Contains(body, created.secretOf(panel.CredVLESS)) {
 			t.Fatal("тот, кому положено, перестал видеть токен подписки и секреты")
 		}
+	}
+}
+
+// Новая нода получает секреты всех покупателей — иначе ей нечем их пускать.
+// Значит, приглашение ноды равно доступу ко всем покупателям, и выдавать его
+// может только админ: утёкший ключ бота с правом nodes не должен завести
+// поддельную ноду и унести доступы.
+func TestBotKeyWithNodesScopeCannotInviteANode(t *testing.T) {
+	srv, admin := keyPanel(t)
+
+	code, body := do(t, srv, "POST", "/api/v1/keys", admin, `{"name":"бот","scopes":["nodes"]}`)
+	if code != http.StatusOK {
+		t.Fatalf("ключ не выпустился: %d %s", code, body)
+	}
+	secret := between(t, body, `"secret":"`, `"`)
+
+	if code, body := do(t, srv, "POST", "/api/v1/nodes/invite", secret, `{"label":"нода"}`); code != http.StatusForbidden {
+		t.Fatalf("ключ бота выпустил приглашение ноды: %d %s", code, body)
+	}
+	// Завести ноду напрямую — то же самое: в ответе её токен.
+	if code, body := do(t, srv, "POST", "/api/v1/nodes", secret, `{"name":"нода","address":"203.0.113.9:443","public_key":"x"}`); code != http.StatusForbidden {
+		t.Fatalf("ключ бота завёл ноду и получил её токен: %d %s", code, body)
+	}
+	if code, body := do(t, srv, "POST", "/api/v1/nodes/invite", admin, `{"label":"нода"}`); code != http.StatusOK {
+		t.Fatalf("админ не выпустил приглашение: %d %s", code, body)
 	}
 }

@@ -263,7 +263,7 @@ func sealRealityAuth(hello *utls.PubClientHelloMsg, authKey []byte, shortID [sho
 	copy(hello.Raw[sessionIDOffset:], hello.SessionId)
 
 	copy(hello.SessionId[:4], realityClientVersion)
-	binary.BigEndian.PutUint32(hello.SessionId[4:8], uint32(time.Now().Unix()))
+	binary.BigEndian.PutUint32(hello.SessionId[4:8], uint32(realityNow().Unix()))
 	copy(hello.SessionId[8:16], shortID[:])
 
 	// Метка привязана к конкретному ClientHello: к его отпечатку, набору
@@ -282,6 +282,11 @@ func sealRealityAuth(hello *utls.PubClientHelloMsg, authKey []byte, shortID [sho
 // Ноды с настройками MinClientVer и MaxClientVer сравнивают её со своими
 // границами. Наши такого не требуют, но чужие могут.
 var realityClientVersion = []byte{26, 3, 27, 0}
+
+// realityNow — часы, по которым ставится метка времени. Отдельной
+// переменной ради теста: проверить, что нода не узнаёт давнее приветствие,
+// иначе пришлось бы ждать.
+var realityNow = time.Now
 
 // verifyRealityServer проверяет, что мы дошли до ноды, а не до сайта прикрытия.
 //

@@ -533,6 +533,9 @@
     <string name="conn_group_app">App</string>
     <string name="conn_dns">DNS</string>
     <string name="conn_dns_sub">resolver inside the tunnel</string>
+    <string name="conn_dns_secure">Encrypt name lookups</string>
+    <string name="conn_dns_secure_sub">the seller\'s node cannot see which sites you look up</string>
+    <string name="conn_dns_secure_own">a custom address cannot be encrypted: lookups go as plain DNS through the tunnel</string>
     <string name="conn_lan">Home network outside the tunnel</string>
     <string name="conn_lan_sub">printer, TV, router</string>
     <string name="conn_ipv6">IPv6 through the tunnel</string>

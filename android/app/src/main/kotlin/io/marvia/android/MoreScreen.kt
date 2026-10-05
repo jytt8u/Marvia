@@ -228,6 +228,11 @@ class MoreScreen(
             renderConnection()
             onNextConnect()
         }
+        ui.rowDnsSecure.setOnClickListener {
+            store.dnsSecure = !store.dnsSecure
+            renderConnection()
+            onNextConnect()
+        }
 
         ui.rowLanguage.setOnClickListener { onLanguage() }
         ui.rowAbout.setOnClickListener { show(Section.ABOUT) }
@@ -281,6 +286,12 @@ class MoreScreen(
             else -> host.getString(R.string.settings_russian_count, routes)
         }
         ui.dnsValue.text = dnsName(store.dns)
+        ui.switchDnsSecure.isChecked = store.dnsSecure
+        // Свой адрес шифровать нечем, и переключатель не должен делать вид,
+        // что шифрует: под ним — правда о том, что будет.
+        ui.dnsSecureSub.setText(
+            if (store.dnsSecure && !store.dnsSecureNow) R.string.conn_dns_secure_own else R.string.conn_dns_secure_sub,
+        )
         ui.languageValue.text = host.getString(
             if (store.language == Store.LANG_EN) R.string.language_en else R.string.language_ru,
         )

@@ -31,9 +31,10 @@ import (
 
 // DefaultDNS — куда уходят перехваченные запросы имён.
 //
-// Через туннель и по TCP: запрос имени, ушедший мимо туннеля, выдаёт цензору
+// Только через туннель: запрос имени, ушедший мимо туннеля, выдаёт цензору
 // весь список посещённых сайтов, даже когда сам трафик он расшифровать не
-// может.
+// может. Для известного резолвера — ещё и по HTTPS, чтобы этого списка не
+// видела и нода (см. tunnelSettings.names).
 const DefaultDNS = "1.1.1.1:53"
 
 // CacheName — имя старого общего файла кэша подписки. Кэш теперь на каждую
@@ -137,7 +138,8 @@ type Tunnel struct {
 //
 // accountLink — ссылка, которую покупатель получил от бота.
 // tunFD — дескриптор от VpnService.
-// dns — адрес для запросов имён; пусто означает значение по умолчанию.
+// dns — адрес резолвера; пусто означает значение по умолчанию. Для
+// известного резолвера он же выбирает, к кому идти по HTTPS.
 // cacheDir — каталог приложения под кэш подписки; пусто означает работу без
 // кэша, как было раньше.
 // prefer — нода, выбранная человеком руками; ноль — автовыбор. Выбор живёт
@@ -177,11 +179,15 @@ func Start(accountLink string, tunFD int, dns string, cacheDir string, prefer in
 	t.dialer = dialer
 	t.nodeName = dialer.Node().Title()
 
+	// Резолвер ходит тем же счётным дозвоном: его байты — тоже расход
+	// человека через туннель.
+	tunnel := tunbridge.Metered(dialer, &t.up, &t.down)
 	bridgeOwnsFD = true
 	bridge, err := tunbridge.Start(tunbridge.Config{
 		FD:      tunFD,
-		Dialer:  tunbridge.Metered(dialer, &t.up, &t.down),
+		Dialer:  tunnel,
 		DNS:     dns,
+		Names:   set.names(dns, tunnel),
 		NoIPv6:  set.NoIPv6,
 		OnError: t.note,
 	})

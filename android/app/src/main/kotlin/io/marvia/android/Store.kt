@@ -213,7 +213,8 @@ class Store(context: Context) {
      *
      * Запрос в любом случае уходит внутрь туннеля — это решает ядро, а не
      * человек. Выбор здесь только в том, чей резолвер стоит на другом конце:
-     * у кого-то из них есть фильтр рекламы, у кого-то — нет. Свой адрес
+     * у кого-то из них есть фильтр рекламы, у кого-то — нет. Шифровать ли
+     * запрос от ноды — отдельная настройка, dnsSecure. Свой адрес
      * принимается, только если прошёл checkDns: сохранённый раньше мусор
      * откатывается на резолвер по умолчанию, а не ломает имена.
      */
@@ -223,6 +224,26 @@ class Store(context: Context) {
         set(value) {
             prefs.edit().putString(KEY_DNS, value).apply()
         }
+
+    /**
+     * dnsSecure — шифровать ли запросы имён: к известному резолверу они
+     * уходят по HTTPS внутри туннеля, и нода видит только соединение с ним.
+     * Включено по умолчанию. Выключенное — открытый DNS через туннель, как
+     * раньше: нода видит каждое имя. Свой адрес шифровать нечем при любом
+     * значении — ядро не знает, как с ним говорить по HTTPS.
+     */
+    var dnsSecure: Boolean
+        get() = prefs.getBoolean(KEY_DNS_SECURE, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_DNS_SECURE, value).apply()
+        }
+
+    /**
+     * dnsSecureNow — пойдут ли имена по HTTPS при нынешнем выборе резолвера.
+     * Какие резолверы шифруются, знает только ядро — спрашиваем его.
+     */
+    val dnsSecureNow: Boolean
+        get() = dnsSecure && Mobile.namesEncrypted(dns)
 
     /**
      * fragment — резать ли TLS-приветствие к нодам, чтобы имя из SNI не
@@ -292,6 +313,7 @@ class Store(context: Context) {
             .put("fragment", fragment)
             .put("no_ipv6", !ipv6)
             .put("disable_reports", !sendNodeReports)
+            .put("plain_dns", !dnsSecure)
             .toString()
 
     /**
@@ -729,6 +751,7 @@ class Store(context: Context) {
         private const val KEY_BYPASSED = "bypassed_apps"
         private const val KEY_BYPASS_MODE = "bypass_mode"
         private const val KEY_DNS = "dns"
+        private const val KEY_DNS_SECURE = "dns_secure"
         private const val KEY_FRAGMENT = "fragment"
         private const val KEY_IPV6 = "ipv6"
         private const val KEY_VPN_MTU = "vpn_mtu"

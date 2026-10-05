@@ -15,7 +15,7 @@ func TestSettingsSurviveRestartAndBrokenFileGivesDefaults(t *testing.T) {
 	if got := loadSettings(dir); got != (pcSettings{}) {
 		t.Fatalf("без файла: %+v", got)
 	}
-	want := pcSettings{BypassRussian: true, LANOutside: true, DNS: "9.9.9.9", Fragment: true, IPv6Off: true, ReportsOff: true}
+	want := pcSettings{BypassRussian: true, LANOutside: true, DNS: "9.9.9.9", DNSPlain: true, Fragment: true, IPv6Off: true, ReportsOff: true}
 	if err := saveSettings(dir, want); err != nil {
 		t.Fatal(err)
 	}
@@ -99,5 +99,31 @@ func TestChosenResolverReachesTheTunnelAndJunkFallsBack(t *testing.T) {
 	}
 	if got := (pcSettings{DNS: "192.168.0.1"}).resolver("1.1.1.1:53"); got != "1.1.1.1:53" {
 		t.Errorf("испорченный выбор: %q", got)
+	}
+}
+
+// Имена к известному резолверу шифруются по умолчанию — и у файла настроек,
+// записанного прежней версией, где этого поля нет. Открытыми они идут, только
+// если человек выбрал «как раньше» или резолвер — свой адрес.
+func TestNamesAreEncryptedByDefaultExceptPlainChoiceOrOwnAddress(t *testing.T) {
+	// Флаг -dns объявлен в файле для Windows, а проверка идёт на любой машине.
+	const defaultDNS = "1.1.1.1:53"
+	dir := t.TempDir()
+	if err := os.WriteFile(settingsFile(dir), []byte(`{"dns":"94.140.14.14"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	old := loadSettings(dir)
+	if !old.encrypted(old.resolver(defaultDNS)) {
+		t.Fatal("файл прежней версии выключил шифрование имён")
+	}
+	if !(pcSettings{}).encrypted(defaultDNS) {
+		t.Fatal("резолвер по умолчанию не шифруется")
+	}
+	if (pcSettings{DNSPlain: true}).encrypted(defaultDNS) {
+		t.Fatal("«как раньше» не послушались")
+	}
+	own := pcSettings{DNS: "76.76.2.0"}
+	if own.encrypted(own.resolver(defaultDNS)) {
+		t.Fatal("свой адрес выдан за шифрованный")
 	}
 }

@@ -82,8 +82,11 @@ Cloudflare, их журналы — отдельная история, и нас
 владелец может посмотреть на него средствами системы, минуя код Marvia:
 
 - **видно:** адрес, с которого пришёл покупатель; к каким адресам и портам он
-  ходит; имена сайтов (приложение часто передаёт цель именем, плюс DNS-запросы
-  через туннель и SNI в начале HTTPS); когда и сколько;
+  ходит; имена сайтов (приложение часто передаёт цель именем, плюс SNI в начале
+  HTTPS); когда и сколько. Запросы имён к Cloudflare, Google, Quad9 и AdGuard
+  по умолчанию идут через туннель по HTTPS, и нода видит только соединение с
+  резолвером; со своим адресом резолвера или с выключенным шифрованием имён
+  нода видит и их;
 - **не видно:** содержимое HTTPS — страницы, переписка, пароли, — и
   содержимое любых других зашифрованных соединений;
 - **видно целиком:** всё, что идёт без шифрования, — сайты по `http://`,
@@ -244,8 +247,11 @@ This applies to any VPN. Traffic leaves to the internet from the node, and
 its operator can observe it with system tools, bypassing Marvia's code:
 
 - **visible:** the buyer's source address; destination addresses and ports;
-  site names (the app often passes the destination by name, plus DNS queries
-  through the tunnel and SNI at the start of HTTPS); timing and volume;
+  site names (the app often passes the destination by name, plus SNI at the
+  start of HTTPS); timing and volume. Name lookups to Cloudflare, Google, Quad9
+  and AdGuard go through the tunnel over HTTPS by default, so the node only
+  sees a connection to the resolver; with a custom resolver address or name
+  encryption turned off, the node sees the lookups too;
 - **not visible:** HTTPS content — pages, messages, passwords — and the
   content of any other encrypted connection;
 - **fully visible:** anything unencrypted, such as `http://` sites.

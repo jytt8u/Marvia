@@ -923,6 +923,15 @@
                     <button class="chip" id="dns-save" type="button" data-t="dnsSave"></button>
                   </div>
                 </div>
+                <!--
+                  Шифрование имён: к известному резолверу запросы уходят по
+                  HTTPS внутри туннеля, и нода видит только соединение с ним.
+                  «Выключено» — открытый DNS через туннель, как раньше.
+                -->
+                <div>
+                  <div class="grow"><span class="name" data-t="dnsSecure"></span><span class="sub" data-t="dnsSecureHint"></span><span class="sub" id="dns-secure-msg"></span></div>
+                  <button class="chip" id="dns-secure" type="button" aria-pressed="false"></button>
+                </div>
               </div>
             </div>
 
@@ -1137,6 +1146,9 @@ const T = {
     dnsHint: "Чей резолвер отвечает на запросы имён. Сами запросы при любом выборе идут через туннель: выбор только в том, кто на другом конце, — у AdGuard, например, есть фильтр рекламы.",
     dnsSave: "Свой адрес", dnsCustom: "например 1.0.0.1",
     dnsNext: "Применится при следующем подключении",
+    dnsSecure: "Шифровать запросы имён",
+    dnsSecureHint: "Запросы к Cloudflare, Google, Quad9 или AdGuard уходят по HTTPS внутри туннеля: нода продавца видит соединение с резолвером, но не то, какие сайты ты ищешь. Адреса сайтов и имя в TLS-приветствии она видит по-прежнему. Выключено — открытый DNS через туннель, как раньше.",
+    dnsSecureOwn: "Свой адрес шифровать нечем: имена к нему идут открытым DNS через туннель",
     reports: "Отчёты о доступности нод",
     reportsHint: "Для ключа Marvia: при подключении отправлять результаты замеров панели продавца — она ставит выше ноды, до которых люди доходят. На выбор ноды здесь не влияет.",
     reportsOn: "Отправлять", reportsOff: "Не отправлять",
@@ -1293,6 +1305,9 @@ const T = {
     dnsHint: "Whose resolver answers name lookups. Whatever you choose, the lookups themselves go through the tunnel — the choice is only who is at the other end; AdGuard, for one, filters ads.",
     dnsSave: "Own address", dnsCustom: "e.g. 1.0.0.1",
     dnsNext: "Applies on the next connection",
+    dnsSecure: "Encrypt name lookups",
+    dnsSecureHint: "Lookups to Cloudflare, Google, Quad9 or AdGuard go over HTTPS inside the tunnel: the seller's node sees a connection to the resolver, not which sites you look up. It still sees site addresses and the name in the TLS hello. Off means plain DNS through the tunnel, as before.",
+    dnsSecureOwn: "A custom address cannot be encrypted: lookups to it go as plain DNS through the tunnel",
     reports: "Node availability reports",
     reportsHint: "For Marvia keys: send measurement results to the seller panel when connecting — it ranks higher the nodes people can reach. Node selection here is unaffected.",
     reportsOn: "Send", reportsOff: "Do not send",
@@ -2511,6 +2526,15 @@ function paintConn() {
   if (document.activeElement !== custom) custom.value = known ? "" : conn.dns || "";
   $("dns-save").setAttribute("aria-pressed", String(!known));
   $("dns-msg").textContent = conn.dns_in_use && conn.dns_in_use !== conn.dns ? d.dnsNext : "";
+
+  const sec = $("dns-secure");
+  sec.textContent = conn.dns_secure ? d.toggleOn : d.toggleOff;
+  sec.setAttribute("aria-pressed", String(!!conn.dns_secure));
+  // Свой адрес шифровать нечем — говорим прямо, а не держим включённый
+  // переключатель, за которым ничего не происходит.
+  $("dns-secure-msg").textContent = conn.dns_secure && !conn.dns_secure_now ? d.dnsSecureOwn
+    : conn.dns_secure_in_use !== undefined && conn.dns_secure_in_use !== conn.dns_secure_now ? d.dnsNext
+    : "";
 }
 async function loadConn() {
   try {
@@ -2538,6 +2562,7 @@ on("lan", "click", () => changeConn($("lan"), { lan_outside: !conn.lan_outside }
 on("reports", "click", () => changeConn($("reports"), { reports: !conn.reports }, "reports-msg"));
 on("ipv6", "click", () => changeConn($("ipv6"), { ipv6: !conn.ipv6 }, "ipv6-msg"));
 on("fragment", "click", () => changeConn($("fragment"), { fragment: !conn.fragment }, "fragment-msg"));
+on("dns-secure", "click", () => changeConn($("dns-secure"), { dns_secure: !conn.dns_secure }, "dns-secure-msg"));
 for (const b of document.querySelectorAll("#dns-pick [data-dns]")) {
   b.addEventListener("click", () => changeConn(b, { dns: b.dataset.dns }, "dns-msg"));
 }

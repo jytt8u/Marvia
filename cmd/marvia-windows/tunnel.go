@@ -18,6 +18,7 @@ import (
 	"github.com/jytt8u/marvia/internal/client"
 	"github.com/jytt8u/marvia/internal/foreign"
 	"github.com/jytt8u/marvia/internal/routes"
+	"github.com/jytt8u/marvia/internal/securedns"
 	"github.com/jytt8u/marvia/internal/tunbridge"
 	"github.com/jytt8u/marvia/internal/vp1"
 	"github.com/jytt8u/marvia/internal/wintun"
@@ -154,6 +155,10 @@ type Controller struct {
 
 	// dnsInUse — резолвер поднятого туннеля; пусто, пока туннеля нет.
 	dnsInUse string
+
+	// dnsSecureInUse — идут ли имена поднятого туннеля по HTTPS; nil, пока
+	// туннеля нет.
+	dnsSecureInUse *bool
 
 	// fragmentInUse — режется ли приветствие у поднятого туннеля; nil, пока
 	// туннеля нет.
@@ -553,11 +558,19 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	// обычная сеть компьютера, и в расход туннеля она попадать не должна —
 	// на телефоне такие подсети до моста не доходят вовсе и тоже не
 	// считаются.
+	tunnel := tunbridge.Metered(dialer, &c.up, &c.down)
+	names, err := c.names(dns, set, tunnel)
+	if err != nil {
+		_ = adapter.Close()
+		_ = dialer.Close()
+		return err
+	}
 	bridge, err := tunbridge.Start(tunbridge.Config{
 		Endpoint: adapter.Endpoint(),
 		MTU:      c.mtu,
-		Dialer:   tunbridge.Split(tunbridge.Metered(dialer, &c.up, &c.down), localNetwork, c.around),
+		Dialer:   tunbridge.Split(tunnel, localNetwork, c.around),
 		DNS:      dns,
+		Names:    names,
 		NoIPv6:   set.IPv6Off,
 		OnError:  func(err error) { c.log.add("%s", sayf("logConn", err)) },
 	})
@@ -578,6 +591,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	c.dialer, c.adapter, c.bridge = dialer, adapter, bridge
 	c.node, c.ping = node, ping
 	c.dnsInUse = dnsAddr.String()
+	c.dnsSecureInUse = boolPtr(names != nil)
 	c.fragmentInUse = &set.Fragment
 	c.ipv6InUse = boolPtr(!set.IPv6Off)
 	c.until, c.limitBytes, c.leftBytes = subscriptionOf(dialer)
@@ -595,6 +609,26 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	c.log.add("%s", sayf("logTunnelUp", node.Name))
 
 	return nil
+}
+
+// names — кто ответит на запросы имён: резолвер по HTTPS или nil — открытый
+// DNS через туннель, как раньше.
+//
+// Резолверу отдаётся дозвон туннеля, а не развилка: соединение с ним мимо
+// туннеля — это DoH, видный провайдеру, а его блокируют; да и адрес
+// резолвера в российском списке оказаться может.
+func (c *Controller) names(resolver string, set pcSettings, tunnel tunbridge.Dialer) (tunbridge.Names, error) {
+	if !set.encrypted(resolver) {
+		c.log.add("%s", say("logNamesPlain"))
+		return nil, nil
+	}
+	servers, _ := securedns.For(resolver)
+	r, err := securedns.New(securedns.Config{Servers: servers, Dial: tunbridge.DialAddr(tunnel)})
+	if err != nil {
+		return nil, err
+	}
+	c.log.add("%s", sayf("logNamesSecure", servers[0].Name))
+	return r, nil
 }
 
 // Disconnect убирает туннель и всё, что под него настраивалось.
@@ -623,6 +657,7 @@ func (c *Controller) Disconnect() {
 	c.reason = ""
 	c.node = client.Node{}
 	c.dnsInUse = ""
+	c.dnsSecureInUse = nil
 	c.fragmentInUse = nil
 	c.ipv6InUse = nil
 	c.until, c.limitBytes, c.leftBytes = "", 0, 0

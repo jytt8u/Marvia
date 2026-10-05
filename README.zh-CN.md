@@ -98,8 +98,8 @@ VP1 不兼容 WireGuard 或 Xray 客户端。
 
 | 客户端 | 服务器 |
 |---|---|
-| Android：支持 Marvia 和第三方密钥、节点选择、用量统计及 VPN 设置，卖家的“续费”和“客服” | 面板与节点：限额、流量统计、套餐与两步续费、二维码和 Telegram 文案、备份、机器人 API，以及从 Marzban 和 3x-ui 迁移；订阅中为 Happ、v2RayTun、Hiddify 提供客服与续费链接和公告 |
-| Windows：TUN 客户端，俄罗斯网站与家庭网络直连，可选 DNS，TLS 握手分片，多个密钥，每周流量，IPv6 与报告开关，卖家的“客服”和“续费” | VP1、VLESS 和 Trojan；经过校验的节点更新 |
+| Android：支持 Marvia 和第三方密钥、节点选择、用量统计及 VPN 设置，域名查询经 HTTPS 发出、节点看不到，卖家的“续费”和“客服” | 面板与节点：限额、流量统计、套餐与两步续费、二维码和 Telegram 文案、备份、机器人 API，以及从 Marzban 和 3x-ui 迁移；订阅中为 Happ、v2RayTun、Hiddify 提供客服与续费链接和公告 |
+| Windows：TUN 客户端，俄罗斯网站与家庭网络直连，可选 DNS 及加密域名查询，TLS 握手分片，多个密钥，每周流量，IPv6 与报告开关，卖家的“客服”和“续费” | VP1、VLESS 和 Trojan；经过校验的节点更新 |
 
 手动选择节点后，客户端无需等待所有其他节点测速；若所选节点不可用，再检查备用节点。
 
@@ -171,6 +171,8 @@ sudo sh install-panel.sh --domain panel.example.com --email you@example.com --po
   单独撤销设备。
 - Windows 上的按应用分流、kill switch、月度统计和从二维码图片读取密钥：
   目前只有手机端具备。
+- 加密域名查询（DoH）已有测试覆盖，但尚未在真实手机和电脑上验证。它向节点
+  隐藏域名，但不隐藏网站地址和 TLS 握手中的域名（SNI）：节点仍能看到这些。
 
 当前处于 alpha 开发阶段；未来经过验证的 1.x 版本计划使机器人 API、`marvia://` 链接及订阅格式在整个 1.x 系列中
 保持向后兼容。Marvia 不销售 VPN 访问权限、不处理付款，也不代管服务器。

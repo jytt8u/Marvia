@@ -36,32 +36,43 @@ func ExchangeOverTCP(stream io.ReadWriter, query []byte) ([]byte, error) {
 	if len(query) < minDNSMessage {
 		return nil, fmt.Errorf("%w: %d байт", ErrShortDNSMessage, len(query))
 	}
-	if len(query) > maxDNSMessage {
-		return nil, fmt.Errorf("запрос длиной %d байт не помещается в заголовок длины", len(query))
-	}
-
-	// Заголовок и сообщение уходят одной записью: разбивать их на две — значит
-	// рисовать на проводе лишнюю пару мелких пакетов там, где её не бывает.
-	framed := make([]byte, 2+len(query))
-	binary.BigEndian.PutUint16(framed[:2], uint16(len(query)))
-	copy(framed[2:], query)
-
-	if _, err := stream.Write(framed); err != nil {
+	if err := writeFramed(stream, query); err != nil {
 		return nil, fmt.Errorf("отправка запроса: %w", err)
 	}
-
-	var head [2]byte
-	if _, err := io.ReadFull(stream, head[:]); err != nil {
-		return nil, fmt.Errorf("чтение длины ответа: %w", err)
-	}
-	size := int(binary.BigEndian.Uint16(head[:]))
-	if size < minDNSMessage {
-		return nil, fmt.Errorf("%w: ответ %d байт", ErrShortDNSMessage, size)
-	}
-
-	answer := make([]byte, size)
-	if _, err := io.ReadFull(stream, answer); err != nil {
+	answer, err := readFramed(stream)
+	if err != nil {
 		return nil, fmt.Errorf("чтение ответа: %w", err)
 	}
 	return answer, nil
+}
+
+// writeFramed пишет сообщение DNS с двухбайтовым заголовком длины.
+func writeFramed(w io.Writer, msg []byte) error {
+	if len(msg) > maxDNSMessage {
+		return fmt.Errorf("сообщение длиной %d байт не помещается в заголовок длины", len(msg))
+	}
+	// Заголовок и сообщение уходят одной записью: разбивать их на две — значит
+	// рисовать на проводе лишнюю пару мелких пакетов там, где её не бывает.
+	framed := make([]byte, 2+len(msg))
+	binary.BigEndian.PutUint16(framed[:2], uint16(len(msg)))
+	copy(framed[2:], msg)
+	_, err := w.Write(framed)
+	return err
+}
+
+// readFramed читает сообщение DNS с двухбайтовым заголовком длины.
+func readFramed(r io.Reader) ([]byte, error) {
+	var head [2]byte
+	if _, err := io.ReadFull(r, head[:]); err != nil {
+		return nil, err
+	}
+	size := int(binary.BigEndian.Uint16(head[:]))
+	if size < minDNSMessage {
+		return nil, fmt.Errorf("%w: %d байт", ErrShortDNSMessage, size)
+	}
+	msg := make([]byte, size)
+	if _, err := io.ReadFull(r, msg); err != nil {
+		return nil, err
+	}
+	return msg, nil
 }

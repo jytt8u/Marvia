@@ -8,16 +8,16 @@ Whoever hands out access installs the panel with one script and adds each node
 with a line copied from the panel. Whoever connects gets a single link: the app
 picks a node by itself and, if it stops responding, looks for a working one.
 
-[Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
+[Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [فارسی](README.fa.md)
 
-[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.12.2/marvia-android.apk)
-[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)
+[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.3/marvia-android.apk)
+[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#install-the-panel)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
-**Stage: alpha, `0.13.0-alpha.1`.** 1.0 is postponed until it is verified on
+**Stage: alpha, `0.13.0-alpha.3`.** 1.0 is postponed until it is verified on
 real devices and networks — [criteria (Russian)](docs/development-plan.md).
-The published v0.12.2 is a test build and is not declared stable.
+The latest test build is [v0.13.0-alpha.3](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3); it is not declared stable.
 
 [Your VPN from scratch (Russian)](docs/start-from-zero.md) · [Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
 
@@ -118,21 +118,22 @@ other node. If the selected node is unavailable, the client checks fallbacks.
 | [3x-ui](https://docs.sanaei.dev/docs/) | Xray panel | Broad protocol and administration support |
 
 Marvia still lacks automatic monthly quota resets. Buyers move from Marzban and 3x-ui with their existing keys and
-subscription addresses â [what changes on the way (Russian)](docs/guide.md#Ð¿ÐµÑÐµÐµÐ·Ð´-Ñ-marzban-Ð¸-3x-ui). The linked project documentation
+subscription addresses — [what changes on the way (Russian)](docs/guide.md#переезд-с-marzban-и-3x-ui). The linked project documentation
 supports the feature comparison; no matched speed ranking is available.
 
 ## Get started
 
-> **Have a key?** Download the [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.12.2/marvia-android.apk)
-> or read the [Windows setup instructions](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент),
+> **Have a key?** Download the [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.3/marvia-android.apk)
+> or the [Windows installer](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3) (`marvia-windows-setup.exe`;
+> [details (Russian)](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)),
 > add a `marvia://…` link in the app, and connect.
 
 Android also accepts VLESS, VMess, Trojan, Shadowsocks, Hysteria2 and WireGuard
 links. The app is not yet on Google Play.
 
-v0.12.2 is for testing. Do not downgrade an installed fixed client just for its
-version number. The complete Windows installer and new APK are being prepared
-in alpha; verification on real devices is not complete.
+0.13.0-alpha.3 is a test release: the complete Windows installer and the APK
+are built on GitHub from the tag, but verification on real devices is not
+complete. Known limitations are in the [changelog (Russian)](CHANGELOG.md).
 
 ### Verify the files
 
@@ -146,11 +147,12 @@ certificate SHA-256 fingerprint:
 Check it on the phone with [AppVerifier](https://github.com/soupslurpr/AppVerifier)
 or on a computer with `apksigner verify --print-certs marvia-android.apk` from
 the Android SDK. A different fingerprint means it is not our file. Once
-installed, Android refuses updates signed with another key. The APK is still
-built by the author rather than on GitHub, so the signature proves who
-released it, not which source it was built from.
+installed, Android refuses updates signed with another key.
 
-**Panel, node and Windows** files are built on GitHub from the tag. The
+**The APK from 0.13.0-alpha.3 on, panel, node and Windows** files are built
+on GitHub from the tag. APKs of earlier releases were built by the author
+locally: their signature proves who released them, not which source they were
+built from. The
 checksums of all files are signed through Sigstore, proving this repository's
 build produced them:
 

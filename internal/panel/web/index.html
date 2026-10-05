@@ -334,8 +334,9 @@
   как есть, вместе с его же языком шаблонов: sc-for, sc-if и {{ }}. Так правку
   дизайна можно перенести обратной вставкой, а не переписыванием.
 
-  Разделов «Тарифы», «Платежи», «Рассылка», «Логи и аудит» здесь нет намеренно:
-  их нет ни в базе, ни в API, а нарисованный раздел — это обещание.
+  Разделов «Платежи» и «Рассылка» здесь нет намеренно: их нет ни в базе, ни в
+  API, а нарисованный раздел — это обещание. Тарифы — кнопка на странице
+  клиентов, журнал — раздел расширенного режима.
 -->
 <template id="shell">
   <div style="height: 100%; background: var(--bgcss, var(--bg, #05100a)); display: flex; flex-direction: column; overflow: hidden;">
@@ -364,6 +365,19 @@
             <div>{{ n.label }}</div>
           </div>
         </sc-for>
+        <!--
+          Простой режим по умолчанию: четыре раздела, с которыми продают.
+          Ключи ботов, журнал, обновления, статистика и вид — в расширенном.
+          Переключатель внизу меню и запоминается.
+        -->
+        <div style="flex: 1;"></div>
+        <div style="{{ modeStyle }}" data-focus="nav-mode" role="switch" aria-checked="{{ modeOn }}" onClick="{{ doMode }}">
+          <div style="{{ modeKnob }}"></div>
+          <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+            <div style="font-size: 12px; color: var(--fg);">{{ d18.mode.label }}</div>
+            <div style="font-size: 11px; line-height: 1.35; color: var(--dim);">{{ modeNote }}</div>
+          </div>
+        </div>
       </div>
 
       <div style="flex: 1; min-width: 0; padding: 22px 26px; display: flex; flex-direction: column; gap: 18px; overflow: hidden;">
@@ -391,6 +405,11 @@
           <input id="q" type="text" style="{{ searchStyle }}" value="{{ q }}"
                  placeholder="{{ d18.search }}" aria-label="{{ d18.search }}" autocomplete="off" spellcheck="false"
                  onInput="{{ doSearch }}">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;" role="group" aria-label="{{ d18.filters.label }}">
+            <sc-for list="{{ filterChips }}" as="f">
+              <div style="{{ f.style }}" role="button" tabindex="0" aria-pressed="{{ f.pressed }}" onClick="{{ f.onClick }}">{{ f.label }}</div>
+            </sc-for>
+          </div>
         </sc-if>
 
         <sc-if value="{{ hasError }}">
@@ -1069,6 +1088,13 @@ const state = {
   backdropName: "",
   backdropBad: "",
   q: "",
+  // Фильтр клиентов: all, expiring, traffic, idle, off или plan:<номер>.
+  // Помним между заходами: продавец обычно смотрит одно и то же — кто
+  // истекает, — и выбирать это заново каждый раз незачем.
+  filter: (() => { try { return localStorage.getItem("marvia-filter") || "all"; } catch (_) { return "all"; } })(),
+  // Расширенный режим — все разделы и тонкие настройки. Выключен, пока его
+  // не включили: панель встречает простой, а профи включает один раз.
+  advanced: (() => { try { return localStorage.getItem("marvia-advanced") === "1"; } catch (_) { return false; } })(),
   rowsPage: 1,
   loading: false,
   error: null,
@@ -1820,7 +1846,9 @@ function nodeSheet(node) {
     if ((node.fingerprint || "").replace("chrome", "") === name) option.setAttribute("selected", "");
     fp.append(option);
   }
-  form.push(el("label", { text: d.node.fp[0] }, fp, el("span", { cls: "note", text: d.node.fp[1] })));
+  // Отпечаток — тонкая настройка: в простом режиме поле не показываем, а
+  // сохраняем то, что уже выбрано, — fp.value берётся из списка и без него.
+  if (state.advanced) form.push(el("label", { text: d.node.fp[0] }, fp, el("span", { cls: "note", text: d.node.fp[1] })));
 
   // Запасные имена прикрытия — только под REALITY: там ноду подтверждает её
   // ключ, а не сертификат, и в SNI годится любое принимаемое имя. При обычном
@@ -1837,7 +1865,7 @@ function nodeSheet(node) {
 
   sheet(node.name || node.address, facts.concat(form), [
     btn(d.node.save, "go", () => act(async () => {
-      await api("/api/v1/nodes/" + node.id, "PATCH", { name: val("nd-name"), country: val("nd-country"), fingerprint: val("nd-fp") });
+      await api("/api/v1/nodes/" + node.id, "PATCH", { name: val("nd-name"), country: val("nd-country"), fingerprint: fp.value });
       closeSheet();
       toast(d.node.saved);
       await loadAll();
@@ -2103,6 +2131,8 @@ const TEXTS = {
 
     cta: { clients: "+ Клиент", nodes: "+ Нода", keys: "+ Ключ", plans: "Тарифы" },
     search: "Поиск по имени или номеру у бота",
+    mode: { label: "Расширенный режим", on: "Все разделы и тонкие настройки нод", off: "Включи, чтобы видеть ключи ботов, журнал, обновления, статистику и вид" },
+    filters: { label: "Показать клиентов", all: "Все", expiring: "Истекают за 7 дней", traffic: "Кончается трафик", idle: "Не заходили неделю", off: "Отключены" },
 
     start: {
       title: "С чего начать",
@@ -2453,6 +2483,8 @@ const TEXTS = {
 
     cta: { clients: "+ Client", nodes: "+ Node", keys: "+ Key", plans: "Plans" },
     search: "Search by name or bot id",
+    mode: { label: "Advanced mode", on: "Every section and fine node settings", off: "Turn on to see bot keys, the log, updates, statistics and appearance" },
+    filters: { label: "Show clients", all: "All", expiring: "Expire within 7 days", traffic: "Running out of traffic", idle: "Away for a week", off: "Disabled" },
 
     start: {
       title: "Where to start",
@@ -2898,6 +2930,12 @@ const PAGES = ["dash", "clients", "keys", "nodes", "stats", "alerts", "journal",
 // их не показываем: кнопка, за которой всегда «не положено», — пустое обещание.
 const ADMIN_PAGES = ["keys", "alerts", "journal", "updates"];
 
+// SIMPLE_PAGES — меню простого режима. Человек, который только поставил
+// панель, должен видеть то, с чем продают: обзор, клиентов, ноды и связь с
+// покупателями (она на странице оповещений). Девять разделов с первого входа
+// пугают больше, чем помогают; остальные — в расширенном режиме.
+const SIMPLE_PAGES = ["dash", "clients", "nodes", "alerts"];
+
 // Сколько строк на странице. Полсотни — столько влезает в экран прокруткой и
 // столько человек ещё готов просмотреть глазами, не листая.
 const ROWS = 50;
@@ -2906,7 +2944,16 @@ function setState(patch) {
   // Смена раздела или запроса сбрасывает лист. Иначе продавец, стоявший на
   // четвёртой странице, ищет одного человека и видит «никого нет»: найденных
   // трое, а он смотрит на четвёртую полусотню.
-  if ("page" in patch || "q" in patch) state.rowsPage = 1;
+  if ("page" in patch || "q" in patch || "filter" in patch) state.rowsPage = 1;
+  if ("filter" in patch) { try { localStorage.setItem("marvia-filter", patch.filter); } catch (_) { /* приватное окно */ } }
+  // Переход в раздел расширенного режима из простого — например, шагом «С
+  // чего начать» к ключам ботов — включает расширенный режим: иначе человек
+  // оказался бы на странице, которой нет в его меню.
+  if ("page" in patch && !state.advanced && !("advanced" in patch) && !SIMPLE_PAGES.includes(patch.page)) patch.advanced = true;
+  if ("advanced" in patch) {
+    try { localStorage.setItem("marvia-advanced", patch.advanced ? "1" : "0"); } catch (_) { /* приватное окно */ }
+    if (!patch.advanced && !SIMPLE_PAGES.includes(patch.page || state.page)) patch.page = "dash";
+  }
   Object.assign(state, patch);
   if (Look.KEYS.some((k) => k in patch)) saveLook();
   render();
@@ -3049,9 +3096,34 @@ function renderVals() {
   // Показатели считаем по всем: поиск — это способ найти одного, а не
   // основание врать про то, сколько у продавца покупателей.
   const q = state.q.trim().toLowerCase();
-  const shown = q
+  const found = q
     ? users.filter((u) => ((u.label || "") + " " + (u.external_id || "") + " #" + u.id).toLowerCase().includes(q))
     : users;
+
+  // Готовые фильтры — те вопросы, ради которых продавец открывает список:
+  // кому продлевать, у кого кончается трафик, кто перестал заходить.
+  const weekAgo = Date.now() - 7 * 86400000;
+  const FILTERS = [
+    ["all", () => true],
+    ["expiring", (u) => { const left = daysLeft(u.expires_at); return u.enabled && left !== null && left >= 0 && left <= 7; }],
+    ["traffic", (u) => u.enabled && u.traffic_limit > 0 && (u.traffic_limit - u.used) * 10 < u.traffic_limit],
+    ["idle", (u) => u.enabled && !u.online && (!u.last_seen || new Date(u.last_seen).getTime() < weekAgo)],
+    ["off", (u) => !u.enabled],
+    ...(state.plans || []).map((p) => ["plan:" + p.id, (u) => u.plan_id === p.id, p.name]),
+  ];
+  const active = FILTERS.find(([k]) => k === state.filter) || FILTERS[0];
+  const shown = found.filter(active[1]);
+  const filterChips = FILTERS.map(([k, fn, name]) => {
+    const on = k === active[0];
+    const count = found.filter(fn).length;
+    return {
+      label: (name || d18.filters[k]) + (k === "all" ? "" : " · " + count),
+      pressed: String(on),
+      onClick: () => setState({ filter: k }),
+      style: "padding:7px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;"
+        + (on ? "background:" + t.acc + ";color:" + t.accFg + ";" : "background:" + t.surf + ";color:" + t.dim + ";border:1px solid " + t.line + ";"),
+    };
+  });
 
   // Пока не знаем, что в панели (первый ответ ещё в полёте) — подзаголовки,
   // считающие клиентов, ноды, трафик и приложения, показали бы нули и
@@ -3059,7 +3131,7 @@ function renderVals() {
   // !known говорим честное «пока не знаю», а не рисуем пустоту как факт.
   const subFor = {
     dash: d18.sub.dash,
-    clients: state.known ? d18.sub.clients(shown.length, users.length, activeUsers, !!q) : d18.err.unknown,
+    clients: state.known ? d18.sub.clients(shown.length, users.length, activeUsers, !!q || active[0] !== "all") : d18.err.unknown,
     keys: d18.sub.keys,
     nodes: state.known ? d18.sub.nodes(nodes.length, liveNodes) : d18.err.unknown,
     stats: state.known ? d18.sub.stats(bytes(total)) : d18.err.unknown,
@@ -3070,7 +3142,8 @@ function renderVals() {
     look: d18.sub.look,
   };
 
-  const nav = PAGES.filter((k) => state.admin !== false || !ADMIN_PAGES.includes(k)).map((k) => ({
+  const nav = PAGES.filter((k) => (state.admin !== false || !ADMIN_PAGES.includes(k))
+    && (state.advanced || SIMPLE_PAGES.includes(k))).map((k) => ({
     k, label: d18.nav[k], current: page === k ? "page" : null,
     onClick: () => setState({ page: k }),
     style: "display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:" + t.r
@@ -3651,6 +3724,14 @@ function renderVals() {
     // Поиск нужен там, где список длинный и растёт. У нод и ключей их
     // единицы — поле поиска над тремя строками только мешает.
     hasSearch: page === "clients",
+    filterChips,
+    modeOn: String(!!state.advanced),
+    modeNote: state.advanced ? d18.mode.on : d18.mode.off,
+    doMode: () => setState({ advanced: !state.advanced }),
+    modeStyle: "display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:" + t.r
+      + "px;cursor:pointer;border:1px solid " + t.line,
+    modeKnob: "flex:none;width:26px;height:15px;border-radius:999px;box-sizing:border-box;border:2px solid "
+      + (state.advanced ? t.acc : t.dim) + ";background:" + (state.advanced ? t.acc : "transparent"),
     q: state.q,
     doSearch: (e) => setState({ q: e.target.value }),
     searchStyle: "width:100%;padding:10px 12px;border-radius:" + t.r + "px;background:" + t.surf

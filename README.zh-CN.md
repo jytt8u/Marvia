@@ -94,7 +94,7 @@ VP1 不兼容 WireGuard 或 Xray 客户端。
 
 | 客户端 | 服务器 |
 |---|---|
-| Android：支持 Marvia 和第三方密钥、节点选择、用量统计及 VPN 设置，卖家的“续费”和“客服” | 面板与节点：限额、流量统计、备份、机器人 API，以及从 Marzban 和 3x-ui 迁移；订阅中为 Happ、v2RayTun、Hiddify 提供客服与续费链接和公告 |
+| Android：支持 Marvia 和第三方密钥、节点选择、用量统计及 VPN 设置，卖家的“续费”和“客服” | 面板与节点：限额、流量统计、套餐与两步续费、二维码和 Telegram 文案、备份、机器人 API，以及从 Marzban 和 3x-ui 迁移；订阅中为 Happ、v2RayTun、Hiddify 提供客服与续费链接和公告 |
 | Windows：TUN 客户端，俄罗斯网站与家庭网络直连，可选 DNS，TLS 握手分片，多个密钥，每周流量，IPv6 与报告开关，卖家的“客服”和“续费” | VP1、VLESS 和 Trojan；经过校验的节点更新 |
 
 手动选择节点后，客户端无需等待所有其他节点测速；若所选节点不可用，再检查备用节点。

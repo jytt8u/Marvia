@@ -244,6 +244,30 @@
   }
   #veil button.go { background: var(--acc, #46e07a); color: var(--accFg, #05130b); }
   #veil button.bad { background: rgba(242, 160, 61, .16); color: #f2a03d; }
+  /* QR-код — на белом всегда: тёмная тема вокруг не должна сбивать камеру. */
+  #veil img.qr {
+    align-self: center;
+    width: 220px;
+    height: 220px;
+    image-rendering: pixelated;
+    background: #fff;
+    border-radius: 10px;
+  }
+  #veil .own { display: flex; flex-direction: column; gap: 16px; }
+  #veil [hidden] { display: none; }
+  #veil .plan {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 11px 12px;
+    border-radius: 10px;
+    background: var(--surf2, #1f2824);
+    text-align: left;
+    cursor: pointer;
+  }
+  #veil .plan b { font-size: 14px; color: var(--fg, #eaf5ee); }
+  #veil .plan span { font-size: 12px; font-weight: 400; color: var(--dim, #6c8a76); }
+  #veil .plan[aria-pressed="true"] { outline: 2px solid var(--acc, #46e07a); }
   #veil pre {
     margin: 0;
     padding: 11px 12px;
@@ -348,9 +372,14 @@
             <div style="font-size: 25px; font-weight: 700; color: var(--fg, #eaf5ee);">{{ pageTitle }}</div>
             <div style="font-size: 13px; color: var(--dim, #6c8a76); margin-top: 3px;">{{ pageSub }}</div>
           </div>
-          <sc-if value="{{ hasCta }}">
-            <div style="{{ ctaStyle }}" data-focus="page-action" onClick="{{ doCta }}">{{ pageCta }}</div>
-          </sc-if>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <sc-if value="{{ hasCta2 }}">
+              <div style="{{ cta2Style }}" data-focus="page-action-2" onClick="{{ doCta2 }}">{{ pageCta2 }}</div>
+            </sc-if>
+            <sc-if value="{{ hasCta }}">
+              <div style="{{ ctaStyle }}" data-focus="page-action" onClick="{{ doCta }}">{{ pageCta }}</div>
+            </sc-if>
+          </div>
         </div>
 
         <!--
@@ -1031,6 +1060,7 @@ const state = {
   nodes: [],
   stats: null,
   keys: [],
+  plans: [],
   // Фон: ручки живут отдельно от вида, файл — в IndexedDB и только там.
   // null до загрузки: Look объявлен ниже по файлу, и обратиться к нему
   // отсюда нельзя. Полный набор ручек приезжает из loadBackdrop.
@@ -1185,7 +1215,7 @@ async function loadAll() {
     // Ключи — только админу. Вошедший ключом бота получает на них 403, и
     // это не ошибка загрузки, а ответ «кто ты»: разделы админа ему не
     // показываем, а остальное грузим как обычно.
-    const [users, nodes, stats, keys] = await Promise.all([
+    const [users, nodes, stats, keys, plans] = await Promise.all([
       api("/api/v1/users"),
       api("/api/v1/nodes"),
       api("/api/v1/stats?days=30"),
@@ -1193,12 +1223,14 @@ async function loadAll() {
         if (err.status === 403) return { denied: true };
         throw err;
       }),
+      api("/api/v1/plans"),
     ]);
     state.admin = !(keys && keys.denied);
     state.users = (users && users.users) || [];
     state.nodes = (nodes && nodes.nodes) || [];
     state.stats = stats || null;
     state.keys = (keys && keys.keys) || [];
+    state.plans = (plans && plans.plans) || [];
 
     // Теперь мы действительно знаем, что в панели, и можем показывать числа.
     state.known = true;
@@ -1350,18 +1382,35 @@ function ask(title, text, danger) {
 function showLinks(title, links, fresh) {
   const d = L();
   const parts = [];
+  const copy = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(d.act.copied);
+    } catch (_) {
+      toast(d.act.noCopy, true);
+    }
+  };
   const add = (label, text) => {
     parts.push(el("div", { cls: "note", text: label }));
     parts.push(el("pre", { text }));
-    parts.push(btn(d.act.copy, "", async () => {
-      try {
-        await navigator.clipboard.writeText(text);
-        toast(d.act.copied);
-      } catch (_) {
-        toast(d.act.noCopy, true);
-      }
+    // QR — по нажатию, на месте кнопки: продавцу он нужен у одной ссылки из
+    // нескольких, и рисовать все сразу — лишние картинки с доступом на экране.
+    const row = el("div", { cls: "row" });
+    const qr = btn(d.links.qr, "", () => act(async () => {
+      const img = await qrImage(text);
+      row.replaceWith(img);
     }));
+    row.append(btn(d.act.copy, "", () => copy(text)), qr);
+    parts.push(row);
   };
+
+  // Главная ссылка — та, которую покупатель вставит первой: ключ для нашего
+  // приложения, если он есть, иначе подписка. С ней — три строки, что делать:
+  // продавцу не придётся каждый раз объяснять это своими словами.
+  const main = links.account || links.subscription;
+  if (main) {
+    parts.push(btn(d.links.telegram, "go", () => copy(d.links.telegramText(main))));
+  }
 
   if (links.account) add(d.links.account, links.account);
   if (links.subscription) add(d.links.subscription, links.subscription);
@@ -1401,6 +1450,93 @@ async function act(fn) {
   }
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+   Тарифы
+   ──────────────────────────────────────────────────────────────────────── */
+
+// planLine — тариф одной строкой: «30 дней · 50 ГБ · 2 устройства».
+function planLine(plan) {
+  const d = L();
+  return [
+    plan.days ? d.plan.days(plan.days) : d.time.forever,
+    plan.traffic_limit ? bytes(plan.traffic_limit) : d.plan.noTraffic,
+    plan.max_ips ? d.plan.devices(plan.max_ips) : d.plan.noDevices,
+    plan.speed_limit ? Math.round(plan.speed_limit / 125000) + d.user.mbit : "",
+    plan.note || "",
+  ].filter(Boolean).join(" · ");
+}
+
+// planPicker — тарифы кнопками, выбранный подсвечен. Кнопки, а не список:
+// тарифов у продавца два-четыре, и видеть их все сразу проще, чем раскрывать.
+function planPicker(plans, chosen, onPick) {
+  const box = el("div", { cls: "row", role: "group" });
+  const items = [];
+  const pick = (id) => {
+    for (const [b, p] of items) b.setAttribute("aria-pressed", String(p === id));
+    onPick(id);
+  };
+  for (const p of plans) {
+    const b = el("button", { type: "button", cls: "plan", "aria-pressed": "false", on: { click: () => pick(p.id) } },
+      el("b", { text: p.name }), el("span", { text: planLine(p) }));
+    items.push([b, p.id]);
+    box.append(b);
+  }
+  if (chosen !== undefined) pick(chosen);
+  return box;
+}
+
+function plansSheet() {
+  const d = L();
+  const parts = [el("div", { cls: "note", text: state.plans.length ? d.plan.intro : d.plan.empty })];
+  for (const p of state.plans) {
+    parts.push(el("button", { type: "button", cls: "plan", on: { click: () => planSheet(p) } },
+      el("b", { text: p.name }), el("span", { text: planLine(p) })));
+  }
+  sheet(d.plan.title, parts, [
+    btn(d.plan.add, "go", () => planSheet(null)),
+    btn(d.act.close, "", closeSheet),
+  ]);
+}
+
+function planSheet(plan) {
+  const d = L();
+  const p = plan || { name: "", days: 30, traffic_limit: 50 * 1024 ** 3, max_ips: 2, speed_limit: 0, note: "" };
+  const save = () => act(async () => {
+    const body = {
+      name: val("pl-name"),
+      days: num("pl-days"),
+      traffic_limit: Math.round(num("pl-gb") * 1024 ** 3),
+      max_ips: num("pl-ips"),
+      speed_limit: Math.round(num("pl-speed") * 125000),
+      note: val("pl-note"),
+    };
+    if (plan) await api("/api/v1/plans/" + plan.id, "PATCH", body);
+    else await api("/api/v1/plans", "POST", body);
+    await loadAll();
+    toast(d.plan.saved);
+    plansSheet();
+  });
+  const buttons = [btn(d.plan.save, "go", save)];
+  if (plan) {
+    buttons.push(btn(d.user.remove, "bad", () => act(async () => {
+      const [title, text] = d.plan.askRemove(plan.name);
+      if (!await ask(title, text, d.user.remove)) return;
+      await api("/api/v1/plans/" + plan.id, "DELETE");
+      await loadAll();
+      plansSheet();
+    })));
+  }
+  buttons.push(btn(d.act.cancel, "", plansSheet));
+  sheet(plan ? plan.name : d.plan.newTitle, [
+    field(d.plan.name[0], "pl-name", "text", p.name, d.plan.name[1]),
+    field(d.user.newDays[0], "pl-days", "number", p.days, d.user.newDays[1]),
+    field(d.user.newGB[0], "pl-gb", "number", Math.round(p.traffic_limit / 1024 ** 3 * 10) / 10, d.user.newGB[1]),
+    field(d.user.newIPs[0], "pl-ips", "number", p.max_ips, d.user.newIPs[1]),
+    field(d.user.newSpeed[0], "pl-speed", "number", Math.round(p.speed_limit / 125000), d.user.newSpeed[1]),
+    field(d.plan.note[0], "pl-note", "text", p.note || "", d.plan.note[1]),
+  ], buttons);
+}
+
 function newUserSheet() {
   const d = L();
   const kinds = el("fieldset", { cls: "kinds" }, el("legend", { text: d.user.kinds }));
@@ -1410,29 +1546,50 @@ function newUserSheet() {
     kinds.append(el("label", {}, input, el("span", { text: kind + " · " + d.user.kindNote[kind] })));
   }
 
-  const box = sheet(d.user.newTitle, [
-    field(d.user.newLabel[0], "nu-label", "text", "", d.user.newLabel[1]),
+  // По тарифу — по умолчанию, если тарифы есть: это и быстрее, и без
+  // опечаток. «Свои значения» открывают прежние поля для особого случая.
+  let planID = state.plans.length ? state.plans[0].id : null;
+  const own = el("div", { cls: "own" },
     field(d.user.newDays[0], "nu-days", "number", 30, d.user.newDays[1]),
     field(d.user.newGB[0], "nu-gb", "number", 100, d.user.newGB[1]),
     field(d.user.newIPs[0], "nu-ips", "number", 3, d.user.newIPs[1]),
-    field(d.user.newSpeed[0], "nu-speed", "number", 0, d.user.newSpeed[1]),
-    kinds,
-  ], [
+    field(d.user.newSpeed[0], "nu-speed", "number", 0, d.user.newSpeed[1]));
+  const ownToggle = btn(d.plan.own, "", () => {
+    planID = null;
+    for (const b of picker.querySelectorAll(".plan")) b.setAttribute("aria-pressed", "false");
+    own.hidden = false;
+    ownToggle.hidden = true;
+  });
+  const picker = planPicker(state.plans, planID === null ? undefined : planID, (id) => {
+    planID = id;
+    own.hidden = true;
+    ownToggle.hidden = false;
+  });
+  own.hidden = planID !== null;
+  ownToggle.hidden = planID === null;
+
+  const parts = [field(d.user.newLabel[0], "nu-label", "text", "", d.user.newLabel[1])];
+  if (state.plans.length) parts.push(el("div", { cls: "note", text: d.plan.pick }), picker, ownToggle);
+  else if (state.admin) parts.push(el("div", { cls: "note", text: d.plan.hint }));
+  parts.push(own, kinds);
+
+  const box = sheet(d.user.newTitle, parts, [
     btn(d.user.create, "go", () => act(async () => {
       const picked = Array.from(box.querySelectorAll(".kinds input:checked")).map((i) => i.value);
       if (!picked.length) { toast(d.user.pickKind, true); return; }
 
-      const body = {
-        label: val("nu-label"),
-        traffic_limit: Math.round(num("nu-gb") * 1024 * 1024 * 1024),
-        max_ips: num("nu-ips"),
+      const body = { label: val("nu-label"), kinds: picked };
+      if (planID !== null) {
+        body.plan_id = planID;
+      } else {
+        body.traffic_limit = Math.round(num("nu-gb") * 1024 * 1024 * 1024);
+        body.max_ips = num("nu-ips");
         // Продавец думает мегабитами, нода считает байтами. 1 Мбит/с — ровно
         // 125 000 Б/с, так что обратный пересчёт в панели не округляет.
-        speed_limit: Math.round(num("nu-speed") * 125000),
-        kinds: picked,
-      };
-      const days = num("nu-days");
-      if (days > 0) body.expires_at = new Date(Date.now() + days * 86400000).toISOString();
+        body.speed_limit = Math.round(num("nu-speed") * 125000);
+        const days = num("nu-days");
+        if (days > 0) body.expires_at = new Date(Date.now() + days * 86400000).toISOString();
+      }
 
       const res = await api("/api/v1/users", "POST", body);
       await loadAll();
@@ -1440,6 +1597,40 @@ function newUserSheet() {
     })),
     btn(d.act.cancel, "", closeSheet),
   ]);
+}
+
+// renewSheet — продление по тарифу. Тариф покупателя выбран заранее: чаще
+// всего продлевают тем же, чем купили.
+function renewSheet(user) {
+  const d = L();
+  const known = state.plans.some((p) => p.id === user.plan_id);
+  let planID = known ? user.plan_id : state.plans[0].id;
+  sheet(d.plan.renewTitle(user.label || "#" + user.id), [
+    el("div", { cls: "note", text: d.plan.renewNote }),
+    planPicker(state.plans, planID, (id) => { planID = id; }),
+  ], [
+    btn(d.plan.renew, "go", () => act(async () => {
+      await api("/api/v1/users/" + user.id + "/renew", "POST", { plan_id: planID });
+      closeSheet();
+      toast(d.plan.renewed);
+      await loadAll();
+    })),
+    btn(d.act.cancel, "", closeSheet),
+  ]);
+}
+
+// qrImage — QR-код ссылки картинкой. Рисует панель: ссылку с доступом не
+// отдаём ни в какой внешний сервис, а скрипты со стороны CSP не пускает.
+async function qrImage(text) {
+  const res = await fetch("/api/v1/qr", {
+    method: "POST",
+    signal: AbortSignal.timeout(API_TIMEOUT),
+    headers: { Authorization: "Bearer " + state.token, "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error(L().err.code(res.status));
+  const url = URL.createObjectURL(await res.blob());
+  return el("img", { cls: "qr", src: url, alt: L().links.qrAlt });
 }
 
 function userSheet(user) {
@@ -1510,13 +1701,33 @@ function userSheet(user) {
     facts.push(row);
   }
 
-  sheet(name, facts, [
-    btn(d.user.extend, "go", () => act(async () => {
-      await api("/api/v1/users/" + user.id, "PATCH", { extend_by: "30d", enabled: true });
+  const plan = state.plans.find((p) => p.id === user.plan_id);
+  if (plan) facts.splice(1, 0, el("div", { cls: "note", text: d.plan.of + ": " + plan.name }));
+
+  // Обнулить расход — подарить трафик или исправить ошибку, не трогая срок.
+  // Только если лимит есть: без лимита обнулять нечего, кнопка была бы пустой.
+  if (user.traffic_limit && user.used) {
+    facts.push(el("div", { cls: "row" }, btn(d.plan.reset, "", () => act(async () => {
+      const [title, text, word] = d.plan.askReset(bytes(user.used));
+      if (!await ask(title, text, word)) return;
+      await api("/api/v1/users/" + user.id + "/reset-traffic", "POST");
       closeSheet();
-      toast(d.user.extended);
+      toast(d.plan.wasReset);
       await loadAll();
-    })),
+    }))));
+  }
+
+  sheet(name, facts, [
+    // С тарифами продление — по тарифу: срок, лимиты и новый период расхода
+    // разом. Без тарифов — как раньше, +30 дней к сроку.
+    state.plans.length
+      ? btn(d.plan.renew, "go", () => renewSheet(user))
+      : btn(d.user.extend, "go", () => act(async () => {
+        await api("/api/v1/users/" + user.id, "PATCH", { extend_by: "30d", enabled: true });
+        closeSheet();
+        toast(d.user.extended);
+        await loadAll();
+      })),
     btn(d.user.links, "", () => act(async () => {
       const links = await api("/api/v1/users/" + user.id + "/links");
       showLinks(name, links, false);
@@ -1890,7 +2101,7 @@ const TEXTS = {
       stats: (traffic) => "Трафик за 30 дней · " + traffic,
     },
 
-    cta: { clients: "+ Клиент", nodes: "+ Нода", keys: "+ Ключ" },
+    cta: { clients: "+ Клиент", nodes: "+ Нода", keys: "+ Ключ", plans: "Тарифы" },
     search: "Поиск по имени или номеру у бота",
 
     start: {
@@ -1961,6 +2172,8 @@ const TEXTS = {
         "key.revoke": "отозван ключ бота",
         "alerts.update": "оповещения",
         "seller.update": "связь с покупателем",
+        "user.renew": "продление по тарифу", "user.reset": "сброс трафика",
+        "plan.create": "новый тариф", "plan.update": "правка тарифа", "plan.delete": "тариф удалён",
         "panel.upgrade": "обновление панели",
         "nodes.upgrade": "обновление нод",
       },
@@ -2097,6 +2310,31 @@ const TEXTS = {
       issuedKind: (kind) => "Доступ " + kind + " выдан — отправь покупателю",
     },
 
+    plan: {
+      title: "Тарифы", newTitle: "Новый тариф",
+      intro: "Тариф — шаблон: срок, трафик и устройства. Клиент заводится и продлевается по нему в два нажатия. "
+        + "Правка тарифа уже купивших не меняет — до их следующего продления.",
+      empty: "Тарифов пока нет. Заведи «Месяц» и «Год» — и продавать станет проще, чем вписывать дни и гигабайты каждому.",
+      add: "+ Тариф", save: "Сохранить", saved: "Тариф сохранён",
+      name: ["Название", "Его видишь ты и бот, например «Месяц»"],
+      note: ["Пометка", "Цена или что угодно для себя — панель её не считает"],
+      askRemove: (name) => ["Удалить тариф «" + name + "»?",
+        "Купившие по нему останутся со своим сроком и лимитами — пропадёт только пометка тарифа."],
+      days: (n) => n + " " + pluralRU(n, "день", "дня", "дней"),
+      noTraffic: "трафик без лимита", noDevices: "устройств без ограничения",
+      devices: (n) => n + " " + pluralRU(n, "устройство", "устройства", "устройств"),
+      pick: "Тариф", own: "Свои значения вместо тарифа",
+      hint: "Подсказка: заведи тарифы кнопкой «Тарифы» вверху — тогда клиент заводится одним выбором.",
+      of: "Тариф",
+      renew: "Продлить", renewed: "Продлено",
+      renewTitle: (name) => "Продлить: " + name,
+      renewNote: "Срок добавится к текущему окончанию, лимиты станут тарифными, а расход начнётся заново — "
+        + "это новый оплаченный период.",
+      reset: "Обнулить расход", wasReset: "Расход обнулён",
+      askReset: (used) => ["Обнулить расход?", "Покупатель уже израсходовал " + used
+        + ". После обнуления он получит весь лимит заново, срок не изменится.", "Обнулить"],
+    },
+
     links: {
       once: "Секретная часть показывается один раз: панель её не хранит. "
         + "Перешли покупателю сейчас — потом останется только выпустить новую.",
@@ -2108,6 +2346,12 @@ const TEXTS = {
         + "Отправлять их покупателю нельзя. Поправь строку запуска (-sub-base https://твой-домен) "
         + "и перезапусти панель.",
       newFor: (name) => "Новый доступ для " + name,
+      qr: "QR-код", qrAlt: "QR-код ссылки",
+      telegram: "Скопировать для Telegram",
+      telegramText: (link) => "Твой доступ к VPN:\n" + link + "\n\n"
+        + "1. Поставь приложение Marvia (или Happ, v2RayTun).\n"
+        + "2. Скопируй ссылку выше и вставь её в приложение — или наведи камеру на QR-код.\n"
+        + "3. Нажми «Подключиться».",
     },
 
     node: {
@@ -2207,7 +2451,7 @@ const TEXTS = {
       stats: (traffic) => "Traffic over 30 days · " + traffic,
     },
 
-    cta: { clients: "+ Client", nodes: "+ Node", keys: "+ Key" },
+    cta: { clients: "+ Client", nodes: "+ Node", keys: "+ Key", plans: "Plans" },
     search: "Search by name or bot id",
 
     start: {
@@ -2278,6 +2522,8 @@ const TEXTS = {
         "key.revoke": "bot key revoked",
         "alerts.update": "alerts",
         "seller.update": "customer links",
+        "user.renew": "renewed by plan", "user.reset": "traffic reset",
+        "plan.create": "new plan", "plan.update": "plan edited", "plan.delete": "plan deleted",
         "panel.upgrade": "panel upgrade",
         "nodes.upgrade": "nodes upgrade",
       },
@@ -2378,6 +2624,7 @@ const TEXTS = {
       devices: "Devices", noDeviceLimit: "unlimited",
       presence: "Online", online: (n) => n + (n === 1 ? " connection" : " connections"),
       onlineOf: (n, max) => n + " of " + max + " devices", offline: "no", seen: " · last seen ", never: "never connected",
+      speed: "Speed", noSpeedLimit: "unlimited", mbit: " Mbit/s",
       creds: "Access:", noCreds: "No access issued", issued: " · issued ",
       addMore: "Issue more:",
       extend: "+30 days", extended: "Extended by 30 days",
@@ -2405,11 +2652,37 @@ const TEXTS = {
       newDays: ["Days", "0 — no expiry"],
       newGB: ["Traffic limit, GB", "0 — no limit"],
       newIPs: ["Devices", "0 — unlimited"],
+      newSpeed: ["Speed, Mbit/s", "0 — unlimited. Counted on the wire and shared by all of the buyer's devices"],
       kinds: "Access kinds",
       kindNote: { vp1: "our app", vless: "third-party clients", trojan: "third-party clients" },
       create: "Create", pickKind: "Pick at least one kind of access",
       issuedTitle: "Access issued — send it to the buyer",
       issuedKind: (kind) => kind + " access issued — send it to the buyer",
+    },
+
+    plan: {
+      title: "Plans", newTitle: "New plan",
+      intro: "A plan is a template: term, traffic and devices. A client is created and renewed from it in two clicks. "
+        + "Editing a plan does not change people who already bought it — until their next renewal.",
+      empty: "No plans yet. Add “Month” and “Year” — selling gets easier than typing days and gigabytes for everyone.",
+      add: "+ Plan", save: "Save", saved: "Plan saved",
+      name: ["Name", "You and the bot see it, e.g. “Month”"],
+      note: ["Note", "Price or anything for yourself — the panel does not use it"],
+      askRemove: (name) => ["Delete the plan “" + name + "”?",
+        "People who bought it keep their term and limits — only the plan mark goes away."],
+      days: (n) => n + (n === 1 ? " day" : " days"),
+      noTraffic: "unlimited traffic", noDevices: "unlimited devices",
+      devices: (n) => n + (n === 1 ? " device" : " devices"),
+      pick: "Plan", own: "Own values instead of a plan",
+      hint: "Tip: add plans with the Plans button at the top — then a client is created with one choice.",
+      of: "Plan",
+      renew: "Renew", renewed: "Renewed",
+      renewTitle: (name) => "Renew: " + name,
+      renewNote: "The term is added to the current end, limits become the plan's, and usage starts over — "
+        + "it is a new paid period.",
+      reset: "Reset usage", wasReset: "Usage reset",
+      askReset: (used) => ["Reset usage?", "The buyer has already used " + used
+        + ". After the reset they get the full limit again; the term stays the same.", "Reset"],
     },
 
     links: {
@@ -2423,6 +2696,12 @@ const TEXTS = {
         + "without -sub-base. Do not send them to a buyer. Fix the command line "
         + "(-sub-base https://your-domain) and restart the panel.",
       newFor: (name) => "New access for " + name,
+      qr: "QR code", qrAlt: "QR code of the link",
+      telegram: "Copy for Telegram",
+      telegramText: (link) => "Your VPN access:\n" + link + "\n\n"
+        + "1. Install the Marvia app (or Happ, v2RayTun).\n"
+        + "2. Copy the link above and paste it into the app — or point the camera at the QR code.\n"
+        + "3. Tap Connect.",
     },
 
     node: {
@@ -3283,6 +3562,13 @@ function renderVals() {
     hasCta: !!CTA[page],
     pageCta: d18.cta[page] || "",
     doCta: CTA[page] || null,
+    // Тарифы правит только админ: тариф решает, что получат за деньги все
+    // следующие покупатели. Ключ бота их видит, но кнопки ему не нужно.
+    hasCta2: page === "clients" && state.admin,
+    pageCta2: d18.cta.plans,
+    doCta2: () => plansSheet(),
+    cta2Style: "height:40px;padding:0 16px;border-radius:" + t.r + "px;border:1px solid " + t.line
+      + ";color:" + t.fg + ";display:flex;align-items:center;font-size:13px;font-weight:600;cursor:pointer",
     ctaStyle: "height:40px;padding:0 18px;border-radius:" + t.r + "px;background:" + t.acc
       + ";color:" + t.accFg + ";display:flex;align-items:center;font-size:13px;font-weight:600;cursor:pointer",
 

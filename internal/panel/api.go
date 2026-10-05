@@ -68,6 +68,17 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/users/{id}/links", a.scoped(ScopeUsers, a.userLinks))
 	mux.HandleFunc("POST /api/v1/users/{id}/credentials", a.scoped(ScopeUsers, a.addCredential))
 	mux.HandleFunc("POST /api/v1/users/{id}/sub-token", a.scoped(ScopeUsers, a.rotateSubToken))
+	mux.HandleFunc("POST /api/v1/users/{id}/renew", a.scoped(ScopeUsers, a.renewUser))
+	mux.HandleFunc("POST /api/v1/users/{id}/reset-traffic", a.scoped(ScopeUsers, a.resetTraffic))
+	mux.HandleFunc("POST /api/v1/qr", a.scoped(ScopeUsers, a.qrCode))
+
+	// Тарифы. Бот их читает, чтобы продавать то же, что видит продавец, а
+	// меняет только админ: тариф задаёт, сколько получат за деньги все
+	// следующие покупатели, и утёкший ключ бота не должен раздать «год даром».
+	mux.HandleFunc("GET /api/v1/plans", a.scoped(ScopeRead, a.listPlans))
+	mux.HandleFunc("POST /api/v1/plans", a.admin(a.createPlan))
+	mux.HandleFunc("PATCH /api/v1/plans/{id}", a.admin(a.updatePlan))
+	mux.HandleFunc("DELETE /api/v1/plans/{id}", a.admin(a.deletePlan))
 	mux.HandleFunc("POST /api/v1/credentials/{id}/rotate", a.scoped(ScopeUsers, a.rotateCredential))
 	mux.HandleFunc("DELETE /api/v1/credentials/{id}", a.scoped(ScopeUsers, a.deleteCredential))
 
@@ -311,6 +322,10 @@ func (a *API) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		if errors.Is(err, ErrPlanConflict) || errors.Is(err, ErrNoSuchPlan) {
+			fail(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		if errors.Is(err, ErrUnknownKind) {
 			fail(w, http.StatusBadRequest, err.Error())
 			return

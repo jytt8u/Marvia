@@ -20,6 +20,7 @@ require (
 	golang.zx2c4.com/wireguard/windows v1.0.1
 	gvisor.dev/gvisor v0.0.0-20260701204157-69c2d17aea96
 	modernc.org/sqlite v1.57.0
+	rsc.io/qr v0.2.0
 )
 
 require (

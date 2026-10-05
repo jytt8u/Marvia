@@ -47,6 +47,11 @@ const (
 	EventPanelUpgrade = "panel.upgrade"
 	EventNodesUpgrade = "nodes.upgrade"
 	EventSellerUpdate = "seller.update"
+	EventUserRenew    = "user.renew"
+	EventUserReset    = "user.reset"
+	EventPlanCreate   = "plan.create"
+	EventPlanUpdate   = "plan.update"
+	EventPlanDelete   = "plan.delete"
 )
 
 // ActorAdmin — действие сделано админским токеном. Ключи ботов записываются

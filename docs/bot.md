@@ -158,6 +158,59 @@ curl -X PATCH https://panel.example.com/api/v1/users/17 \
 Назначить срок абсолютно можно через `expires_at`, но вместе с `extend_by` он
 не работает: панель откажет, а не выберет одно из двух молча.
 
+## Тарифы
+
+Продавец заводит тарифы в панели: «Месяц · 50 ГБ · 2 устройства», «Год».
+Бот их читает и продаёт то же, что видит продавец, — без своего второго
+списка, который однажды разойдётся с панелью.
+
+```bash
+curl https://panel.example.com/api/v1/plans -H "Authorization: Bearer $MARVIA_KEY"
+```
+
+```json
+{"plans": [{"id": 1, "name": "Месяц", "days": 30, "traffic_limit": 53687091200,
+            "max_ips": 2, "speed_limit": 0, "note": "300 ₽", "created_at": "…"}]}
+```
+
+`days` 0 — бессрочно, нули в лимитах — без ограничения. `note` — пометка для
+людей, обычно цена; панель её не считает. Заводить и менять тарифы можно
+только админским токеном: тариф решает, сколько получат за деньги все
+следующие покупатели.
+
+**Продать по тарифу** — `plan_id` вместо срока и лимитов:
+
+```bash
+curl -X POST https://panel.example.com/api/v1/users \
+  -H "Authorization: Bearer $MARVIA_KEY" \
+  -H "Idempotency-Key: pay_8f3a1c" \
+  -d '{"label": "tg:123456789", "external_id": "123456789", "plan_id": 1}'
+```
+
+Вместе с `plan_id` поля `expires_at`, `traffic_limit`, `max_ips` и
+`speed_limit` не принимаются: панель ответит 400, а не выберет одно из двух.
+
+**Продлить по тарифу** — новый оплаченный период:
+
+```bash
+curl -X POST https://panel.example.com/api/v1/users/17/renew \
+  -H "Authorization: Bearer $MARVIA_KEY" \
+  -H "Idempotency-Key: pay_91bd07" \
+  -d '{"plan_id": 1}'
+```
+
+Срок прибавляется к текущему окончанию (или к сегодня, если доступ истёк),
+лимиты становятся тарифными, а расход начинается заново: «месяц на 50 ГБ» —
+это 50 ГБ на этот месяц. Повтор с тем же `Idempotency-Key` второй период не
+добавит. Продлить по другому тарифу — тот же запрос с его номером.
+
+**Обнулить расход** без смены срока — подарить трафик или исправить ошибку:
+
+```bash
+curl -X POST https://panel.example.com/api/v1/users/17/reset-traffic \
+  -H "Authorization: Bearer $MARVIA_KEY"
+```
+
 ## Найти покупателя
 
 ```bash

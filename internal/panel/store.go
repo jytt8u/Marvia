@@ -62,8 +62,13 @@ type User struct {
 	ExternalID string    `json:"external_id,omitempty"`
 	CreatedAt  time.Time `json:"created_at"`
 
-	// Used — суммарный расход по всем нодам, заполняется при чтении.
+	// Used — расход по всем нодам с последнего сброса или продления по
+	// тарифу, заполняется при чтении.
 	Used int64 `json:"used"`
+
+	// PlanID — тариф, по которому куплено или последний раз продлено; nil —
+	// свои значения или тариф удалён.
+	PlanID *int64 `json:"plan_id,omitempty"`
 
 	// Online, Devices, LastSeen — на связи ли он прямо сейчас. Заполняются при
 	// чтении из последнего отчёта каждой живой ноды: соединений всего,
@@ -159,6 +164,18 @@ const schema = `
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
+-- Тарифы — шаблоны срока и лимитов, см. plans.go.
+CREATE TABLE IF NOT EXISTS plans (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT    NOT NULL,
+    days          INTEGER NOT NULL DEFAULT 0,
+    traffic_limit INTEGER NOT NULL DEFAULT 0,
+    max_ips       INTEGER NOT NULL DEFAULT 0,
+    speed_limit   INTEGER NOT NULL DEFAULT 0,
+    note          TEXT    NOT NULL DEFAULT '',
+    created_at    TEXT    NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     label         TEXT    NOT NULL DEFAULT '',
@@ -171,7 +188,11 @@ CREATE TABLE IF NOT EXISTS users (
     sub_token     TEXT    NOT NULL UNIQUE,
     external_id   TEXT,
     created_at    TEXT    NOT NULL,
-    used_before   INTEGER NOT NULL DEFAULT 0
+    used_before   INTEGER NOT NULL DEFAULT 0,
+    -- Тариф, по которому куплено, и расход на момент последнего сброса (см.
+    -- plans.go). Тариф пропадает с удалением тарифа, срок и лимиты остаются.
+    plan_id       INTEGER REFERENCES plans(id) ON DELETE SET NULL,
+    traffic_offset INTEGER NOT NULL DEFAULT 0
 );
 
 -- Адреса подписки прежней панели, см. import.go. Отдельной таблицей, а не
@@ -357,6 +378,9 @@ func migrate(db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS presence (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, node_id INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE, conns INTEGER NOT NULL DEFAULT 0, ips INTEGER NOT NULL DEFAULT 0, seen_at TEXT, PRIMARY KEY (user_id, node_id))`,
 		`ALTER TABLE users ADD COLUMN used_before INTEGER NOT NULL DEFAULT 0`,
 		`ALTER TABLE nodes ADD COLUMN fingerprint TEXT NOT NULL DEFAULT ''`,
+		`CREATE TABLE IF NOT EXISTS plans (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, days INTEGER NOT NULL DEFAULT 0, traffic_limit INTEGER NOT NULL DEFAULT 0, max_ips INTEGER NOT NULL DEFAULT 0, speed_limit INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)`,
+		`ALTER TABLE users ADD COLUMN plan_id INTEGER REFERENCES plans(id) ON DELETE SET NULL`,
+		`ALTER TABLE users ADD COLUMN traffic_offset INTEGER NOT NULL DEFAULT 0`,
 		`CREATE TABLE IF NOT EXISTS sub_aliases (kind TEXT NOT NULL, key TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, secret TEXT NOT NULL DEFAULT '', not_before TEXT, PRIMARY KEY (kind, key))`,
 	}
 
@@ -446,6 +470,10 @@ type CreateUserParams struct {
 	// Задан — повторная продажа тому же ключу вернёт существующего подписчика
 	// вместо второго доступа за ту же оплату.
 	ExternalID string `json:"external_id,omitempty"`
+
+	// PlanID — завести по тарифу: срок и лимиты берутся из него. Вместе со
+	// своими сроком или лимитами не задаётся, см. ErrPlanConflict.
+	PlanID *int64 `json:"plan_id,omitempty"`
 }
 
 // Issued — выданный набор доступа. Поле Secret показывается ровно один раз.
@@ -489,6 +517,9 @@ func (s *Store) CreateUser(ctx context.Context, p CreateUserParams) (User, []Iss
 	}
 
 	now := time.Now().UTC()
+	if err := s.applyPlan(ctx, &p, now); err != nil {
+		return User{}, nil, err
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return User{}, nil, err
@@ -496,10 +527,10 @@ func (s *Store) CreateUser(ctx context.Context, p CreateUserParams) (User, []Iss
 	defer func() { _ = tx.Rollback() }()
 
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO users (label, enabled, expires_at, traffic_limit, max_ips, max_conns, speed_limit, sub_token, created_at, external_id)
-		 VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO users (label, enabled, expires_at, traffic_limit, max_ips, max_conns, speed_limit, sub_token, created_at, external_id, plan_id)
+		 VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.Label, nullTime(p.ExpiresAt.at()), p.TrafficLimit, p.MaxIPs, p.MaxConns, p.SpeedLimit, subToken, format(now),
-		nullString(p.ExternalID))
+		nullString(p.ExternalID), p.PlanID)
 	if err != nil {
 		return User{}, nil, fmt.Errorf("создание пользователя: %w", err)
 	}
@@ -539,8 +570,8 @@ func (s *Store) CreateUser(ctx context.Context, p CreateUserParams) (User, []Iss
 
 	user := User{
 		ID: id, Label: p.Label, Enabled: true, ExpiresAt: p.ExpiresAt.at(),
-		TrafficLimit: p.TrafficLimit, MaxIPs: p.MaxIPs, MaxConns: p.MaxConns,
-		SubToken: subToken, CreatedAt: now, Credentials: creds,
+		TrafficLimit: p.TrafficLimit, MaxIPs: p.MaxIPs, MaxConns: p.MaxConns, SpeedLimit: p.SpeedLimit,
+		SubToken: subToken, CreatedAt: now, Credentials: creds, PlanID: p.PlanID,
 	}
 	return user, issued, nil
 }
@@ -691,7 +722,8 @@ func (s *Store) queryUsers(ctx context.Context, where string, args ...any) ([]Us
 	query := `
 		SELECT u.id, u.label, u.enabled, u.expires_at, u.traffic_limit, u.max_ips,
 		       u.max_conns, u.speed_limit, u.sub_token, u.created_at, u.external_id,
-		       u.used_before + COALESCE((SELECT SUM(up + down) FROM usage WHERE user_id = u.id), 0),
+		       MAX(0, u.used_before + COALESCE((SELECT SUM(up + down) FROM usage WHERE user_id = u.id), 0) - u.traffic_offset),
+		       u.plan_id,
 		       COALESCE((SELECT SUM(p.conns) FROM presence p JOIN nodes n ON n.id = p.node_id
 		                 WHERE p.user_id = u.id AND n.last_seen >= ?), 0),
 		       COALESCE((SELECT SUM(p.ips) FROM presence p JOIN nodes n ON n.id = p.node_id
@@ -720,9 +752,10 @@ func (s *Store) queryUsers(ctx context.Context, where string, args ...any) ([]Us
 			createdAt string
 			external  sql.NullString
 			seen      sql.NullString
+			plan      sql.NullInt64
 		)
 		if err := rows.Scan(&u.ID, &u.Label, &enabled, &expires, &u.TrafficLimit,
-			&u.MaxIPs, &u.MaxConns, &u.SpeedLimit, &u.SubToken, &createdAt, &external, &u.Used,
+			&u.MaxIPs, &u.MaxConns, &u.SpeedLimit, &u.SubToken, &createdAt, &external, &u.Used, &plan,
 			&u.Online, &u.Devices, &seen); err != nil {
 			return nil, err
 		}
@@ -731,6 +764,9 @@ func (s *Store) queryUsers(ctx context.Context, where string, args ...any) ([]Us
 		u.ExpiresAt = parseNullTime(expires)
 		u.CreatedAt = parse(createdAt)
 		u.ExternalID = external.String
+		if plan.Valid {
+			u.PlanID = &plan.Int64
+		}
 		list = append(list, u)
 	}
 	if err := rows.Err(); err != nil {
@@ -1153,7 +1189,7 @@ func (s *Store) NodeUsers(ctx context.Context, nodeID int64) ([]users.User, erro
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT u.id, u.enabled, u.expires_at, u.traffic_limit, u.max_ips, u.max_conns, u.speed_limit,
 		       c.kind, c.secret,
-		       u.used_before + COALESCE((SELECT SUM(up + down) FROM usage WHERE user_id = u.id AND node_id <> ?), 0)
+		       u.used_before + COALESCE((SELECT SUM(up + down) FROM usage WHERE user_id = u.id AND node_id <> ?), 0) - u.traffic_offset
 		FROM users u
 		JOIN credentials c ON c.user_id = u.id
 		ORDER BY u.id, c.id`, nodeID)

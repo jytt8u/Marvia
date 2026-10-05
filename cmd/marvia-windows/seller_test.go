@@ -77,3 +77,27 @@ func TestOnlyHttpsAndTelegramLinksReachTheSystem(t *testing.T) {
 		t.Error("открылась ссылка, которой у продавца нет")
 	}
 }
+
+// Уведомление из трея всплывает один раз на ступень и не всплывает, если
+// человек уже закрыл это напоминание в окне.
+func TestTrayReminderShowsEachStepOnceAndRespectsTheWindow(t *testing.T) {
+	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	sub := client.Subscription{ExpiresAt: now.Add(60 * time.Hour).Format(time.RFC3339)}
+
+	r, show := trayReminder(sub, "", "", now)
+	if !show || r.Kind != client.ReminderExpiry {
+		t.Fatalf("за трое суток уведомления нет: %+v %v", r, show)
+	}
+	if _, again := trayReminder(sub, "", r.Key, now.Add(30*time.Minute)); again {
+		t.Fatal("то же уведомление всплыло второй раз")
+	}
+	if _, closed := trayReminder(sub, r.Key, "", now); closed {
+		t.Fatal("уведомление всплыло, хотя напоминание закрыли в окне")
+	}
+	if last, show := trayReminder(sub, "", r.Key, now.Add(40*time.Hour)); !show || last.Value != 1 {
+		t.Fatalf("последний день не всплыл: %+v %v", last, show)
+	}
+	if _, show := trayReminder(client.Subscription{}, "", "", now); show {
+		t.Fatal("уведомление без срока и лимита")
+	}
+}

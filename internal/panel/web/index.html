@@ -3011,7 +3011,10 @@ function bytes(n) {
   if (!n) return "0 " + units[0];
   let i = 0, v = n;
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-  return (v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)) + " " + units[i];
+  // Целое пишем без «.0»: тариф «50 ГБ» в списке не должен выглядеть как
+  // «50.0 ГБ», будто это замер, а не круглое число.
+  const shown = v >= 100 || i === 0 || Number.isInteger(v) ? String(Math.round(v)) : v.toFixed(1);
+  return shown + " " + units[i];
 }
 
 // shortDate отдаёт дату так, как её пишут на языке интерфейса.

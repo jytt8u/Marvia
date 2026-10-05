@@ -8,16 +8,16 @@
 панели. Тот, кто подключается, получает одну ссылку: приложение само выбирает
 ноду, а если она перестала отвечать — ищет рабочую.
 
-[Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md)
+[Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [فارسی](README.fa.md)
 
-[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.12.2/marvia-android.apk)
-[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)
+[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.3/marvia-android.apk)
+[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#установка-панели)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
-**Стадия — alpha, `0.13.0-alpha.1`.** Выпуск 1.0 отложен до проверки на
+**Стадия — alpha, `0.13.0-alpha.3`.** Выпуск 1.0 отложен до проверки на
 реальных устройствах и сетях — [критерии](docs/development-plan.md).
-Опубликованная v0.12.2 — тестовая и стабильной не объявляется.
+Свежая тестовая сборка — [v0.13.0-alpha.3](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3); стабильной она не объявляется.
 
 [Свой VPN с нуля](docs/start-from-zero.md) · [Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
 
@@ -123,16 +123,17 @@ Marvia пока уступает по автоматическому месяч�
 
 ## Начать
 
-> **Получили ключ?** Скачайте [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.12.2/marvia-android.apk)
-> или прочитайте [установку Windows](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент),
+> **Получили ключ?** Скачайте [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.3/marvia-android.apk)
+> или [установщик Windows](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.3) (`marvia-windows-setup.exe`;
+> [подробнее](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)),
 > добавьте ссылку `marvia://…` в приложении и подключитесь.
 
 Android также принимает VLESS, VMess, Trojan, Shadowsocks, Hysteria2 и WireGuard.
 В Google Play приложения пока нет.
 
-Публичная v0.12.2 предназначена для тестирования. Уже установленный исправленный
-клиент не понижайте ради номера версии. Полный установщик Windows и новое APK
-готовятся в alpha; их проверка на реальных устройствах ещё не завершена.
+Выпуск 0.13.0-alpha.3 — тестовый: полный установщик Windows и APK собраны
+на GitHub из метки, но их проверка на реальных устройствах ещё не завершена.
+Известные ограничения — в [списке изменений](CHANGELOG.md).
 
 ### Как проверить, что файл настоящий
 
@@ -146,11 +147,11 @@ SHA-256:
 На телефоне его показывает приложение [AppVerifier](https://github.com/soupslurpr/AppVerifier),
 на компьютере — `apksigner verify --print-certs marvia-android.apk` из Android SDK.
 Другой отпечаток — не наш файл, не ставьте. После установки Android сам не
-даст обновить приложение файлом с чужой подписью. APK пока собирается не на
-GitHub, а у автора, поэтому подпись подтверждает, кто выпустил файл, но не
-то, из какого кода он собран.
+даст обновить приложение файлом с чужой подписью.
 
-**Панель, нода и Windows** собираются на GitHub из тега. Суммы всех файлов
+**APK с 0.13.0-alpha.3, панель, нода и Windows** собираются на GitHub из тега.
+APK более ранних выпусков собирал автор у себя: его подпись подтверждает, кто
+выпустил файл, но не то, из какого кода он собран. Суммы всех файлов
 подписаны через Sigstore — подпись доказывает, что файлы собрала сборка
 этого репозитория, а не кто-то по дороге:
 

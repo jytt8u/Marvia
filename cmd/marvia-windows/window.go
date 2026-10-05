@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/jchv/go-webview2"
@@ -136,6 +137,27 @@ func showWindow(url string, ctl *Controller, log *journal, hidden bool, onWindow
 			return st.State == StateConnected || st.State == StateConnecting || st.State == StateStalled, st.HasAccount
 		}
 		defer t.Remove()
+
+		// Напоминание о сроке — уведомлением, пока программа в трее. Первый раз
+		// через минуту после запуска: подписка к тому времени уже прочитана из
+		// кэша или пришла с панели. Дальше раз в полчаса — срок меряется днями,
+		// и чаще проверять незачем.
+		stopReminders := make(chan struct{})
+		defer close(stopReminders)
+		go func() {
+			wait := time.Minute
+			for {
+				select {
+				case <-stopReminders:
+					return
+				case <-time.After(wait):
+				}
+				wait = 30 * time.Minute
+				if title, text, ok := ctl.TrayReminder(time.Now()); ok {
+					w.Dispatch(func() { t.Balloon(title, text) })
+				}
+			}
+		}()
 	}
 
 	// Страница просит переключить вид: из виджета — в полное окно на нужную

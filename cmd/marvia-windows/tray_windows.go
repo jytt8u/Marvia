@@ -69,6 +69,10 @@ const (
 	nifMessage = 0x01
 	nifIcon    = 0x02
 	nifTip     = 0x04
+	nifInfo    = 0x10
+
+	niifInfo            = 0x01
+	ninBalloonUserClick = 0x0400 + 5 // WM_USER + 5: нажали на само уведомление
 
 	mfString    = 0x0000
 	mfSeparator = 0x0800
@@ -229,6 +233,27 @@ func (t *tray) Tip(text string) {
 	_, _, _ = procShellNotifyIconW.Call(nimModify, uintptr(unsafe.Pointer(&t.data)))
 }
 
+// Balloon показывает уведомление Windows от значка — для того, что важно и
+// когда окно закрыто: «доступ кончится через три дня».
+//
+// Флаг NIF_INFO снимаем сразу после показа: значок обновляется часто (каждая
+// смена подсказки — тот же NIM_MODIFY), и с оставленным флагом уведомление
+// всплывало бы заново на каждое обновление.
+func (t *tray) Balloon(title, text string) {
+	clear(t.data.Info[:])
+	clear(t.data.InfoTitle[:])
+	u, _ := syscall.UTF16FromString(text)
+	copy(t.data.Info[:len(t.data.Info)-1], u)
+	u, _ = syscall.UTF16FromString(title)
+	copy(t.data.InfoTitle[:len(t.data.InfoTitle)-1], u)
+	t.data.InfoFlags = niifInfo
+	t.data.Flags |= nifInfo
+	_, _, _ = procShellNotifyIconW.Call(nimModify, uintptr(unsafe.Pointer(&t.data)))
+	t.data.Flags &^= nifInfo
+	clear(t.data.Info[:])
+	clear(t.data.InfoTitle[:])
+}
+
 // Remove снимает значок. Обязательно перед выходом: иначе он висит до
 // первого наведения, как у половины программ на свете.
 func (t *tray) Remove() {
@@ -279,6 +304,11 @@ func (t *tray) wndProc(hwnd, msg, wp, lp uintptr) uintptr {
 			}
 		case wmRButtonUp:
 			t.showMenu()
+		case ninBalloonUserClick:
+			// Нажали на уведомление — открываем окно, где «Продлить».
+			if t.onShow != nil {
+				t.onShow()
+			}
 		}
 		return 0
 	}

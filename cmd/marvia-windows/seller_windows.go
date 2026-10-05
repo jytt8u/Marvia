@@ -14,6 +14,39 @@ import (
 // remindedSetting — где лежит ключ последнего закрытого напоминания.
 const remindedSetting = "reminded"
 
+// trayNotifiedSetting — ключ последнего напоминания, показанного
+// уведомлением. Отдельно от закрытого в окне: всплыть уведомлением и быть
+// прочитанным — разные вещи, и одно не должно гасить другое.
+const trayNotifiedSetting = "tray-reminded"
+
+// TrayReminder отдаёт заголовок и текст уведомления, если пора напомнить и
+// это ещё не всплывало. Показанное запоминается на диске: автозапуск каждое
+// утро не должен повторять вчерашнее.
+func (c *Controller) TrayReminder(now time.Time) (title, text string, ok bool) {
+	c.mu.Lock()
+	sub := c.subscriptionLocked()
+	closed := c.reminded
+	c.mu.Unlock()
+	r, show := trayReminder(sub, closed, readUISetting(trayNotifiedSetting), now)
+	if !show {
+		return "", "", false
+	}
+	if err := writeUISetting(trayNotifiedSetting, r.Key); err != nil {
+		// Не запомнили — не показываем: иначе оно всплывало бы каждые
+		// полчаса до конца срока.
+		return "", "", false
+	}
+	switch r.Kind {
+	case client.ReminderExpiry:
+		text = sayf("trayRemindExpiry", r.Value)
+	case client.ReminderTraffic:
+		text = sayf("trayRemindTraffic", r.Value)
+	default:
+		return "", "", false
+	}
+	return say("trayRemindTitle"), text, true
+}
+
 // knownSubscription — что известно о подписке ключа без похода в сеть: из
 // кэша, который оставило последнее подключение или последняя попытка.
 //

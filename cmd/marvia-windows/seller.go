@@ -50,6 +50,20 @@ func sellerView(sub client.Subscription, seen string, now time.Time) SellerView 
 	return v
 }
 
+// trayReminder решает, показать ли напоминание уведомлением Windows.
+//
+// В окне оно висит, пока его не закроют; уведомление — для того, кто окно не
+// открывает и узнал бы о конце доступа, когда VPN уже не работает. Каждое
+// напоминание всплывает один раз (notified), и не всплывает вовсе, если
+// человек уже закрыл его в окне (closed): видел — значит знает.
+func trayReminder(sub client.Subscription, closed, notified string, now time.Time) (client.Reminder, bool) {
+	r := sub.Reminder(now)
+	if r.Kind == "" || r.Key == closed || r.Key == notified {
+		return r, false
+	}
+	return r, true
+}
+
 // errNoSellerLink — продавец такой ссылки не оставил.
 var errNoSellerLink = errors.New("продавец не оставил такой ссылки")
 

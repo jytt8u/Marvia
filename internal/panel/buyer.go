@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/jytt8u/marvia/internal/seller"
-	"rsc.io/qr"
 	"golang.org/x/text/language"
+	"rsc.io/qr"
 )
 
 // Отдельный шаблон позволяет менять страницу покупателя, не задевая панель.

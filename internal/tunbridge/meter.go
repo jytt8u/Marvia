@@ -77,3 +77,14 @@ func (c *meteredConn) CloseWrite() error {
 	}
 	return c.Conn.Close()
 }
+
+// OnStatus пробрасывает подписку на ответ ноды (ранний старт потока, см.
+// client/early.go): обёртка счётчиков не должна прятать отказ ноды от тех,
+// кто по нему решает — от учёта IPv6 и журнала.
+func (c *meteredConn) OnStatus(fn func(error)) {
+	if early, ok := c.Conn.(interface{ OnStatus(func(error)) }); ok {
+		early.OnStatus(fn)
+		return
+	}
+	fn(nil)
+}

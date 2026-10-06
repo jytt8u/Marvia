@@ -311,6 +311,19 @@ func (h *handler) HandleTCP(conn adapter.TCPConn) {
 		return
 	}
 	defer stream.Close()
+	// Поток мог открыться раньше ответа ноды (ранний старт). Отказ по цели
+	// и недоступность ноды тогда приходят первым чтением — учитываем их
+	// там же, где раньше учитывали ошибку дозвона.
+	if early, ok := stream.(interface{ OnStatus(func(error)) }); ok {
+		early.OnStatus(func(err error) {
+			if v6 {
+				h.v6.observe(err)
+			}
+			if err != nil {
+				h.failDial(fmt.Errorf("поток до %s: %w", target, err))
+			}
+		})
+	}
 
 	// Обрыв уже начатого соединения человеку не показываем, и вот почему.
 	//

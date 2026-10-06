@@ -195,6 +195,11 @@ func (s *Supervisor) DialTarget(ctx context.Context, target vp1.Address) (net.Co
 	}
 	conn, err := d.DialTarget(ctx, target)
 	s.noticed(ctx, err)
+	// Ответ ноды теперь приходит позже, первым чтением (early.go). Смерть
+	// ноды, обнаруженная там, должна будить сторожа так же, как раньше.
+	if early, ok := conn.(interface{ OnStatus(func(error)) }); ok {
+		early.OnStatus(func(err error) { s.noticed(context.Background(), err) })
+	}
 	return conn, err
 }
 

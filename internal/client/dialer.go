@@ -261,7 +261,16 @@ func tcpDialer(node Node, serverName string, opts Options, onConnect func(time.D
 
 // DialTarget открывает поток до цели через туннель.
 func (d *Dialer) DialTarget(ctx context.Context, target vp1.Address) (net.Conn, error) {
-	return d.open(ctx, target, vp1.KindTCP, nil)
+	// Ранний старт: ответа ноды не ждём, см. early.go.
+	stream, err := d.pool.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", vp1.ErrNodeUnreachable, err)
+	}
+	if err := vp1.WriteRequestOf(stream, target, vp1.KindTCP); err != nil {
+		_ = stream.Close()
+		return nil, fmt.Errorf("%w: запрос на %s: %w", vp1.ErrNodeUnreachable, target, err)
+	}
+	return newEarlyConn(stream, target), nil
 }
 
 // DialDatagrams открывает поток датаграмм до цели.

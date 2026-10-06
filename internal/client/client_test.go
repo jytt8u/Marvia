@@ -228,6 +228,13 @@ type testNode struct {
 	// sampled — сколько байт нода согласилась отдать на замер скорости.
 	// Нужно, чтобы проверить потолок: за эти байты платит продавец.
 	sampled atomic.Int64
+
+	// statusDelay — сколько нода тянет с ответом на запрос цели, в
+	// наносекундах: так в тесте выглядит медленный дозвон ноды до сайта.
+	statusDelay atomic.Int64
+
+	// refuse — каким статусом нода отказывает в любой цели; ноль — пускает.
+	refuse atomic.Int32
 }
 
 func startTestNode(t *testing.T) *testNode {
@@ -263,7 +270,7 @@ func startTestNode(t *testing.T) *testNode {
 				return
 			}
 			node.handshakes.Add(1)
-			go serveNodeConn(conn, serverKey, guard, &node.sampled)
+			go serveNodeConn(conn, serverKey, guard, node)
 		}
 	}()
 
@@ -282,7 +289,8 @@ func startTestNode(t *testing.T) *testNode {
 	return node
 }
 
-func serveNodeConn(conn net.Conn, key vp1.KeyPair, guard *vp1.ReplayGuard, sampled *atomic.Int64) {
+func serveNodeConn(conn net.Conn, key vp1.KeyPair, guard *vp1.ReplayGuard, node *testNode) {
+	sampled := &node.sampled
 	tunnel, _, err := vp1.ServerHandshake(conn, key, guard, vp1.AllowAll)
 	if err != nil {
 		_ = conn.Close()
@@ -340,6 +348,10 @@ func serveNodeConn(conn net.Conn, key vp1.KeyPair, guard *vp1.ReplayGuard, sampl
 				relay.Datagrams(vp1.Datagrams(stream), socket, 10*time.Second)
 				return
 			}
+			if code := byte(node.refuse.Load()); code != 0 {
+				_ = vp1.WriteStatus(stream, code)
+				return
+			}
 			upstream, err := net.DialTimeout("tcp", addr.String(), 10*time.Second)
 			if err != nil {
 				_ = vp1.WriteStatus(stream, vp1.StatusUnreachable)
@@ -347,6 +359,7 @@ func serveNodeConn(conn net.Conn, key vp1.KeyPair, guard *vp1.ReplayGuard, sampl
 			}
 			defer upstream.Close()
 
+			time.Sleep(time.Duration(node.statusDelay.Load()))
 			if err := vp1.WriteStatus(stream, vp1.StatusOK); err != nil {
 				return
 			}

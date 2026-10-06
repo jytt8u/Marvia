@@ -31,31 +31,48 @@ jobs:
       - name: Проверить достижимые известные уязвимости
         run: govulncheck ./...
 
+  # Фаззинг всего, что приходит снаружи: кадры VP1, первые байты на ноде
+  # (VLESS, Trojan), ссылки и подписки чужих панелей, заголовки продавца.
+  #
+  # Длительность задана числом прогонов, а не временем. С -fuzztime=60s Go
+  # иногда срывается на остановке по таймеру — «context deadline exceeded»
+  # без единого найденного входа, — и красный значок ничего не значил.
   fuzz:
     name: Фаззинг — ${{ matrix.target }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        target: [FuzzReadFrame, FuzzUnpackPadded, FuzzReadRequest, FuzzReadDatagram]
+        include:
+          - { pkg: internal/vp1, target: FuzzReadFrame }
+          - { pkg: internal/vp1, target: FuzzUnpackPadded }
+          - { pkg: internal/vp1, target: FuzzReadRequest }
+          - { pkg: internal/vp1, target: FuzzReadDatagram }
+          - { pkg: internal/inbound, target: FuzzReadVLESSRequest }
+          - { pkg: internal/inbound, target: FuzzReadTrojanRequest }
+          - { pkg: internal/foreign, target: FuzzParseLink }
+          - { pkg: internal/foreign, target: FuzzParseList }
+          - { pkg: internal/foreign, target: FuzzParseUserinfo }
+          - { pkg: internal/client, target: FuzzParseAccountLink }
+          - { pkg: internal/seller, target: FuzzSellerHeaders }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
-      - name: Проверить границы кадров, запросов и датаграмм
+      - name: Разобрать миллион случайных входов
         shell: bash
         run: |
           set -euo pipefail
-          go test ./internal/vp1 -run '^$' -fuzz '^${{ matrix.target }}$' -fuzztime=60s -parallel=2
+          go test "./${{ matrix.pkg }}" -run '^$' -fuzz '^${{ matrix.target }}$' -fuzztime=1000000x -parallel=2
       - name: Сохранить входные данные найденного сбоя
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: vp1-fuzz-failures-${{ matrix.target }}
-          path: internal/vp1/testdata/fuzz/
+          name: fuzz-failures-${{ matrix.target }}
+          path: ${{ matrix.pkg }}/testdata/fuzz/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -70,7 +87,22 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Проверить атаки и передачу данных с детектором гонок
-        run: go test -race -count=1 -timeout=5m -v ./internal/vp1 ./internal/users
+        run: go test -race -count=1 -timeout=10m -v ./internal/vp1 ./internal/users ./internal/inbound ./internal/transport ./internal/tunnel ./internal/mux ./internal/relay
+
+  # Ядро телефона: смена сети, отмена дозвона и туннель подписки ходят
+  # из нескольких горутин сразу — ровно то, что ловит детектор гонок.
+  client-core-races:
+    name: Ядро клиента и телефона — гонки
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Проверить смену сети, отмену и подписку с детектором гонок
+        run: go test -race -count=1 -timeout=10m ./mobile ./internal/tunbridge ./internal/seller ./internal/netpath
 
   access-and-updates:
     name: Панель, снимки доступа и обновления — безопасность

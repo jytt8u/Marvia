@@ -343,7 +343,7 @@ func (s *Supervisor) move(networkCtx context.Context) bool {
 // к ноде, и закрыть его было бы некому. Нода та же, что сейчас: выбор уже
 // текущей ноды не должен рвать ей соединения ради того же самого.
 func (s *Supervisor) swap(e *Engine) bool {
-	return s.swapInNetwork(nil, e)
+	return s.swapInNetwork(context.Background(), e)
 }
 
 func (s *Supervisor) swapInNetwork(ctx context.Context, e *Engine) bool {
@@ -540,7 +540,7 @@ func View(sub Subscription) client.Subscription {
 	}
 	if sub.Total > 0 {
 		out.TrafficLimit = sub.Total
-		out.Used = sub.Upload + sub.Download
+		out.Used = sub.Used()
 	}
 	if !sub.Expire.IsZero() {
 		out.ExpiresAt = sub.Expire.UTC().Format(time.RFC3339)

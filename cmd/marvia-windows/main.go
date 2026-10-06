@@ -224,38 +224,6 @@ func relaunchElevated() error {
 	return windows.ShellExecute(0, verb, file, params, dir, windows.SW_NORMAL)
 }
 
-// nodeAddresses выясняет, какие адреса надо вывести мимо туннеля.
-//
-// Адрес ноды в подписке может быть и именем — так бывает, когда нода стоит за
-// CDN. Тогда обходить надо все адреса, которые за этим именем стоят: подключат
-// нас к любому из них.
-func nodeAddresses(hostPort string) ([]netip.Addr, error) {
-	host, _, err := net.SplitHostPort(hostPort)
-	if err != nil {
-		return nil, fmt.Errorf("адрес ноды %q: %w", hostPort, err)
-	}
-
-	if addr, err := netip.ParseAddr(host); err == nil {
-		return []netip.Addr{addr}, nil
-	}
-
-	ips, err := net.LookupIP(host)
-	if err != nil {
-		return nil, fmt.Errorf("не удалось выяснить адрес ноды %s: %w", host, err)
-	}
-
-	out := make([]netip.Addr, 0, len(ips))
-	for _, ip := range ips {
-		if addr, ok := netip.AddrFromSlice(ip); ok {
-			out = append(out, addr.Unmap())
-		}
-	}
-	if len(out) == 0 {
-		return nil, fmt.Errorf("у ноды %s не нашлось ни одного адреса", host)
-	}
-	return out, nil
-}
-
 // dnsAddress достаёт адрес из записи вида host:port.
 func dnsAddress(hostPort string) (netip.Addr, error) {
 	host, _, err := net.SplitHostPort(hostPort)

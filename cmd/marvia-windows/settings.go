@@ -221,10 +221,6 @@ func homeNetwork(ip netip.Addr) bool {
 	return ip.IsPrivate()
 }
 
-// dnsChoices — известные резолверы, те же, что на телефоне: Cloudflare,
-// Google, Quad9, AdGuard. Свой адрес принимается, если прошёл checkDNS.
-var dnsChoices = []string{"1.1.1.1", "8.8.8.8", "9.9.9.9", "94.140.14.14"}
-
 var (
 	errDNSBad   = errors.New("dnsBad")
 	errDNSLocal = errors.New("dnsLocal")
@@ -289,5 +285,3 @@ func (s pcSettings) encrypted(resolver string) bool {
 	_, ok := securedns.For(resolver)
 	return ok
 }
-
-func boolPtr(v bool) *bool { return &v }

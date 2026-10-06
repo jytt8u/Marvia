@@ -62,7 +62,7 @@ func TestS3KeepsTheLatestCopiesAndLeavesOtherObjectsAlone(t *testing.T) {
 		switch r.Method {
 		case http.MethodPut:
 			if failUpload {
-				http.Error(w, "недоступно", 503)
+				http.Error(w, "недоступно", http.StatusServiceUnavailable)
 				return
 			}
 			if !strings.Contains(r.URL.EscapedPath(), "%20%2B") {
@@ -145,7 +145,9 @@ func TestS3KeepsTheLatestCopiesAndLeavesOtherObjectsAlone(t *testing.T) {
 func TestS3FailureDoesNotPreventTelegramDeliveryAndRaisesAnAlert(t *testing.T) {
 	s, dir := scheduledStore(t)
 	ctx := context.Background()
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "не работает", 503) }))
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "не работает", http.StatusServiceUnavailable)
+	}))
 	defer server.Close()
 	cfg := scheduledConfig()
 	cfg.S3 = S3BackupSettings{Enabled: true, Endpoint: server.URL, Region: "test", Bucket: "backups", Prefix: "panel/", AccessKey: "ключ", SecretKey: "секрет"}

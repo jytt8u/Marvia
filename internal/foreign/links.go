@@ -507,11 +507,6 @@ func first(values ...string) string {
 	return ""
 }
 
-func truthy(s string) bool {
-	s = strings.ToLower(strings.TrimSpace(s))
-	return s == "1" || s == "true" || s == "yes"
-}
-
 func splitList(s string) []string {
 	var out []string
 	for _, p := range strings.Split(s, ",") {

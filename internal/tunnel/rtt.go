@@ -45,6 +45,8 @@ func rawTCP(c net.Conn) *net.TCPConn {
 	return nil
 }
 
+//lint:file-ignore U1000 поля rttState читает только rtt_windows.go; на Linux они пусты намеренно
+
 // rttState — что нужно помнить между замерами одного соединения. Linux
 // отдаёт время последнего подтверждения и в памяти не нуждается; Windows —
 // нет, и обрыв там виден только по разнице двух замеров.

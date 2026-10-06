@@ -52,7 +52,7 @@ func TestAnnouncementLongerThanLimitIsRefusedByPanel(t *testing.T) {
 }
 
 func TestAnnouncementLosesControlAndDirectionCharacters(t *testing.T) {
-	got := Clean(Info{Announce: "Работы\nс 2:00\x07 до‮ 4:00⁦‏ \t"}).Announce
+	got := Clean(Info{Announce: "Работы\nс 2:00\x07 до\u202e 4:00\u2066\u200f \t"}).Announce
 	if got != "Работы с 2:00 до 4:00" {
 		t.Fatalf("после чистки %q", got)
 	}

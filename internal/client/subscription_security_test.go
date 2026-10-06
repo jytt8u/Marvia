@@ -78,7 +78,7 @@ func TestClientDoesNotTrustSellerLinksFromPanel(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"nodes":[{"id":1,"name":"a","address":"a.example:443","public_key":"x"}],` +
 			`"support_url":"javascript:alert(1)","renew_url":"https://shop.example/renew",` +
-			`"announce":"Продлите‮ moc.live\n сегодня"}`))
+			`"announce":"Продлите\u202e moc.live\n сегодня"}`))
 	}))
 	defer srv.Close()
 
@@ -104,7 +104,7 @@ func TestCachedSellerLinksAreCheckedAgainOnLoad(t *testing.T) {
 	err := SaveCache(path, subURL, Subscription{
 		Nodes:      []Node{{ID: 1, Name: "a", Address: "a.example:443"}},
 		SupportURL: "file:///etc/passwd",
-		Announce:   "⁦скидка⁩",
+		Announce:   "\u2066скидка\u2069",
 	})
 	if err != nil {
 		t.Fatalf("запись кэша: %v", err)

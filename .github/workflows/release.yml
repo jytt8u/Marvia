@@ -102,7 +102,8 @@ jobs:
           MARVIA_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           export MARVIA_VERSION="${GITHUB_REF_NAME#v}"
-          export MARVIA_VERSION_CODE="$(tr -d ' \r\n' < version-code)"
+          MARVIA_VERSION_CODE="$(tr -d ' \r\n' < version-code)"
+          export MARVIA_VERSION_CODE
           bash ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease
 
       - name: Подпись та же, что у установленных приложений
@@ -236,9 +237,11 @@ jobs:
       - name: Посчитать суммы всех файлов выпуска
         run: |
           cd dist
-          apps=''
-          [ -f marvia-android.apk ] && apps='marvia-android.apk marvia-android.aab'
-          sha256sum *.tar.gz install-panel.sh upgrade.sh marvia-windows.exe marvia-windows.zip marvia-windows-setup.exe $apps > SHA256SUMS
+          apps=()
+          if [ -f marvia-android.apk ]; then apps=(marvia-android.apk marvia-android.aab); fi
+          # Без ./ перед именами: служба обновления ищет в суммах строку
+          # «сумма  имя», и префикс пути её бы сломал.
+          sha256sum -- *.tar.gz install-panel.sh upgrade.sh marvia-windows.exe marvia-windows.zip marvia-windows-setup.exe "${apps[@]}" > SHA256SUMS
           cat SHA256SUMS
 
       - name: Подписать контрольные суммы сборки

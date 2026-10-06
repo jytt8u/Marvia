@@ -1027,3 +1027,7 @@ func sinceUnix(t time.Time) int64 {
 	}
 	return t.Unix()
 }
+
+// boolPtr — адрес копии значения: состояние «настройка ещё не применялась» —
+// это nil, а не false.
+func boolPtr(v bool) *bool { return &v }

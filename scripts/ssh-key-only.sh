@@ -110,7 +110,7 @@ restore() {
 # для sshd первой — и победит уже она, а не мы.
 for opt in PasswordAuthentication KbdInteractiveAuthentication \
 	ChallengeResponseAuthentication PermitRootLogin PubkeyAuthentication; do
-	sed -i "/^[[:space:]]*#\?[[:space:]]*$opt[[:space:]]/d" "$CONF"
+	sed -i "/^[[:space:]]*#\?[[:space:]]*${opt}[[:space:]]/d" "$CONF"
 done
 
 probe_opt() {

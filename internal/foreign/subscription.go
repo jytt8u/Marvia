@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -32,12 +33,21 @@ type Subscription struct {
 	Seller seller.Info
 }
 
+// Used — расход по заголовку. Сумма не переполняется: два огромных числа
+// от чужой панели дали бы отрицательный расход.
+func (s Subscription) Used() int64 {
+	if s.Upload > math.MaxInt64-s.Download {
+		return math.MaxInt64
+	}
+	return s.Upload + s.Download
+}
+
 // Remaining — сколько трафика осталось; -1 — без ограничения.
 func (s Subscription) Remaining() int64 {
 	if s.Total <= 0 {
 		return -1
 	}
-	return max(0, s.Total-s.Upload-s.Download)
+	return max(0, s.Total-s.Used())
 }
 
 // ParseList разбирает тело подписки: ссылки по строке, как есть или в
@@ -75,7 +85,10 @@ func (s *Subscription) ParseUserinfo(h string) {
 			continue
 		}
 		n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
-		if err != nil {
+		// Отрицательного расхода и лимита не бывает. Чужая панель, приславшая
+		// его, нарисовала бы остаток больше лимита; считаем такое поле
+		// незаданным, как и неразборчивое.
+		if err != nil || n < 0 {
 			continue
 		}
 		switch strings.ToLower(k) {

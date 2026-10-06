@@ -82,7 +82,7 @@ func forwardToRunning() (bool, error) {
 	class, _ := syscall.UTF16PtrFromString("MarviaTray")
 	hwnd, _, _ := user32.NewProc("FindWindowW").Call(uintptr(unsafe.Pointer(class)), uintptr(unsafe.Pointer(ptr)))
 	if hwnd == 0 {
-		return true, errors.New("Marvia уже запускается; дождитесь появления значка в трее")
+		return true, errors.New("программа Marvia уже запускается; дождитесь появления значка в трее")
 	}
 	var pid uint32
 	_, _, _ = user32.NewProc("GetWindowThreadProcessId").Call(hwnd, uintptr(unsafe.Pointer(&pid)))

@@ -51,7 +51,7 @@ func TestForeignSellerLinksFollowTheSameRules(t *testing.T) {
 	link := foreignPanel(t, map[string]string{
 		"support-url":          "intent://evil#Intent;end",
 		"profile-web-page-url": "http://shop.example/renew",
-		"announce":             "Скидка‮ moc.live",
+		"announce":             "Скидка\u202e moc.live",
 	})
 	sub, _, _, err := Load(link, "", true)
 	if err != nil {

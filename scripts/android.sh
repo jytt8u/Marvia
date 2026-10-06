@@ -20,7 +20,8 @@ if [ -z "${ANDROID_NDK_HOME:-}" ]; then
     export ANDROID_NDK_HOME="$found"
 fi
 
-export PATH="$PATH:$(go env GOPATH)/bin"
+GOBIN_DIR="$(go env GOPATH)/bin"
+export PATH="$PATH:$GOBIN_DIR"
 
 if [ "${1:-}" != "--skip-core" ]; then
     echo "== ядро -> android/app/libs/marvia.aar"

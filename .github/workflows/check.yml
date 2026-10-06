@@ -55,6 +55,41 @@ jobs:
           ./scripts/package-windows.ps1 -Exe $exe -OutputDirectory $output -Version dev -MakeNSIS $env:MARVIA_NSIS
           ./scripts/test-windows-installer.ps1 -Package (Join-Path $output 'marvia-windows.zip') -MakeNSIS $env:MARVIA_NSIS -WorkDirectory $output
 
+  # Линтеры ловят то, что тесты пропускают: мёртвый код, nil вместо
+  # контекста, невидимые символы в строках, ошибки в shell-скриптах, которые
+  # уезжают на сервер продавца и бегут там от root, и в самих workflow.
+  # Версии закреплены: новая версия линтера с новыми правилами не должна
+  # краснить main без единой правки кода.
+  lint:
+    name: Линтеры
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: staticcheck — Linux и Windows
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@2025.1.1
+          "$(go env GOPATH)/bin/staticcheck" ./...
+          GOOS=windows "$(go env GOPATH)/bin/staticcheck" ./...
+
+      - name: shellcheck — установщики и обновление
+        run: shellcheck -S warning scripts/*.sh internal/updater/agent.sh
+
+      - name: actionlint — сами проверки
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+
+      # go.mod и go.sum должны совпадать с тем, что реально импортирует код:
+      # лишняя зависимость — лишний код в бинарнике продавца.
+      - name: go.mod без лишнего
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
   check:
     name: Тесты и сборка
     runs-on: ubuntu-latest
@@ -92,6 +127,11 @@ jobs:
 
       - name: Тема и интерфейсы
         run: node --test internal/look/look.test.cjs internal/panel/web.test.cjs
+
+      # Опечатка во вшитом в HTML скрипте не видна ни Go, ни сборке, а панель
+      # от неё открывается пустой.
+      - name: Синтаксис вшитых скриптов
+        run: node scripts/check-embedded-js.cjs
 
       # Те же цели, что в релизе. Файлы под Windows собираются только под
       # Windows, и без этого шага ошибка в них жила бы до первого тега.

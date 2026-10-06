@@ -197,7 +197,10 @@ func writeFrame(w io.Writer, body []byte) error {
 	buf := make([]byte, 2+len(body))
 	binary.BigEndian.PutUint16(buf[:2], uint16(len(body)))
 	copy(buf[2:], body)
-	_, err := w.Write(buf)
+	n, err := w.Write(buf)
+	if err == nil && n != len(buf) {
+		err = io.ErrShortWrite
+	}
 	return err
 }
 
@@ -216,6 +219,9 @@ func readFrame(r io.Reader, max int) ([]byte, error) {
 	}
 	body := make([]byte, n)
 	if _, err := io.ReadFull(r, body); err != nil {
+		if errors.Is(err, io.EOF) {
+			err = io.ErrUnexpectedEOF
+		}
 		return nil, err
 	}
 	return body, nil
@@ -241,6 +247,9 @@ func readFrameInto(r io.Reader, buf []byte) ([]byte, error) {
 		return nil, fmt.Errorf("кадр длиной %d байт превышает лимит %d", n, len(buf))
 	}
 	if _, err := io.ReadFull(r, buf[:n]); err != nil {
+		if errors.Is(err, io.EOF) {
+			err = io.ErrUnexpectedEOF
+		}
 		return nil, err
 	}
 	return buf[:n], nil

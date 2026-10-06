@@ -65,8 +65,18 @@ func dialQUICMimicking(ctx context.Context, addr string, tlsCfg *utls.Config) (u
 	})
 	if err != nil {
 		_ = udp.Close()
+		_ = tr.Close()
 		return nil, fmt.Errorf("quic до %s: %w", addr, err)
 	}
+
+	// Сокет создали мы: библиотека закрывает лишь соединение и оставляет
+	// внешний Transport слушать UDP. На мобильной сети переподключения иначе
+	// накапливали бы сокеты и горутины до выхода из приложения.
+	go func() {
+		<-conn.Context().Done()
+		_ = udp.Close()
+		_ = tr.Close()
+	}()
 
 	return conn, nil
 }

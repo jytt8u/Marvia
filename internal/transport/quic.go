@@ -15,22 +15,19 @@ import (
 
 // Транспорт поверх QUIC.
 //
-// Зачем он нужен. Всё остальное у нас едет по TCP, а TCP цензор умеет ломать
-// не разглядывая: достаточно резать соединения по поведению — по времени
-// установки, по паузам, по тому, сколько байт ушло до первого ответа. QUIC
-// живёт в UDP, и такие приёмы к нему не применяются: там нет рукопожатия,
-// которое можно оборвать посередине, и нет соединения, которое можно
-// «подвесить».
+// Зачем он нужен. Другая дорога до ноды иногда переживает ограничения TCP.
+// QUIC использует UDP, но у него тоже есть рукопожатие, повторная доставка
+// и управление перегрузкой: блокировка UDP и паузы сети ломают его так же.
+// Здесь один поток на всю VP1-сессию, поэтому потеря участка по-прежнему
+// задерживает все потоки yamux; независимого восстановления между ними нет.
 //
 // Чем платим. QUIC — это HTTP/3, и выглядеть он должен как HTTP/3 настоящего
-// сайта. Отпечаток здесь свой: набор параметров транспорта, форма первых
-// пакетов, порядок расширений. Библиотека quic-go даёт свой отпечаток, а не
-// хромовский, и на этом ноду можно опознать — не по содержимому, а по тому,
-// каким стеком она разговаривает. Это осознанный первый шаг: сперва рабочий
-// транспорт, потом подделка отпечатка.
+// сайта. Клиент подражает Chrome 115 через uQUIC, ответ ноды формирует
+// quic-go. После рукопожатия идёт VP1, а не HTTP/3: одним ALPN h3 нельзя
+// скрыть эту разницу от зонда, который проверяет поведение приложения.
 //
-// REALITY здесь невозможен по устройству: он зеркалит TCP-рукопожатие чужого
-// сайта, а тут рукопожатия в этом смысле нет.
+// Нынешний REALITY здесь неприменим: он зеркалит TCP/TLS-рукопожатие чужого
+// сайта, а QUIC иначе переносит TLS и имеет свои параметры транспорта.
 
 // quicALPN — то, чем представляется соединение.
 //
@@ -114,8 +111,11 @@ func newServerConn(stream *quic.Stream, conn *quic.Conn) net.Conn {
 type QUICListener struct {
 	tr    *quic.Transport
 	ln    *quic.Listener
+	pc    net.PacketConn
 	conns chan net.Conn
 	done  chan struct{}
+	once  sync.Once
+	err   error
 }
 
 // ListenQUIC поднимает слушателя на UDP.
@@ -157,12 +157,14 @@ func ListenQUIC(addr string, cert tls.Certificate) (*QUICListener, error) {
 	})
 	if err != nil {
 		_ = pc.Close()
+		_ = tr.Close()
 		return nil, fmt.Errorf("quic на %s: %w", addr, err)
 	}
 
 	l := &QUICListener{
 		tr:    tr,
 		ln:    ln,
+		pc:    pc,
 		conns: make(chan net.Conn),
 		done:  make(chan struct{}),
 	}
@@ -175,7 +177,7 @@ func (l *QUICListener) accept() {
 	for {
 		conn, err := l.ln.Accept(context.Background())
 		if err != nil {
-			close(l.conns)
+			_ = l.Close()
 			return
 		}
 
@@ -200,24 +202,25 @@ func (l *QUICListener) accept() {
 
 // Accept отдаёт следующее соединение.
 func (l *QUICListener) Accept() (net.Conn, error) {
-	conn, ok := <-l.conns
-	if !ok {
+	select {
+	case conn := <-l.conns:
+		return conn, nil
+	case <-l.done:
 		return nil, net.ErrClosed
 	}
-	return conn, nil
 }
 
 // Close закрывает слушателя.
 func (l *QUICListener) Close() error {
-	select {
-	case <-l.done:
-	default:
+	l.once.Do(func() {
 		close(l.done)
-	}
-	err := l.ln.Close()
-	// Transport держит сокет; без этого порт остаётся занят после Close.
-	_ = l.tr.Close()
-	return err
+		l.err = l.ln.Close()
+		// Внешний сокет библиотека не закрывает. После остановки ноды порт
+		// должен освобождаться сразу, иначе её нельзя снова запустить.
+		_ = l.pc.Close()
+		_ = l.tr.Close()
+	})
+	return l.err
 }
 
 // Addr отдаёт адрес, на котором слушаем.

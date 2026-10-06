@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 
@@ -33,6 +34,10 @@ type Conn struct {
 	readMu  sync.Mutex
 	recv    *noise.CipherState
 	pending []byte // остаток расшифрованного кадра, не отданный вызывающему
+	readErr error
+
+	failureMu sync.Mutex
+	failure   error
 
 	// Буферы на всё время жизни соединения: один под исходящий кадр, один под
 	// входящий. Кадр собирается, шифруется и уходит в сеть в одном и том же
@@ -76,6 +81,12 @@ func newConn(transport net.Conn, send, recv *noise.CipherState) *Conn {
 func (c *Conn) Read(p []byte) (int, error) {
 	c.readMu.Lock()
 	defer c.readMu.Unlock()
+	if err := c.failed(); err != nil {
+		return 0, err
+	}
+	if c.readErr != nil {
+		return 0, c.readErr
+	}
 
 	// Кадр может целиком состоять из добивки — тогда читаем следующий.
 	// Буфер один: pending указывает в него, и следующий кадр читается только
@@ -83,7 +94,12 @@ func (c *Conn) Read(p []byte) (int, error) {
 	for len(c.pending) == 0 {
 		frame, err := readFrameInto(c.Conn, c.rbuf)
 		if err != nil {
-			return 0, err
+			if errors.Is(err, io.EOF) {
+				// Чистый конец входящего потока сохраняет исходящую половину.
+				c.readErr = err
+				return 0, err
+			}
+			return 0, c.fail(err)
 		}
 		// Расшифровка на месте: AEAD разрешает dst, совпадающий с началом
 		// шифротекста.
@@ -91,13 +107,11 @@ func (c *Conn) Read(p []byte) (int, error) {
 		if err != nil {
 			// Расшифровка не прошла: либо кто-то поменял байты в потоке,
 			// либо рассинхрон nonce. Продолжать нельзя — рвём соединение.
-			_ = c.Conn.Close()
-			return 0, fmt.Errorf("расшифровка кадра: %w", err)
+			return 0, c.fail(fmt.Errorf("расшифровка кадра: %w", err))
 		}
 		payload, err := unpackPadded(plain)
 		if err != nil {
-			_ = c.Conn.Close()
-			return 0, fmt.Errorf("разбор кадра: %w", err)
+			return 0, c.fail(fmt.Errorf("разбор кадра: %w", err))
 		}
 		c.pending = payload
 	}
@@ -112,6 +126,9 @@ func (c *Conn) Read(p []byte) (int, error) {
 func (c *Conn) Write(p []byte) (int, error) {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
+	if err := c.failed(); err != nil {
+		return 0, err
+	}
 
 	written := 0
 	for len(p) > 0 {
@@ -124,7 +141,7 @@ func (c *Conn) Write(p []byte) (int, error) {
 			chunk = chunk[:writePayload]
 		}
 		if err := c.writeFramed(chunk); err != nil {
-			return written, err
+			return written, c.fail(err)
 		}
 		written += len(chunk)
 		p = p[len(chunk):]
@@ -150,7 +167,31 @@ func (c *Conn) writeFramed(chunk []byte) error {
 		return fmt.Errorf("шифрование кадра: %w", err)
 	}
 	binary.BigEndian.PutUint16(c.wbuf[:frameLenHeader], uint16(len(sealed)))
-	_, err = c.Conn.Write(c.wbuf[:frameLenHeader+len(sealed)])
+	frame := c.wbuf[:frameLenHeader+len(sealed)]
+	n, err := c.Conn.Write(frame)
+	if err == nil && n != len(frame) {
+		err = io.ErrShortWrite
+	}
+	return err
+}
+
+func (c *Conn) failed() error {
+	c.failureMu.Lock()
+	defer c.failureMu.Unlock()
+	return c.failure
+}
+
+// Закрытия транспорта мало: TLS или другая обёртка могут ещё отдавать свой
+// буфер. После ошибки кадра нельзя ни пробовать тот же nonce снова, ни
+// отправлять следующий; незавершённый кадр уже нарушил границы потока.
+func (c *Conn) fail(err error) error {
+	c.failureMu.Lock()
+	if c.failure == nil {
+		c.failure = err
+	}
+	err = c.failure
+	c.failureMu.Unlock()
+	_ = c.Close()
 	return err
 }
 

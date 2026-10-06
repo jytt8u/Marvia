@@ -10,14 +10,14 @@ picks a node by itself and, if it stops responding, looks for a working one.
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [فارسی](README.fa.md)
 
-[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.2/marvia-android.apk)
-[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.2)
+[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.4/marvia-android.apk)
+[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.4)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#install-the-panel)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
 **Stage: alpha, `0.13.0-alpha.4`.** 1.0 is postponed until it is verified on
 real devices and networks — [criteria (Russian)](docs/development-plan.md).
-The latest test build is [v0.13.0-alpha.2](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.2); it is not declared stable.
+The latest test build is [v0.13.0-alpha.4](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.4); it is not declared stable.
 
 [Your VPN from scratch (Russian)](docs/start-from-zero.md) · [Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
 
@@ -123,15 +123,15 @@ supports the feature comparison; no matched speed ranking is available.
 
 ## Get started
 
-> **Have a key?** Download the [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.2/marvia-android.apk)
-> or the [Windows installer](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.2) (`marvia-windows-setup.exe`;
+> **Have a key?** Download the [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.4/marvia-android.apk)
+> or the [Windows installer](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.4) (`marvia-windows-setup.exe`;
 > [details (Russian)](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)),
 > add a `marvia://…` link in the app, and connect.
 
 Android also accepts VLESS, VMess, Trojan, Shadowsocks, Hysteria2 and WireGuard
 links. The app is not yet on Google Play.
 
-The public alpha.2 is a test release; alpha.4 is currently prepared locally.
+The public alpha.4 is a test release.
 Verification on real devices is not complete. Known limitations are in the
 [changelog (Russian)](CHANGELOG.md).
 

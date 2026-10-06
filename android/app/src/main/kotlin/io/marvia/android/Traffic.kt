@@ -58,9 +58,9 @@ class Traffic(context: Context) {
      * несколько секунд и может пропустить опрос — тогда разница всё равно
      * догонит. Счётчик меньше прошлого означает, что туннель подняли заново.
      */
-    fun note(total: Long, place: String, at: Long = System.currentTimeMillis()) {
+    fun note(total: Long, place: String, at: Long = System.currentTimeMillis(), persist: Boolean = true) {
         synchronized(Companion) { book.note(total, place, dayOf(at), hourOf(at)) }
-        flush(force = false)
+        if (persist) flush(force = false)
     }
 
     private fun days(): Map<Long, LongArray> = synchronized(Companion) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/jytt8u/marvia/internal/client"
@@ -28,8 +29,8 @@ func foreignSubscription(link, cacheDir string, refresh bool) (foreign.Subscript
 // Адреса нод здесь не закрепляются, в отличие от окна на компьютере:
 // приложение исключено из собственного туннеля, и его запросы имён идут
 // обычной сетью телефона — петли нет.
-func connectForeign(link, cacheDir string, prefer int64, events client.Events, set tunnelSettings) (client.Backend, error) {
-	sub, _, _, err := foreignSubscription(link, cacheDir, false)
+func connectForeign(ctx context.Context, link, cacheDir string, prefer int64, events client.Events, set tunnelSettings) (client.Backend, error) {
+	sub, _, _, err := foreign.LoadWithContext(ctx, link, foreign.CachePath(cacheDir, link), false, http.DefaultClient)
 	if err != nil {
 		// Ссылка ноды не разобралась — это ключ, а не панель: идти с этим
 		// надо к тому, кто её дал, а не проверять интернет.
@@ -44,7 +45,7 @@ func connectForeign(link, cacheDir string, prefer int64, events client.Events, s
 	if sub.Total > 0 && sub.Remaining() == 0 {
 		return nil, fail(FailQuota, errors.New("трафик подписки исчерпан"))
 	}
-	s, _, err := foreign.Supervise(context.Background(), sub, prefer, events, set.foreign())
+	s, _, err := foreign.Supervise(ctx, sub, prefer, events, set.foreign())
 	if err != nil {
 		return nil, fail(FailNodes, err)
 	}

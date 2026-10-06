@@ -10,11 +10,12 @@ import android.net.InetAddresses
 import android.net.IpPrefix
 import android.net.VpnService
 import android.os.Build
-import android.os.ParcelFileDescriptor
+import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import io.marvia.mobile.Mobile
+import io.marvia.mobile.ConnectionAttempt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,6 +60,7 @@ class MarviaVpnService : VpnService() {
 
     @Volatile
     private var core: Core? = null
+    private var connectionAttempt: ConnectionAttempt? = null
 
     /** Есть ли сеть под туннелем. См. [Uplink]. */
     private val uplink by lazy { Uplink(this) }
@@ -105,6 +107,8 @@ class MarviaVpnService : VpnService() {
 
         Journal.add(getString(R.string.log_tunnel_on))
         MarviaState.set(TunnelState.Connecting)
+        val attempt = Mobile.newConnectionAttempt()
+        synchronized(lifecycle) { connectionAttempt = attempt }
 
         val changes = Channel<Boolean>(Channel.CONFLATED)
         networkChanges = changes
@@ -125,28 +129,16 @@ class MarviaVpnService : VpnService() {
                 while (true) { available = changes.tryReceive().getOrNull() ?: break }
                 val active = core ?: continue
                 active.networkChanged(available)
+                val code = active.trouble()
+                val next = snapshot(active, active.nodeName(), if (code.isEmpty()) "" else troubleText(code))
                 synchronized(lifecycle) { if (isActive && !finished && core === active) {
-                    val code = active.trouble()
-                    MarviaState.set(snapshot(active, active.nodeName(), if (code.isEmpty()) "" else troubleText(code)))
+                    publish(next)
                     Log.i(TAG, if (available) "внешняя сеть изменилась: восстанавливаем ноду" else "внешняя сеть потеряна")
                 } }
             }
         }
 
         worker = scope.launch {
-            val descriptor = try {
-                openInterface(store)
-            } catch (t: Throwable) {
-                // Вид здесь известен без ядра: до ядра мы ещё не дошли.
-                shutdown(TunnelState.Failed(Mobile.FailSystem, reasonOf(t)))
-                return@launch
-            }
-
-            // Дескриптор отдаём насовсем. С этой строки он принадлежит ядру:
-            // оно закроет его и при своей ошибке, и при остановке. Закрыть его
-            // ещё и здесь означало бы закрыть номер дважды, а на Linux второй
-            // раз попадёт уже по чужому сокету, успевшему этот номер занять.
-            val fd = descriptor.detachFd()
             val networkGeneration = monitor.snapshot().first
 
             val started = try {
@@ -156,31 +148,41 @@ class MarviaVpnService : VpnService() {
                 // уходит в любом случае; к известному резолверу — ещё и по
                 // HTTPS, если человек не выключил шифрование имён
                 // (plain_dns в tunnelSettings).
-                Mobile.start(link, fd.toLong(), store.dns + ":53", store.cacheDir(), store.chosenNode, store.tunnelSettings())
+                // TUN появляется после дозвона. Пока панель или LTE молчит,
+                // телефон сохраняет обычную сеть, а отмена прерывает и Go.
+                attempt.connect(link, store.cacheDir(), store.chosenNode, store.tunnelSettings())
             } catch (t: Throwable) {
-                if (isActive && !finished) shutdown(failureOf(t))
+                shutdown(failureOf(t), attempt)
                 return@launch
             }
 
+            try {
+                if (!attachInterface(started, store, attempt)) { started.stop(); return@launch }
+            } catch (t: Throwable) {
+                started.disconnect()
+                shutdown(failureOf(t), attempt)
+                started.stop()
+                return@launch
+            }
             val node = started.nodeName()
+            val initial = snapshot(started, node)
             val attached = synchronized(lifecycle) {
-                // gomobile Start не прерывается отменой корутины. Если
-                // пользователь уже остановил VPN, поздний результат закрываем.
-                if (!isActive || finished) false else {
+                if (!isActive || finished || connectionAttempt !== attempt) false else {
                     core = started
                     MarviaState.hold(started)
                     Journal.add(getString(R.string.log_connected, node))
                     connectedAt = System.currentTimeMillis()
                     live.reset(started)
                     Traffic(this@MarviaVpnService).beginSession()
+                    trafficHistory = TrafficHistory(this@MarviaVpnService)
                     SessionDetails.begin()
-                    MarviaState.set(snapshot(started, node))
+                    publish(initial)
                     goForeground(live.on(this@MarviaVpnService, node, 0))
                     uplink.start()
                     true
                 }
             }
-            if (!attached) { started.stop(); return@launch }
+            if (!attached) { started.disconnect(); started.stop(); return@launch }
             // Смена сети во время блокирующего gomobile Start не должна
             // потеряться только потому, что ядро ещё не было опубликовано.
             val (generation, available) = monitor.snapshot()
@@ -197,8 +199,8 @@ class MarviaVpnService : VpnService() {
         }
     }
 
-    /** openInterface просит у системы интерфейс и описывает, что в него слать. */
-    private fun openInterface(store: Store): ParcelFileDescriptor {
+    /** Конфигурация интерфейса не удерживает замок отключения; только его выдача. */
+    private fun attachInterface(started: Core, store: Store, attempt: ConnectionAttempt): Boolean {
         val builder = Builder()
             .setSession(getString(R.string.app_name))
             .setMtu(store.vpnMtu)
@@ -296,8 +298,16 @@ class MarviaVpnService : VpnService() {
             builder.setMetered(store.meteredVpn)
         }
 
-        return builder.establish()
-            ?: throw IllegalStateException(getString(R.string.error_no_interface))
+        return synchronized(lifecycle) {
+            if (finished || connectionAttempt !== attempt) false else {
+                val descriptor = builder.establish()
+                    ?: throw IllegalStateException(getString(R.string.error_no_interface))
+                // После detachFd ядро отвечает за закрытие, в том числе при
+                // ошибке Attach. Двойное закрытие может задеть чужой сокет.
+                descriptor.use { started.attach(it.detachFd().toLong(), store.dns + ":53") }
+                true
+            }
+        }
     }
 
     /**
@@ -363,10 +373,13 @@ class MarviaVpnService : VpnService() {
             // тает на глазах, и показывать число с момента подключения значит
             // отвечать на «сколько осталось» вчерашним ответом.
             val next = snapshot(started, shownNode, last)
-            if (next != MarviaState.state.value) {
-                MarviaState.set(next)
+            synchronized(lifecycle) {
+                // Опрос JNI мог закончиться уже после отключения. Последняя
+                // проверка стоит у публикации, чтобы не вернуть «Подключено».
+                if (!kotlin.coroutines.coroutineContext.isActive || finished || core !== started) return
+                publish(next)
+                goForeground(live.on(this, shownNode, next.state.ms, offline))
             }
-            goForeground(live.on(this, shownNode, next.ms, offline))
         }
     }
 
@@ -378,6 +391,8 @@ class MarviaVpnService : VpnService() {
      * ядро отдаёт то, что уже знает.
      */
     private var trafficHistory: TrafficHistory? = null
+    private var trafficCountry = ""
+    private data class CoreSnapshot(val state: TunnelState.On, val received: Long, val sent: Long, val country: String)
 
     /** One bounded lookup per unknown node, only when it actually becomes active. */
     private fun detectExitCountry(started: Core, store: Store) {
@@ -397,26 +412,22 @@ class MarviaVpnService : VpnService() {
         }
     }
 
-    private fun snapshot(started: Core, node: String, warning: String = ""): TunnelState.On {
-        // Расход снимаем здесь, а не на экране: экран бывает закрыт неделями,
-        // а туннель всё это время работает. Новая сессия — новый отсчёт
-        // длительности и скорости; счёт по дням живёт дольше, в Traffic.
-        if (MarviaState.state.value !is TunnelState.On) trafficHistory = TrafficHistory(this)
+    private fun snapshot(started: Core, node: String, warning: String = ""): CoreSnapshot {
+        // Вызовы JNI выполняются без замка остановки. Снимок применяется
+        // только после проверки владельца: старый опрос не меняет новую сессию.
         val received = started.receivedBytes()
         val sent = started.sentBytes()
-        SessionDetails.sample(received, sent)
         val store = Store(this)
         val rows = NodeRow.parse(started.nodes()) { id, name, endpoint ->
             store.exitCountry(store.accountLink, id, name, endpoint)
         }
         val current = rows.firstOrNull { it.current }
         val chosen = rows.firstOrNull { it.chosen }
-        MarviaState.traffic.value = trafficHistory!!.sample(received + sent, current?.group.orEmpty())
 
         // Ядро отдаёт последний замер именно текущей ноды.
         val ms = current?.ms ?: 0
 
-        return TunnelState.On(
+        return CoreSnapshot(TunnelState.On(
             node = node,
             warning = warning,
             subscription = TunnelState.Subscription(
@@ -428,7 +439,14 @@ class MarviaVpnService : VpnService() {
             ),
             ms = ms,
             chosen = chosen?.title.orEmpty(),
-        )
+        ), received, sent, current?.group.orEmpty())
+    }
+
+    private fun publish(snapshot: CoreSnapshot) {
+        SessionDetails.sample(snapshot.received, snapshot.sent)
+        trafficCountry = snapshot.country
+        MarviaState.traffic.value = trafficHistory!!.sample(snapshot.received + snapshot.sent, snapshot.country)
+        MarviaState.set(snapshot.state)
     }
 
     /** troubleText подбирает фразу под код беды из ядра. */
@@ -451,11 +469,25 @@ class MarviaVpnService : VpnService() {
      * только что провалилось. Это худший вид ошибки: человек видит, что не
      * работает, и не видит почему.
      */
-    private fun shutdown(state: TunnelState) {
-        synchronized(lifecycle) {
-            if (finished) return
-            finished = true
+    private fun shutdown(state: TunnelState, attempt: ConnectionAttempt? = null) {
+        // Ошибка дозвона приходит с IO, а команды Android — с главного потока.
+        // Одно место завершения не даёт старой попытке остановить новую службу.
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            scope.launch(Dispatchers.Main.immediate) { shutdown(state, attempt) }
+            return
         }
+        val started: Core?
+        val pending: ConnectionAttempt?
+        synchronized(lifecycle) {
+            if (finished || (attempt != null && connectionAttempt !== attempt)) return
+            finished = true
+            started = core
+            pending = connectionAttempt
+            core = null
+            connectionAttempt = null
+        }
+        pending?.cancel()
+        started?.disconnect()
         networkMonitor?.close()
         networkMonitor = null
         networkWorker?.cancel()
@@ -475,39 +507,32 @@ class MarviaVpnService : VpnService() {
         uplink.stop()
         countryProbe?.cancel()
         countryProbe = null
-        core?.let { started ->
+        started?.let {
             // Последний отсчёт мог прийти после предыдущего опроса. Он нужен
             // и для итогов завершённой сессии, и для суточного расхода.
             runCatching { started.receivedBytes() to started.sentBytes() }.getOrNull()?.let { (received, sent) ->
                 SessionDetails.sample(received, sent)
-                val store = Store(this)
-                val country = NodeRow.parse(started.nodes()) { id, name, endpoint ->
-                    store.exitCountry(store.accountLink, id, name, endpoint)
-                }.firstOrNull { it.current }?.group.orEmpty()
-                trafficHistory?.sample(received + sent, country)
+                Traffic(this).note(received + sent, trafficCountry, persist = false)
             }
-            SessionDetails.finish(this)
         }
-        // Хвост учёта — на диск сейчас: книга пишется раз в минуту, и
-        // выключение туннеля не должно терять последние секунды.
-        Traffic(this).flush()
-
-        val started = core
-        core = null
+        val session = if (started != null) SessionDetails.finish() else null
+        trafficHistory = null
         // Экрану стран больше не у кого спрашивать: туннеля нет.
         MarviaState.hold(null)
-        if (started != null) {
-            try {
-                started.stop()
-            } catch (_: Throwable) {
-                // Останавливаемся в любом случае: жаловаться уже некому.
-            }
-        }
-
         MarviaState.set(state)
         shown = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+        // onDestroy отменит scope службы, но освобождение ядра и запись
+        // уже отделённой сессии обязаны закончиться после её уничтожения.
+        val context = applicationContext
+        cleanupScope.launch {
+            runCatching { started?.stop() }
+        }
+        cleanupScope.launch {
+            if (session != null) SessionDetails.save(context, session)
+            Traffic(context).flush()
+        }
     }
 
     /** Система отобрала право на VPN — обычно потому, что включили другой. */
@@ -707,6 +732,8 @@ class MarviaVpnService : VpnService() {
     }
 
     companion object {
+
+        private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         const val ACTION_STOP = "io.marvia.android.action.STOP"
 
         private const val TAG = "Veil"

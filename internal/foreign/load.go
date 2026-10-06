@@ -95,6 +95,15 @@ func Load(link, cachePath string, refresh bool) (sub Subscription, fetched time.
 // LoadWithClient использует тот же кэш и для фонового запроса через VPN:
 // отдельный загрузчик потерял бы заголовки о сроке и напоминания продавца.
 func LoadWithClient(link, cachePath string, refresh bool, httpClient *http.Client) (sub Subscription, fetched time.Time, stale bool, err error) {
+	return LoadWithContext(context.Background(), link, cachePath, refresh, httpClient)
+}
+
+// LoadWithContext позволяет отменить запрос подписки вместе с подключением:
+// собственный таймаут ограничивает ожидание, но не заменяет кнопку отмены.
+func LoadWithContext(ctx context.Context, link, cachePath string, refresh bool, httpClient *http.Client) (sub Subscription, fetched time.Time, stale bool, err error) {
+	if err := ctx.Err(); err != nil {
+		return Subscription{}, time.Time{}, false, err
+	}
 	link = strings.TrimSpace(link)
 	if IsLink(FirstLine(link)) {
 		// Одна ссылка или несколько столбиком: подписка без панели.
@@ -117,10 +126,13 @@ func LoadWithClient(link, cachePath string, refresh bool, httpClient *http.Clien
 		return fromCache(), time.Unix(cached.FetchedAt, 0), false, nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
+	fetchCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
-	body, meta, ferr := FetchRawWithClient(ctx, link, httpClient)
+	body, meta, ferr := FetchRawWithClient(fetchCtx, link, httpClient)
 	if ferr != nil {
+		if ctx.Err() != nil {
+			return Subscription{}, time.Time{}, false, ctx.Err()
+		}
 		if cached.Body != "" {
 			return fromCache(), time.Unix(cached.FetchedAt, 0), true, nil
 		}

@@ -865,7 +865,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggle() {
-        if (MarviaState.state.value is TunnelState.On) {
+        val state = MarviaState.state.value
+        if (state is TunnelState.On || state is TunnelState.Connecting) {
             startService(
                 Intent(this, MarviaVpnService::class.java).setAction(MarviaVpnService.ACTION_STOP),
             )

@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -108,8 +107,9 @@ type Tunnel struct {
 
 	// Не просто дозвон, а надзор над ним: он сам меняет ноду, когда текущая
 	// замолчала, и подменяет её под мостом. Мост об этом не знает.
-	dialer client.Backend
-	bridge *tunbridge.Bridge
+	dialer   client.Backend
+	bridge   *tunbridge.Bridge
+	settings tunnelSettings
 
 	nodeName string
 	running  bool
@@ -154,53 +154,17 @@ func Start(accountLink string, tunFD int, dns string, cacheDir string, prefer in
 		return nil, fail(FailSystem, errors.New("не передан дескриптор сетевого интерфейса"))
 	}
 
-	// Дескриптор нам отдали насовсем: приложение вызвало detachFd и само его
-	// уже не закроет. Пока за него не взялся мост, отвечаем за него мы — иначе
-	// каждая неудачная попытка подключения оставляла бы висеть по интерфейсу.
-	bridgeOwnsFD := false
-	defer func() {
-		if !bridgeOwnsFD {
-			tunbridge.CloseFD(tunFD)
-		}
-	}()
-	if strings.TrimSpace(dns) == "" {
-		dns = DefaultDNS
-	}
-
-	t := &Tunnel{running: true}
-	set := parseSettings(settings)
-
-	// Имя ноды переписываем при переезде: иначе окно будет показывать ту,
-	// через которую трафик давно не идёт.
-	dialer, err := connect(accountLink, cacheDir, prefer, client.Events{OnSwitch: t.switched, OnTrouble: t.trouble, OnRecovered: t.recovered}, set)
+	attempt := NewConnectionAttempt()
+	defer attempt.cancel()
+	t, err := attempt.Connect(accountLink, cacheDir, prefer, settings)
 	if err != nil {
+		tunbridge.CloseFD(tunFD)
 		return nil, err
 	}
-	t.dialer = dialer
-	t.nodeName = dialer.Node().Title()
-
-	// Резолвер ходит тем же счётным дозвоном: его байты — тоже расход
-	// человека через туннель.
-	tunnel := tunbridge.Metered(dialer, &t.up, &t.down)
-	bridgeOwnsFD = true
-	bridge, err := tunbridge.Start(tunbridge.Config{
-		FD:      tunFD,
-		Dialer:  tunnel,
-		DNS:     dns,
-		Names:   set.names(dns, tunnel),
-		NoIPv6:  set.NoIPv6,
-		OnError: t.note,
-	})
-	if err != nil {
-		_ = dialer.Close()
-		return nil, fail(FailSystem, fmt.Errorf("сетевой мост: %w", err))
+	if err := t.Attach(tunFD, dns); err != nil {
+		_ = t.Stop()
+		return nil, err
 	}
-	// Под замком: надзор уже работает и может позвать switched в любой миг, а
-	// тот читает мост, чтобы снять с него запрет датаграмм.
-	t.mu.Lock()
-	t.bridge = bridge
-	t.mu.Unlock()
-
 	return t, nil
 }
 
@@ -211,8 +175,15 @@ func Start(accountLink string, tunFD int, dns string, cacheDir string, prefer in
 // выдумывая дескриптор интерфейса. Выдуманный дескриптор в тесте — это номер,
 // который на Linux принадлежит чему-то настоящему.
 func connect(accountLink, cacheDir string, prefer int64, events client.Events, set tunnelSettings) (client.Backend, error) {
+	return connectContext(context.Background(), accountLink, cacheDir, prefer, events, set)
+}
+
+func connectContext(ctx context.Context, accountLink, cacheDir string, prefer int64, events client.Events, set tunnelSettings) (client.Backend, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if isForeign(accountLink) {
-		return connectForeign(accountLink, cacheDir, prefer, events, set)
+		return connectForeign(ctx, accountLink, cacheDir, prefer, events, set)
 	}
 	account, err := client.ParseAccountLink(accountLink)
 	if err != nil {
@@ -242,7 +213,7 @@ func connect(accountLink, cacheDir string, prefer int64, events client.Events, s
 	// ни «переехать не удалось» наружу не выходят, и живая проверка не может
 	// отличить «сторож не сработал» от «сторож сработал и не смог». Ровно на
 	// этом застряла первая проверка переезда.
-	dialer, measurements, err := client.Supervise(context.Background(), client.ConnectConfig{
+	dialer, measurements, err := client.Supervise(ctx, client.ConnectConfig{
 		Account:   account,
 		Key:       key,
 		CachePath: accountCachePath(cacheDir, account.SubscriptionURL),
@@ -253,7 +224,7 @@ func connect(accountLink, cacheDir string, prefer int64, events client.Events, s
 
 	// По умолчанию продавец узнаёт и о неудачном дозвоне. Человек может
 	// оставить результаты только на телефоне: выбор ноды от этого не меняется.
-	if !set.DisableReports {
+	if !set.DisableReports && ctx.Err() == nil {
 		go func() {
 			if err := client.SendReports(context.Background(), account.SubscriptionURL, client.ReportsFrom(measurements)); err != nil {
 				// Панель недоступна — не повод не работать. Туннель от неё не
@@ -380,15 +351,24 @@ func (t *Tunnel) NetworkChanged(available bool) {
 	}
 }
 
-// Stop закрывает туннель. Безопасно вызывать несколько раз.
-func (t *Tunnel) Stop() error {
+// Disconnect возвращает телефону обычную сеть, не ожидая очистки дозвона.
+// Приложение затем вызывает Stop в фоне; эта часть может ждать сторожа ноды.
+func (t *Tunnel) Disconnect() {
 	t.mu.Lock()
-	if !t.running {
-		t.mu.Unlock()
-		return nil
-	}
+	t.running = false
+	bridge := t.bridge
+	t.mu.Unlock()
+	bridge.Disconnect()
+}
+
+// Stop закрывает туннель. Безопасно вызывать несколько раз, в том числе
+// после Disconnect: признак running уже снят, но ресурсы ещё надо освободить.
+func (t *Tunnel) Stop() error {
+	t.Disconnect()
+	t.mu.Lock()
 	t.running = false
 	bridge, dialer := t.bridge, t.dialer
+	t.bridge, t.dialer = nil, nil
 	t.mu.Unlock()
 
 	var first error

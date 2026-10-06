@@ -19,6 +19,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -73,6 +74,8 @@ type Config struct {
 
 	// Device — интерфейс в виде потока байтов. Нужен для проверок на
 	// настольной машине, где никакого TUN нет.
+	// Если поток умеет Close, владение им тоже переходит мосту: закрытие
+	// канального endpoint само по себе не прерывает заблокированный Read.
 	Device io.ReadWriter
 
 	// Endpoint — уже открытый сетевой интерфейс.
@@ -135,9 +138,12 @@ type Names interface {
 
 // Bridge — работающий мост.
 type Bridge struct {
-	device  stack.LinkEndpoint
-	stack   *stack.Stack
-	handler *handler
+	device         stack.LinkEndpoint
+	stream         io.Closer
+	stack          *stack.Stack
+	handler        *handler
+	disconnectOnce sync.Once
+	closeOnce      sync.Once
 }
 
 // Start поднимает мост и начинает разбирать пакеты.
@@ -161,6 +167,10 @@ func Start(cfg Config) (*Bridge, error) {
 		CloseFD(cfg.FD)
 		return nil, err
 	}
+	var stream io.Closer
+	if cfg.Endpoint == nil && cfg.Device != nil {
+		stream, _ = cfg.Device.(io.Closer)
+	}
 
 	handler := &handler{
 		dialer:  cfg.Dialer,
@@ -176,11 +186,14 @@ func Start(cfg Config) (*Bridge, error) {
 		TransportHandler: handler,
 	})
 	if err != nil {
+		if stream != nil {
+			_ = stream.Close()
+		}
 		dev.Close()
 		return nil, fmt.Errorf("сетевой стек: %w", err)
 	}
 
-	return &Bridge{device: dev, stack: st, handler: handler}, nil
+	return &Bridge{device: dev, stream: stream, stack: st, handler: handler}, nil
 }
 
 // NodeChanged сообщает мосту, что трафик пошёл через другую ноду.
@@ -233,14 +246,35 @@ func openDevice(cfg Config, mtu uint32) (stack.LinkEndpoint, error) {
 	}
 }
 
-// Close останавливает мост.
+// Disconnect освобождает интерфейс раньше очистки стека: на Android именно
+// закрытие TUN возвращает обычные маршруты. Ожидание потоков до мёртвой ноды
+// не должно оставлять весь телефон без интернета. Once защищает номер
+// дескриптора от повторного закрытия после его выдачи новому соединению.
+func (b *Bridge) Disconnect() {
+	if b == nil {
+		return
+	}
+	b.disconnectOnce.Do(func() {
+		if b.stream != nil {
+			_ = b.stream.Close()
+		}
+		if b.device != nil {
+			b.device.Close()
+		}
+	})
+}
+
+// Close останавливает мост после освобождения интерфейса.
 func (b *Bridge) Close() error {
-	if b.stack != nil {
-		b.stack.Close()
+	if b == nil {
+		return nil
 	}
-	if b.device != nil {
-		b.device.Close()
-	}
+	b.Disconnect()
+	b.closeOnce.Do(func() {
+		if b.stack != nil {
+			b.stack.Close()
+		}
+	})
 	return nil
 }
 

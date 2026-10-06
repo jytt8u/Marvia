@@ -40,19 +40,25 @@ object SessionDetails {
 
     @Synchronized fun snapshot(): SpeedSnapshot = SpeedSnapshot(current, samples.toList(), peak)
 
-    @Synchronized fun finish(context: Context) {
-        val s = current ?: return
-        // Do not let a damaged history database bring down the VPN service.
+    // Снимок отделяем до фоновой записи: её задержка не должна ни удерживать
+    // кнопку отключения, ни стирать счётчики следующего подключения.
+    @Synchronized fun finish(): Session? {
+        val s = current
+        current = null
+        samples.clear()
+        return s
+    }
+
+    fun save(context: Context, s: Session) {
+        // Повреждённая история не должна мешать отключению VPN.
         try {
             History(context).use { history ->
                 history.migrateLegacy(context)
                 history.insert(s)
             }
         } catch (e: Exception) {
-            android.util.Log.w("MarviaSessions", "Could not save session history", e)
+            android.util.Log.w("MarviaSessions", "не удалось сохранить историю сессии", e)
         }
-        current = null
-        samples.clear()
     }
 
     /** Read a page, newest first. History is no longer capped at 20 sessions. */

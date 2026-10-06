@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -416,5 +417,85 @@ func TestRealityNodeIgnoresHelloFromLongAgo(t *testing.T) {
 	}
 	if err := dial(3 * time.Minute); err != nil {
 		t.Fatalf("часы, убежавшие на три минуты, не пустили: %v", err)
+	}
+}
+
+// Двадцать гостей сразу: каждый получает своё соединение, а не соседское.
+// Библиотечный приёмщик делил между горутинами одну переменную, и под
+// нагрузкой Accept мог отдать чужое сырое соединение — детектор гонок это
+// и показал.
+func TestRealityListenerHandsEachGuestItsOwnConnection(t *testing.T) {
+	const shortID = "0123456789abcdef"
+	real := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	defer real.Close()
+	parsed, _ := url.Parse(real.URL)
+	pair, err := vp1.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tcp, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln, err := transport.ListenReality(tcp, transport.RealityConfig{
+		Dest: parsed.Host, ServerNames: []string{"example.com"},
+		PrivateKey: pair.Private, ShortIDs: []string{shortID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() { defer conn.Close(); _, _ = io.Copy(conn, conn) }()
+		}
+	}()
+
+	const guests = 20
+	errs := make(chan error, guests)
+	for i := 0; i < guests; i++ {
+		go func(i int) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			conn, err := transport.DialReality(ctx, tcp.Addr().String(), transport.RealityDialConfig{
+				ServerName: "example.com", PublicKey: pair.Public, ShortID: shortID,
+			})
+			if err != nil {
+				errs <- err
+				return
+			}
+			defer conn.Close()
+			_ = conn.SetDeadline(time.Now().Add(20 * time.Second))
+			want := []byte(strings.Repeat(string(rune('a'+i)), 64))
+			if _, err := conn.Write(want); err != nil {
+				errs <- err
+				return
+			}
+			got := make([]byte, len(want))
+			if _, err := io.ReadFull(conn, got); err != nil {
+				errs <- err
+				return
+			}
+			if string(got) != string(want) {
+				errs <- fmt.Errorf("гость %d получил чужие данные", i)
+				return
+			}
+			errs <- nil
+		}(i)
+	}
+	for i := 0; i < guests; i++ {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := ln.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ln.Accept(); err == nil {
+		t.Fatal("закрытый приёмщик принял соединение")
 	}
 }

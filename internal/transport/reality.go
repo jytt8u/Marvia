@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/xtls/reality"
@@ -137,7 +138,76 @@ func ListenReality(inner net.Listener, cfg RealityConfig) (net.Listener, error) 
 		SessionTicketsDisabled: true,
 	}
 
-	return reality.NewListener(inner, config), nil
+	return newRealityListener(inner, config), nil
+}
+
+// realityListener — приём соединений REALITY без reality.NewListener.
+//
+// Библиотечный приёмщик пишет из горутины каждого соединения в общие
+// переменные c и err своего цикла. Детектор гонок это ловит, и это не
+// формальность: пока одна горутина проходит рукопожатие, цикл кладёт в c
+// следующее сырое соединение, и в Accept могло уйти чужое, ещё не
+// расшифрованное. Логика та же — рукопожатие в отдельной горутине, чтобы
+// медленный гость не держал остальных, — но у каждой свои переменные.
+type realityListener struct {
+	net.Listener
+	conns chan net.Conn
+	done  chan struct{}
+	once  sync.Once
+	mu    sync.Mutex
+	err   error
+}
+
+func newRealityListener(inner net.Listener, config *reality.Config) *realityListener {
+	go reality.DetectPostHandshakeRecordsLens(config)
+	l := &realityListener{Listener: inner, conns: make(chan net.Conn), done: make(chan struct{})}
+	go func() {
+		for {
+			raw, err := inner.Accept()
+			if err != nil {
+				l.mu.Lock()
+				l.err = err
+				l.mu.Unlock()
+				l.once.Do(func() { close(l.done) })
+				return
+			}
+			go func(raw net.Conn) {
+				// Библиотека паникует на кривом приветствии; гость не
+				// должен ронять ноду.
+				defer func() { _ = recover() }()
+				conn, err := reality.Server(context.Background(), raw, config)
+				if err != nil {
+					return
+				}
+				select {
+				case l.conns <- conn:
+				case <-l.done:
+					_ = conn.Close()
+				}
+			}(raw)
+		}
+	}()
+	return l
+}
+
+func (l *realityListener) Accept() (net.Conn, error) {
+	select {
+	case c := <-l.conns:
+		return c, nil
+	case <-l.done:
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		if l.err == nil {
+			return nil, net.ErrClosed
+		}
+		return nil, l.err
+	}
+}
+
+func (l *realityListener) Close() error {
+	err := l.Listener.Close()
+	l.once.Do(func() { close(l.done) })
+	return err
 }
 
 // parseShortIDs разбирает короткие идентификаторы из шестнадцатеричного вида.

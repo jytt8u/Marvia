@@ -57,15 +57,65 @@ if ! command -v gh >/dev/null 2>&1; then
 	status failed 'нужен GitHub CLI с gh attestation verify; установи его из доверенного источника'
 	exit 1
 fi
-url=$(curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest") || {
-	status failed 'не удалось узнать релиз GitHub'; exit 1;
+# Канал выпусков. stable — то, что GitHub называет latest; test — ещё и
+# alpha, beta, rc. Выбор лежит в каталоге root, а не в просьбе и не в базе
+# панели: взломанная панель, умеющая переключить канал, ставила бы серверу
+# сборки, проверенные меньше. Включает его root командой обновления с
+# MARVIA_CHANNEL=test (scripts/upgrade.sh). Та же логика — там же.
+STABLE_TAG='^v[0-9]+\.[0-9]+\.[0-9]+$'
+TEST_TAG='^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'
+channel=$(head -n 1 "$STATE/channel" 2>/dev/null || true)
+
+# older A B — A старше B. Тильда вместо дефиса учит sort -V, что
+# v1.0.0-rc.1 — до v1.0.0, а не после.
+older() {
+	[ "$1" != "$2" ] &&
+		[ "$(printf '%s\n%s\n' "$1" "$2" | sed 's/-/~/' | sort -V | head -n 1 | sed 's/~/-/')" = "$1" ]
 }
-case "$url" in
-	"https://github.com/$REPO/releases/tag/"*) tag=${url##*/} ;;
-	*) status failed 'GitHub вернул посторонний адрес релиза'; exit 1 ;;
-esac
-if ! printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+
+# newest_published печатает самый новый по номеру опубликованный выпуск.
+# Лента releases.atom перечисляет метки, в том числе черновиков, у которых
+# файлов снаружи нет, — их отсеивает проверка, что SHA256SUMS отдаётся.
+# По номеру, а не по дате: правка старой ветки, вышедшая позже, не должна
+# откатывать сервер.
+newest_published() {
+	feed=$(curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 "https://github.com/$REPO/releases.atom") || return 1
+	for candidate in $(printf '%s\n' "$feed" | grep -o 'releases/tag/[^"<]*' | sed 's|.*/||' |
+		grep -E "$TEST_TAG" | sed 's/-/~/' | sort -Vru | sed 's/~/-/'); do
+		if curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 -r 0-0 -o /dev/null \
+			"https://github.com/$REPO/releases/download/$candidate/SHA256SUMS" 2>/dev/null; then
+			printf '%s\n' "$candidate"
+			return 0
+		fi
+	done
+	return 1
+}
+
+if [ "$channel" = test ]; then
+	tag=$(newest_published) || { status failed 'не удалось узнать тестовый выпуск GitHub'; exit 1; }
+	pattern=$TEST_TAG
+else
+	url=$(curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest") || {
+		status failed 'не удалось узнать релиз GitHub'; exit 1;
+	}
+	case "$url" in
+		"https://github.com/$REPO/releases/tag/"*) tag=${url##*/} ;;
+		*) status failed 'GitHub вернул посторонний адрес релиза'; exit 1 ;;
+	esac
+	pattern=$STABLE_TAG
+fi
+if ! printf '%s\n' "$tag" | grep -Eq "$pattern"; then
 	status failed 'неверный тег релиза'; exit 1
+fi
+
+# installed пишет upgrade.sh после удачной установки, в каталог root.
+# Спросить версию у самого бинарника нельзя — root не исполняет файлы из
+# каталога службы (installed_version в upgrade.sh). Назад не ходим: старый
+# бинарник поверх новой базы панели — это потеря данных, а не обновление.
+installed=$(head -n 1 "$STATE/installed" 2>/dev/null || true)
+if [ -n "$installed" ] && ! older "$installed" "$tag"; then
+	status ok "уже стоит $installed"
+	exit 0
 fi
 base="https://github.com/$REPO/releases/download/$tag"
 

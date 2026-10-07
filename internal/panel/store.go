@@ -1251,11 +1251,15 @@ func (s *Store) RequestNodeUpgrade(ctx context.Context, target string) (int, err
 }
 
 // OlderVersion говорит, старше ли версия a версии b. Сравниваются числа
-// vX.Y.Z по порядку; то, что не разбирается (dev-сборка), старше ничего не
-// считается — откатывать то, чего не понимаешь, хуже, чем не обновить.
+// vX.Y.Z, затем хвост тестового выпуска: alpha.5 раньше alpha.6, alpha —
+// раньше beta и rc, а все они — раньше выпуска без хвоста. Без хвоста
+// нода на alpha.5 считалась бы равной alpha.6 и не обновлялась вовсе. То,
+// что не разбирается (dev-сборка), старше ничего не считается — откатывать
+// то, чего не понимаешь, хуже, чем не обновить. Тот же порядок — у older в
+// web/index.html и в internal/updater/agent.sh.
 func OlderVersion(a, b string) bool {
-	pa, okA := versionParts(a)
-	pb, okB := versionParts(b)
+	pa, preA, okA := versionParts(a)
+	pb, preB, okB := versionParts(b)
 	if !okA || !okB {
 		return false
 	}
@@ -1264,25 +1268,55 @@ func OlderVersion(a, b string) bool {
 			return pa[i] < pb[i]
 		}
 	}
-	return false
+	switch {
+	case preA == preB:
+		return false
+	case preA == "":
+		return false
+	case preB == "":
+		return true
+	}
+	return olderPrerelease(strings.Split(preA, "."), strings.Split(preB, "."))
 }
 
-func versionParts(v string) ([3]int, bool) {
+// olderPrerelease сравнивает хвосты по частям: числа — как числа (alpha.9
+// раньше alpha.10), слова — по алфавиту, число раньше слова, и короткий
+// хвост раньше длинного с тем же началом.
+func olderPrerelease(a, b []string) bool {
+	for i := 0; i < len(a) && i < len(b); i++ {
+		if a[i] == b[i] {
+			continue
+		}
+		na, errA := strconv.Atoi(a[i])
+		nb, errB := strconv.Atoi(b[i])
+		switch {
+		case errA == nil && errB == nil:
+			return na < nb
+		case errA == nil:
+			return true
+		case errB == nil:
+			return false
+		}
+		return a[i] < b[i]
+	}
+	return len(a) < len(b)
+}
+
+func versionParts(v string) ([3]int, string, bool) {
 	var out [3]int
-	fields := strings.SplitN(strings.TrimPrefix(v, "v"), ".", 3)
+	core, pre, _ := strings.Cut(strings.TrimPrefix(v, "v"), "-")
+	fields := strings.Split(core, ".")
 	if len(fields) != 3 {
-		return out, false
+		return out, "", false
 	}
 	for i, f := range fields {
-		// Хвост вида -rc1 отбрасываем: сравниваем только числа.
-		f, _, _ = strings.Cut(f, "-")
 		n, err := strconv.Atoi(f)
 		if err != nil || n < 0 {
-			return out, false
+			return out, "", false
 		}
 		out[i] = n
 	}
-	return out, true
+	return out, pre, true
 }
 
 // NodeUsers собирает список пользователей для конкретной ноды в том же виде,

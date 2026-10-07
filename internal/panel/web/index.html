@@ -656,6 +656,12 @@
         <sc-if value="{{ isUpdates }}">
           <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--gap, 12px); max-width: 760px;">
             <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ d18.updates.what }}</div>
+            <sc-if value="{{ updHasChannel }}">
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ updChannelText }}</div>
+                <div style="{{ updCmd }}">{{ updChannelCmd }}</div>
+              </div>
+            </sc-if>
             <sc-if value="{{ updLatestErr }}">
               <div style="{{ errStyle }}">{{ updLatestErrText }}</div>
             </sc-if>
@@ -2471,6 +2477,10 @@ const TEXTS = {
       log: "Журнал последнего обновления",
       latestErr: (e) => "Не удалось узнать последний релиз: " + e,
       nodesNote: "Нода, поставленная до версии 0.12, версию не сообщает и просьбу не услышит: такую обнови один раз той же командой на её сервере.",
+      channelStable: "Канал: стабильные выпуски. Тестовые — alpha и beta — приходят раньше и проверены меньше. Чтобы получать их, выполни один раз от root на каждом сервере, панели и нод: канал у каждой машины свой.",
+      channelTest: "Канал: тестовые выпуски — alpha и beta приходят сюда раньше стабильных и проверены меньше. Канал у каждой машины свой: нода на стабильном канале тестовый выпуск не поставит. Вернуться на стабильные, от root (назад сервер не откатится — дождётся стабильного новее нынешнего):",
+      commandTest: "curl -fsSL https://raw.githubusercontent.com/jytt8u/marvia/main/scripts/upgrade.sh | MARVIA_CHANNEL=test sh",
+      commandStable: "curl -fsSL https://raw.githubusercontent.com/jytt8u/marvia/main/scripts/upgrade.sh | MARVIA_CHANNEL=stable sh",
     },
     alerts: {
       title: "Оповещения в телеграм",
@@ -2875,6 +2885,10 @@ const TEXTS = {
       log: "Log of the last upgrade",
       latestErr: (e) => "Could not learn the latest release: " + e,
       nodesNote: "A node installed before 0.12 does not report its version and will not hear the request: upgrade it once with the same command on its server.",
+      channelStable: "Channel: stable releases. Test releases — alpha and beta — arrive earlier and are tested less. To get them, run this once as root on every server, panel and nodes alike: each machine has its own channel.",
+      channelTest: "Channel: test releases — alpha and beta arrive here before stable ones and are tested less. Each machine has its own channel: a node on the stable channel will not install a test release. To go back to stable, as root (the server will not roll back — it waits for a stable release newer than the current one):",
+      commandTest: "curl -fsSL https://raw.githubusercontent.com/jytt8u/marvia/main/scripts/upgrade.sh | MARVIA_CHANNEL=test sh",
+      commandStable: "curl -fsSL https://raw.githubusercontent.com/jytt8u/marvia/main/scripts/upgrade.sh | MARVIA_CHANNEL=stable sh",
     },
     alerts: {
       title: "Telegram alerts",
@@ -3281,19 +3295,30 @@ const CTA = {
   keys: () => newKeySheet(),
 };
 
-// older — старше ли версия a версии b, по числам vX.Y.Z. Неразборчивое (dev)
-// старше ничего не считается: нода или панель из свежей сборки бывает новее
-// релиза, и кнопка «обновить» откатила бы её назад. Тот же смысл, что у
-// OlderVersion в store.go.
+// older — старше ли версия a версии b: числа vX.Y.Z, затем хвост тестового
+// выпуска (alpha.5 раньше alpha.6, alpha раньше beta и rc, все они раньше
+// выпуска без хвоста). Неразборчивое (dev) старше ничего не считается: нода
+// или панель из свежей сборки бывает новее релиза, и кнопка «обновить»
+// откатила бы её назад. Тот же порядок, что у OlderVersion в store.go.
 function older(a, b) {
-  const parts = (v) => {
-    const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(v || "");
-    return m ? [+m[1], +m[2], +m[3]] : null;
+  const parse = (v) => {
+    const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.]+))?$/.exec(v || "");
+    return m ? { core: [+m[1], +m[2], +m[3]], pre: m[4] ? m[4].split(".") : [] } : null;
   };
-  const pa = parts(a), pb = parts(b);
+  const pa = parse(a), pb = parse(b);
   if (!pa || !pb) return false;
-  for (let i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pa[i] < pb[i];
-  return false;
+  for (let i = 0; i < 3; i++) if (pa.core[i] !== pb.core[i]) return pa.core[i] < pb.core[i];
+  if (!pa.pre.length) return false;
+  if (!pb.pre.length) return true;
+  for (let i = 0; i < pa.pre.length && i < pb.pre.length; i++) {
+    const x = pa.pre[i], y = pb.pre[i];
+    if (x === y) continue;
+    const nx = /^\d+$/.test(x), ny = /^\d+$/.test(y);
+    if (nx && ny) return +x < +y;
+    if (nx !== ny) return nx;
+    return x < y;
+  }
+  return pa.pre.length < pb.pre.length;
 }
 
 // updatesView — страница «Обновления». Кнопка появляется только там, где ей
@@ -3342,6 +3367,9 @@ function updatesView(t, d, dict) {
     updPanelLine: panelLine,
     updLineStyle: "font-size:12px;line-height:1.5;color:" + (svc.state === "failed" && !svc.pending ? t.warn : t.dim),
     updNoService: !!u && !svc.installed,
+    updHasChannel: !!u && !!u.channel,
+    updChannelText: u && u.channel === "test" ? up.channelTest : up.channelStable,
+    updChannelCmd: u && u.channel === "test" ? up.commandStable : up.commandTest,
     updCmd: "padding:10px 12px;border-radius:" + t.r + "px;background:" + t.surf2
       + ";font-family:JetBrains Mono,monospace;font-size:11.5px;color:" + t.fg + ";user-select:all;word-break:break-all",
     updCanPanel: !!u && svc.installed && !svc.pending && svc.state !== "running" && !state.updRestarting

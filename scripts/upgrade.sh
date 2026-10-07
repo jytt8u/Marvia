@@ -160,12 +160,69 @@ esac
 
 command -v gh >/dev/null 2>&1 || die 'нужен GitHub CLI с gh attestation verify; установи его из доверенного источника'
 command -v ss >/dev/null 2>&1 || die 'нужен ss из iproute2 для проверки запуска службы'
+# Канал выпусков: stable — latest GitHub, test — ещё и alpha, beta, rc.
+# Выбор хранится в каталоге root, его читает и служба обновления по кнопке
+# (internal/updater/agent.sh, логика та же). Меняет его только этот сценарий
+# от root: панель канал не переключает — взломанная панель не должна уметь
+# ставить серверу сборки, проверенные меньше.
+STATE=/var/lib/marvia-upgrade
+TEST_TAG='^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'
+case "${MARVIA_CHANNEL:-}" in
+'') ;;
+stable|test)
+	mkdir -p "$STATE"
+	chmod 755 "$STATE"
+	printf '%s\n' "$MARVIA_CHANNEL" >"$STATE/channel.new"
+	chmod 644 "$STATE/channel.new"
+	mv -f "$STATE/channel.new" "$STATE/channel"
+	;;
+*) die 'MARVIA_CHANNEL бывает stable или test' ;;
+esac
+channel=$(head -n 1 "$STATE/channel" 2>/dev/null || true)
+[ "$channel" = test ] || channel=stable
+ok "канал обновлений: $channel"
+
+# older A B — A старше B. Тильда вместо дефиса учит sort -V, что
+# v1.0.0-rc.1 — до v1.0.0, а не после.
+older() {
+	[ "$1" != "$2" ] &&
+		[ "$(printf '%s\n%s\n' "$1" "$2" | sed 's/-/~/' | sort -V | head -n 1 | sed 's/~/-/')" = "$1" ]
+}
+
+# newest_published — самый новый по номеру опубликованный выпуск. Лента
+# releases.atom перечисляет и метки черновиков; у них SHA256SUMS снаружи не
+# отдаётся, этим их и отсеиваем.
+newest_published() {
+	feed=$(curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 "https://github.com/$REPO/releases.atom") || return 1
+	for candidate in $(printf '%s\n' "$feed" | grep -o 'releases/tag/[^"<]*' | sed 's|.*/||' |
+		grep -E "$TEST_TAG" | sed 's/-/~/' | sort -Vru | sed 's/~/-/'); do
+		if curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 -r 0-0 -o /dev/null \
+			"https://github.com/$REPO/releases/download/$candidate/SHA256SUMS" 2>/dev/null; then
+			printf '%s\n' "$candidate"
+			return 0
+		fi
+	done
+	return 1
+}
+
 tag=${MARVIA_RELEASE_TAG:-}
+if [ -z "$tag" ] && [ "$channel" = test ]; then
+	tag=$(newest_published) || die 'не удалось узнать тестовый выпуск'
+fi
 if [ -z "$tag" ]; then
 	url=$(curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest") || die 'не удалось узнать релиз'
 	case "$url" in "https://github.com/$REPO/releases/tag/"*) tag=${url##*/} ;; *) die 'GitHub вернул посторонний адрес релиза' ;; esac
 fi
-printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || die 'неверный тег релиза'
+printf '%s\n' "$tag" | grep -Eq "$TEST_TAG" || die 'неверный тег релиза'
+
+# Назад не ходим: старый бинарник поверх базы, которую уже перестроила
+# новая панель, — потеря данных. Установленную версию помним сами (запись
+# ниже, в конце): спросить её у бинарника root не может, см. installed_version.
+installed=$(head -n 1 "$STATE/installed" 2>/dev/null || true)
+if [ -n "$installed" ] && ! older "$installed" "$tag"; then
+	ok "уже стоит $installed, $tag не новее — ничего не трогаю"
+	exit 0
+fi
 base="https://github.com/$REPO/releases/download/$tag"
 say ''
 say "качаю свежий релиз ($arch)"
@@ -429,6 +486,13 @@ if "$tmp/marvia-node" -install-updater 2>"$tmp/updater.err"; then
 else
 	bad "служба обновления не поставилась: $(head -1 "$tmp/updater.err")"
 fi
+
+# Сюда доходим, только если все службы поднялись на новой версии: swap при
+# неудаче возвращает прежнюю и завершает сценарий раньше.
+mkdir -p "$STATE"
+printf '%s\n' "$tag" >"$STATE/installed.new"
+chmod 644 "$STATE/installed.new"
+mv -f "$STATE/installed.new" "$STATE/installed"
 
 say ''
 printf '\033[32mГотово.\033[0m Проверить ноду: scripts/node-check.sh\n'

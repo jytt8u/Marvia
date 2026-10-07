@@ -3,9 +3,12 @@ package panel
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"regexp"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,9 +35,17 @@ const releaseEvery = 6 * time.Hour
 
 var releaseTag = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
 
-// releaseCache помнит последний релиз.
+// prereleaseTag — метки, которые принимает тестовый канал: ещё и alpha,
+// beta, rc. Та же, что TEST_TAG в internal/updater/agent.sh.
+var prereleaseTag = regexp.MustCompile(`^v\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?$`)
+
+// feedTag вынимает метки из ленты releases.atom.
+var feedTag = regexp.MustCompile(`releases/tag/([^"<]+)`)
+
+// releaseCache помнит последний релиз своего канала.
 type releaseCache struct {
 	mu      sync.Mutex
+	channel string
 	latest  string
 	err     string
 	checked time.Time
@@ -46,10 +57,20 @@ type releaseCache struct {
 func (c *releaseCache) get(ctx context.Context) (string, string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	// Канал читаем каждый раз: root мог переключить его командой, и ждать
+	// шесть часов, пока панель это заметит, незачем.
+	channel := updater.Channel()
+	if channel != c.channel {
+		c.channel, c.latest, c.err, c.checked = channel, "", "", time.Time{}
+	}
 	if !c.checked.IsZero() && time.Since(c.checked) < releaseEvery {
 		return c.latest, c.err
 	}
-	latest, err := fetchLatest(ctx)
+	fetch := fetchLatest
+	if channel == "test" {
+		fetch = fetchNewestPublished
+	}
+	latest, err := fetch(ctx)
 	c.checked = time.Now()
 	if err != nil {
 		// Прежний известный номер не выбрасываем: он лучше, чем ничего.
@@ -80,6 +101,56 @@ func fetchLatest(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("GitHub ответил %s без номера релиза", resp.Status)
 	}
 	return tag, nil
+}
+
+// fetchNewestPublished — самый новый по номеру опубликованный выпуск, включая
+// тестовые. Лента releases.atom перечисляет метки, в том числе черновиков:
+// у них SHA256SUMS снаружи не отдаётся, этим их и отсеиваем. По номеру, а
+// не по дате: правка старой ветки, вышедшая позже, — не «самый свежий».
+// Тот же выбор делает служба обновления (internal/updater/agent.sh), иначе
+// панель предлагала бы одно, а ставилось бы другое.
+func fetchNewestPublished(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	base := strings.TrimSuffix(releaseURL, "/latest")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+".atom", nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("GitHub недоступен: %w", err)
+	}
+	feed, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	_ = resp.Body.Close()
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("лента выпусков GitHub: %s", resp.Status)
+	}
+	var tags []string
+	for _, m := range feedTag.FindAllSubmatch(feed, -1) {
+		if tag := string(m[1]); prereleaseTag.MatchString(tag) {
+			tags = append(tags, tag)
+		}
+	}
+	sort.SliceStable(tags, func(i, j int) bool { return OlderVersion(tags[j], tags[i]) })
+	noFollow := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	for _, tag := range tags {
+		req, err := http.NewRequestWithContext(ctx, http.MethodHead, base+"/download/"+tag+"/SHA256SUMS", nil)
+		if err != nil {
+			return "", err
+		}
+		resp, err := noFollow.Do(req)
+		if err != nil {
+			return "", fmt.Errorf("GitHub недоступен: %w", err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode < http.StatusBadRequest {
+			return tag, nil
+		}
+	}
+	return "", fmt.Errorf("в ленте GitHub нет опубликованного выпуска")
 }
 
 // WithHome сообщает панели её каталог: туда кладётся просьба к службе
@@ -114,6 +185,7 @@ func (a *API) getUpdates(w http.ResponseWriter, r *http.Request) {
 	ok(w, map[string]any{
 		"latest":       latest,
 		"latest_error": latestErr,
+		"channel":      updater.Channel(),
 		"panel": map[string]any{
 			"version": a.version,
 			"updater": updater.ReadStatus(a.home),

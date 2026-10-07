@@ -177,6 +177,20 @@ func ReadStatus(home string) Status {
 	return s
 }
 
+// Channel — канал выпусков этой машины: "test" (ещё и alpha, beta, rc) или
+// "stable". Его ставит root командой обновления с MARVIA_CHANNEL; панель
+// только читает. Переключай его панель сама — взломанная панель ставила бы
+// серверу сборки, проверенные меньше.
+func Channel() string {
+	raw, err := os.ReadFile(filepath.Join(StateDir, "channel"))
+	if err == nil {
+		if line, _, _ := strings.Cut(string(raw), "\n"); strings.TrimSpace(line) == "test" {
+			return "test"
+		}
+	}
+	return "stable"
+}
+
 // ErrNotInstalled — службы обновления на машине нет.
 var ErrNotInstalled = errors.New("служба обновления не установлена: один раз обнови сервер руками командой из руководства, дальше — кнопкой")
 

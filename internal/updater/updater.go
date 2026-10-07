@@ -27,6 +27,16 @@ import (
 //go:embed agent.sh
 var agent []byte
 
+// trustedRoot — корень доверия Sigstore (`gh attestation trusted-root`).
+// Свежий gh берёт с tuf-repo-cdn.sigstore.dev, а тот открывается не со всех
+// хостингов: на ae-1 проверка подписи падала с «public good verifier is not
+// available». Тогда служба проверяет подпись этим корнем. Он приезжает в
+// выпуске, уже проверенном на сервере, поэтому подделать подпись под него не
+// легче, чем под свежий. Устаревший корень даст отказ, а не пропуск.
+//
+//go:embed sigstore-root.jsonl
+var trustedRoot []byte
+
 // Пути на машине. Переменные, а не константы, — ради проверок.
 var (
 	// StateDir — где служба оставляет состояние и журнал. Принадлежит root:
@@ -35,7 +45,10 @@ var (
 
 	// AgentPath — сценарий службы; есть файл — служба стоит.
 	AgentPath = "/usr/local/lib/marvia/upgrade-agent.sh"
-	unitDir   = "/etc/systemd/system"
+	// RootPath — корень доверия Sigstore рядом со службой; его же берёт
+	// upgrade.sh (TRUSTED_ROOT).
+	RootPath = "/usr/local/lib/marvia/sigstore-root.jsonl"
+	unitDir  = "/etc/systemd/system"
 )
 
 // Каталоги, в которых ждут просьбу. Те же, что знает upgrade.sh.
@@ -77,6 +90,9 @@ func Install() error {
 	// исполняться (это он позвал upgrade.sh, а тот — нас), а shell читает
 	// файл по ходу дела. Переписанный на месте файл он дочитал бы чужим.
 	if err := writeAtomic(AgentPath, agent, 0o755); err != nil {
+		return err
+	}
+	if err := writeAtomic(RootPath, trustedRoot, 0o644); err != nil {
 		return err
 	}
 

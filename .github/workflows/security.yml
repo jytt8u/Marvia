@@ -116,3 +116,23 @@ jobs:
           cache: true
       - name: Проверить права, снимки, обновления и защиту токенов подписки
         run: go test -race -count=1 -timeout=10m -v ./internal/panel ./internal/nodesync ./internal/updater ./internal/client ./internal/foreign ./internal/httpguard
+
+  sigstore-root:
+    name: Корень доверия Sigstore в службе обновления не устарел
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      # Служба проверяет подпись этим корнем, когда сервер Sigstore с хостинга
+      # недоступен (internal/updater/updater.go, trustedRoot). Устаревший
+      # корень пропуска не даст, но и обновить такой сервер не позволит:
+      # заменять файл надо раньше, чем Sigstore сменит ключи.
+      - name: Сравнить с корнем, который сейчас раздаёт Sigstore
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh attestation trusted-root > fresh.jsonl
+          if ! diff -q fresh.jsonl internal/updater/sigstore-root.jsonl; then
+            echo '::error::корень Sigstore сменился: gh attestation trusted-root > internal/updater/sigstore-root.jsonl'
+            exit 1
+          fi

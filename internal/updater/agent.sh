@@ -124,10 +124,30 @@ if ! curl -fsSL --max-time 120 -o "$work/SHA256SUMS" "$base/SHA256SUMS" ||
 	status failed 'не скачался сценарий обновления с GitHub'
 	exit 1
 fi
+# verify_release ФАЙЛ ПОДПИСЬ — подпись манифеста выпуска $tag. Та же
+# функция — в scripts/upgrade.sh.
+#
+# Имя репозитория сверяется без учёта регистра: GitHub его не различает, а
+# репозиторий переименовали из marvia в Marvia, и выпуски до и после подписаны
+# разным написанием. Точки в метке — буквальные точки.
+#
+# Корни доверия Sigstore gh берёт с tuf-repo-cdn.sigstore.dev, а тот
+# открывается не со всех хостингов. Тогда проверяем корнем $TRUSTED_ROOT,
+# приехавшим в прошлом проверенном выпуске: подделать подпись под него не
+# легче, чем под свежий, а устаревший корень даст отказ, а не пропуск.
+verify_release() {
+	identity="^https://github\.com/(?i:$REPO)/\.github/workflows/release\.yml@refs/tags/$(printf '%s' "$tag" | sed 's/\./\\./g')\$"
+	gh attestation verify "$1" --bundle "$2" --repo "$REPO" --cert-identity-regex "$identity" \
+		--source-ref "refs/tags/$tag" --deny-self-hosted-runners && return 0
+	[ -s "$TRUSTED_ROOT" ] || return 1
+	echo "сервер корней Sigstore недоступен — проверяю корнем из $TRUSTED_ROOT"
+	gh attestation verify "$1" --bundle "$2" --repo "$REPO" --cert-identity-regex "$identity" \
+		--source-ref "refs/tags/$tag" --deny-self-hosted-runners --custom-trusted-root "$TRUSTED_ROOT"
+}
+
+TRUSTED_ROOT=/usr/local/lib/marvia/sigstore-root.jsonl
 if ! curl --proto '=https' --proto-redir '=https' -fsSL --max-time 120 -o "$work/SHA256SUMS.sigstore.json" "$base/SHA256SUMS.sigstore.json" ||
-	! gh attestation verify "$work/SHA256SUMS" --bundle "$work/SHA256SUMS.sigstore.json" \
-		--repo "$REPO" --cert-identity "https://github.com/$REPO/.github/workflows/release.yml@refs/tags/$tag" \
-		--source-ref "refs/tags/$tag" --deny-self-hosted-runners >"$STATE/log" 2>&1; then
+	! verify_release "$work/SHA256SUMS" "$work/SHA256SUMS.sigstore.json" >"$STATE/log" 2>&1; then
 	status failed 'подпись релиза не прошла проверку'; exit 1
 fi
 if ! (cd "$work" && grep '[ *]upgrade.sh$' SHA256SUMS | sha256sum -c - >/dev/null 2>&1); then

@@ -248,7 +248,7 @@ esac
 					t.Fatalf("подписанный релиз не выполнен: %s %v %v", out, err, ranErr)
 				}
 				args, _ := os.ReadFile(filepath.Join(dir, "verified-args"))
-				for _, want := range []string{"--bundle", "--repo\njytt8u/marvia", "release.yml@refs/tags/v0.12.0", "--source-ref\nrefs/tags/v0.12.0", "--deny-self-hosted-runners"} {
+				for _, want := range []string{"--bundle", "--repo\njytt8u/marvia", `release\.yml@refs/tags/v0\.12\.0$`, "--source-ref\nrefs/tags/v0.12.0", "--deny-self-hosted-runners"} {
 					if !strings.Contains(string(args), want) {
 						t.Fatalf("не проверено происхождение %q: %s", want, args)
 					}

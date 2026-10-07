@@ -17,15 +17,32 @@ type fakeGitHub struct {
 	stable string
 	feed   []string
 	drafts []string
+
+	// sigstore — как ведёт себя проверка подписи: "" — проходит; "offline"
+	// — сервер корней Sigstore недоступен, проходит только с корнем из файла;
+	// "forged" — подпись поддельная и не проходит никак.
+	sigstore string
+	// root — на машине лежит корень доверия из прошлого выпуска.
+	root bool
 }
+
+// agentRun — что сделала служба: какую метку передала сценарию, какой
+// статус оставила и с какими аргументами звала gh.
+type agentRun struct{ ran, status, args string }
 
 // runAgent запускает настоящий agent.sh против fakeGitHub с заданным
 // каналом и записью об установленной версии. Отдаёт метку, которую служба
 // передала сценарию обновления (пусто — ничего не запускала), и статус.
 func runAgent(t *testing.T, gh fakeGitHub, channel, installed string) (ran, status string) {
 	t.Helper()
+	r := runAgentFull(t, gh, channel, installed)
+	return r.ran, r.status
+}
+
+func runAgentFull(t *testing.T, gh fakeGitHub, channel, installed string) agentRun {
+	t.Helper()
 	dir := t.TempDir()
-	for _, child := range []string{"bin", "fixture", "state"} {
+	for _, child := range []string{"bin", "fixture", "state", "lib"} {
 		if err := os.Mkdir(filepath.Join(dir, child), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -53,6 +70,9 @@ func runAgent(t *testing.T, gh fakeGitHub, channel, installed string) (ran, stat
 	if installed != "" {
 		write("state/installed", installed+"\n")
 	}
+	if gh.root {
+		write("lib/sigstore-root.jsonl", "{}\n")
+	}
 	write("bin/curl", `#!/bin/sh
 out=
 while [ "$#" -gt 0 ]; do
@@ -68,19 +88,27 @@ case "$url" in
  *) exit 6 ;;
 esac
 `)
-	write("bin/gh", "#!/bin/sh\nexit 0\n")
+	write("bin/gh", `#!/bin/sh
+printf '%s\n' "$@" >> verified-args
+case "$SIGSTORE" in
+ forged) exit 1 ;;
+ offline) case "$*" in *--custom-trusted-root*) exit 0 ;; *) echo 'public good verifier is not available' >&2; exit 1 ;; esac ;;
+esac
+`)
 	script := strings.ReplaceAll(string(agent), "/var/lib/marvia-upgrade", "./state")
+	script = strings.ReplaceAll(script, "/usr/local/lib/marvia", "./lib")
 	script = strings.ReplaceAll(script, "/opt/marvia-node", "./node")
 	script = strings.ReplaceAll(script, "/opt/marvia", "./panel")
 	write("agent.sh", script)
 	cmd := exec.Command(shellForTest(t), "-c", `export PATH="$PWD/bin:$PATH"; exec sh agent.sh`)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "STABLE="+gh.stable, "DRAFTS="+strings.Join(gh.drafts, " "))
+	cmd.Env = append(os.Environ(), "STABLE="+gh.stable, "DRAFTS="+strings.Join(gh.drafts, " "), "SIGSTORE="+gh.sigstore)
 	out, _ := cmd.CombinedOutput()
 	got, _ := os.ReadFile(filepath.Join(dir, "ran"))
 	st, _ := os.ReadFile(filepath.Join(dir, "state", "status"))
+	args, _ := os.ReadFile(filepath.Join(dir, "verified-args"))
 	t.Logf("вывод службы: %s", out)
-	return string(got), string(st)
+	return agentRun{string(got), string(st), string(args)}
 }
 
 // Лента GitHub перечисляет и черновики (у Marvia это снятые 1.0.0 и 1.0.1),

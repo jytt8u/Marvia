@@ -237,9 +237,30 @@ curl -fsSL -o "$tmp/SHA256SUMS" "$base/SHA256SUMS" \
 	|| die 'не скачались контрольные суммы'
 curl --proto '=https' --proto-redir '=https' -fsSL --max-time 120 -o "$tmp/SHA256SUMS.sigstore.json" "$base/SHA256SUMS.sigstore.json" \
 	|| die 'не скачалась подпись контрольных сумм'
-gh attestation verify "$tmp/SHA256SUMS" --bundle "$tmp/SHA256SUMS.sigstore.json" \
-	--repo "$REPO" --cert-identity "https://github.com/$REPO/.github/workflows/release.yml@refs/tags/$tag" \
-	--source-ref "refs/tags/$tag" --deny-self-hosted-runners \
+# verify_release ФАЙЛ ПОДПИСЬ — подпись манифеста выпуска $tag. Та же
+# функция — в internal/updater/agent.sh, там и объяснение: имя репозитория
+# без учёта регистра и запасной корень доверия, если сервер корней Sigstore
+# с этого хостинга не открывается.
+verify_release() {
+	identity="^https://github\.com/(?i:$REPO)/\.github/workflows/release\.yml@refs/tags/$(printf '%s' "$tag" | sed 's/\./\\./g')\$"
+	gh attestation verify "$1" --bundle "$2" --repo "$REPO" --cert-identity-regex "$identity" \
+		--source-ref "refs/tags/$tag" --deny-self-hosted-runners && return 0
+	[ -s "$TRUSTED_ROOT" ] || return 1
+	echo "сервер корней Sigstore недоступен — проверяю корнем из $TRUSTED_ROOT"
+	gh attestation verify "$1" --bundle "$2" --repo "$REPO" --cert-identity-regex "$identity" \
+		--source-ref "refs/tags/$tag" --deny-self-hosted-runners --custom-trusted-root "$TRUSTED_ROOT"
+}
+
+# Корень ставит служба обновления (internal/updater). На сервере, который
+# этим сценарием ещё не обновлялся, его нет — берём оттуда же, откуда пришла
+# сама команда обновления, из ветки main: доверия это не добавляет.
+TRUSTED_ROOT=/usr/local/lib/marvia/sigstore-root.jsonl
+if [ ! -s "$TRUSTED_ROOT" ] &&
+	curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 -o "$tmp/sigstore-root.jsonl" \
+		"https://raw.githubusercontent.com/$REPO/main/internal/updater/sigstore-root.jsonl"; then
+	TRUSTED_ROOT="$tmp/sigstore-root.jsonl"
+fi
+verify_release "$tmp/SHA256SUMS" "$tmp/SHA256SUMS.sigstore.json" \
 	|| die 'подпись релиза не прошла проверку; ничего не установлено'
 
 # Сверяем до распаковки. Скачанный не тем бинарником сервер — это ровно та

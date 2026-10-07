@@ -3,3 +3,5 @@
 # этого файла они превращались бы в CRLF при каждом checkout.
 *.sh text eol=lf
 *.sh.tmpl text eol=lf
+# Корень доверия Sigstore встраивается в бинарник: собранный на Windows и на Linux должен совпадать.
+*.jsonl text eol=lf

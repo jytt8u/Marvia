@@ -80,13 +80,30 @@ for file in SHA256SUMS SHA256SUMS.sigstore.json upgrade.sh; do
   curl --proto '=https' --proto-redir '=https' -fsSL --max-time 120 \
     "$base/$file" -o "$file"
 done
-gh attestation verify SHA256SUMS --bundle SHA256SUMS.sigstore.json \
-  --repo "$repo" \
-  --cert-identity "https://github.com/$repo/.github/workflows/release.yml@refs/tags/$tag" \
-  --source-ref "refs/tags/$tag" --deny-self-hosted-runners
+identity="^https://github\.com/(?i:$repo)/\.github/workflows/release\.yml@refs/tags/$(printf '%s' "$tag" | sed 's/\./\\./g')\$"
+verify() {
+  gh attestation verify SHA256SUMS --bundle SHA256SUMS.sigstore.json \
+    --repo "$repo" --cert-identity-regex "$identity" \
+    --source-ref "refs/tags/$tag" --deny-self-hosted-runners "$@"
+}
+verify || {
+  curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 -o root.jsonl \
+    "https://raw.githubusercontent.com/$repo/$tag/internal/updater/sigstore-root.jsonl"
+  verify --custom-trusted-root root.jsonl
+}
 grep '[ *]upgrade.sh$' SHA256SUMS | sha256sum -c -
 MARVIA_RELEASE_TAG="$tag" sh ./upgrade.sh
 ```
+
+Имя репозитория сверяется без учёта регистра: репозиторий переименован из
+`jytt8u/marvia` в `jytt8u/Marvia`, и выпуски с 0.13.0-alpha.2 подписаны новым
+написанием. Строгое `--cert-identity` с прежним написанием их отвергает.
+
+Второй вызов нужен, если gh отвечает «public good verifier is not available»:
+с этого хостинга не открывается сервер корней Sigstore
+(`tuf-repo-cdn.sigstore.dev`). Тогда корень доверия берётся из той же метки
+репозитория. Это доверие GitHub, а не независимая проверка; служба обновления
+дальше пользуется корнем, приехавшим в уже проверенном выпуске.
 
 Для первого перехода доверенный скрипт проверяется **до** запуска. Команду
 `curl .../main/scripts/upgrade.sh | sh` для перехода больше не использовать.

@@ -2,6 +2,39 @@ package client
 
 import "testing"
 
+func TestTestReleaseUpdateIsOfferedOnBothPlatforms(t *testing.T) {
+	for _, platform := range []string{"windows", "android"} {
+		t.Run(platform, func(t *testing.T) {
+			for _, tc := range []struct {
+				current, available string
+				want               bool
+			}{
+				{"0.13.0-alpha.5", "v0.13.0-alpha.6", true},
+				{"0.13.0-alpha.9", "0.13.0-alpha.10", true},
+				{"0.13.0-alpha.6", "0.13.0-beta.1", true},
+				{"0.13.0-beta.2", "0.13.0-rc.1", true},
+				{"0.13.0-rc.1", "0.13.0", true},
+				{"0.13.0-alpha.6", "0.13.0-alpha.5", false},
+				{"0.13.0-alpha.6", "0.13.0-alpha.6", false},
+				{"0.13.0", "0.13.0-rc.1", false},
+				{"dev", "0.13.0-alpha.6", false},
+			} {
+				t.Run(tc.current+"→"+tc.available, func(t *testing.T) {
+					url := "https://panel.example.test/sub/test/app/" + platform
+					sub := Subscription{Apps: map[string]AppOffer{platform: {URL: url, Version: tc.available}}}
+					offer, ok := sub.Update(platform, tc.current)
+					if ok != tc.want {
+						t.Fatalf("предложение обновления: %v, ждали %v", ok, tc.want)
+					}
+					if ok && (offer.Version != tc.available || offer.URL != url) {
+						t.Fatalf("потеряны версия или ссылка: %+v", offer)
+					}
+				})
+			}
+		})
+	}
+}
+
 // Обновление предлагается только вперёд и только когда есть с чем сравнить.
 func TestUpdateIsOfferedOnlyForward(t *testing.T) {
 	sub := Subscription{Apps: map[string]AppOffer{

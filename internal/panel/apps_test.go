@@ -3,6 +3,7 @@ package panel_test
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jytt8u/marvia/internal/client"
 	"github.com/jytt8u/marvia/internal/panel"
 )
 
@@ -20,6 +22,39 @@ import (
 // домен панели у покупателя уже рабочий: он ходит на него за подпиской.
 
 const fakeAPK = "это как бы apk"
+
+// Проверяем всю границу dist → подписка → решение клиента: версии панели
+// самой по себе недостаточно, важен файл приложения и его соседний .version.
+func TestNewerTestReleaseInDistOffersBothClientUpdates(t *testing.T) {
+	for _, available := range []string{"0.13.0-alpha.6", "0.13.0-alpha.5", "0.13.0-alpha.4"} {
+		t.Run(available, func(t *testing.T) {
+			srv, admin := appPanel(t, map[string]string{
+				"marvia-android.apk":               fakeAPK,
+				"marvia-android.apk.version":       available + "\n",
+				"marvia-windows-setup.exe":         "полный установщик",
+				"marvia-windows-setup.exe.version": available + "\n",
+			})
+			token, _ := buySubscription(t, srv, admin)
+			code, body := do(t, srv, "GET", "/sub/"+token+"?format=json", "", "")
+			if code != http.StatusOK {
+				t.Fatalf("подписка не отдалась: %d %s", code, body)
+			}
+			var sub client.Subscription
+			if err := json.Unmarshal([]byte(body), &sub); err != nil {
+				t.Fatal(err)
+			}
+			for _, platform := range []string{"windows", "android"} {
+				offer, ok := sub.Update(platform, "0.13.0-alpha.5")
+				if ok != (available == "0.13.0-alpha.6") {
+					t.Errorf("%s: версия %s, обновление предложено=%v", platform, available, ok)
+				}
+				if ok && (offer.Version != available || offer.URL != "https://panel.example.test/sub/"+token+"/app/"+platform) {
+					t.Errorf("%s: неверное предложение %+v", platform, offer)
+				}
+			}
+		})
+	}
+}
 
 // appPanel поднимает панель с каталогом раздачи и кладёт туда приложения.
 func appPanel(t *testing.T, files map[string]string) (*httptest.Server, string) {

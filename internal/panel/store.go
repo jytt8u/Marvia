@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/jytt8u/marvia/internal/users"
+	"github.com/jytt8u/marvia/internal/version"
 	"github.com/jytt8u/marvia/internal/vp1"
 
 	_ "modernc.org/sqlite" // чистый Go, без cgo: нода и панель кросс-компилируются одной командой
@@ -1250,73 +1251,12 @@ func (s *Store) RequestNodeUpgrade(ctx context.Context, target string) (int, err
 	return asked, nil
 }
 
-// OlderVersion говорит, старше ли версия a версии b. Сравниваются числа
-// vX.Y.Z, затем хвост тестового выпуска: alpha.5 раньше alpha.6, alpha —
-// раньше beta и rc, а все они — раньше выпуска без хвоста. Без хвоста
-// нода на alpha.5 считалась бы равной alpha.6 и не обновлялась вовсе. То,
-// что не разбирается (dev-сборка), старше ничего не считается — откатывать
-// то, чего не понимаешь, хуже, чем не обновить. Тот же порядок — у older в
-// web/index.html и в internal/updater/agent.sh.
+// OlderVersion сохраняет API панели, но порядок берёт из общего пакета:
+// ноды и приложения должны одинаково замечать новый тестовый выпуск.
+// Непонятные версии не обновляем автоматически. Тот же порядок для
+// alpha/beta/rc — у older в web/index.html и в internal/updater/agent.sh.
 func OlderVersion(a, b string) bool {
-	pa, preA, okA := versionParts(a)
-	pb, preB, okB := versionParts(b)
-	if !okA || !okB {
-		return false
-	}
-	for i := range pa {
-		if pa[i] != pb[i] {
-			return pa[i] < pb[i]
-		}
-	}
-	switch {
-	case preA == preB:
-		return false
-	case preA == "":
-		return false
-	case preB == "":
-		return true
-	}
-	return olderPrerelease(strings.Split(preA, "."), strings.Split(preB, "."))
-}
-
-// olderPrerelease сравнивает хвосты по частям: числа — как числа (alpha.9
-// раньше alpha.10), слова — по алфавиту, число раньше слова, и короткий
-// хвост раньше длинного с тем же началом.
-func olderPrerelease(a, b []string) bool {
-	for i := 0; i < len(a) && i < len(b); i++ {
-		if a[i] == b[i] {
-			continue
-		}
-		na, errA := strconv.Atoi(a[i])
-		nb, errB := strconv.Atoi(b[i])
-		switch {
-		case errA == nil && errB == nil:
-			return na < nb
-		case errA == nil:
-			return true
-		case errB == nil:
-			return false
-		}
-		return a[i] < b[i]
-	}
-	return len(a) < len(b)
-}
-
-func versionParts(v string) ([3]int, string, bool) {
-	var out [3]int
-	core, pre, _ := strings.Cut(strings.TrimPrefix(v, "v"), "-")
-	fields := strings.Split(core, ".")
-	if len(fields) != 3 {
-		return out, "", false
-	}
-	for i, f := range fields {
-		n, err := strconv.Atoi(f)
-		if err != nil || n < 0 {
-			return out, "", false
-		}
-		out[i] = n
-	}
-	return out, pre, true
+	return version.Older(a, b)
 }
 
 // NodeUsers собирает список пользователей для конкретной ноды в том же виде,

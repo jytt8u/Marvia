@@ -10,12 +10,12 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jytt8u/marvia/internal/httpguard"
 	"github.com/jytt8u/marvia/internal/seller"
+	"github.com/jytt8u/marvia/internal/version"
 )
 
 const (
@@ -176,15 +176,16 @@ type AppOffer struct {
 // Update говорит, лежит ли на панели версия новее той, что запущена.
 //
 // Новее, а не «другая»: продавец мог выложить старую сборку, и звать
-// человека на неё — значит звать назад. Версии сравниваются по числам;
-// сборка dev не обновляется никогда — это разработчик, он знает, что
+// человека на неё — значит звать назад. Сравниваем и основной номер, и
+// хвост тестового выпуска по тем же правилам, что панель. Сборка dev
+// не обновляется никогда — это разработчик, он знает, что
 // запустил.
 func (s Subscription) Update(platform, current string) (AppOffer, bool) {
 	offer, ok := s.Apps[platform]
 	if !ok || offer.Version == "" || offer.URL == "" || current == "" || current == "dev" {
 		return AppOffer{}, false
 	}
-	if !newerVersion(offer.Version, current) {
+	if !version.Newer(offer.Version, current) {
 		return AppOffer{}, false
 	}
 	// Ссылку клиент отдаёт системе: на Windows — explorer.exe, на Android —
@@ -204,41 +205,6 @@ func webLink(raw string) bool {
 		return false
 	}
 	return u.Scheme == "http" || u.Scheme == "https"
-}
-
-// newerVersion — a новее b. Понимает vX.Y.Z и X.Y.Z; лишний хвост вроде
-// -rc1 отбрасывается. Непонятная версия не считается новее ничего.
-func newerVersion(a, b string) bool {
-	pa, okA := versionParts(a)
-	pb, okB := versionParts(b)
-	if !okA || !okB {
-		return false
-	}
-	for i := 0; i < 3; i++ {
-		if pa[i] != pb[i] {
-			return pa[i] > pb[i]
-		}
-	}
-	return false
-}
-
-func versionParts(v string) ([3]int, bool) {
-	var out [3]int
-	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
-	v, _, _ = strings.Cut(v, "-")
-	v, _, _ = strings.Cut(v, "+")
-	parts := strings.Split(v, ".")
-	if len(parts) == 0 || len(parts) > 3 {
-		return out, false
-	}
-	for i, p := range parts {
-		n, err := strconv.Atoi(p)
-		if err != nil || n < 0 {
-			return out, false
-		}
-		out[i] = n
-	}
-	return out, true
 }
 
 // Remaining возвращает остаток квоты. Ноль лимита означает «без ограничения».

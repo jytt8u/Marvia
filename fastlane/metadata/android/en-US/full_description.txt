@@ -1,0 +1,18 @@
+Marvia is an Android client for connecting to VPN servers using an access key or subscription URL. You need your own node or a configuration from its operator. The app does not provide servers or sell access.
+
+Features:
+• Marvia subscriptions and keys for VP1, VLESS, VMess, Trojan, Shadowsocks, Hysteria 2 and WireGuard.
+• Import links and QR codes from the camera or gallery; scanning works without Google services.
+• Automatic node selection and failover to an available alternative; manual server selection.
+• Android's system VPN interface, a Quick Settings tile and optional startup after reboot.
+• Select apps that use the tunnel or connect directly; routing, DNS and DNS-over-HTTPS settings.
+• Local traffic, speed, session and diagnostic data; background subscription updates and reminders subject to Android restrictions.
+• English and Russian interface.
+
+VP1 uses Noise with X25519 and ChaCha20-Poly1305 over TLS/REALITY, WebSocket or QUIC. It is a separate protocol and is not compatible with WireGuard or Xray clients. Third-party protocols use their own keys.
+
+Requirements: Android 7.0 or later, ARM64 or ARMv7. The project is in alpha; testing on physical devices and networks is ongoing. Connectivity depends on the server, configuration and network.
+
+There are no advertising or analytics SDKs. Keys, settings, logs and session history stay on the device. The panel receives subscription requests and optional node availability reports; see docs/privacy.md in the repository for details. License: AGPL-3.0.
+
+Screenshots show the Russian interface of version 0.12.2 with no access key added; the interface has changed in newer versions.

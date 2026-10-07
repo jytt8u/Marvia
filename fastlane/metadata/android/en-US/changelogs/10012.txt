@@ -1,0 +1,4 @@
+0.13.0-alpha.8 — test release.
+The app now offers updates between test releases too: from alpha.5 to alpha.6 and onwards.
+Server update signature checks work where the Sigstore server is unreachable.
+The VP1 wire format is unchanged.

@@ -14,8 +14,8 @@
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [فارسی](README.fa.md)
 
-[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.5/marvia-android.apk)
-[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.5)
+[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.6/marvia-android.apk)
+[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.6)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#نصب-پنل)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
@@ -23,9 +23,9 @@
 
 <div dir="rtl">
 
-**مرحله: آلفا، `0.13.0-alpha.5`.** نسخهٔ 1.0 تا آزمایش روی دستگاه‌ها و
+**مرحله: آلفا، `0.13.0-alpha.6`.** نسخهٔ 1.0 تا آزمایش روی دستگاه‌ها و
 شبکه‌های واقعی عقب افتاده است — [معیارها (روسی)](docs/development-plan.md).
-تازه‌ترین نسخهٔ آزمایشی [v0.13.0-alpha.5](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.5)
+تازه‌ترین نسخهٔ آزمایشی [v0.13.0-alpha.6](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.6)
 است و پایدار اعلام نشده است.
 
 بیشتر مستندات فعلاً به روسی است؛ نسخهٔ [انگلیسی](README.en.md) کامل‌تر است.
@@ -142,15 +142,15 @@ Marvia هنوز ریست خودکار ماهانهٔ سهمیه ندارد. خر
 
 ## شروع
 
-> **کلید دارید؟** [APK اندروید](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.5/marvia-android.apk)
-> یا [نصب‌کنندهٔ ویندوز](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.5)
+> **کلید دارید؟** [APK اندروید](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.6/marvia-android.apk)
+> یا [نصب‌کنندهٔ ویندوز](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.6)
 > (`marvia-windows-setup.exe`) را بگیرید، لینک `marvia://…` را در برنامه اضافه
 > کنید و وصل شوید.
 
 اندروید لینک‌های VLESS، VMess، Trojan، Shadowsocks، Hysteria2 و WireGuard را هم
 می‌پذیرد. برنامه هنوز در Google Play نیست.
 
-نسخهٔ عمومی alpha.5 آزمایشی است.
+نسخهٔ عمومی alpha.6 آزمایشی است.
 آزمایش روی دستگاه‌های واقعی هنوز تمام نشده است.
 
 ### بررسی اصالت فایل‌ها

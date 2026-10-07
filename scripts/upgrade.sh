@@ -508,12 +508,23 @@ else
 	bad "служба обновления не поставилась: $(head -1 "$tmp/updater.err")"
 fi
 
+# record_installed запоминает поставленную версию и пишет статус для панели.
+# Статус обычно пишет служба по кнопке, но сервер обновляют и руками —
+# например, после того как кнопка не справилась. Без этой записи панель
+# показывала бы прошлую ошибку уже обновлённому серверу.
+record_installed() {
+	mkdir -p "$STATE"
+	printf '%s\n' "$tag" >"$STATE/installed.new"
+	chmod 644 "$STATE/installed.new"
+	mv -f "$STATE/installed.new" "$STATE/installed"
+	printf 'state=ok\nat=%s\nreason=стоит %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$tag" >"$STATE/status.new"
+	chmod 644 "$STATE/status.new"
+	mv -f "$STATE/status.new" "$STATE/status"
+}
+
 # Сюда доходим, только если все службы поднялись на новой версии: swap при
 # неудаче возвращает прежнюю и завершает сценарий раньше.
-mkdir -p "$STATE"
-printf '%s\n' "$tag" >"$STATE/installed.new"
-chmod 644 "$STATE/installed.new"
-mv -f "$STATE/installed.new" "$STATE/installed"
+record_installed
 
 say ''
 printf '\033[32mГотово.\033[0m Проверить ноду: scripts/node-check.sh\n'

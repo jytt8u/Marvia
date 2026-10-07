@@ -188,3 +188,34 @@ func TestManualUpgradeAndTheServicePickTheSameRelease(t *testing.T) {
 		}
 	}
 }
+
+// Сервер, обновлённый руками после неудачи кнопки, не должен показывать в
+// панели прошлую ошибку: продавец решит, что обновление сломано, хотя
+// сервер уже на новой версии.
+func TestManualUpgradeClearsTheOldFailureInThePanel(t *testing.T) {
+	dir := t.TempDir()
+	state := filepath.Join(dir, "state")
+	if err := os.Mkdir(state, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(state, "status"), []byte("state=failed\nat=2026-10-07T15:25:00Z\nreason=подпись релиза не прошла проверку\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	script := "STATE=./state\ntag=v0.13.0-alpha.7\n" + upgradeFunctions(t, "record_installed") + "record_installed\n"
+	cmd := exec.Command(shellForTest(t), "-c", script)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	was := StateDir
+	StateDir = state
+	defer func() { StateDir = was }()
+	s := ReadStatus(dir)
+	if s.State != "ok" || !strings.Contains(s.Reason, "v0.13.0-alpha.7") {
+		t.Fatalf("после ручного обновления панель видит %+v", s)
+	}
+	installed, _ := os.ReadFile(filepath.Join(state, "installed"))
+	if strings.TrimSpace(string(installed)) != "v0.13.0-alpha.7" {
+		t.Fatalf("установленная версия не записана: %q", installed)
+	}
+}

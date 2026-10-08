@@ -961,9 +961,13 @@ func (a *API) serveSubscription(w http.ResponseWriter, r *http.Request, user Use
 		log.Printf("настройки связи с покупателем: %v", err)
 	}
 	// Имя профиля — метка доступа: её покупатель и так видит в имени каждой
-	// ноды (см. StockLinks), и в приложении профиль зовётся так же. Пустая
-	// метка — заголовка нет, приложение назовёт профиль по адресу.
+	// ноды (см. StockLinks), и в приложении профиль зовётся так же. Без метки
+	// Hiddify берёт последний сегмент адреса — токен подписки. Проверяем уже
+	// очищенный заголовок: одни пробелы или управляющие тоже не дают имени.
 	info.WriteHeader(w.Header(), user.Label)
+	if w.Header().Get(seller.HeaderTitle) == "" {
+		w.Header().Set(seller.HeaderTitle, seller.Encode("Marvia"))
+	}
 
 	if r.URL.Query().Get("format") == "json" {
 		a.subscriptionJSON(w, user, nodes, info)

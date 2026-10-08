@@ -144,3 +144,29 @@ func TestSubscriptionWithoutSellerSettingsHasNoButtonsHeaders(t *testing.T) {
 		}
 	}
 }
+
+// Без метки Hiddify берёт последний сегмент адреса — секретный токен
+// подписки. Даже доступ без имени должен получать читаемое имя профиля.
+func TestSubscriptionWithoutLabelHasAReadableProfileTitle(t *testing.T) {
+	for _, label := range []string{"", " \t\r\n", "\u202e\u2066"} {
+		t.Run(label, func(t *testing.T) {
+			h := newHarness(t)
+			h.createNode("fi-1")
+			var user createUserResponse
+			if code := h.do(http.MethodPost, "/api/v1/users", adminToken,
+				map[string]any{"label": label, "kinds": []string{panel.CredVLESS}}, &user); code != http.StatusOK {
+				t.Fatalf("создание доступа: %d", code)
+			}
+			for _, format := range []string{"", "raw", "singbox", "clash", "json"} {
+				path := "/sub/" + user.User.SubToken + "?format=" + format
+				resp, _ := buyerRequest(t, h, path, "HiddifyNextX/4.1.1 (windows) like ClashMeta v2ray sing-box", "", "")
+				if resp.StatusCode != http.StatusOK {
+					t.Fatalf("формат %q: код %d", format, resp.StatusCode)
+				}
+				if got := resp.Header.Get("Profile-Title"); got != seller.Encode("Marvia") {
+					t.Errorf("формат %q: имя профиля %q, ожидалось Marvia", format, got)
+				}
+			}
+		})
+	}
+}

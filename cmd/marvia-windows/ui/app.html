@@ -260,7 +260,9 @@
   .power[data-state="stalled"] svg { color: var(--warn); }
   .power[data-state="connecting"] svg { color: var(--dim); }
   .power[data-state="connected"][data-btn="solid"] {
-    background: radial-gradient(circle at 38% 30%, rgba(255,255,255,.28), var(--acc) 60%);
+    /* Блик — отдельным слоем над цветом: полупрозрачный белый в той же
+       градиентной полосе ложился на пустоту и давал серое пятно. */
+    background: radial-gradient(circle at 38% 30%, rgba(255,255,255,.34), transparent 58%), var(--acc);
     box-shadow: inset 0 -14px 30px rgba(0,0,0,.18), var(--glow), 0 24px 48px rgba(0,0,0,.5);
   }
   .power[data-state="connected"][data-btn="solid"] svg { color: var(--accFg); }
@@ -592,11 +594,108 @@
   .side .kpi { padding: 12px 14px; }
   .side .kpi .k { font-size: 13px; }
   .side .kpi .v { font-size: 19px; }
+  /* ───── Образы ─────
+     Живой фон рисует холст #field; статичная сетка body::before ему больше
+     не нужна. Холст лежит над своей картинкой фона и под интерфейсом. */
+  #field { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  body::before { display: none; }
+
+  /* Заставка. Если код окна не дошёл до неё, через три секунды она уходит
+     сама: окно, закрытое заставкой навсегда, хуже окна без заставки. */
+  #splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; align-content: center; gap: 18px;
+    background: var(--bgcss, var(--bg)); transition: opacity .5s var(--ease), transform .5s var(--ease);
+    animation: splash-failsafe 0s 3s forwards; cursor: pointer; }
+  #splash canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #splash .logo { width: 84px; height: 84px; position: relative; z-index: 1;
+    animation: mark-in .9s cubic-bezier(.2,.9,.25,1.05) .15s both; }
+  #splash .wordmark { height: 22px; position: relative; z-index: 1;
+    animation: word-in .7s var(--ease) .55s both; }
+  #splash.gone { opacity: 0; transform: scale(1.04); pointer-events: none; }
+  @keyframes mark-in { from { opacity: 0; transform: scale(.62) rotate(-8deg); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
+  @keyframes word-in { from { opacity: 0; clip-path: inset(0 100% 0 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+  @keyframes splash-failsafe { to { opacity: 0; pointer-events: none; visibility: hidden; } }
+  /* После заставки интерфейс поднимается каскадом, а не возникает разом. */
+  body.arrive .top, body.arrive aside .tab, body.arrive aside .sub-card, body.arrive .page[data-open] > * {
+    animation: arrive .6s var(--ease) both; }
+  body.arrive aside .tab:nth-child(2) { animation-delay: .04s; }
+  body.arrive aside .tab:nth-child(3) { animation-delay: .08s; }
+  body.arrive aside .tab:nth-child(4) { animation-delay: .12s; }
+  body.arrive .page[data-open] > *:nth-child(2) { animation-delay: .1s; }
+  @keyframes arrive { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  /* Карточки образов: у каждой свой фон и узор, не зависящие от текущей темы. */
+  .vibes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .vibe { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 12px; border-radius: calc(var(--r) + 4px); cursor: pointer;
+    background: transparent; border: 1px solid var(--cardLine); color: var(--fg); text-align: left;
+    transition: transform .35s cubic-bezier(.2,.9,.25,1.05), border-color .3s, background .3s; }
+  .vibe:hover { transform: translateY(-3px); background: rgba(var(--accRgb), .05); }
+  .vibe:active { transform: scale(.98); }
+  .vibe[aria-pressed="true"] { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc) inset; }
+  .vibe-art { position: relative; height: 92px; border-radius: var(--r); overflow: hidden; display: grid; place-items: center; }
+  .vibe-btn { width: 38px; height: 38px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--vacc), 0 0 22px -4px var(--vacc);
+    background: radial-gradient(circle at 40% 30%, color-mix(in srgb, var(--vfg) 18%, transparent), transparent 70%); }
+  .vibe-btn::after { content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%;
+    border: 2px solid var(--vacc); border-top-color: transparent; }
+  .vibe-name { font-weight: 600; font-size: 14px; padding: 0 4px; }
+  .vibe-line { font-size: 12px; line-height: 1.4; color: var(--dim); padding: 0 4px; }
+  /* Тонкая настройка — свёрнута: образа хватает почти всем. */
+  .page[data-tab="theme"]:not(.fine-open) .fine { display: none; }
+  .page[data-tab="theme"]:not(.fine-open) .col.knobs { display: none; }
+  .fine-row { display: flex; justify-content: flex-start; }
+
+  .dotnum { height: .82em; width: auto; fill: currentColor; vertical-align: -.02em; overflow: visible; }
+  .dotunit { margin-left: .45em; font-size: .62em; font-family: var(--mono); letter-spacing: .04em; color: var(--dim); font-weight: 500; }
+
+  /* «Точка» и «Бумага»: табло. Надписи — моноширинные капсы, один акцент. */
+  body[data-vibe="dot"] .status, body[data-vibe="paper"] .status {
+    font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em; font-size: 26px; font-weight: 600; }
+  body[data-vibe="dot"] .spd-head .k, body[data-vibe="paper"] .spd-head .k,
+  body[data-vibe="dot"] .side .kpi .k, body[data-vibe="paper"] .side .kpi .k,
+  body[data-vibe="dot"] .card.feature .card-head b, body[data-vibe="paper"] .card.feature .card-head b {
+    font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em; font-size: 10.5px; }
+  body[data-vibe="dot"] .kpi .v, body[data-vibe="paper"] .kpi .v { font-size: 22px; color: var(--fg); }
+  body[data-vibe="dot"] .card.feature #today-total, body[data-vibe="paper"] .card.feature #today-total { color: var(--fg); }
+  body[data-vibe="dot"] .node .mark, body[data-vibe="paper"] .node .mark { background: var(--acc); box-shadow: 0 0 8px var(--acc); }
+  body[data-vibe="dot"] .card.feature, body[data-vibe="paper"] .card.feature { background: var(--cardBg, var(--surf)); border-color: var(--cardLine); }
+
+  /* «Кислота»: крупный жирный гротеск и бегущие полосы. */
+  body[data-vibe="acid"] .status, body[data-vibe="acid"] .title { font-family: Unbounded, Onest, sans-serif; font-weight: 700; letter-spacing: -.02em; }
+  body[data-vibe="acid"] .status { font-size: 30px; text-transform: uppercase; }
+  body[data-vibe="acid"] .kpi .v, body[data-vibe="acid"] #today-total { font-family: Unbounded, Onest, sans-serif; font-weight: 600; }
+  /* Гротеск широкий: в тех же пикселях «38,4 Мбит/с» уже не помещалась. */
+  body[data-vibe="acid"] .side .kpi .v { font-size: 16px; }
+
+  /* «Аврора»: стеклянные карточки над сиянием. */
+  body[data-vibe="aurora"] .card, body[data-vibe="aurora"] .kpi, body[data-vibe="aurora"] .node, body[data-vibe="aurora"] aside .sub-card {
+    background: rgba(255, 255, 255, .045); border-color: rgba(255, 255, 255, .09);
+    -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); }
+  body[data-vibe="aurora"] .card.feature { background: rgba(var(--accRgb), .10); border-color: rgba(var(--accRgb), .3); }
+
+  /* «Терминал»: всё моноширинным, свечение фосфора. */
+  body[data-vibe="terminal"] { font-family: var(--mono); }
+  body[data-vibe="terminal"] .status { font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+  body[data-vibe="terminal"] .status, body[data-vibe="terminal"] .kpi .v, body[data-vibe="terminal"] #today-total {
+    text-shadow: 0 0 8px rgba(var(--accRgb), .55); }
+  body[data-vibe="terminal"] .status::after { content: "_"; animation: blink 1s steps(1) infinite; margin-left: .1em; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    #splash { display: none; }
+    body.arrive * { animation: none !important; }
+  }
 </style>
 </head>
 <body data-state="idle">
 <div id="bg-layer" hidden></div>
 <div id="bg-veil" hidden></div>
+<canvas id="field" aria-hidden="true"></canvas>
+<!-- Заставка: знак из точек, слово, затем интерфейс. Видна сразу, до кода:
+     иначе мелькнул бы интерфейс, а потом заставка поверх него. -->
+<div id="splash" aria-hidden="true">
+  <canvas id="splash-dots"></canvas>
+  <span class="logo"></span>
+  <span class="wordmark">MARVIA</span>
+</div>
 <div class="app">
 
   <header class="top">
@@ -831,17 +930,23 @@
       <section class="page" data-tab="theme">
         <div class="split">
           <div class="col wide scroll">
-            <div class="card">
+            <!-- Образ — первым: это выбор характера, а не одной ручки. -->
+            <div class="card vibes-card">
+              <div class="card-head"><b data-t="vibeTitle"></b><span class="hint" data-t="vibeHint"></span></div>
+              <div class="vibes" id="vibes"></div>
+              <div class="fine-row"><button class="chip" id="fine-toggle" type="button"></button></div>
+            </div>
+            <div class="card fine">
               <div class="k" data-t="themePresets"></div>
               <div class="presets" id="presets"></div>
             </div>
-            <div class="card">
+            <div class="card fine">
               <div class="k" data-t="themeAccent"></div>
               <div class="swatches" id="accents"></div>
               <div class="k" data-t="themeTint"></div>
               <div class="swatches" id="tints"></div>
             </div>
-            <div class="card">
+            <div class="card fine">
               <div class="k" data-t="themeProfiles"></div>
               <div class="pills" id="profiles"></div>
               <div class="pills">
@@ -951,6 +1056,28 @@
           </div>
 
           <div class="col">
+            <!-- Вид и звук: то, что делает окно живым. Каждая строка работает. -->
+            <div class="group">
+              <div class="k" data-t="settingsLook"></div>
+              <div class="rows">
+                <div>
+                  <div class="grow"><span class="name" data-t="splashName"></span><span class="sub" data-t="splashHint"></span></div>
+                  <button class="chip" id="vibe-splash" type="button" aria-pressed="true"></button>
+                </div>
+                <div class="stack">
+                  <div class="grow"><span class="name" data-t="motionName"></span><span class="sub" data-t="motionHint"></span><span class="sub" id="vibe-motion-note"></span></div>
+                  <div class="pick" id="vibe-motion">
+                    <button class="chip" type="button" data-motion="off" aria-pressed="false"></button>
+                    <button class="chip" type="button" data-motion="calm" aria-pressed="false"></button>
+                    <button class="chip" type="button" data-motion="lively" aria-pressed="false"></button>
+                  </div>
+                </div>
+                <div>
+                  <div class="grow"><span class="name" data-t="soundName"></span><span class="sub" data-t="soundHint"></span></div>
+                  <button class="chip" id="vibe-sound" type="button" aria-pressed="false"></button>
+                </div>
+              </div>
+            </div>
             <!--
               Подключение: что идёт мимо туннеля и как. Каждая строка здесь
               меняет работу моста или ядра; строк, за которыми ничего нет, тут
@@ -1239,6 +1366,22 @@ const T = {
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
     kSession: "Сессия", kPing: "Отклик ноды", down: "↓ Загрузка", up: "↑ Отдача",
+    vibeTitle: "Образ", vibeHint: "цвет, узор, шрифт и характер разом",
+    fineShow: "Тонкая настройка", fineHide: "Скрыть тонкую настройку",
+    vibes: {
+      graphite: ["Графит", "Фирменный серый и спокойная сетка"],
+      dot: ["Точка", "Чёрное табло, точечные цифры, красный акцент"],
+      paper: ["Бумага", "Светлый лист в точку, чернила и красный"],
+      acid: ["Кислота", "Чёрный и кислотный лайм, бегущие полосы"],
+      aurora: ["Аврора", "Северное сияние и стеклянные карточки"],
+      terminal: ["Терминал", "Зелёный фосфор и развёртка экрана"],
+    },
+    settingsLook: "Вид и звук",
+    splashName: "Заставка при запуске", splashHint: "Знак собирается из точек, пока окно открывается. Клик её пропускает.",
+    motionName: "Живой фон", motionHint: "Узор отвечает на курсор, при подключении по нему идёт волна.",
+    motions: { off: "Выкл", calm: "Спокойно", lively: "Живо" },
+    motionSystem: "В Windows включено «уменьшение движения» — фон стоит, пока оно включено.",
+    soundName: "Звук подключения", soundHint: "Короткий щелчок, когда туннель поднялся или опустился.",
     todayTraffic: "Трафик сегодня", peakDown: "Пик приёма за сессию", peakUp: "Пик отдачи за сессию",
     averageDown: "Приём в среднем", averageUp: "Отдача в среднем", wNoKey: "Добавьте ключ в настройках",
     chartTitle: "Трафик за час", chartFrom: "−60 мин", chartNow: "сейчас",
@@ -1399,6 +1542,22 @@ const T = {
 
     pingUnknown: "Not measured", setupLabel: "Connection",
     kSession: "Session", kPing: "Node response", down: "↓ Download", up: "↑ Upload",
+    vibeTitle: "Vibe", vibeHint: "colour, pattern, type and character in one go",
+    fineShow: "Fine-tune", fineHide: "Hide fine-tuning",
+    vibes: {
+      graphite: ["Graphite", "Signature grey and a calm grid"],
+      dot: ["Dot", "Black board, dot-matrix digits, red accent"],
+      paper: ["Paper", "Light dotted sheet, ink and red"],
+      acid: ["Acid", "Black and acid lime, running stripes"],
+      aurora: ["Aurora", "Northern lights and glass cards"],
+      terminal: ["Terminal", "Green phosphor and scanlines"],
+    },
+    settingsLook: "Look and sound",
+    splashName: "Launch animation", splashHint: "The mark assembles from dots while the window opens. Click to skip.",
+    motionName: "Living background", motionHint: "The pattern follows the cursor and ripples when you connect.",
+    motions: { off: "Off", calm: "Calm", lively: "Lively" },
+    motionSystem: "Windows has reduced motion on — the background stays still while it is.",
+    soundName: "Connection sound", soundHint: "A short chirp when the tunnel goes up or down.",
     todayTraffic: "Traffic today", peakDown: "Session download peak", peakUp: "Session upload peak",
     averageDown: "Average download", averageUp: "Average upload", wNoKey: "Add your access key in settings",
     chartTitle: "Traffic, last hour", chartFrom: "−60 min", chartNow: "now",
@@ -1670,6 +1829,7 @@ function applyLook() {
   // Кнопка питания: вид — из темы. Ставится атрибутом, а красится в CSS.
   $("power").dataset.btn = t.btn;
   paintTheme();
+  if (window.onLookApplied) window.onLookApplied();
 }
 
 function setLook(patch) {
@@ -2269,6 +2429,7 @@ function paintSpark(svg, key, value, live) {
 
 function render(s) {
   const d = L();
+  if (window.vibeState) window.vibeState(s.state);
   document.body.dataset.state = s.state;
   $("status").textContent = d.state[s.state] || s.state;
   $("power").dataset.state = s.state;
@@ -2381,6 +2542,8 @@ function render(s) {
   $("w-t-down").textContent = $("t-down").textContent;
   $("w-t-up").textContent = $("t-up").textContent;
   $("w-kping").textContent = $("k-ping").textContent;
+  // Точечные цифры — после виджета: он берёт из этих полей обычный текст.
+  if (window.paintDotNums) window.paintDotNums();
 }
 
 function paintDaily(box, hours) {
@@ -2829,6 +2992,462 @@ api("GET", "api/account").then((a) => {
 });
 tick();
 setInterval(tick, 1000);
+
+// ───────────────────────────────────────────────────────────── образы ──
+//
+// Образ — тема с характером: палитра, свет и кнопка из общей темы (look.js)
+// плюс то, чего у неё нет: живой узор фона, шрифт и подача цифр. 27 палитр
+// и десяток ручек дают выбор, но не лицо — из двадцати восьми одинаковых
+// квадратиков человек выбирает наугад. Образов шесть, и каждый узнаётся.
+//
+// Ручки темы никуда не делись: «Тонкая настройка» открывает их все, а образ
+// остаётся — узор и шрифт живут отдельно от цвета.
+const VIBES = {
+  graphite: {
+    look: {},
+    pattern: "grid", mono: false,
+    preview: { bg: "linear-gradient(135deg,#43474c,#0c0e11)", fg: "#f1f4f7", acc: "#c3ccd6", pat: "radial-gradient(rgba(195,204,214,.22) 1px,transparent 1.6px) 0 0/10px 10px" },
+  },
+  dot: {
+    look: { preset: "oled", acc: "#ff3b30", kind: "flat", radius: "soft", density: "normal", btn: "ring", glow: "soft", card: "outline", tint: null },
+    pattern: "matrix", mono: true, numerals: "dot",
+    preview: { bg: "#000", fg: "#fff", acc: "#ff3b30", pat: "radial-gradient(rgba(255,255,255,.35) 1.1px,transparent 1.7px) 0 0/7px 7px" },
+  },
+  paper: {
+    look: { preset: "paper", acc: "#d6362a", kind: "flat", radius: "soft", density: "roomy", btn: "ring", glow: "none", card: "outline", tint: null },
+    pattern: "matrix", mono: true, numerals: "dot",
+    preview: { bg: "#f7f4ee", fg: "#14120e", acc: "#d6362a", pat: "radial-gradient(rgba(20,18,14,.28) 1.1px,transparent 1.7px) 0 0/7px 7px" },
+  },
+  acid: {
+    look: { preset: "mono", acc: "#c8ff00", kind: "flat", radius: "pill", density: "normal", btn: "solid", glow: "mid", card: "flat", tint: null },
+    pattern: "stripes", mono: false,
+    preview: { bg: "#0a0a0a", fg: "#fafafa", acc: "#c8ff00", pat: "repeating-linear-gradient(-45deg,rgba(200,255,0,.16) 0 2px,transparent 2px 9px)" },
+  },
+  aurora: {
+    look: { preset: "plum", acc: "#a98bff", kind: "aurora", dir: "ne", depth: 0.8, radius: "round", density: "roomy", btn: "glass", glow: "mid", card: "flat", tint: null },
+    pattern: "mesh", mono: false,
+    preview: { bg: "#0b0714", fg: "#efe7fb", acc: "#a98bff", pat: "radial-gradient(60% 70% at 25% 30%,rgba(169,139,255,.55),transparent 70%),radial-gradient(50% 60% at 80% 75%,rgba(64,200,255,.35),transparent 70%)" },
+  },
+  terminal: {
+    look: { preset: "emerald", acc: "#3dff8f", kind: "radial", dir: "c", depth: 0.85, radius: "sharp", density: "compact", btn: "bare", glow: "mid", card: "outline", tint: null },
+    pattern: "scan", mono: false,
+    preview: { bg: "#06100c", fg: "#c9ffe0", acc: "#3dff8f", pat: "repeating-linear-gradient(0deg,rgba(61,255,143,.13) 0 1px,transparent 1px 4px)" },
+  },
+};
+const VIBE_KEY = "marvia-vibe";
+const MOTIONS = ["off", "calm", "lively"];
+
+function loadVibe() {
+  let v = {};
+  try { v = JSON.parse(localStorage.getItem(VIBE_KEY)) || {}; } catch (_) { /* испорченное — с нуля */ }
+  return {
+    id: Object.prototype.hasOwnProperty.call(VIBES, v.id) ? v.id : "graphite",
+    motion: MOTIONS.includes(v.motion) ? v.motion : "calm",
+    splash: v.splash !== false,
+    sound: v.sound === true,
+  };
+}
+let vibe = loadVibe();
+function saveVibe() {
+  try { localStorage.setItem(VIBE_KEY, JSON.stringify(vibe)); } catch (_) { /* не запомнится — не беда */ }
+}
+
+// Движение выключено системой — значит, выключено и у нас, что бы ни стояло
+// в настройке: человеку от него плохо, а не скучно.
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const motion = () => (reducedMotion() ? "off" : vibe.motion);
+
+function applyVibe() {
+  document.body.dataset.vibe = vibe.id;
+  document.body.dataset.motion = motion();
+  Field.restyle();
+  paintDotNums();
+  paintVibeControls();
+}
+
+function chooseVibe(id) {
+  vibe.id = id;
+  saveVibe();
+  // Образ задаёт тему целиком, с нуля: остатки прошлой ручной настройки
+  // смешали бы два характера в один невнятный.
+  setLook(Object.assign(Look.normalize({}), VIBES[id].look));
+  applyVibe();
+  Field.wave(0.9);
+}
+
+// ── живой фон ──
+//
+// Узор рисуется на холсте под интерфейсом. Отвечает на курсор, расходится
+// волной при подключении и дышит, пока туннель работает. Кадров не больше
+// тридцати в секунду, а в свёрнутом окне — ни одного: фон, который ест
+// процессор, пока его никто не видит, — это не фон, а утечка.
+const Field = (() => {
+  const cv = document.getElementById("field");
+  const ctx = cv.getContext("2d");
+  let W = 0, H = 0, dpr = 1, raf = 0, last = 0;
+  let mx = -9999, my = -9999;
+  let lastMove = 0, idleTimer = 0;
+  let fg = [241, 244, 247], acc = [195, 204, 214];
+  const waves = [];
+  const t0 = performance.now();
+  let nextBreath = 0;
+  // Точка — готовая картинка нужного цвета: тысячи arc() на кадр съели бы
+  // больше, чем весь остальной интерфейс.
+  const spriteFg = document.createElement("canvas"), spriteAcc = document.createElement("canvas");
+  let light = false;
+
+  function rgb(css, fallback) {
+    const m = String(css).match(/\d+/g);
+    return m && m.length >= 3 ? m.slice(0, 3).map(Number) : fallback;
+  }
+  function paintSprite(cv, c) {
+    cv.width = cv.height = 16;
+    const s = cv.getContext("2d");
+    s.clearRect(0, 0, 16, 16);
+    s.fillStyle = "rgb(" + c.join(",") + ")";
+    s.beginPath(); s.arc(8, 8, 7.2, 0, Math.PI * 2); s.fill();
+  }
+  function makeSprite() { paintSprite(spriteFg, fg); paintSprite(spriteAcc, acc); }
+  function resize() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    cv.style.width = W + "px"; cv.style.height = H + "px";
+    draw(performance.now());
+  }
+  function origin() {
+    const p = document.getElementById("power");
+    const r = p && p.offsetParent ? p.getBoundingClientRect() : null;
+    return r && r.width ? [r.left + r.width / 2, r.top + r.height / 2] : [W / 2, H / 2];
+  }
+  // Яркость волны в точке: кольцо шириной в 90 пикселей бежит от кнопки и гаснет.
+  function waveAt(x, y, now) {
+    let a = 0;
+    for (const w of waves) {
+      const age = (now - w.at) / 1000;
+      const r = age * 520, d = Math.abs(Math.hypot(x - w.x, y - w.y) - r);
+      if (d < 90) a += (1 - d / 90) * w.s * Math.max(0, 1 - age / 1.8);
+    }
+    return Math.min(1, a);
+  }
+  function near(x, y) {
+    const d = Math.hypot(x - mx, y - my);
+    return d < 170 ? 1 - d / 170 : 0;
+  }
+  function dots(now, step, base, mono) {
+    const base0 = mono ? spriteFg : spriteAcc;
+    const ox = (W % step) / 2, oy = (H % step) / 2;
+    for (let y = oy; y < H; y += step) {
+      for (let x = ox; x < W; x += step) {
+        const w = waves.length ? waveAt(x, y, now) : 0, n = near(x, y);
+        const a = base + n * 0.32 + w * 0.6;
+        const r = (step / 16) * (1 + n * 0.7 + w * 0.9);
+        ctx.globalAlpha = Math.min(1, a);
+        // В монохромных образах волна — единственное, что окрашено акцентом.
+        ctx.drawImage(mono && w > 0.15 ? spriteAcc : base0, x - r, y - r, r * 2, r * 2);
+      }
+    }
+  }
+  function draw(now) {
+    const v = VIBES[vibe.id];
+    const time = (now - t0) / 1000;
+    const live = motion() !== "off";
+    const speed = motion() === "lively" ? 1 : 0.4;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    for (let i = waves.length - 1; i >= 0; i--) if (now - waves[i].at > 2400) waves.splice(i, 1);
+    if (v.pattern === "grid") dots(now, 24, 0.07, false);
+    else if (v.pattern === "matrix") {
+      // Точки-«пиксели» цветом текста: им нужен акцент, только когда что-то случилось.
+      dots(now, 16, light ? 0.16 : 0.11, true);
+    } else if (v.pattern === "stripes") {
+      const gap = 30, off = live ? (time * 14 * speed) % gap : 0;
+      ctx.lineWidth = 1.2;
+      for (let k = -H; k < W + H; k += gap) {
+        const x = k + off, mid = x + H / 2;
+        const w = waves.length ? waveAt(mid, H / 2, now) : 0;
+        ctx.strokeStyle = "rgba(" + acc.join(",") + "," + (0.05 + w * 0.35 + near(mid, my) * 0.12) + ")";
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + H, H); ctx.stroke();
+      }
+    } else if (v.pattern === "mesh") {
+      const blobs = [[0.22, 0.28, acc], [0.8, 0.7, [64, 200, 255]], [0.6, 0.15, [255, 120, 200]]];
+      blobs.forEach(([bx, by, c], i) => {
+        const x = W * (bx + (live ? Math.sin(time * 0.12 * speed + i * 2) * 0.08 : 0));
+        const y = H * (by + (live ? Math.cos(time * 0.1 * speed + i) * 0.08 : 0));
+        const r = Math.max(W, H) * 0.55;
+        const w = waves.length ? waveAt(x, y, now) : 0;
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, "rgba(" + c.join(",") + "," + (0.16 + w * 0.12) + ")");
+        g.addColorStop(1, "rgba(" + c.join(",") + ",0)");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      });
+    } else if (v.pattern === "scan") {
+      ctx.fillStyle = "rgba(" + acc.join(",") + ",0.045)";
+      for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+      const band = live ? ((time * 90 * speed) % (H + 240)) - 120 : H * 0.3;
+      const g = ctx.createLinearGradient(0, band - 120, 0, band + 120);
+      g.addColorStop(0, "rgba(" + acc.join(",") + ",0)");
+      g.addColorStop(0.5, "rgba(" + acc.join(",") + ",0.07)");
+      g.addColorStop(1, "rgba(" + acc.join(",") + ",0)");
+      ctx.fillStyle = g; ctx.fillRect(0, band - 120, W, 240);
+      for (const w of waves) {
+        const age = (now - w.at) / 1000, r = age * 520;
+        ctx.strokeStyle = "rgba(" + acc.join(",") + "," + Math.max(0, 0.4 * w.s * (1 - age / 1.8)) + ")";
+        ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(w.x, w.y, r, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  function loop(now) {
+    raf = 0;
+    if (document.hidden || motion() === "off") return;
+    // Неподвижный узор без курсора и волн перерисовывать незачем: сетка в
+    // покое — это одна картинка, а не тридцать в секунду. Просыпаемся к
+    // следующему вдоху, если туннель поднят.
+    // Пока подключено — редкий вдох от кнопки: видно, что туннель живой.
+    // Проверка — до решения «спать или рисовать»: иначе таймер будил бы фон к
+    // вдоху, а вдох так и не наступал.
+    if (document.body.dataset.state === "connected" && now > nextBreath) {
+      nextBreath = now + (motion() === "lively" ? 4500 : 8000);
+      const [x, y] = origin();
+      waves.push({ x, y, at: now, s: 0.35 });
+    }
+    const pat = VIBES[vibe.id].pattern;
+    const busy = waves.length || now - lastMove < 1500 || pat === "stripes" || pat === "mesh" || pat === "scan";
+    if (!busy) {
+      draw(now);
+      clearTimeout(idleTimer);
+      if (document.body.dataset.state === "connected") idleTimer = setTimeout(kick, Math.max(50, nextBreath - now));
+      return;
+    }
+    if (now - last >= 33) {
+      last = now;
+      draw(now);
+    }
+    raf = requestAnimationFrame(loop);
+  }
+  function kick() { if (!raf && !document.hidden && motion() !== "off") raf = requestAnimationFrame(loop); }
+  function wave(strength) {
+    if (motion() === "off") return;
+    const [x, y] = origin();
+    waves.push({ x, y, at: performance.now(), s: strength });
+    kick();
+  }
+  function restyle() {
+    const cs = getComputedStyle(document.documentElement);
+    fg = rgb(cs.getPropertyValue("--fg"), fg);
+    acc = rgb(cs.getPropertyValue("--accRgb"), acc);
+    light = !Look.theme(look).dark;
+    makeSprite();
+    draw(performance.now());
+    kick();
+  }
+  addEventListener("resize", resize);
+  addEventListener("pointermove", (e) => { mx = e.clientX; my = e.clientY; lastMove = performance.now(); kick(); });
+  addEventListener("pointerleave", () => { mx = my = -9999; });
+  document.addEventListener("visibilitychange", kick);
+  makeSprite();
+  resize();
+  return { wave, restyle, kick };
+})();
+
+// ── точечные цифры ──
+//
+// В образах «Точка» и «Бумага» цифры набраны матрицей 5×7, как на табло.
+// Шрифт свой, из точек, — не чужой фирменный. Единица измерения остаётся
+// обычным текстом: «Мбит/с» точками читается хуже, чем выглядит.
+const DOT_GLYPHS = {
+  "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
+  "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+  "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
+  "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
+  "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
+  "5": ["11111", "10000", "11110", "00001", "00001", "10001", "01110"],
+  "6": ["00110", "01000", "10000", "11110", "10001", "10001", "01110"],
+  "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+  "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+  "9": ["01110", "10001", "10001", "01111", "00001", "00010", "01100"],
+  ",": ["000", "000", "000", "000", "000", "010", "100"],
+  ".": ["000", "000", "000", "000", "000", "000", "010"],
+  ":": ["0", "0", "1", "0", "1", "0", "0"],
+  "-": ["0000", "0000", "0000", "1111", "0000", "0000", "0000"],
+  "—": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
+  " ": ["00", "00", "00", "00", "00", "00", "00"],
+};
+function dotSvg(text) {
+  let x = 0, circles = "";
+  for (const ch of text) {
+    const g = DOT_GLYPHS[ch];
+    if (!g) continue;
+    g.forEach((row, y) => {
+      for (let i = 0; i < row.length; i++) {
+        if (row[i] === "1") circles += '<circle cx="' + (x + i + 0.5) + '" cy="' + (y + 0.5) + '" r=".42"/>';
+      }
+    });
+    x += g[0].length + 1;
+  }
+  return '<svg class="dotnum" viewBox="0 0 ' + Math.max(1, x - 1) + ' 7" aria-hidden="true">' + circles + "</svg>";
+}
+const DOT_TARGETS = ["s-down", "s-up", "k-session", "k-ping", "today-total"];
+function paintDotNums() {
+  const on = VIBES[vibe.id].numerals === "dot";
+  for (const id of DOT_TARGETS) {
+    const el = $(id);
+    if (!el) continue;
+    const text = el.dataset.raw !== undefined && el.querySelector("svg.dotnum") ? el.dataset.raw : el.textContent;
+    if (!on) {
+      if (el.querySelector("svg.dotnum")) el.textContent = text;
+      delete el.dataset.raw;
+      el.removeAttribute("aria-label");
+      continue;
+    }
+    const m = text.match(/^([0-9.,:\s—-]+)(.*)$/);
+    if (!m) continue;
+    el.dataset.raw = text;
+    el.setAttribute("aria-label", text);
+    el.innerHTML = dotSvg(m[1].trim()) + (m[2] ? '<span class="dotunit">' + m[2].replace(/[<>&]/g, "") + "</span>" : "");
+  }
+}
+
+// ── звук ──
+//
+// Два коротких тона из самого браузера, без файлов: вверх — туннель поднялся,
+// вниз — опустился. По умолчанию выключено: окно, которое щёлкает без
+// спроса, раздражает в первый же вечер.
+let audio = null;
+function chirp(up) {
+  if (!vibe.sound) return;
+  try {
+    audio = audio || new AudioContext();
+    const now = audio.currentTime;
+    (up ? [660, 990] : [880, 523]).forEach((f, i) => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0, now + i * 0.09);
+      g.gain.linearRampToValueAtTime(0.06, now + i * 0.09 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.09 + 0.16);
+      o.connect(g).connect(audio.destination);
+      o.start(now + i * 0.09); o.stop(now + i * 0.09 + 0.18);
+    });
+  } catch (_) { /* без звука — значит без звука */ }
+}
+
+// Переходы состояния — повод для волны и щелчка. Первый опрос после запуска
+// переходом не считается: окно открылось, а не подключилось.
+let vibePrev = null, connectingPulse = 0;
+function vibeState(state) {
+  const prev = vibePrev;
+  vibePrev = state;
+  if (prev === null || prev === state) return;
+  clearInterval(connectingPulse);
+  if (state === "connecting") connectingPulse = setInterval(() => Field.wave(0.25), 1200);
+  if (state === "connected") { Field.wave(1); chirp(true); }
+  if ((state === "idle" || state === "failed") && (prev === "connected" || prev === "stalled")) { Field.wave(0.5); chirp(false); }
+}
+
+// ── вкладка «Тема»: карточки образов ──
+function paintVibeControls() {
+  const d = L();
+  const box = $("vibes");
+  if (box && !box.children.length) {
+    for (const id of Object.keys(VIBES)) {
+      const p = VIBES[id].preview;
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "vibe";
+      b.dataset.vibe = id;
+      b.innerHTML = '<span class="vibe-art"><i class="vibe-btn"></i></span><span class="vibe-name"></span><span class="vibe-line"></span>';
+      const art = b.firstElementChild;
+      art.style.background = p.pat + "," + p.bg;
+      art.style.setProperty("--vfg", p.fg);
+      art.style.setProperty("--vacc", p.acc);
+      b.addEventListener("click", () => chooseVibe(id));
+      box.append(b);
+    }
+  }
+  if (box) {
+    for (const b of box.children) {
+      b.setAttribute("aria-pressed", String(b.dataset.vibe === vibe.id));
+      b.querySelector(".vibe-name").textContent = d.vibes[b.dataset.vibe][0];
+      b.querySelector(".vibe-line").textContent = d.vibes[b.dataset.vibe][1];
+    }
+  }
+  const fine = document.querySelector('.page[data-tab="theme"]');
+  if (fine && $("fine-toggle")) $("fine-toggle").textContent = fine.classList.contains("fine-open") ? d.fineHide : d.fineShow;
+  if ($("vibe-splash")) {
+    $("vibe-splash").setAttribute("aria-pressed", String(vibe.splash));
+    $("vibe-splash").textContent = vibe.splash ? d.toggleOn : d.toggleOff;
+    $("vibe-sound").setAttribute("aria-pressed", String(vibe.sound));
+    $("vibe-sound").textContent = vibe.sound ? d.toggleOn : d.toggleOff;
+    for (const b of $("vibe-motion").querySelectorAll("[data-motion]")) {
+      b.setAttribute("aria-pressed", String(b.dataset.motion === vibe.motion));
+      b.textContent = d.motions[b.dataset.motion];
+    }
+    $("vibe-motion-note").textContent = reducedMotion() ? d.motionSystem : "";
+  }
+}
+$("fine-toggle").addEventListener("click", () => {
+  document.querySelector('.page[data-tab="theme"]').classList.toggle("fine-open");
+  paintVibeControls();
+});
+$("vibe-splash").addEventListener("click", () => { vibe.splash = !vibe.splash; saveVibe(); paintVibeControls(); });
+$("vibe-sound").addEventListener("click", () => { vibe.sound = !vibe.sound; saveVibe(); paintVibeControls(); if (vibe.sound) chirp(true); });
+for (const b of $("vibe-motion").querySelectorAll("[data-motion]")) {
+  b.addEventListener("click", () => { vibe.motion = b.dataset.motion; saveVibe(); applyVibe(); Field.wave(0.6); });
+}
+
+// ── заставка ──
+//
+// Знак собирается из точек, слово проявляется, интерфейс поднимается
+// каскадом. Полторы секунды — столько окно WebView и так открывается; дольше
+// — уже ожидание. Клик пропускает.
+const Splash = (() => {
+  const el = $("splash");
+  function finish() {
+    if (el.hidden || el.classList.contains("gone")) return;
+    el.classList.add("gone");
+    document.body.classList.add("arrive");
+    setTimeout(() => { el.hidden = true; document.body.classList.remove("arrive"); Field.wave(0.7); }, 520);
+  }
+  function play() {
+    if (!vibe.splash || reducedMotion()) { el.hidden = true; return; }
+    el.hidden = false;
+    const cv = $("splash-dots"), c = cv.getContext("2d");
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const W = innerWidth, H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const col = getComputedStyle(document.documentElement).getPropertyValue("--accRgb").trim() || "195,204,214";
+    const start = performance.now();
+    (function frame(now) {
+      if (el.classList.contains("gone")) return;
+      const t = (now - start) / 1000, R = t * 900;
+      c.clearRect(0, 0, W, H);
+      const step = 18;
+      for (let y = (H % step) / 2; y < H; y += step) {
+        for (let x = (W % step) / 2; x < W; x += step) {
+          const d = Math.hypot(x - W / 2, y - H / 2);
+          if (d > R) continue;
+          const edge = Math.max(0, 1 - Math.abs(d - R) / 140);
+          c.fillStyle = "rgba(" + col + "," + (0.08 + edge * 0.55) + ")";
+          c.beginPath(); c.arc(x, y, 1 + edge * 1.4, 0, Math.PI * 2); c.fill();
+        }
+      }
+      if (t < 1.6) requestAnimationFrame(frame);
+    })(start);
+    el.addEventListener("click", finish, { once: true });
+    setTimeout(finish, 1500);
+  }
+  return { play };
+})();
+
+// Ручки «Тонкой настройки» меняют тему мимо образа — фон должен узнать новый цвет.
+window.onLookApplied = () => { Field.restyle(); paintDotNums(); };
+applyVibe();
+Splash.play();
+
+window.vibeState = vibeState;
+window.paintDotNums = paintDotNums;
 </script>
 </body>
 </html>

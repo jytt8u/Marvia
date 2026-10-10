@@ -640,13 +640,24 @@
 
   /* Вкладка «Тема»: прокрутка целиком, лента образов в два ряда вбок. */
   .theme-scroll { display: flex; flex-direction: column; gap: var(--gap); flex: 1; min-height: 0; padding-right: 4px; }
-  .vibes-nav { display: flex; gap: 6px; }
-  .vibes-nav .chip { width: 34px; padding: 6px 0; justify-content: center; font-size: 16px; }
-  .vibes-nav .chip[disabled] { opacity: .35; cursor: default; }
+  /* Лента листается рукой: «ладонь» над ней, «сжатая ладонь» при перетаскивании.
+     Края растворяются только там, где лента продолжается, — сразу видно, в
+     какую сторону ещё есть образы. */
   .vibes { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: 214px; gap: 12px;
-    overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; padding: 4px 2px 10px; scrollbar-width: thin;
-    scrollbar-color: var(--dim) transparent; -webkit-mask: linear-gradient(90deg, #000 0, #000 calc(100% - 28px), transparent); }
-  .vibe { scroll-snap-align: start; display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 12px; border-radius: calc(var(--r) + 4px);
+    overflow-x: auto; overflow-y: hidden; padding: 4px 2px 6px; scrollbar-width: none; cursor: grab; user-select: none;
+    --fadeL: 0px; --fadeR: 0px;
+    -webkit-mask: linear-gradient(90deg, transparent 0, #000 var(--fadeL), #000 calc(100% - var(--fadeR)), transparent 100%);
+            mask: linear-gradient(90deg, transparent 0, #000 var(--fadeL), #000 calc(100% - var(--fadeR)), transparent 100%); }
+  .vibes::-webkit-scrollbar { display: none; }
+  .vibes.more-left { --fadeL: 56px; }
+  .vibes.more-right { --fadeR: 56px; }
+  .vibes.dragging { cursor: grabbing; }
+  .vibes.dragging .vibe { pointer-events: none; }
+  .vibes-bar { position: relative; height: 4px; border-radius: 4px; background: rgba(var(--accRgb), .12); cursor: pointer; margin: 2px 2px 0; }
+  .vibes-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; background: var(--acc); opacity: .7;
+    transition: width .3s var(--ease); }
+  .vibes-bar:hover i { opacity: 1; }
+  .vibe { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 12px; border-radius: calc(var(--r) + 4px);
     cursor: pointer; background: transparent; border: 1px solid var(--cardLine); color: var(--fg); text-align: left;
     transition: transform .35s cubic-bezier(.2,.9,.25,1.05), border-color .3s, background .3s; }
   .vibe:hover { background: rgba(var(--accRgb), .05); }
@@ -707,6 +718,60 @@
     #splash { display: none; }
     body.arrive * { animation: none !important; }
   }
+  /* ───── Настройки: разделы слева, один открыт справа ───── */
+  .settings { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: calc(var(--gap) * 1.5); align-items: start;
+    overflow: hidden; min-height: 0; height: 100%; }
+  .set-panes { overflow-y: auto; overflow-x: hidden; min-height: 0; max-height: 100%; padding: 0 6px 12px 0;
+    scrollbar-width: thin; scrollbar-color: var(--dim) transparent; }
+  .set-panes > .col { display: contents; }
+  .set-panes .group { display: none; gap: 12px; }
+  .set-panes .group.on { display: flex; animation: pane-in .42s var(--ease) both; }
+  @keyframes pane-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+  .set-head { padding: 2px 4px 4px; }
+  .set-head h2 { margin: 0; font: 600 24px/1.15 var(--uiFont, Onest), sans-serif; letter-spacing: -.02em; color: var(--fg); }
+  .set-head p { margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: var(--dim); max-width: 560px; }
+
+  .set-nav { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 6px;
+    border-radius: calc(var(--r) + 4px); background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine);
+    -webkit-backdrop-filter: var(--glassFilter, none); backdrop-filter: var(--glassFilter, none); }
+  .set-nav button { position: relative; z-index: 1; display: flex; gap: 12px; align-items: center; padding: 9px 10px;
+    border: 0; background: none; color: var(--fg); text-align: left; border-radius: var(--r); cursor: pointer; min-width: 0; }
+  .set-nav button:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
+  .set-ico { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; flex: none;
+    background: rgba(var(--accRgb), .10); color: var(--acc);
+    transition: transform .35s cubic-bezier(.2,.9,.25,1.05), background .3s, color .3s; }
+  .set-ico svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .set-nav button:hover .set-ico { transform: scale(1.08) rotate(-4deg); }
+  .set-nav button[aria-current="true"] .set-ico { background: var(--acc); color: var(--accFg); }
+  .set-txt { display: flex; flex-direction: column; min-width: 0; }
+  .set-txt b { font-size: 14px; font-weight: 600; }
+  .set-txt small { font-size: 11.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .set-pill { position: absolute; left: 6px; right: 6px; top: 0; height: 0; z-index: 0; border-radius: var(--r);
+    background: var(--surf2); box-shadow: 0 1px 0 rgba(255,255,255,.05) inset;
+    transition: transform .45s cubic-bezier(.2,.9,.25,1.05), height .45s cubic-bezier(.2,.9,.25,1.05); }
+
+  /* Строки — отдельными плитками с промежутком, а не сплошной простынёй. */
+  .set-panes .rows { background: none; border: 0; box-shadow: none; gap: 8px; overflow: visible; }
+  .set-panes .rows > div { border-radius: var(--r); background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine);
+    padding: 14px 16px; -webkit-backdrop-filter: var(--glassFilter, none); backdrop-filter: var(--glassFilter, none);
+    transition: border-color .25s, transform .3s var(--ease); }
+  .set-panes .rows > div + div { border-top: 1px solid var(--cardLine); }
+  .set-panes .rows > div:hover { border-color: rgba(var(--accRgb), .35); }
+  .rows > .has-switch .grow { cursor: pointer; }
+
+  /* Переключатель: дорожка и бегунок. Надпись внутри скрыта глазу, но не
+     диктору. */
+  .rows .switch { position: relative; width: 50px; height: 30px; padding: 0; border-radius: 999px; flex: none;
+    font-size: 0; color: transparent; background: rgba(var(--accRgb), .14); border: 1px solid var(--line);
+    transition: background .25s, border-color .25s, box-shadow .25s; }
+  .rows .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--fg); box-shadow: 0 2px 6px rgba(0,0,0,.35); transition: transform .32s cubic-bezier(.2,.9,.25,1.2), background .25s; }
+  .rows .switch[aria-pressed="true"], .rows .switch[data-on="true"] { background: var(--acc); border-color: var(--acc); box-shadow: var(--glow, none); }
+  .rows .switch[aria-pressed="true"]::after, .rows .switch[data-on="true"]::after { transform: translateX(20px); background: var(--accFg); }
+  .rows .switch:active::after { width: 26px; }
+  .rows .switch[aria-pressed="true"]:active::after, .rows .switch[data-on="true"]:active::after { transform: translateX(16px); }
+
+  @media (max-width: 900px) { .settings { grid-template-columns: 64px minmax(0, 1fr); } .set-txt { display: none; } }
 </style>
 </head>
 <body data-state="idle">
@@ -961,12 +1026,10 @@
           <div class="card vibes-card">
             <div class="card-head">
               <div><b data-t="vibeTitle"></b> <span class="hint" data-t="vibeHint"></span></div>
-              <div class="vibes-nav">
-                <button class="chip" id="vibes-prev" type="button" aria-label="‹">‹</button>
-                <button class="chip" id="vibes-next" type="button" aria-label="›">›</button>
-              </div>
+              <span class="hint" data-t="vibeDrag"></span>
             </div>
             <div class="vibes" id="vibes"></div>
+            <div class="vibes-bar" id="vibes-bar" aria-hidden="true"><i></i></div>
             <div class="fine-row">
               <button class="primary" id="fine-toggle" type="button"></button>
               <button class="chip" id="theme-random" type="button" data-t="themeRandom"></button>
@@ -1062,9 +1125,24 @@
       -->
       <section class="page" data-tab="settings">
         <div class="settings">
+          <!--
+            Разделы слева, один открыт справа. Длинная простыня из двух колонок
+            заставляла искать нужную строку глазами по всей вкладке; раздел с
+            иконкой находится с первого взгляда.
+          -->
+          <nav class="set-nav" id="set-nav">
+            <i class="set-pill" id="set-pill"></i>
+            <button type="button" data-sec="key"><span class="set-ico"><svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg></span><span class="set-txt"><b data-t="secKeyTitle"></b><small data-t="secKeySub"></small></span></button>
+            <button type="button" data-sec="conn"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="set-txt"><b data-t="secConnTitle"></b><small data-t="secConnSub"></small></span></button>
+            <button type="button" data-sec="look"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/></svg></span><span class="set-txt"><b data-t="secLookTitle"></b><small data-t="secLookSub"></small></span></button>
+            <button type="button" data-sec="app"><span class="set-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg></span><span class="set-txt"><b data-t="secAppTitle"></b><small data-t="secAppSub"></small></span></button>
+            <button type="button" data-sec="log"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span class="set-txt"><b data-t="secLogTitle"></b><small data-t="secLogSub"></small></span></button>
+            <button type="button" data-sec="about"><span class="set-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span><span class="set-txt"><b data-t="secAboutTitle"></b><small data-t="secAboutSub"></small></span></button>
+          </nav>
+          <div class="set-panes" id="set-panes">
           <div class="col">
-            <div class="group">
-              <div class="k" data-t="tabKey"></div>
+            <div class="group" data-sec="key">
+              <div class="set-head"><h2 data-t="secKeyTitle"></h2><p data-t="secKeyDesc"></p></div>
               <div class="card keycard">
                 <div class="card-head">
                   <div>
@@ -1096,8 +1174,8 @@
               </div>
             </div>
 
-            <div class="group">
-              <div class="k" data-t="tabLog"></div>
+            <div class="group" data-sec="log">
+              <div class="set-head"><h2 data-t="secLogTitle"></h2><p data-t="secLogDesc"></p></div>
               <div class="card list">
                 <p class="lead" data-t="logLead"></p>
                 <div class="log" id="log"></div>
@@ -1107,8 +1185,8 @@
 
           <div class="col">
             <!-- Вид и звук: то, что делает окно живым. Каждая строка работает. -->
-            <div class="group">
-              <div class="k" data-t="settingsLook"></div>
+            <div class="group" data-sec="look">
+              <div class="set-head"><h2 data-t="secLookTitle"></h2><p data-t="secLookDesc"></p></div>
               <div class="rows">
                 <div>
                   <div class="grow"><span class="name" data-t="splashName"></span><span class="sub" data-t="splashHint"></span></div>
@@ -1141,8 +1219,8 @@
               меняет работу моста или ядра; строк, за которыми ничего нет, тут
               не бывает.
             -->
-            <div class="group">
-              <div class="k" data-t="settingsConn"></div>
+            <div class="group" data-sec="conn">
+              <div class="set-head"><h2 data-t="secConnTitle"></h2><p data-t="secConnDesc"></p></div>
               <div class="rows">
                 <div>
                   <div class="grow"><span class="name" data-t="bypassRu"></span><span class="sub" data-t="bypassRuHint"></span><span class="sub" id="bypass-ru-msg"></span></div>
@@ -1191,8 +1269,8 @@
               </div>
             </div>
 
-            <div class="group">
-              <div class="k" data-t="settingsApp"></div>
+            <div class="group" data-sec="app">
+              <div class="set-head"><h2 data-t="secAppTitle"></h2><p data-t="secAppDesc"></p></div>
               <div class="rows">
                 <!-- Есть новая версия: показывается только когда панель продавца
                      выложила версию новее нашей. Ссылка — с его домена. -->
@@ -1224,14 +1302,15 @@
               </div>
             </div>
 
-            <div class="group" id="about">
-              <div class="k" data-t="tabAbout"></div>
+            <div class="group" id="about" data-sec="about">
+              <div class="set-head"><h2 data-t="secAboutTitle"></h2><p data-t="secAboutDesc"></p></div>
               <div class="card">
                 <p class="about" data-html="about1"></p>
                 <p class="about" data-html="about2"></p>
                 <p class="about" data-t="about3"></p>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </section>
@@ -1472,6 +1551,19 @@ const T = {
       },
     },
     settingsLook: "Вид и звук",
+    vibeDrag: "← тяните мышью →",
+    secKeyTitle: "Ключ доступа", secKeySub: "срок, трафик, ключи",
+    secKeyDesc: "Ключ от продавца: до какого числа он действует и сколько трафика осталось. Здесь же — запасные ключи.",
+    secConnTitle: "Подключение", secConnSub: "что идёт мимо туннеля, DNS",
+    secConnDesc: "Что идёт мимо туннеля и как: российские сайты, домашняя сеть, IPv6, дробление приветствия, DNS.",
+    secLookTitle: "Вид и звук", secLookSub: "заставка, фон, отклик",
+    secLookDesc: "То, что делает окно живым. Образ и цвета — во вкладке «Тема».",
+    secAppTitle: "Программа", secAppSub: "автозапуск, трей, язык",
+    secAppDesc: "Как Marvia живёт на компьютере: запуск вместе с Windows, крестик окна, язык и обновления.",
+    secLogTitle: "Журнал", secLogSub: "что программа делала",
+    secLogDesc: "Пригодится, если что-то не заработало: здесь видно, что программа пробовала и что ей ответили.",
+    secAboutTitle: "О программе", secAboutSub: "как устроен Marvia",
+    secAboutDesc: "Что внутри и почему так.",
     splashName: "Заставка при запуске", splashHint: "Знак собирается из точек, пока окно открывается. Клик её пропускает.",
     motionName: "Живой фон", motionHint: "Узор отвечает на курсор, при подключении по нему идёт волна.",
     motions: { off: "Выкл", calm: "Спокойно", lively: "Живо" },
@@ -1679,6 +1771,19 @@ const T = {
       },
     },
     settingsLook: "Look and sound",
+    vibeDrag: "← drag with the mouse →",
+    secKeyTitle: "Access key", secKeySub: "expiry, traffic, keys",
+    secKeyDesc: "The key from your provider: until when it works and how much traffic is left. Spare keys live here too.",
+    secConnTitle: "Connection", secConnSub: "what bypasses the tunnel, DNS",
+    secConnDesc: "What goes around the tunnel and how: Russian sites, home network, IPv6, hello splitting, DNS.",
+    secLookTitle: "Look and sound", secLookSub: "splash, background, response",
+    secLookDesc: "What makes the window feel alive. Vibe and colours are on the Theme tab.",
+    secAppTitle: "App", secAppSub: "autostart, tray, language",
+    secAppDesc: "How Marvia lives on this computer: starting with Windows, the close button, language and updates.",
+    secLogTitle: "Log", secLogSub: "what the app has been doing",
+    secLogDesc: "Useful when something doesn't work: what the app tried and what it got back.",
+    secAboutTitle: "About", secAboutSub: "how Marvia works",
+    secAboutDesc: "What's inside and why.",
     splashName: "Launch animation", splashHint: "The mark assembles from dots while the window opens. Click to skip.",
     motionName: "Living background", motionHint: "The pattern follows the cursor and ripples when you connect.",
     motions: { off: "Off", calm: "Calm", lively: "Lively" },
@@ -1919,7 +2024,7 @@ window.marviaView = ({mode, tab}) => {
 // трея и ярлыков ведут туда же, чтобы ничего не открылось в пустоту.
 {
   let want = pageParams.get("tab");
-  if (want === "key" || want === "log" || want === "about") want = "settings";
+  if (want === "key" || want === "log" || want === "about") { openSec(want); want = "settings"; }
   const tab = want && document.querySelector('.tab[data-tab="' + want + '"]');
   if (tab) tab.click();
 }
@@ -1932,7 +2037,7 @@ for (const b of document.querySelectorAll(".w-links button[data-open]")) {
 // докручивает до него.
 on("about-link", "click", () => {
   document.querySelector('.tab[data-tab="settings"]').click();
-  $("about").scrollIntoView({ behavior: "smooth", block: "start" });
+  openSec("about");
 });
 on("w-full", "click", () => api("POST", "api/window", { mode: "full", tab: "home" }).catch(() => {}));
 on("w-hide", "click", () => api("POST", "api/window", { mode: "hide" }).catch(() => {}));
@@ -3745,24 +3850,89 @@ function buildVibes() {
     b.addEventListener("click", () => chooseVibe(id));
     box.append(b);
   }
-  const page = () => Math.max(200, box.clientWidth - 120);
-  $("vibes-prev").addEventListener("click", () => box.scrollBy({ left: -page(), behavior: "smooth" }));
-  $("vibes-next").addEventListener("click", () => box.scrollBy({ left: page(), behavior: "smooth" }));
-  // Колесо листает ленту вбок: вертикальной прокрутки у неё нет, а тянуться
-  // к стрелкам ради каждого образа — лишняя работа.
+  // Ленту листают рукой: зажал и тянешь, отпустил — она докатывается по
+  // инерции. Стрелки заставляли целиться в маленькую кнопку ради каждого
+  // шага; перетаскивание — привычный жест для того, что «едет вбок».
+  let down = null, moved = false, glide = 0;
+  box.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    cancelAnimationFrame(glide);
+    down = { x: e.clientX, left: box.scrollLeft, t: performance.now(), v: 0, lastX: e.clientX };
+    moved = false;
+  });
+  addEventListener("pointermove", (e) => {
+    if (!down) return;
+    const dx = e.clientX - down.x;
+    if (!moved && Math.abs(dx) < 5) return;
+    if (!moved) { moved = true; box.classList.add("dragging"); box.setPointerCapture?.(e.pointerId); }
+    const now = performance.now();
+    down.v = (e.clientX - down.lastX) / Math.max(1, now - down.t);
+    down.lastX = e.clientX; down.t = now;
+    box.scrollLeft = down.left - dx;
+  });
+  addEventListener("pointerup", () => {
+    if (!down) return;
+    let v = -down.v * 16;
+    down = null;
+    box.classList.remove("dragging");
+    if (!moved) return;
+    rememberSwiped();
+    // Докат: скорость тает на восьмую часть за кадр — как у прокрутки на тачпаде.
+    const step = () => {
+      if (Math.abs(v) < 0.5) return;
+      box.scrollLeft += v; v *= 0.92;
+      glide = requestAnimationFrame(step);
+    };
+    glide = requestAnimationFrame(step);
+  });
+  // Перетаскивание не должно заодно выбрать образ, на котором отпустили.
+  box.addEventListener("click", (e) => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
+  // Колесо листает ленту вбок: вертикальной прокрутки у неё нет.
   box.addEventListener("wheel", (e) => {
     if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
     box.scrollLeft += e.deltaY;
     e.preventDefault();
   }, { passive: false });
-  const arrows = () => {
-    $("vibes-prev").disabled = box.scrollLeft <= 2;
-    $("vibes-next").disabled = box.scrollLeft + box.clientWidth >= box.scrollWidth - 2;
+
+  // Края растворяются там, где лента продолжается, а полоска снизу показывает,
+  // где мы сейчас: так видно, что листать можно и туда, и обратно.
+  const bar = $("vibes-bar"), thumb = bar.firstElementChild;
+  const edges = () => {
+    const max = box.scrollWidth - box.clientWidth;
+    box.classList.toggle("more-left", box.scrollLeft > 2);
+    box.classList.toggle("more-right", box.scrollLeft < max - 2);
+    bar.hidden = max <= 2;
+    thumb.style.width = (100 * box.clientWidth / box.scrollWidth) + "%";
+    thumb.style.transform = "translateX(" + (max > 0 ? (box.scrollLeft / max) * (bar.clientWidth - thumb.offsetWidth) : 0) + "px)";
   };
-  box.addEventListener("scroll", arrows, { passive: true });
-  addEventListener("resize", arrows);
-  requestAnimationFrame(arrows);
+  box.addEventListener("scroll", edges, { passive: true });
+  addEventListener("resize", edges);
+  // Полоска тоже ведёт: нажатие переносит ленту в это место.
+  bar.addEventListener("pointerdown", (e) => {
+    const r = bar.getBoundingClientRect();
+    box.scrollTo({ left: ((e.clientX - r.left) / r.width) * (box.scrollWidth - box.clientWidth), behavior: "smooth" });
+  });
+  requestAnimationFrame(edges);
 }
+
+// Подсказка жестом: пока человек ни разу не листал ленту, при открытии
+// вкладки она чуть съезжает вбок и возвращается — видно, что она живая.
+const SWIPED_KEY = "marvia-vibes-swiped";
+function rememberSwiped() { try { localStorage.setItem(SWIPED_KEY, "1"); } catch (_) { /* не запомнится */ } }
+function hintSwipe() {
+  let seen = false;
+  try { seen = localStorage.getItem(SWIPED_KEY) === "1"; } catch (_) { /* покажем ещё раз */ }
+  const box = $("vibes");
+  if (seen || motion() === "off" || box.scrollWidth <= box.clientWidth + 2 || box.scrollLeft > 2) return;
+  box.scrollTo({ left: 90, behavior: "smooth" });
+  setTimeout(() => box.scrollTo({ left: 0, behavior: "smooth" }), 650);
+}
+// Края и полоска считаются от ширины ленты, а пока вкладка скрыта, ширина
+// нулевая: пересчитываем при каждом открытии.
+document.querySelector('.tab[data-tab="theme"]').addEventListener("click", () => {
+  requestAnimationFrame(() => $("vibes").dispatchEvent(new Event("scroll")));
+  setTimeout(hintSwipe, 450);
+});
 
 // ── точная настройка ──
 //
@@ -4016,6 +4186,59 @@ window.onLookApplied = () => { paintOverrides(); Field.restyle(); paintDotNums()
 applyVibe();
 paintTheme();
 Splash.play();
+
+// ── настройки: разделы ──
+//
+// Слева список разделов, справа открыт один. Выбор запоминается: кто зашёл
+// поменять DNS, в следующий раз попадёт туда же, а не в ключ доступа.
+const SEC_KEY = "marvia-settings-sec";
+function openSec(sec) {
+  const groups = document.querySelectorAll(".set-panes .group[data-sec]");
+  if (![...groups].some((g) => g.dataset.sec === sec)) sec = "key";
+  for (const g of groups) g.classList.toggle("on", g.dataset.sec === sec);
+  let current = null;
+  for (const b of document.querySelectorAll("#set-nav button[data-sec]")) {
+    const on = b.dataset.sec === sec;
+    b.setAttribute("aria-current", String(on));
+    if (on) current = b;
+  }
+  // Подложка выбранного раздела переезжает пружиной, а не возникает на месте.
+  const pill = $("set-pill");
+  if (current && pill) {
+    pill.style.height = current.offsetHeight + "px";
+    pill.style.transform = "translateY(" + current.offsetTop + "px)";
+  }
+  $("set-panes").scrollTop = 0;
+  try { localStorage.setItem("marvia-settings-sec", sec); } catch (_) { /* не запомнится */ }
+}
+for (const b of document.querySelectorAll("#set-nav button[data-sec]")) b.addEventListener("click", () => openSec(b.dataset.sec));
+{
+  let saved = null;
+  try { saved = localStorage.getItem(SEC_KEY); } catch (_) { /* с начала */ }
+  if (!document.querySelector(".set-panes .group.on")) openSec(saved || "key");
+}
+// Подложку надо переставить, когда вкладка впервые становится видимой:
+// пока она скрыта, у кнопок нет размеров.
+document.querySelector('.tab[data-tab="settings"]').addEventListener("click", () => {
+  requestAnimationFrame(() => {
+    const on = document.querySelector("#set-nav button[aria-current='true']");
+    if (on) openSec(on.dataset.sec);
+  });
+});
+
+// Переключатели вместо кнопок «Включено / Выключено»: состояние видно
+// формой, а не надписью. Надпись остаётся внутри — для экранного диктора.
+// Нажатие на саму строку тоже переключает: в узкую кнопку не надо целиться.
+const SWITCHES = ["vibe-splash", "vibe-sound", "vibe-fx", "vibe-click", "bypass-ru", "lan", "ipv6", "fragment", "reports", "dns-secure", "autostart"];
+for (const id of SWITCHES) {
+  const b = $(id);
+  if (!b) continue;
+  b.classList.add("switch");
+  const row = b.parentElement;
+  row.classList.add("has-switch");
+  const label = row.querySelector(".grow");
+  if (label) label.addEventListener("click", (e) => { if (!e.target.closest("a, button, input")) b.click(); });
+}
 
 window.vibeState = vibeState;
 window.paintDotNums = paintDotNums;

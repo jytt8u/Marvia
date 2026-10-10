@@ -539,6 +539,64 @@
   #bg-layer { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
   #bg-layer img, #bg-layer video { width: 100%; height: 100%; display: block; }
   #bg-veil { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  /* ───── Вид телефона ─────
+     Окно повторяет главный экран телефона, а не просто красится той же темой:
+     там его и хвалят. Числа взяты из Android-кода (Paint.card, HaloView,
+     SpeedSpark), чтобы два клиента не расходились «на глаз». */
+
+  /* Карточка — с лёгким отливом акцента из левого верхнего угла (Paint.card:
+     6,5 % на тёмных, 2,5 % на светлых). У плоских отлива нет. */
+  body:not([data-card="flat"]) .card, body:not([data-card="flat"]) .kpi {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--surf), var(--acc) 6.5%), var(--surf));
+  }
+  /* «Сегодня» — главная карточка, как на телефоне: отлив сильнее и тонкая
+     акцентная обводка (Paint, тег feature). */
+  .card.feature {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--surf), var(--acc) 18%), var(--surf));
+    border-color: rgba(var(--accRgb), .25);
+  }
+  .card.feature #today-total { font-size: 22px; font-weight: 700; color: var(--acc); }
+  .card.feature .card-head b { font-weight: 500; color: var(--dim); font-size: 14px; }
+  .card, .kpi { transition: transform .35s var(--ease), border-color .3s, box-shadow .3s; }
+  .card:hover, .kpi:hover { border-color: rgba(var(--accRgb), .3); }
+
+  /* Ореол: кольца тают наружу, точки на орбите ярче, когда подключено. */
+  .ring > svg.halo { inset: -55px; width: calc(100% + 110px); height: calc(100% + 110px); transform: none; z-index: 0; }
+  body .ring .halo circle { fill: none; stroke: var(--acc); stroke-width: 1; stroke-dasharray: none; }
+  .ring .halo circle:nth-child(1) { stroke-opacity: .16; }
+  .ring .halo circle:nth-child(2) { stroke-opacity: .12; }
+  .ring .halo circle:nth-child(3) { stroke-opacity: .08; }
+  .ring .halo .orbit { stroke: none; fill: var(--acc); fill-opacity: .4; transition: fill-opacity .6s; }
+  .ring .halo .orbit.b { fill-opacity: .22; }
+  body[data-state="connected"] .ring .halo .orbit.a { fill-opacity: .63; }
+  body[data-state="connected"] .ring .halo .orbit.b { fill-opacity: .33; }
+  body[data-state="connecting"] .ring .halo { animation: drift 6s linear infinite; }
+  @keyframes drift { to { transform: rotate(360deg); } }
+
+  /* Состояние — крупно и светлым, как на телефоне; подпись — обычным текстом. */
+  .status { font-size: 32px; letter-spacing: -.015em; color: var(--fg); }
+  .detail { font-family: inherit; font-size: 13.5px; letter-spacing: 0; }
+
+  /* Нода — одной капсулой «страна · город · отклик», как строка на телефоне. */
+  .node { width: auto; max-width: 460px; padding: 9px 18px; border-radius: 999px; gap: 10px; cursor: default; }
+  .node > div { display: flex; align-items: baseline; gap: 10px; flex: 0 1 auto; }
+  .node .name { font-family: var(--mono); font-size: 13px; font-weight: 500; letter-spacing: .04em; white-space: nowrap; }
+  .node .sub { display: none; }
+  .node .ping { font-size: 13px; }
+
+  /* Скорость: подпись и объём сессии сверху, цифра, под ней бегущая линия. */
+  .kpi.spd { gap: 6px; padding: 14px 16px 12px; }
+  .spd-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .spd-head .k { font-size: 13px; color: var(--dim); }
+  .kpi.spd .v { font-size: 20px; }
+  .spark { display: block; width: 100%; height: 30px; overflow: hidden; margin-top: 2px; }
+  .spark .line { fill: none; stroke: var(--acc); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; stroke-opacity: .25; transition: stroke-opacity .4s; }
+  .spark .area { fill: rgba(var(--accRgb), .0); transition: fill .4s; }
+  .spark.live .line { stroke-opacity: 1; }
+  .spark.live .area { fill: rgba(var(--accRgb), .14); }
+  .side .kpi { padding: 12px 14px; }
+  .side .kpi .k { font-size: 13px; }
+  .side .kpi .v { font-size: 19px; }
 </style>
 </head>
 <body data-state="idle">
@@ -609,6 +667,15 @@
         <div class="split">
           <div class="hero wide">
             <div class="ring">
+              <!--
+                Ореол как на телефоне: три тонких кольца и две точки на орбите.
+                Ближнее кольцо уходит под кнопку, видны два. Рисуется акцентом
+                темы, поэтому в каждой палитре свой.
+              -->
+              <svg class="halo" viewBox="-180 -180 360 360" aria-hidden="true">
+                <circle r="90"/><circle r="109"/><circle r="127"/>
+                <circle class="orbit a" r="2.4" cx="-93" cy="-54"/><circle class="orbit b" r="2.4" cx="94" cy="54"/>
+              </svg>
               <!--
                 Дуга рисуется отдельно от кнопки: у кнопки свой объём и свои
                 варианты из темы, а дуга одна на все — и она же крутится,
@@ -693,18 +760,7 @@
               </div>
             </div>
 
-            <div class="card chart">
-              <div class="card-head"><b data-t="chartTitle"></b><span class="mono" id="hour-total"></span></div>
-              <div class="bars" id="bars"></div>
-              <div class="axis"><span data-t="chartFrom"></span><span data-t="chartNow"></span></div>
-            </div>
-            <div class="tiles two">
-              <div class="kpi"><div class="k" data-t="kSession"></div><div class="v" id="k-session">—</div></div>
-              <div class="kpi"><div class="k" data-t="kPing"></div><div class="v acc" id="k-ping">—</div></div>
-              <div class="kpi"><div class="k" data-t="down"></div><div class="v" id="s-down">0</div><div class="t" id="t-down"></div></div>
-              <div class="kpi"><div class="k" data-t="up"></div><div class="v" id="s-up">0</div><div class="t" id="t-up"></div></div>
-            </div>
-            <div class="card daily">
+            <div class="card daily feature">
               <div class="card-head"><b data-t="todayTraffic"></b><span class="mono" id="today-total">—</span></div>
               <div class="daily-bars" id="day-bars" role="img" data-t-title="todayTraffic"></div>
               <div class="axis"><span>00:00</span><span>23:00</span></div>
@@ -714,6 +770,26 @@
                 <div><span data-t="averageDown"></span><strong id="average-down">—</strong></div>
                 <div><span data-t="averageUp"></span><strong id="average-up">—</strong></div>
               </div>
+            </div>
+            <!--
+              Скорость в обе стороны — как на телефоне: цифра сейчас, справа
+              объём за сессию, внизу бегущая линия за полминуты.
+            -->
+            <div class="tiles two">
+              <div class="kpi spd">
+                <div class="spd-head"><span class="k" data-t="down"></span><span class="t" id="t-down"></span></div>
+                <div class="v" id="s-down">0</div>
+                <svg class="spark" id="spark-down" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"><g><path class="area"/><path class="line"/></g></svg>
+              </div>
+              <div class="kpi spd">
+                <div class="spd-head"><span class="k" data-t="up"></span><span class="t" id="t-up"></span></div>
+                <div class="v" id="s-up">0</div>
+                <svg class="spark" id="spark-up" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"><g><path class="area"/><path class="line"/></g></svg>
+              </div>
+            </div>
+            <div class="tiles two">
+              <div class="kpi"><div class="k" data-t="kSession"></div><div class="v" id="k-session">—</div></div>
+              <div class="kpi"><div class="k" data-t="kPing"></div><div class="v acc" id="k-ping">—</div></div>
             </div>
             <!--
               Неделя: считает сама программа, как телефон — у панели есть только
@@ -1167,7 +1243,7 @@ const T = {
     },
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
-    kSession: "Сессия", kPing: "Отклик ноды", down: "Приём", up: "Отдача",
+    kSession: "Сессия", kPing: "Отклик ноды", down: "↓ Загрузка", up: "↑ Отдача",
     todayTraffic: "Трафик сегодня", peakDown: "Пик приёма за сессию", peakUp: "Пик отдачи за сессию",
     averageDown: "Приём в среднем", averageUp: "Отдача в среднем", wNoKey: "Добавьте ключ в настройках",
     chartTitle: "Трафик за час", chartFrom: "−60 мин", chartNow: "сейчас",
@@ -1271,7 +1347,8 @@ const T = {
     elevWarn: "Программа запущена без прав администратора — Windows не даст создать сетевой адаптер. Закрой окно и запусти заново, согласившись на запрос прав.",
     noLink: "Нет связи с программой",
     err: "ошибка ",
-    until: "до ", left: "осталось ", ms: " мс", perSec: "/с",
+    until: "до ", left: "осталось ", ms: " мс", perSec: "/с", mbps: "Мбит/с",
+    sessionLine: t => "Сессия · " + t,
     bytes: ["Б", "КБ", "МБ", "ГБ", "ТБ"],
   },
 
@@ -1326,7 +1403,7 @@ const T = {
     },
 
     pingUnknown: "Not measured", setupLabel: "Connection",
-    kSession: "Session", kPing: "Node response", down: "Down", up: "Up",
+    kSession: "Session", kPing: "Node response", down: "↓ Download", up: "↑ Upload",
     todayTraffic: "Traffic today", peakDown: "Session download peak", peakUp: "Session upload peak",
     averageDown: "Average download", averageUp: "Average upload", wNoKey: "Add your access key in settings",
     chartTitle: "Traffic, last hour", chartFrom: "−60 min", chartNow: "now",
@@ -1430,7 +1507,8 @@ const T = {
     elevWarn: "The program is running without administrator rights — Windows will not let it create a network adapter. Close this window and start again, accepting the rights prompt.",
     noLink: "No connection to the program",
     err: "error ",
-    until: "until ", left: "left ", ms: " ms", perSec: "/s",
+    until: "until ", left: "left ", ms: " ms", perSec: "/s", mbps: "Mbps",
+    sessionLine: t => "Session · " + t,
     bytes: ["B", "KB", "MB", "GB", "TB"],
   },
 };
@@ -1596,6 +1674,8 @@ function applyLook() {
   paintBackdrop();
   // Кнопка питания: вид — из темы. Ставится атрибутом, а красится в CSS.
   $("power").dataset.btn = t.btn;
+  // Подача карточек — тоже атрибутом: у плоских нет и отлива, как на телефоне.
+  document.body.dataset.card = t.card;
   paintTheme();
 }
 
@@ -2158,24 +2238,40 @@ function complaintNow() {
   return null;
 }
 
-// paintBars рисует час трафика: 60 столбиков, самый высокий — самая
-// нагруженная минута. Столбики от четырёх пятых максимума — акцентом, как в
-// макете: глазу нужна точка отсчёта, а не ровная гребёнка.
-function paintBars(history) {
-  const box = $("bars");
-  const list = Array.isArray(history) && history.length ? history : new Array(60).fill(0);
-  const max = Math.max(1, ...list);
-  const total = list.reduce((a, v) => a + v, 0);
+// Скорость — в мегабитах, как на телефоне и как её пишут провайдеры:
+// «7,8 МБ/с» рядом с тарифом «100 Мбит/с» читается как втрое меньше.
+function mbit(bytesPerSecond) {
+  const v = Math.max(0, bytesPerSecond || 0) * 8 / 1e6;
+  return v.toLocaleString(lang === "en" ? "en-US" : "ru-RU", {minimumFractionDigits: 1, maximumFractionDigits: 1}) + " " + L().mbps;
+}
 
-  if (box.children.length !== list.length) {
-    box.replaceChildren(...list.map(() => document.createElement("i")));
-  }
-  list.forEach((v, i) => {
-    const bar = box.children[i];
-    bar.style.height = Math.max(2, Math.round((v / max) * 100)) + "%";
-    bar.classList.toggle("hot", v > 0 && v >= max * 0.8);
-  });
-  $("hour-total").textContent = total > 0 ? bytes(total) : "";
+// Бегущая линия скорости — та же, что на телефоне (SpeedSpark). Замер раз в
+// секунду; перерисуй его скачком — и линия дёргается на шаг, как старый
+// осциллограф. Поэтому новый кадр рисуется сдвинутым на шаг вправо и плавно
+// съезжает на место. Слева — нули: до подключения скорость и была нулевой.
+const SPARK = 30;
+const sparkSeen = {down: [], up: []};
+function paintSpark(svg, key, value, live) {
+  const seen = sparkSeen[key];
+  if (live) { seen.push(Math.max(0, value || 0)); while (seen.length > SPARK + 1) seen.shift(); }
+  else seen.length = 0;
+  const list = Array(SPARK + 1 - seen.length).fill(0).concat(seen);
+  const W = 300, H = 40, top = 4, bottom = H - 2, step = W / (SPARK - 1);
+  // Шкала не ниже 0,5 Мбит/с: иначе фоновый шорох рисовался бы горами.
+  const max = Math.max(0.5e6 / 8, ...list);
+  const n = list.length;
+  const pts = list.map((v, i) => [W - (n - 1 - i) * step, bottom - (bottom - top) * v / max]);
+  const line = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+  svg.querySelector(".line").setAttribute("d", line);
+  svg.querySelector(".area").setAttribute("d", line + " L" + W + "," + H + " L" + pts[0][0].toFixed(1) + "," + H + " Z");
+  svg.classList.toggle("live", live && seen.some(v => v > 0));
+  const g = svg.querySelector("g");
+  if (!live || matchMedia("(prefers-reduced-motion: reduce)").matches) { g.style.transition = "none"; g.style.transform = ""; return; }
+  g.style.transition = "none";
+  g.style.transform = "translateX(" + step + "px)";
+  void g.getBoundingClientRect();
+  g.style.transition = "transform .95s linear";
+  g.style.transform = "translateX(0)";
 }
 
 function render(s) {
@@ -2208,7 +2304,7 @@ function render(s) {
   else if (s.state === "failed") detail.textContent = s.reason || d.detail.unknown;
   else if (s.state === "stalled") detail.textContent = s.reason || d.detail.stalled;
   else if (s.state === "connecting") detail.textContent = d.detail.connecting;
-  else if (s.state === "connected") detail.textContent = d.detail.connected;
+  else if (s.state === "connected") detail.textContent = s.since ? d.sessionLine(clock(Math.max(0, Math.floor(Date.now() / 1000) - s.since))) : d.detail.connected;
   else if (!s.has_account) detail.textContent = d.detail.noKey;
   else detail.textContent = d.detail.idle;
 
@@ -2253,24 +2349,25 @@ function render(s) {
 
   // Снятия делает ядро: скорость и пик не теряются, пока окно спрятано.
   const traffic = s.traffic || {};
-  $("s-down").textContent = bytes(up ? traffic.rate_down || 0 : 0) + d.perSec;
-  $("s-up").textContent = bytes(up ? traffic.rate_up || 0 : 0) + d.perSec;
+  $("s-down").textContent = mbit(up ? traffic.rate_down : 0);
+  $("s-up").textContent = mbit(up ? traffic.rate_up : 0);
+  paintSpark($("spark-down"), "down", traffic.rate_down, up);
+  paintSpark($("spark-up"), "up", traffic.rate_up, up);
 
   $("t-down").textContent = bytes(s.down || 0);
   $("t-up").textContent = bytes(s.up || 0);
   const today = bytes((traffic.today_up || 0) + (traffic.today_down || 0));
   $("today-total").textContent = today;
   $("w-today").textContent = today;
-  $("peak-down").textContent = bytes(traffic.peak_down || 0) + d.perSec;
-  $("peak-up").textContent = bytes(traffic.peak_up || 0) + d.perSec;
+  $("peak-down").textContent = mbit(traffic.peak_down);
+  $("peak-up").textContent = mbit(traffic.peak_up);
   const seconds = s.since ? Math.max(1, Date.now() / 1000 - s.since) : 0;
-  $("average-down").textContent = seconds ? bytes((s.down || 0) / seconds) + d.perSec : "—";
-  $("average-up").textContent = seconds ? bytes((s.up || 0) / seconds) + d.perSec : "—";
+  $("average-down").textContent = seconds ? mbit((s.down || 0) / seconds) : "—";
+  $("average-up").textContent = seconds ? mbit((s.up || 0) / seconds) : "—";
   paintDaily($("day-bars"), traffic.hours);
   paintDaily($("w-day-bars"), traffic.hours);
   paintWeek(traffic.week);
 
-  paintBars(s.history);
 
   // Виджет — тот же экран в другой шкуре: кнопка, состояние, сессия и
   // скорость, нода. Красится тем же, чем окно, только короче.

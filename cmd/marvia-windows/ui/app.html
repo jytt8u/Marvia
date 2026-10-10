@@ -782,8 +782,8 @@
     background: color-mix(in srgb, var(--vsurf) 80%, transparent); }
   .mini-side i { height: 4px; border-radius: 2px; background: var(--vdim); opacity: .45; }
   .mini-side i:first-child { background: var(--vacc); opacity: .9; width: 70%; }
-  .mini-hero { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
-  .mini-btn { position: relative; width: 34px; height: 34px; border-radius: 50%; transition: transform .5s cubic-bezier(.2,.9,.25,1.05), box-shadow .4s; }
+  .mini-hero { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
+  .mini-btn { position: relative; width: 30px; height: 30px; border-radius: 50%; transition: transform .5s cubic-bezier(.2,.9,.25,1.05), box-shadow .4s; }
   .mini-btn::after { content: ""; position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; margin: -5.5px; border-radius: 50%;
     border: 2px solid currentColor; border-top-color: transparent; }
   .vibe-art[data-btn="solid"] .mini-btn { background: var(--vacc); color: var(--vaccFg); box-shadow: 0 0 16px -4px var(--vacc); }
@@ -792,9 +792,12 @@
   .vibe-art[data-btn="glass"] .mini-btn { background: color-mix(in srgb, var(--vacc) 22%, transparent); color: var(--vacc);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vacc) 50%, transparent), 0 0 18px -6px var(--vacc); }
   .vibe-art[data-btn="bare"] .mini-btn { box-shadow: inset 0 0 0 1px var(--vacc); color: var(--vacc); }
-  .vibe:hover .mini-btn { transform: scale(1.12); box-shadow: 0 0 0 4px color-mix(in srgb, var(--vacc) 18%, transparent), 0 0 24px -2px var(--vacc); }
+  /* При наведении кнопка только разгорается: увеличение с кольцом опускало
+     её край на надпись под ней. */
+  .vibe:hover .mini-btn { filter: brightness(1.15) drop-shadow(0 0 6px var(--vacc)); }
   /* .vibe впереди: общее «.card b» иначе перебивало размер и цвет. */
   .vibe .mini-status { font: 700 9.5px/1 var(--vfont); text-transform: var(--vcase); letter-spacing: var(--vtrack); color: var(--vacc);
+    padding: 3px 7px; border-radius: 999px; background: color-mix(in srgb, var(--vsurf) 78%, transparent); box-sizing: border-box;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   /* Широкий гротеск заглавными в ту же ширину не помещается — мельче. */
   .vibe[data-vibe="acid"] .mini-status, .vibe[data-vibe="neon"] .mini-status, .vibe[data-vibe="retro"] .mini-status { font-size: 7.5px; }
@@ -3938,6 +3941,16 @@ function vibeState(state) {
 // Образов больше, чем помещается в ширину, поэтому они идут лентой в два
 // ряда и листаются слева направо: стрелками, колесом мыши или перетаскиванием
 // полосы прокрутки.
+// fitLabel ужимает надпись миниатюры, пока она не влезет: широкий гротеск
+// заглавными на другом языке иначе обрезался бы троеточием. Пока вкладка
+// скрыта, ширины нет — подгонка случится при открытии.
+function fitLabel(el) {
+  if (!el || !el.clientWidth) return;
+  el.style.fontSize = "";
+  let size = parseFloat(getComputedStyle(el).fontSize);
+  while (el.scrollWidth > el.clientWidth + 1 && size > 6) { size -= 0.5; el.style.fontSize = size + "px"; }
+}
+
 function buildVibes() {
   const box = $("vibes");
   if (box.children.length) return;
@@ -3962,7 +3975,7 @@ function buildVibes() {
     const r = Math.round((v.look.radius ? Look.RADII[v.look.radius] : t.r) * 0.45);
     art.style.cssText += ";--vfg:" + t.fg + ";--vdim:" + t.dim + ";--vacc:" + t.acc + ";--vaccFg:" + t.accFg
       + ";--vsurf:" + t.surf + ";--vline:" + t.cardLine + ";--vr:" + r + "px;--vfont:" + sfont
-      + ";--vcase:" + (v.o.caps ? "uppercase" : "none") + ";--vtrack:" + (v.o.caps ? ".12em" : "-.01em");
+      + ";--vcase:" + (v.o.caps ? "uppercase" : "none") + ";--vtrack:" + (v.o.caps ? ".04em" : "-.01em");
     b.addEventListener("click", () => chooseVibe(id));
     box.append(b);
   }
@@ -4046,7 +4059,7 @@ function hintSwipe() {
 // Края и полоска считаются от ширины ленты, а пока вкладка скрыта, ширина
 // нулевая: пересчитываем при каждом открытии.
 document.querySelector('.tab[data-tab="theme"]').addEventListener("click", () => {
-  requestAnimationFrame(() => $("vibes").dispatchEvent(new Event("scroll")));
+  requestAnimationFrame(() => { $("vibes").dispatchEvent(new Event("scroll")); for (const s of document.querySelectorAll(".vibe .mini-status")) fitLabel(s); });
   setTimeout(hintSwipe, 450);
 });
 
@@ -4167,6 +4180,7 @@ function paintVibeControls() {
     b.querySelector(".vibe-name").textContent = d.vibes[b.dataset.vibe][0];
     b.querySelector(".vibe-line").textContent = d.vibes[b.dataset.vibe][1];
     b.querySelector(".mini-status").textContent = d.state.connected;
+    fitLabel(b.querySelector(".mini-status"));
   }
   const page = document.querySelector('.page[data-tab="theme"]');
   $("fine-toggle").textContent = page.classList.contains("fine-open") ? d.fineHide : d.fineShow;

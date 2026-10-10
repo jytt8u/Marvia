@@ -293,7 +293,7 @@ class MainActivity : AppCompatActivity() {
         Paint.style = Paint.Style(
             pattern = store.pattern, font = store.font, photo = store.hasBackdrop(),
             motion = !store.reduceMotion, haptics = store.hapticFeedback,
-            appearanceStyle = store.appearanceStyle,
+            appearanceStyle = store.appearanceStyle, vibe = AppearanceProfiles.detail(store),
         )
         ConnectionAppearance.apply(ui.connectScreen, store.appearanceStyle, theme)
         ui.connectScreen.powerAction.motionEnabled = !store.reduceMotion
@@ -309,6 +309,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
         Paint.apply(ui.root, theme)
+        // Зерно и виньетка «Плёнки» — поверх всего, как на ПК; у прочих образов ничего.
+        ui.root.foreground = if (Paint.style.vibe == "film") VibeDetails.Veil() else null
         applyBackdrop()
         paintLogo()
         paintNav()
@@ -694,6 +696,7 @@ class MainActivity : AppCompatActivity() {
         val changed = v.text.toString() != getString(text)
         v.setText(text)
         v.setTextColor(color)
+        VibeDetails.status(v, Paint.style.vibe, theme, MarviaState.state.value is TunnelState.On, !store.reduceMotion)
         if (changed && v.isAttachedToWindow && v.isShown && !store.reduceMotion) {
             v.alpha = 0f
             v.translationY = 6 * resources.displayMetrics.density

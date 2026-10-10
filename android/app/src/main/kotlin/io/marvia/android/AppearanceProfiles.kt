@@ -101,5 +101,17 @@ object AppearanceProfiles {
         store.pattern = profile.pattern
         store.appearanceStyle = profile.style
         store.font = profile.font
+        store.vibe = profile.id
     }
+
+    /**
+     * Чьи детали рисовать. Образ держится, пока основа та же: другой акцент
+     * или кнопка — это подстройка «Хрома», а другая палитра — уже другая
+     * тема, и чёрные тени «Брутала» на ней были бы чужими. Установки до
+     * появления образов узнаются по точному совпадению с образом.
+     */
+    fun detail(store: Store): String = detail(store.vibe, store.look) ?: selected(store)?.id.orEmpty()
+
+    fun detail(saved: String, look: Look.Choice): String? =
+        all.firstOrNull { it.id == saved && it.choice.preset == look.preset }?.id
 }

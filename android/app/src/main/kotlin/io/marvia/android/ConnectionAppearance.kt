@@ -12,6 +12,7 @@ object ConnectionAppearance {
         val dp = ui.root.resources.displayMetrics.density
         fun px(value: Int) = (value * dp).toInt()
         ui.powerAction.appearanceStyle = style
+        ui.powerAction.vibe = Paint.style.vibe
         ui.powerAction.theme = theme
         header(ui, style)
         ui.statusText.textSize = if (signal) 30f else 28f

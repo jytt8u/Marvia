@@ -21,6 +21,25 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [35])
 class AppearanceControlsTest {
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun aSolidButtonWithGlowIsPaintedInFullColour() {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val clay = AppearanceProfiles.all.first { it.id == "clay" }
+        val button = PowerButton(context).apply {
+            motionEnabled = false
+            theme = Look.theme(clay.choice)
+            state = PowerButton.State.ON
+        }
+        val size = 400
+        button.measure(View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY))
+        button.layout(0, 0, size, size)
+        val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        button.draw(android.graphics.Canvas(bitmap))
+        // Под значком питания — сам диск: он непрозрачный, а не блёклый.
+        val disc = bitmap.getPixel(size / 2, size * 3 / 4)
+        assertTrue("альфа диска ${android.graphics.Color.alpha(disc)}", android.graphics.Color.alpha(disc) > 240)
+    }
+
     @Test fun choosingALookAppliesItsPaletteAndBackgroundTogether() = withActivity { activity ->
         val store = Store(activity)
         store.look = Look.Choice(preset = "paper")

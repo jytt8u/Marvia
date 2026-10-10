@@ -426,6 +426,16 @@ class Store(context: Context) {
             ?: AppearanceStyle.CLASSIC
         set(value) { prefs.edit().putString(KEY_APPEARANCE_STYLE, value.key).apply() }
 
+    /**
+     * Последний выбранный образ. Его фирменные детали — металл кнопки, жёсткие
+     * тени, зерно — не выводятся из палитры: та же тема с другим акцентом
+     * остаётся «Хромом», и подстройка не должна стирать то, по чему образ
+     * узнают. Пустая строка — образа ещё не выбирали.
+     */
+    var vibe: String
+        get() = prefs.getString(KEY_VIBE, null).orEmpty()
+        set(value) { prefs.edit().putString(KEY_VIBE, value).apply() }
+
     fun profileStyle(slot: Int): AppearanceStyle = AppearanceStyle.entries.firstOrNull {
         it.key == prefs.getString("$KEY_PROFILE_STYLE$slot", null)
     } ?: AppearanceStyle.CLASSIC
@@ -815,6 +825,7 @@ class Store(context: Context) {
         private const val BACKDROP_MAX_SIDE = 2048
 
         private const val KEY_APPEARANCE_STYLE = "look_appearance_style"
+        private const val KEY_VIBE = "look_vibe"
         private const val KEY_PROFILE_STYLE = "look_profile_style_"
         private const val KEY_PATTERN = "look_pattern"
         private const val KEY_REDUCE_MOTION = "reduce_motion"

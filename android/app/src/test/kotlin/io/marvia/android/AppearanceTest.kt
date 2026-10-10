@@ -85,6 +85,47 @@ class AppearanceTest {
         }
     }
 
+    @Test fun tuningAVibeKeepsItsDetailsButAnotherPaletteDropsThem() {
+        val context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("veil", 0).edit().clear().commit()
+        val store = Store(context)
+        AppearanceProfiles.apply(store, AppearanceProfiles.all.first { it.id == "chrome" })
+        assertEquals("chrome", AppearanceProfiles.detail(Store(context)))
+        store.look = store.look.copy(accent = 0xFF40C8FF.toInt(), btn = "glass")
+        assertEquals("chrome", AppearanceProfiles.detail(Store(context)))
+        store.look = store.look.copy(preset = "paper")
+        assertEquals("", AppearanceProfiles.detail(Store(context)))
+    }
+
+    @Test fun aThemeChosenBeforeVibesExistedStillGetsItsDetails() {
+        val context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("veil", 0).edit().clear().commit()
+        val store = Store(context)
+        val brutal = AppearanceProfiles.all.first { it.id == "brutal" }
+        store.look = brutal.choice
+        store.pattern = brutal.pattern
+        store.appearanceStyle = brutal.style
+        store.font = brutal.font
+        assertEquals("brutal", AppearanceProfiles.detail(Store(context)))
+    }
+
+    @Test fun brutalCardContentStaysClearOfItsHardShadow() {
+        val context = RuntimeEnvironment.getApplication()
+        val dp = context.resources.displayMetrics.density
+        val card = android.widget.LinearLayout(context).apply { tag = "card" }
+        val before = Paint.style
+        try {
+            Paint.style = Paint.Style(vibe = "brutal")
+            Paint.apply(card, Look.theme(AppearanceProfiles.all.first { it.id == "brutal" }.choice))
+            assertEquals((VibeDetails.HARD * dp).toInt(), card.paddingRight - card.paddingLeft)
+            Paint.style = Paint.Style()
+            Paint.apply(card, Look.theme(Look.Choice()))
+            assertEquals(card.paddingLeft, card.paddingRight)
+        } finally {
+            Paint.style = before
+        }
+    }
+
     @Test fun displayPreferencesSurviveRestartWithoutChangingNetworkOptions() {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()

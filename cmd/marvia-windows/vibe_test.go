@@ -15,7 +15,8 @@ func TestEveryVibeIsNamedInBothLanguages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	page := string(raw)
+	// На Windows git отдаёт файл с CRLF, а шаблоны ниже — построчные.
+	page := strings.ReplaceAll(string(raw), "\r\n", "\n")
 	start := strings.Index(page, "const VIBES = {")
 	if start < 0 {
 		t.Fatal("в странице нет таблицы образов")

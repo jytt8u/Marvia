@@ -22,6 +22,14 @@
     font-weight: 400 800; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
   @font-face { font-family: Manrope; src: url(fonts/manrope-latin.woff2) format('woff2');
     font-weight: 400 700; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2122, U+2212; }
+  @font-face { font-family: Spectral; src: url(fonts/spectral-600-latin.woff2) format('woff2');
+    font-weight: 600; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2122, U+2212; }
+  @font-face { font-family: Spectral; src: url(fonts/spectral-600-cyrillic.woff2) format('woff2');
+    font-weight: 600; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: Spectral; src: url(fonts/spectral-400-latin.woff2) format('woff2');
+    font-weight: 400; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2122, U+2212; }
+  @font-face { font-family: Spectral; src: url(fonts/spectral-400-cyrillic.woff2) format('woff2');
+    font-weight: 400; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
   @font-face { font-family: Manrope; src: url(fonts/manrope-cyrillic.woff2) format('woff2');
     font-weight: 400 700; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
 
@@ -773,46 +781,66 @@
 
   @media (max-width: 900px) { .settings { grid-template-columns: 64px minmax(0, 1fr); } .set-txt { display: none; } }
 
-  /* ───── Миниатюры образов ───── */
-  .vibe-art { position: relative; height: 104px; border-radius: var(--r); overflow: hidden; display: grid;
-    grid-template-columns: 18% 1fr 30%; gap: 6px; padding: 8px; place-items: stretch; background-size: auto;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); transition: background-position 3s linear; }
-  .vibe:hover .vibe-art { background-position: 40px 20px, 0 0; }
-  .mini-side { display: flex; flex-direction: column; gap: 4px; padding: 5px 4px; border-radius: var(--vr);
-    background: color-mix(in srgb, var(--vsurf) 80%, transparent); }
-  .mini-side i { height: 4px; border-radius: 2px; background: var(--vdim); opacity: .45; }
-  .mini-side i:first-child { background: var(--vacc); opacity: .9; width: 70%; }
-  .mini-hero { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
-  .mini-btn { position: relative; width: 30px; height: 30px; border-radius: 50%; transition: transform .5s cubic-bezier(.2,.9,.25,1.05), box-shadow .4s; }
-  .mini-btn::after { content: ""; position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; margin: -5.5px; border-radius: 50%;
-    border: 2px solid currentColor; border-top-color: transparent; }
-  .vibe-art[data-btn="solid"] .mini-btn { background: var(--vacc); color: var(--vaccFg); box-shadow: 0 0 16px -4px var(--vacc); }
-  .vibe-art[data-btn="ring"] .mini-btn { box-shadow: inset 0 0 0 2px var(--vacc), 0 0 14px -6px var(--vacc); color: var(--vacc);
-    background: color-mix(in srgb, var(--vsurf) 70%, transparent); }
-  .vibe-art[data-btn="glass"] .mini-btn { background: color-mix(in srgb, var(--vacc) 22%, transparent); color: var(--vacc);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vacc) 50%, transparent), 0 0 18px -6px var(--vacc); }
-  .vibe-art[data-btn="bare"] .mini-btn { box-shadow: inset 0 0 0 1px var(--vacc); color: var(--vacc); }
-  /* При наведении кнопка только разгорается: увеличение с кольцом опускало
-     её край на надпись под ней. */
-  .vibe:hover .mini-btn { filter: brightness(1.15) drop-shadow(0 0 6px var(--vacc)); }
-  /* .vibe впереди: общее «.card b» иначе перебивало размер и цвет. */
-  .vibe .mini-status { font: 700 9.5px/1 var(--vfont); text-transform: var(--vcase); letter-spacing: var(--vtrack); color: var(--vacc);
-    padding: 3px 7px; border-radius: 999px; background: color-mix(in srgb, var(--vsurf) 78%, transparent); box-sizing: border-box;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-  /* Широкий гротеск заглавными в ту же ширину не помещается — мельче. */
-  .vibe[data-vibe="acid"] .mini-status, .vibe[data-vibe="neon"] .mini-status, .vibe[data-vibe="retro"] .mini-status { font-size: 7.5px; }
-  .mini-cards { display: flex; flex-direction: column; gap: 6px; }
-  .mini-cards i { flex: 1; border-radius: var(--vr); background: color-mix(in srgb, var(--vsurf) 85%, transparent);
-    box-shadow: inset 0 0 0 1px var(--vline); position: relative; overflow: hidden; }
-  .mini-cards i:first-child::after { content: ""; position: absolute; left: 12%; right: 12%; bottom: 22%; height: 30%;
-    background: linear-gradient(90deg, var(--vacc) 0 12%, transparent 12% 18%, var(--vacc) 18% 30%, transparent 30% 36%,
-      var(--vacc) 36% 52%, transparent 52% 58%, var(--vacc) 58% 66%, transparent 66% 72%, var(--vacc) 72% 92%, transparent 92%);
-    opacity: .7; clip-path: polygon(0 60%, 12% 40%, 30% 70%, 52% 20%, 66% 50%, 92% 0, 100% 100%, 0 100%); }
-  .vibe[data-vibe="mica"] .mini-cards i, .vibe[data-vibe="glass"] .mini-cards i, .vibe[data-vibe="aurora"] .mini-cards i,
-  .vibe[data-vibe="ocean"] .mini-cards i, .vibe[data-vibe="sunset"] .mini-cards i { background: rgba(255,255,255,.10); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-  .vibe .vibe-btn { display: none; }
+  /* ───── Миниатюры образов: как обои в выборе темы ───── */
+  .vibe-art { position: relative; height: 118px; border-radius: calc(var(--r) + 2px); overflow: hidden; display: block;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); transition: background-position 4s linear; }
+  .vibe:hover .vibe-art { background-position: 30px 16px, 0 0; }
+  .mv-btn { position: absolute; left: 16px; top: 16px; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
+    transition: transform .5s cubic-bezier(.2,.9,.25,1.2), filter .4s; color: var(--vacc); }
+  .mv-btn i { width: 15px; height: 15px; border-radius: 50%; border: 2.4px solid currentColor; border-top-color: transparent; position: relative; }
+  .mv-btn i::after { content: ""; position: absolute; left: 50%; top: -5px; width: 2.4px; height: 8px; margin-left: -1.2px; border-radius: 2px; background: currentColor; }
+  .vibe-art[data-btn="solid"] .mv-btn { background: radial-gradient(circle at 38% 30%, rgba(255,255,255,.35), transparent 58%), var(--vacc); color: var(--vaccFg);
+    box-shadow: 0 8px 22px -8px var(--vacc); }
+  .vibe-art[data-btn="ring"] .mv-btn { background: color-mix(in srgb, var(--vsurf) 82%, transparent); box-shadow: inset 0 0 0 2px var(--vacc), 0 0 18px -6px var(--vacc); }
+  .vibe-art[data-btn="glass"] .mv-btn { background: rgba(255,255,255,.14); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 0 0 1px rgba(255,255,255,.22), 0 8px 20px -8px rgba(0,0,0,.5); }
+  .vibe-art[data-btn="bare"] .mv-btn { box-shadow: inset 0 0 0 1.5px var(--vacc), 0 0 16px -6px var(--vacc); }
+  .vibe:hover .mv-btn { transform: scale(1.06); filter: brightness(1.1); }
+  .vibe .mini-status { position: absolute; left: 16px; bottom: 14px; max-width: calc(60% - 30px); padding: 0; background: none;
+    font: 700 13px/1.1 var(--vfont); text-transform: var(--vcase); letter-spacing: var(--vtrack); color: var(--vfg);
+    white-space: nowrap; overflow: hidden; text-overflow: clip; }
+  .mv-card { position: absolute; right: 12px; top: 14px; bottom: 14px; width: 40%; border-radius: var(--vr); padding: 8px 9px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    background: color-mix(in srgb, var(--vsurf) 88%, transparent); box-shadow: inset 0 0 0 1px var(--vline), 0 10px 22px -14px rgba(0,0,0,.6); }
+  .mv-card small { font-size: 9px; color: var(--vdim); line-height: 1; }
+  .mv-num { font: 700 17px/1 var(--vnum); color: var(--vfg); letter-spacing: -.02em; display: block; }
+  .mv-num .dotnum { height: 15px; }
+  .mv-card svg { width: 100%; height: 18px; overflow: visible; }
+  .mv-card path { fill: none; stroke: var(--vacc); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 
-  /* ───── Фирменные детали образов ─────
+  /* Стекло: прозрачные панели с бликом по кромке над яркими пятнами. */
+  .vibe[data-vibe="glass"] .mv-card { background: rgba(255,255,255,.12); -webkit-backdrop-filter: blur(12px) saturate(1.6); backdrop-filter: blur(12px) saturate(1.6);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 1px rgba(255,255,255,.22); }
+  /* Экспрессив: кнопка живой формы и тональная карточка. */
+  .vibe[data-vibe="expressive"] .mv-btn { border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%; animation: blob 7s ease-in-out infinite; }
+  .vibe[data-vibe="expressive"] .mv-card { background: color-mix(in srgb, var(--vacc) 14%, #fff); box-shadow: none; }
+  @keyframes blob { 33% { border-radius: 58% 42% 45% 55% / 42% 58% 52% 48%; } 66% { border-radius: 50% 50% 38% 62% / 60% 40% 60% 40%; } }
+  /* Хром: металлическая кнопка, хромированная надпись, голографическая рамка. */
+  .vibe[data-vibe="chrome"] .mv-btn { background: conic-gradient(from 210deg, #f4f7fb, #8a95a3, #e9eef4, #6b7480, #f4f7fb); color: #1b1f24;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.8), 0 8px 22px -8px rgba(0,0,0,.8); }
+  .vibe[data-vibe="chrome"] .mini-status { background: linear-gradient(180deg, #ffffff 0%, #c9d1db 45%, #6b7480 55%, #e6ebf1 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .vibe[data-vibe="chrome"] .mv-card { background: linear-gradient(#15181d, #15181d) padding-box, conic-gradient(#a78bfa, #5eead4, #facc15, #f472b6, #a78bfa) border-box;
+    border: 1.5px solid transparent; box-shadow: none; }
+  /* Брутал: чёрные рамки и жёсткие тени без размытия. */
+  .vibe[data-vibe="brutal"] .mv-btn, .vibe[data-vibe="brutal"] .mv-card { box-shadow: 0 0 0 2px #111, 4px 4px 0 2px #111; }
+  .vibe[data-vibe="brutal"] .mv-card { background: #fffaf0; border-radius: 3px; }
+  .vibe[data-vibe="brutal"] .mini-status { color: #111; }
+  /* Пластилин: объём из двух внутренних и одной внешней тени. */
+  .vibe[data-vibe="clay"] .mv-btn, .vibe[data-vibe="clay"] .mv-card {
+    box-shadow: inset -4px -5px 9px rgba(0,0,0,.10), inset 4px 5px 9px rgba(255,255,255,.75), 8px 12px 20px -10px rgba(190,90,140,.45); }
+  .vibe[data-vibe="clay"] .mv-card { background: #fff6fa; }
+  /* Плёнка: антиква и виньетка. */
+  .vibe[data-vibe="film"] .vibe-art::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 100% at 50% 45%, transparent 55%, rgba(0,0,0,.55)); }
+  .vibe[data-vibe="film"] .mini-status { font-weight: 600; font-style: italic; font-size: 16px; }
+  /* Точка и Бумага: красная точка «в эфире». */
+  .vibe[data-vibe="dot"] .mini-status::before, .vibe[data-vibe="paper"] .mini-status::before {
+    content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--vacc); margin-right: 6px; vertical-align: 1px;
+    box-shadow: 0 0 8px var(--vacc); animation: rec 1.6s steps(1) infinite; }
+  /* Терминал: фосфор светится. */
+  .vibe[data-vibe="terminal"] .mini-status, .vibe[data-vibe="terminal"] .mv-num { color: var(--vacc); text-shadow: 0 0 8px var(--vacc); }
+
+  /* ───── Фирменные детали образов в окне ─────
      Цвет меняет любая тема; образ узнаётся по детали, которой нет у других. */
 
   /* Графит: металлический отблеск медленно проходит по кнопке. */
@@ -820,6 +848,19 @@
     background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.16) 48%, transparent 60%) -200% 0 / 300% 100% no-repeat;
     animation: sheen 6s ease-in-out infinite; }
   @keyframes sheen { 0%, 60% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+  /* Стекло: блик по верхней кромке и светлая кайма — как у настоящего стекла. */
+  body[data-vibe="glass"] .card, body[data-vibe="glass"] .kpi, body[data-vibe="glass"] .node, body[data-vibe="glass"] .set-nav,
+  body[data-vibe="glass"] .set-panes .rows > div {
+    position: relative; border-color: rgba(255,255,255,.18); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 18px 40px -24px rgba(0,0,0,.8); }
+  body[data-vibe="glass"] .card::after, body[data-vibe="glass"] .kpi::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 45%;
+    border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,.12), transparent); }
+
+  /* Экспрессив: кнопка живой формы, тональные карточки. */
+  body[data-vibe="expressive"] .power { border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%; animation: blob 9s ease-in-out infinite; }
+  body[data-vibe="expressive"] .card, body[data-vibe="expressive"] .kpi, body[data-vibe="expressive"] .node,
+  body[data-vibe="expressive"] .set-panes .rows > div { background: color-mix(in srgb, var(--acc) 9%, var(--surf)); border-color: transparent; }
+  body[data-vibe="expressive"] .card.feature { background: color-mix(in srgb, var(--acc) 18%, var(--surf)); }
 
   /* Точка и Бумага: красная точка «в эфире» мигает у надписи, пока туннель поднят. */
   body[data-vibe="dot"] .status::before, body[data-vibe="paper"] .status::before {
@@ -829,19 +870,39 @@
     background: var(--acc); opacity: 1; animation: rec 1.6s steps(1) infinite; box-shadow: 0 0 10px var(--acc); }
   @keyframes rec { 50% { opacity: .15; } }
 
-  /* Стекло и Мика: блик по верхней кромке карточек, как у настоящего стекла. */
-  body[data-vibe="glass"] .card::after, body[data-vibe="glass"] .kpi::after,
-  body[data-vibe="mica"] .card::after, body[data-vibe="mica"] .kpi::after {
-    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 40%; border-radius: inherit; pointer-events: none;
-    background: linear-gradient(180deg, rgba(255,255,255,.14), transparent); }
-  body[data-vibe="glass"] .card, body[data-vibe="glass"] .kpi, body[data-vibe="mica"] .card, body[data-vibe="mica"] .kpi { position: relative; }
+  /* Хром: металлическая кнопка, хромированная надпись, голографическая рамка главной карточки. */
+  body[data-vibe="chrome"] .power { background: conic-gradient(from 210deg, #f4f7fb, #8a95a3, #e9eef4, #6b7480, #f4f7fb) !important;
+    box-shadow: inset 0 2px 2px rgba(255,255,255,.8), inset 0 -10px 24px rgba(0,0,0,.25), 0 24px 48px rgba(0,0,0,.6) !important; }
+  body[data-vibe="chrome"] .power svg { color: #1b1f24 !important; }
+  body[data-vibe="chrome"] .status { background: linear-gradient(180deg, #ffffff 0%, #c9d1db 45%, #6b7480 55%, #e6ebf1 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent !important; }
+  body[data-vibe="chrome"] .card.feature { border-color: transparent;
+    background: linear-gradient(var(--surf), var(--surf)) padding-box, conic-gradient(from var(--aurA, 0deg), #a78bfa, #5eead4, #facc15, #f472b6, #a78bfa) border-box;
+    border: 1.5px solid transparent; animation: aurora-border 10s linear infinite; }
 
-  /* Пастель: мягкие объёмные тени, как у пластика. */
-  body[data-vibe="pastel"] .card, body[data-vibe="pastel"] .kpi, body[data-vibe="pastel"] .node {
-    box-shadow: 0 10px 24px -14px rgba(124,92,196,.45), 0 1px 0 rgba(255,255,255,.7) inset; border-color: transparent; }
+  /* Брутал: чёрные рамки, жёсткие тени без размытия, кнопки вдавливаются. */
+  body[data-vibe="brutal"] .card, body[data-vibe="brutal"] .kpi, body[data-vibe="brutal"] .node, body[data-vibe="brutal"] .set-nav,
+  body[data-vibe="brutal"] .set-panes .rows > div, body[data-vibe="brutal"] aside .sub-card {
+    border: 2px solid #111; box-shadow: 4px 4px 0 #111; }
+  body[data-vibe="brutal"] .power { box-shadow: 0 0 0 2.5px #111, 6px 6px 0 2.5px #111 !important; }
+  body[data-vibe="brutal"] .power:active { transform: translate(4px, 4px); box-shadow: 0 0 0 2.5px #111, 2px 2px 0 2.5px #111 !important; }
+  body[data-vibe="brutal"] .chip, body[data-vibe="brutal"] .pillb, body[data-vibe="brutal"] button.primary {
+    border: 2px solid #111 !important; box-shadow: 3px 3px 0 #111; }
+  body[data-vibe="brutal"] .chip:active, body[data-vibe="brutal"] .pillb:active, body[data-vibe="brutal"] button.primary:active {
+    transform: translate(3px, 3px); box-shadow: none; }
 
-  /* Кислота: надпись подчёркнута толстой полосой акцента. */
-  body[data-vibe="acid"][data-state="connected"] .status { background: linear-gradient(transparent 62%, rgba(var(--accRgb), .35) 62% 92%, transparent 92%); padding: 0 .1em; }
+  /* Пластилин: мягкий объём — две внутренние тени и одна внешняя. */
+  body[data-vibe="clay"] .card, body[data-vibe="clay"] .kpi, body[data-vibe="clay"] .node, body[data-vibe="clay"] .set-nav,
+  body[data-vibe="clay"] .set-panes .rows > div {
+    border-color: transparent; box-shadow: inset -6px -7px 14px rgba(0,0,0,.06), inset 6px 7px 14px rgba(255,255,255,.8), 12px 18px 30px -18px rgba(190,90,140,.4); }
+  body[data-vibe="clay"] .power { box-shadow: inset -10px -12px 22px rgba(0,0,0,.12), inset 10px 12px 22px rgba(255,255,255,.55), 16px 22px 40px -18px rgba(190,90,140,.55) !important; }
+
+  /* Плёнка: зерно по всему окну и виньетка — фото, а не экран. */
+  body[data-vibe="film"]::after { content: ""; position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: .12; mix-blend-mode: overlay;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  body[data-vibe="film"] .app::after { content: ""; position: fixed; inset: 0; z-index: 89; pointer-events: none;
+    background: radial-gradient(130% 110% at 50% 45%, transparent 60%, rgba(0,0,0,.45)); }
+  body[data-vibe="film"] .status { font-style: italic; font-weight: 600; }
 
   /* Аврора: рамка главной карточки переливается. */
   body[data-vibe="aurora"] .card.feature { border-color: transparent;
@@ -851,35 +912,12 @@
   @property --aurA { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
   @keyframes aurora-border { to { --aurA: 360deg; } }
 
-  /* Неон: контуры карточек светятся, надпись горит. */
-  body[data-vibe="neon"] .card, body[data-vibe="neon"] .kpi, body[data-vibe="neon"] .node {
-    border-color: rgba(var(--accRgb), .55); box-shadow: 0 0 14px -4px rgba(var(--accRgb), .55), inset 0 0 12px -8px rgba(var(--accRgb), .6); }
-
-  /* Ретро: надпись с цветным сдвигом, как на старом телевизоре. */
-  body[data-vibe="retro"] .status { text-shadow: -2px 0 rgba(1,205,254,.75), 2px 0 rgba(255,113,206,.75); }
-
-  /* Закат: тёплое зарево поднимается из-под кнопки. */
-  body[data-vibe="sunset"] .hero .ring::before { content: ""; position: absolute; inset: -40% -60% -70%; z-index: -1; pointer-events: none;
-    background: radial-gradient(50% 40% at 50% 75%, rgba(255,122,61,.35), rgba(255,77,141,.12) 45%, transparent 70%); }
-  body[data-vibe="sunset"][data-state="connected"] .hero .ring::before { animation: dusk 5s ease-in-out infinite; }
-  @keyframes dusk { 50% { opacity: .55; transform: translateY(6px); } }
-
-  /* Океан: под кнопкой медленно катится волна. */
-  body[data-vibe="ocean"] .hero .ring::after { content: ""; position: absolute; left: -30%; right: -30%; bottom: -26px; height: 18px; pointer-events: none;
-    background: radial-gradient(12px 9px at 12px 0, transparent 8px, rgba(var(--accRgb), .35) 9px, transparent 10px) 0 0 / 24px 18px repeat-x;
-    animation: tide 4s linear infinite; opacity: .8; }
-  @keyframes tide { to { background-position: 24px 0; } }
-
   /* Терминал: узкий зелёный кант слева у карточек, как курсор строки. */
   body[data-vibe="terminal"] .card, body[data-vibe="terminal"] .kpi { box-shadow: inset 3px 0 0 rgba(var(--accRgb), .7); }
 
-  /* Кофе: тёплая зернистость поверх карточек. */
-  body[data-vibe="coffee"] .card, body[data-vibe="coffee"] .kpi {
-    background-image: var(--cardBg, none), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.07'/%3E%3C/svg%3E"); }
-
   @media (prefers-reduced-motion: reduce) {
-    body[data-vibe] .power::before, body[data-vibe] .status::before, body[data-vibe] .card.feature,
-    body[data-vibe] .hero .ring::before, body[data-vibe] .hero .ring::after { animation: none !important; }
+    body[data-vibe] .power, body[data-vibe] .power::before, body[data-vibe] .status::before, body[data-vibe] .card.feature,
+    .vibe .mv-btn, .vibe .mini-status::before { animation: none !important; }
   }
 </style>
 </head>
@@ -1622,23 +1660,21 @@ const T = {
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
     kSession: "Сессия", kPing: "Отклик ноды", down: "↓ Загрузка", up: "↑ Отдача",
-    vibeTitle: "Образ", vibeHint: "листайте вбок — четырнадцать характеров",
+    vibeTitle: "Образ", vibeHint: "двенадцать характеров по нынешним трендам",
     fineShow: "Открыть точную настройку", fineHide: "Скрыть точную настройку",
     vibes: {
-      graphite: ["Графит", "Фирменный серый и спокойная сетка"],
+      graphite: ["Графит", "Наш серый: спокойно и без лишнего"],
+      glass: ["Стекло", "Прозрачные панели над яркими пятнами света"],
+      expressive: ["Экспрессив", "Смелый цвет и кнопка живой формы"],
       dot: ["Точка", "Чёрное табло, точечные цифры, красный"],
-      paper: ["Бумага", "Светлый лист в точку, чернила и красный"],
-      glass: ["Стекло", "Матовое стекло и системный синий"],
-      pastel: ["Пастель", "Мягкие тона, плитки переворачиваются"],
-      acid: ["Кислота", "Чёрный и лайм, бегущие полосы"],
+      paper: ["Бумага", "Светлое табло в точку, чернила и красный"],
+      chrome: ["Хром", "Жидкий металл и голографическая рамка"],
+      brutal: ["Брутал", "Чёрные рамки, жёсткие тени, кнопки вдавливаются"],
+      clay: ["Пластилин", "Мягкие объёмные формы в пастели"],
+      film: ["Плёнка", "Зерно, виньетка и антиква"],
       aurora: ["Аврора", "Северное сияние и стеклянные карточки"],
       terminal: ["Терминал", "Зелёный фосфор и развёртка"],
-      neon: ["Неон", "Розовый и бирюзовый, надпись светится"],
-      sunset: ["Закат", "Тёплое сияние, оранжевый и розовый"],
-      mica: ["Мика", "Светлая подложка и прозрачные окна"],
-      retro: ["Ретро", "Вейпорвейв: розовый, голубой, плитки"],
-      ocean: ["Океан", "Глубокий синий и стекло над волной"],
-      coffee: ["Кофе", "Тёплая медь и неспешные полосы"],
+      day: ["День", "Светлый и спокойный, без узора"],
     },
     themeBase: "Основа", themePickAccent: "Свой акцент — любой цвет", themePickTint: "Свой оттенок света",
     fineColors: "Цвета", finePattern: "Узор фона", fineShape: "Форма", fineType: "Шрифт и знак",
@@ -1652,8 +1688,8 @@ const T = {
       caps: "Надпись заглавными", logo: "Знак",
       auto: "из темы", byVibe: "как у образа", px: "пкс", reset: "Вернуть как в образе", yes: "Да", no: "Нет",
       opts: {
-        font: { onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Моно", system: "Системный" },
-        sfont: { same: "Как текст", onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Моно", system: "Системный" },
+        font: { onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Моно", system: "Системный", serif: "Антиква" },
+        sfont: { same: "Как текст", onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Моно", system: "Системный", serif: "Антиква" },
         nums: { mono: "Моно", text: "Как текст", status: "Как надпись", dot: "Точки" },
         pattern: { none: "Нет", grid: "Сетка", matrix: "Матрица", tiles: "Плитки", stripes: "Полосы", mesh: "Сияние", scan: "Развёртка" },
         logo: { metal: "Металл", tint: "Цвет акцента" },
@@ -1842,23 +1878,21 @@ const T = {
 
     pingUnknown: "Not measured", setupLabel: "Connection",
     kSession: "Session", kPing: "Node response", down: "↓ Download", up: "↑ Upload",
-    vibeTitle: "Vibe", vibeHint: "scroll sideways — fourteen characters",
+    vibeTitle: "Vibe", vibeHint: "twelve characters after current trends",
     fineShow: "Open fine-tuning", fineHide: "Hide fine-tuning",
     vibes: {
-      graphite: ["Graphite", "Signature grey and a calm grid"],
+      graphite: ["Graphite", "Our grey: calm and uncluttered"],
+      glass: ["Glass", "Clear panes over bright pools of light"],
+      expressive: ["Expressive", "Bold colour and a shape-shifting button"],
       dot: ["Dot", "Black board, dot-matrix digits, red"],
-      paper: ["Paper", "Light dotted sheet, ink and red"],
-      glass: ["Glass", "Frosted glass and system blue"],
-      pastel: ["Pastel", "Soft tones, flipping tiles"],
-      acid: ["Acid", "Black and lime, running stripes"],
+      paper: ["Paper", "Light dotted board, ink and red"],
+      chrome: ["Chrome", "Liquid metal and a holographic edge"],
+      brutal: ["Brutal", "Black outlines, hard shadows, buttons that press in"],
+      clay: ["Clay", "Soft, puffy shapes in pastel"],
+      film: ["Film", "Grain, vignette and a serif"],
       aurora: ["Aurora", "Northern lights and glass cards"],
       terminal: ["Terminal", "Green phosphor and scanlines"],
-      neon: ["Neon", "Pink and cyan, glowing status"],
-      sunset: ["Sunset", "Warm glow, orange and pink"],
-      mica: ["Mica", "Light backdrop, translucent panes"],
-      retro: ["Retro", "Vaporwave: pink, cyan, tiles"],
-      ocean: ["Ocean", "Deep blue and glass over a wave"],
-      coffee: ["Coffee", "Warm copper and slow stripes"],
+      day: ["Day", "Light and calm, no pattern"],
     },
     themeBase: "Base", themePickAccent: "Your own accent — any colour", themePickTint: "Your own light tint",
     fineColors: "Colours", finePattern: "Background pattern", fineShape: "Shape", fineType: "Type and mark",
@@ -1872,8 +1906,8 @@ const T = {
       caps: "Status in capitals", logo: "Mark",
       auto: "from theme", byVibe: "as the vibe", px: "px", reset: "Back to the vibe's value", yes: "Yes", no: "No",
       opts: {
-        font: { onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Mono", system: "System" },
-        sfont: { same: "As text", onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Mono", system: "System" },
+        font: { onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Mono", system: "System", serif: "Serif" },
+        sfont: { same: "As text", onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Mono", system: "System", serif: "Serif" },
         nums: { mono: "Mono", text: "As text", status: "As status", dot: "Dots" },
         pattern: { none: "None", grid: "Grid", matrix: "Matrix", tiles: "Tiles", stripes: "Stripes", mesh: "Glow", scan: "Scanlines" },
         logo: { metal: "Metal", tint: "Accent colour" },
@@ -3340,80 +3374,77 @@ setInterval(tick, 1000);
 // поле значит «как у образа», поэтому смена образа не затирает чужой выбор
 // там, где он сделан, и не тащит его туда, где не сделан.
 const VIBES = {
+  // Наш: спокойный тёмный минимализм — то, к чему сейчас пришли почти все.
   graphite: {
     look: {},
     o: { pattern: "grid", font: "onest", sfont: "same", nums: "mono", caps: false },
-    preview: { bg: "linear-gradient(135deg,#43474c,#0c0e11)", fg: "#f1f4f7", acc: "#c3ccd6", pat: "radial-gradient(rgba(195,204,214,.22) 1px,transparent 1.6px) 0 0/10px 10px" },
+    preview: { bg: "radial-gradient(120% 90% at 20% 0%,#4a4f55,#16181b 60%,#0b0c0e)", pat: "radial-gradient(rgba(195,204,214,.16) 1px,transparent 1.6px) 0 0/11px 11px" },
+  },
+  // В духе «жидкого стекла» из iOS 26: яркое под прозрачными преломляющими
+  // панелями. Шрифт — системный Windows: чужой фирменный не встраиваем.
+  glass: {
+    look: { preset: "midnight", acc: "#5aa9ff", kind: "aurora", dir: "ne", depth: 0.7, radius: "pill", density: "roomy", btn: "glass", glow: "mid", card: "flat", tint: "#ff8a3d" },
+    o: { pattern: "mesh", amount: 95, psize: 120, font: "system", sfont: "same", nums: "text", caps: false, blur: 30, calpha: 32, r: 28, statusSize: 34 },
+    preview: { bg: "#070a14", pat: "radial-gradient(45% 55% at 22% 30%,#3b82ff,transparent 70%),radial-gradient(40% 50% at 82% 70%,#ff8a3d,transparent 70%),radial-gradient(35% 45% at 70% 15%,#c04bff,transparent 70%)" },
+  },
+  // В духе Material 3 Expressive: смелый цвет, тональные карточки, кнопка
+  // живой формы, которая перетекает из одной в другую.
+  expressive: {
+    look: { preset: "daylight", acc: "#6d4aff", kind: "linear", dir: "nw", depth: 0.3, radius: "pill", density: "roomy", btn: "solid", glow: "soft", card: "flat", tint: "#ffb4a2" },
+    o: { pattern: "tiles", amount: 45, font: "manrope", sfont: "same", nums: "text", caps: false, r: 30, pad: 20, statusSize: 36 },
+    preview: { bg: "linear-gradient(160deg,#efeaff,#ffe4dc)", pat: "radial-gradient(circle at 80% 20%,rgba(109,74,255,.25) 0 18%,transparent 19%),radial-gradient(circle at 10% 90%,rgba(255,140,110,.3) 0 22%,transparent 23%)" },
   },
   // В духе прозрачной техники: чёрное табло, точечная матрица, один красный.
   dot: {
     look: { preset: "oled", acc: "#ff3b30", kind: "flat", radius: "soft", density: "normal", btn: "ring", glow: "soft", card: "outline", tint: null },
     o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26, r: 10, psize: 120 },
-    preview: { bg: "#000", fg: "#fff", acc: "#ff3b30", pat: "radial-gradient(rgba(255,255,255,.35) 1.1px,transparent 1.7px) 0 0/7px 7px" },
+    preview: { bg: "#000", pat: "radial-gradient(rgba(255,255,255,.3) 1.1px,transparent 1.7px) 0 0/7px 7px" },
   },
   paper: {
     look: { preset: "paper", acc: "#d6362a", kind: "flat", radius: "soft", density: "roomy", btn: "ring", glow: "none", card: "outline", tint: null },
     o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26, r: 10, psize: 120 },
-    preview: { bg: "#f7f4ee", fg: "#14120e", acc: "#d6362a", pat: "radial-gradient(rgba(20,18,14,.28) 1.1px,transparent 1.7px) 0 0/7px 7px" },
+    preview: { bg: "#f6f3ec", pat: "radial-gradient(rgba(20,18,14,.24) 1.1px,transparent 1.7px) 0 0/7px 7px" },
   },
-  // В духе телефонов с матовым стеклом. Шрифт — системный Windows: чужой
-  // фирменный в окно не встраиваем.
-  glass: {
-    look: { preset: "midnight", acc: "#0a84ff", kind: "flat", radius: "pill", density: "roomy", btn: "glass", glow: "soft", card: "flat", tint: null },
-    o: { pattern: "mesh", font: "system", sfont: "same", nums: "text", caps: false, blur: 24, calpha: 55, r: 26, statusSize: 34 },
-    preview: { bg: "#05070c", fg: "#f2f5fa", acc: "#0a84ff", pat: "radial-gradient(55% 65% at 30% 30%,rgba(10,132,255,.5),transparent 70%),radial-gradient(45% 55% at 78% 72%,rgba(255,159,10,.32),transparent 70%)" },
+  // Жидкий металл и голография — Y2K, который стал футуризмом.
+  chrome: {
+    look: { preset: "steel", acc: "#dfe7f0", kind: "radial", dir: "n", depth: 0.85, radius: "round", density: "normal", btn: "solid", glow: "mid", card: "outline", tint: "#a78bfa" },
+    o: { pattern: "mesh", amount: 70, font: "onest", sfont: "unbounded", nums: "mono", caps: true, r: 20, statusSize: 30 },
+    preview: { bg: "radial-gradient(120% 100% at 50% 0%,#3a3f47,#0b0c10 65%)", pat: "conic-gradient(from 200deg at 70% 40%,rgba(167,139,250,.35),rgba(94,234,212,.3),rgba(250,204,21,.25),rgba(244,114,182,.3),rgba(167,139,250,.35))" },
   },
-  // Мягкие тона и плитки, что переворачиваются волной.
-  pastel: {
-    look: { preset: "linen", acc: "#7c5cc4", kind: "linear", dir: "nw", depth: 0.35, radius: "pill", density: "roomy", btn: "solid", glow: "none", card: "flat", tint: "#e8c0a8" },
-    o: { pattern: "tiles", font: "manrope", sfont: "same", nums: "text", caps: false, r: 24, pad: 20 },
-    preview: { bg: "#f4f1ea", fg: "#171512", acc: "#7c5cc4", pat: "linear-gradient(90deg,rgba(124,92,196,.12) 50%,transparent 50%) 0 0/16px 16px,linear-gradient(rgba(124,92,196,.12) 50%,transparent 50%) 0 0/16px 16px" },
+  // Необрутализм как акцент: толстые чёрные рамки, жёсткие тени без размытия,
+  // кнопка, которая вдавливается.
+  brutal: {
+    look: { preset: "linen", acc: "#ff5a1f", kind: "flat", radius: "sharp", density: "normal", btn: "solid", glow: "none", card: "outline", tint: null },
+    o: { pattern: "grid", amount: 35, pstep: 22, font: "onest", sfont: "unbounded", nums: "mono", caps: true, r: 4, statusSize: 30 },
+    preview: { bg: "#f3eedf", pat: "linear-gradient(rgba(17,17,17,.10) 1px,transparent 1px) 0 0/14px 14px,linear-gradient(90deg,rgba(17,17,17,.10) 1px,transparent 1px) 0 0/14px 14px" },
   },
-  acid: {
-    look: { preset: "mono", acc: "#c8ff00", kind: "flat", radius: "pill", density: "normal", btn: "solid", glow: "mid", card: "flat", tint: null },
-    o: { pattern: "stripes", font: "onest", sfont: "unbounded", nums: "status", caps: true, statusSize: 34, r: 30, glow: 70 },
-    preview: { bg: "#0a0a0a", fg: "#fafafa", acc: "#c8ff00", pat: "repeating-linear-gradient(-45deg,rgba(200,255,0,.16) 0 2px,transparent 2px 9px)" },
+  // Пластилин: мягкие объёмные формы — внутренние тени плюс одна внешняя.
+  clay: {
+    look: { preset: "linen", acc: "#ff6fa8", kind: "linear", dir: "nw", depth: 0.3, radius: "pill", density: "roomy", btn: "solid", glow: "soft", card: "flat", tint: "#9ad0ff" },
+    o: { pattern: "none", font: "manrope", sfont: "same", nums: "text", caps: false, r: 30, pad: 20, statusSize: 34 },
+    preview: { bg: "linear-gradient(150deg,#ffe3ef,#dff0ff)", pat: "radial-gradient(circle at 75% 30%,rgba(255,255,255,.7) 0 14%,transparent 15%)" },
+  },
+  // Плёнка: зерно, виньетка и антиква — тёплое и «не стерильное».
+  film: {
+    look: { preset: "sand", acc: "#e8a54b", kind: "radial", dir: "c", depth: 0.78, radius: "soft", density: "roomy", btn: "ring", glow: "soft", card: "flat", tint: null },
+    o: { pattern: "none", font: "manrope", sfont: "serif", nums: "text", caps: false, r: 12, statusSize: 40 },
+    preview: { bg: "radial-gradient(120% 100% at 50% 40%,#3d2f22,#120d08 75%)", pat: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E\")" },
   },
   aurora: {
     look: { preset: "plum", acc: "#a98bff", kind: "aurora", dir: "ne", depth: 0.8, radius: "round", density: "roomy", btn: "glass", glow: "mid", card: "flat", tint: null },
     o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "mono", caps: false, blur: 18, calpha: 60, r: 22, glow: 60 },
-    preview: { bg: "#0b0714", fg: "#efe7fb", acc: "#a98bff", pat: "radial-gradient(60% 70% at 25% 30%,rgba(169,139,255,.55),transparent 70%),radial-gradient(50% 60% at 80% 75%,rgba(64,200,255,.35),transparent 70%)" },
+    preview: { bg: "#0b0714", pat: "radial-gradient(60% 70% at 25% 30%,rgba(169,139,255,.6),transparent 70%),radial-gradient(50% 60% at 80% 75%,rgba(64,200,255,.4),transparent 70%)" },
   },
   terminal: {
     look: { preset: "emerald", acc: "#3dff8f", kind: "radial", dir: "c", depth: 0.85, radius: "sharp", density: "compact", btn: "bare", glow: "mid", card: "outline", tint: null },
     o: { pattern: "scan", font: "mono", sfont: "same", nums: "mono", caps: true, r: 2, gap: 8, statusSize: 28 },
-    preview: { bg: "#06100c", fg: "#c9ffe0", acc: "#3dff8f", pat: "repeating-linear-gradient(0deg,rgba(61,255,143,.13) 0 1px,transparent 1px 4px)" },
+    preview: { bg: "radial-gradient(100% 100% at 50% 50%,#0b2a1c,#030a07 75%)", pat: "repeating-linear-gradient(0deg,rgba(61,255,143,.12) 0 1px,transparent 1px 4px)" },
   },
-  neon: {
-    look: { preset: "fuchsia", acc: "#ff2bd6", kind: "radial", dir: "c", depth: 0.88, radius: "sharp", density: "normal", btn: "ring", glow: "neon", card: "outline", tint: "#00e5ff" },
-    o: { pattern: "grid", font: "onest", sfont: "unbounded", nums: "mono", caps: true, pstep: 30, psize: 140, r: 4, glow: 90 },
-    preview: { bg: "#120616", fg: "#fbe6f6", acc: "#ff2bd6", pat: "linear-gradient(rgba(0,229,255,.18) 1px,transparent 1px) 0 0/14px 14px,linear-gradient(90deg,rgba(255,43,214,.18) 1px,transparent 1px) 0 0/14px 14px" },
-  },
-  sunset: {
-    look: { preset: "ember", acc: "#ff7a3d", kind: "aurora", dir: "s", depth: 0.75, radius: "round", density: "normal", btn: "solid", glow: "mid", card: "flat", tint: "#ff4d8d" },
-    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "text", caps: false, blur: 14, calpha: 70, r: 22, statusSize: 34 },
-    preview: { bg: "#120902", fg: "#fbeadc", acc: "#ff7a3d", pat: "radial-gradient(70% 60% at 50% 110%,rgba(255,122,61,.6),transparent 70%),radial-gradient(50% 50% at 20% 20%,rgba(255,77,141,.35),transparent 70%)" },
-  },
-  // В духе окон Windows 11: светлая подложка, полупрозрачные карточки.
-  mica: {
-    look: { preset: "daylight", acc: "#0067c0", kind: "linear", dir: "nw", depth: 0.3, radius: "soft", density: "normal", btn: "ring", glow: "none", card: "outline", tint: "#9ec9f0" },
-    o: { pattern: "none", font: "system", sfont: "same", nums: "text", caps: false, blur: 30, calpha: 70, r: 8, statusSize: 30 },
-    preview: { bg: "linear-gradient(135deg,#dfe9f3,#f3f5f7)", fg: "#0d1013", acc: "#0067c0", pat: "linear-gradient(transparent,transparent)" },
-  },
-  retro: {
-    look: { preset: "plum", acc: "#ff71ce", kind: "linear", dir: "s", depth: 0.7, radius: "sharp", density: "normal", btn: "solid", glow: "mid", card: "outline", tint: "#01cdfe" },
-    o: { pattern: "tiles", font: "onest", sfont: "unbounded", nums: "mono", caps: true, pstep: 52, r: 0, statusSize: 30 },
-    preview: { bg: "linear-gradient(180deg,#2b0f3f,#0b0714)", fg: "#ffe8fb", acc: "#ff71ce", pat: "linear-gradient(rgba(1,205,254,.22) 1px,transparent 1px) 0 0/12px 12px" },
-  },
-  ocean: {
-    look: { preset: "ice", acc: "#3fd0ff", kind: "aurora", dir: "n", depth: 0.8, radius: "round", density: "normal", btn: "glass", glow: "mid", card: "flat", tint: "#2b6cff" },
-    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "mono", caps: false, blur: 16, calpha: 65, r: 20, glow: 55 },
-    preview: { bg: "#060c14", fg: "#e2f0fb", acc: "#3fd0ff", pat: "radial-gradient(60% 50% at 30% 80%,rgba(63,208,255,.45),transparent 70%),radial-gradient(50% 50% at 80% 20%,rgba(43,108,255,.4),transparent 70%)" },
-  },
-  coffee: {
-    look: { preset: "copper", acc: "#d9a066", kind: "linear", dir: "nw", depth: 0.55, radius: "pill", density: "roomy", btn: "glass", glow: "soft", card: "outline", tint: null },
-    o: { pattern: "stripes", font: "manrope", sfont: "same", nums: "text", caps: false, pspeed: 40, pstep: 40, r: 18, statusSize: 30 },
-    preview: { bg: "#110a06", fg: "#f8e9dd", acc: "#d9a066", pat: "repeating-linear-gradient(-45deg,rgba(217,160,102,.12) 0 2px,transparent 2px 12px)" },
+  // День: светлый и спокойный, без узора — для тех, кому тёмное не по душе.
+  day: {
+    look: { preset: "daylight", acc: "#0f766e", kind: "flat", radius: "round", density: "roomy", btn: "ring", glow: "none", card: "outline", tint: null },
+    o: { pattern: "none", font: "onest", sfont: "same", nums: "text", caps: false, r: 18, statusSize: 32 },
+    preview: { bg: "linear-gradient(180deg,#f7f9fa,#e9eef0)", pat: "linear-gradient(transparent,transparent)" },
   },
 };
 
@@ -3426,8 +3457,8 @@ const O_DEFAULTS = {
   logo: "metal",
 };
 const O_CHOICES = {
-  font: ["onest", "manrope", "unbounded", "mono", "system"],
-  sfont: ["same", "onest", "manrope", "unbounded", "mono", "system"],
+  font: ["onest", "manrope", "unbounded", "mono", "system", "serif"],
+  sfont: ["same", "onest", "manrope", "unbounded", "mono", "system", "serif"],
   nums: ["mono", "text", "status", "dot"],
   pattern: ["none", "grid", "matrix", "tiles", "stripes", "mesh", "scan"],
   logo: ["metal", "tint"],
@@ -3443,6 +3474,7 @@ const FONTS = {
   unbounded: 'Unbounded, Onest, sans-serif',
   mono: '"JetBrains Mono", ui-monospace, Consolas, monospace',
   system: '"Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif',
+  serif: 'Spectral, Georgia, "Times New Roman", serif',
 };
 const VIBE_KEY = "marvia-vibe";
 const MOTIONS = ["off", "calm", "lively"];
@@ -3751,14 +3783,17 @@ const Field = (() => {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + H, H); ctx.stroke();
       }
     } else if (pat === "mesh") {
-      const blobs = [[0.22, 0.28, ink], [0.8, 0.7, [64, 200, 255]], [0.6, 0.15, [255, 120, 200]]];
+      // Второе пятно — цвета оттенка образа: у «Стекла» синее с оранжевым, а не
+      // три одинаковых оттенка акцента.
+      const second = look.tint ? rgbOf(look.tint) : [64, 200, 255];
+      const blobs = [[0.22, 0.28, ink], [0.8, 0.7, second], [0.6, 0.15, [255, 120, 200]]];
       blobs.forEach(([bx, by, c], i) => {
         const x = W * (bx + (live ? Math.sin(time * 0.12 * speed + i * 2) * 0.08 : 0));
         const y = H * (by + (live ? Math.cos(time * 0.1 * speed + i) * 0.08 : 0));
         const r = Math.max(W, H) * 0.55 * size;
         const w = waves.length ? waveAt(x, y, now) : 0;
         const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-        g.addColorStop(0, rgba(c, (0.16 + w * 0.12) * k));
+        g.addColorStop(0, rgba(c, (0.24 + w * 0.12) * k));
         g.addColorStop(1, rgba(c, 0));
         ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       });
@@ -3954,27 +3989,29 @@ function fitLabel(el) {
 function buildVibes() {
   const box = $("vibes");
   if (box.children.length) return;
-  // Карточка — честная миниатюра окна в этом образе: его фон и узор, боковая
-  // панель, кнопка его вида, надпись его шрифтом, карточки его скругления.
-  // Узор и кружок одинаковой формы ничего не говорили о том, каким станет окно.
+  // Карточка — как обои в выборе темы на телефоне: фон образа во всю
+  // карточку, его кнопка, надпись его шрифтом и маленькая карточка с
+  // настоящей цифрой. Серые полоски «вместо интерфейса» выглядели заготовкой.
   for (const id of Object.keys(VIBES)) {
     const v = VIBES[id], p = v.preview;
     const t = Look.theme(Object.assign(Look.normalize({}), v.look));
     const font = FONTS[v.o.font || "onest"], sfont = !v.o.sfont || v.o.sfont === "same" ? font : FONTS[v.o.sfont];
+    const nums = v.o.nums === "text" ? font : v.o.nums === "status" ? sfont : FONTS.mono;
     const b = document.createElement("button");
     b.type = "button";
     b.className = "vibe";
     b.dataset.vibe = id;
-    b.innerHTML = '<span class="vibe-art"><span class="mini-side"><i></i><i></i><i></i></span>'
-      + '<span class="mini-hero"><i class="mini-btn"></i><b class="mini-status"></b></span>'
-      + '<span class="mini-cards"><i></i><i></i></span></span>'
+    const num = v.o.nums === "dot" ? dotSvg("48,0") : "48,0";
+    b.innerHTML = '<span class="vibe-art"><span class="mv-btn"><i></i></span><b class="mini-status"></b>'
+      + '<span class="mv-card"><small>↓</small><span class="mv-num">' + num + '</span>'
+      + '<svg viewBox="0 0 60 18" preserveAspectRatio="none" aria-hidden="true"><path d="M0 16 L7 14 L13 15 L20 10 L27 12 L34 7 L41 9 L48 4 L54 5 L60 2"/></svg></span></span>'
       + '<span class="vibe-name"></span><span class="vibe-line"></span>';
     const art = b.firstElementChild;
     art.dataset.btn = v.look.btn || "ring";
-    art.style.background = p.pat + "," + t.bgcss;
-    const r = Math.round((v.look.radius ? Look.RADII[v.look.radius] : t.r) * 0.45);
+    art.style.background = p.pat + "," + p.bg;
+    const r = Math.round((v.o.r != null ? v.o.r : t.r) * 0.5);
     art.style.cssText += ";--vfg:" + t.fg + ";--vdim:" + t.dim + ";--vacc:" + t.acc + ";--vaccFg:" + t.accFg
-      + ";--vsurf:" + t.surf + ";--vline:" + t.cardLine + ";--vr:" + r + "px;--vfont:" + sfont
+      + ";--vsurf:" + t.surf + ";--vline:" + t.cardLine + ";--vr:" + r + "px;--vfont:" + sfont + ";--vnum:" + nums
       + ";--vcase:" + (v.o.caps ? "uppercase" : "none") + ";--vtrack:" + (v.o.caps ? ".04em" : "-.01em");
     b.addEventListener("click", () => chooseVibe(id));
     box.append(b);
@@ -4060,6 +4097,8 @@ function hintSwipe() {
 // нулевая: пересчитываем при каждом открытии.
 document.querySelector('.tab[data-tab="theme"]').addEventListener("click", () => {
   requestAnimationFrame(() => { $("vibes").dispatchEvent(new Event("scroll")); for (const s of document.querySelectorAll(".vibe .mini-status")) fitLabel(s); });
+  // Шрифт образа мог ещё грузиться — подгоняем и после него, иначе мерили запасной.
+  document.fonts.ready.then(() => { for (const s of document.querySelectorAll(".vibe .mini-status")) fitLabel(s); });
   setTimeout(hintSwipe, 450);
 });
 

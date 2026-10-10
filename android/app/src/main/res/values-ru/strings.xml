@@ -573,6 +573,9 @@
     <string name="stats_session">Сессия</string>
     <string name="stats_speed">Скорость</string>
     <string name="stats_mbps">%1$s Мбит/с</string>
+    <string name="stats_download">↓ Загрузка</string>
+    <string name="stats_upload">↑ Отдача</string>
+    <string name="session_running">Сессия · %1$s</string>
     <string name="stats_kbps">%1$s Кбит/с</string>
     <string name="connection_warning_details">Некоторые запросы не прошли · Подробнее</string>
     <string name="theme_show_all">Все темы</string>

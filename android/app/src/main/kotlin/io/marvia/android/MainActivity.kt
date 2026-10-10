@@ -36,6 +36,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import io.marvia.android.databinding.ActivityMainBinding
+import io.marvia.android.databinding.ScreenConnectBinding
 import io.marvia.mobile.Mobile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -472,11 +473,12 @@ class MainActivity : AppCompatActivity() {
         c.statusText.setOnClickListener {
             if (store.accountLink.isBlank()) show(Screen.SERVERS)
         }
+        c.downCard.setOnClickListener { show(Screen.INSIGHTS); insights.open(InsightsScreen.Mode.SPEED) }
+        c.upCard.setOnClickListener { show(Screen.INSIGHTS); insights.open(InsightsScreen.Mode.SPEED) }
         c.powerHint.setOnClickListener {
             if (store.accountLink.isBlank()) show(Screen.SERVERS)
+            else if (MarviaState.state.value is TunnelState.On) { show(Screen.INSIGHTS); insights.open(InsightsScreen.Mode.SESSIONS) }
         }
-        c.sessionCard.setOnClickListener { show(Screen.INSIGHTS); insights.open(InsightsScreen.Mode.SESSIONS) }
-        c.speedCard.setOnClickListener { show(Screen.INSIGHTS); insights.open(InsightsScreen.Mode.SPEED) }
         c.todayCard.setOnClickListener { show(Screen.STATS) }
 
         // Нажатие на знак позволяет свернуть или вернуть подпись бренда.
@@ -508,8 +510,7 @@ class MainActivity : AppCompatActivity() {
                 MarviaState.traffic.collect { t ->
                     c.todayTotal.text = Format.size(this@MainActivity, t.today)
                     c.todayBars.hours = t.hours
-                    c.sessionValue.text = String.format(java.util.Locale.US, "%02d:%02d:%02d", t.seconds / 3600, t.seconds / 60 % 60, t.seconds % 60)
-                    c.speedValue.text = getString(R.string.stats_mbps, String.format(java.util.Locale.getDefault(), "%.1f", t.bytesPerSecond * 8 / 1_000_000))
+                    showSpeed(c, t)
                     if (screen == Screen.INSIGHTS) insights.refresh()
                 }
             }
@@ -544,7 +545,9 @@ class MainActivity : AppCompatActivity() {
             is TunnelState.On -> R.string.power_hint_stop
             is TunnelState.Failed -> R.string.connect_retry
         })
-        c.powerHint.isVisible = state !is TunnelState.On
+        // Под «Подключено» — время сессии: плитка «Сессия» уступила место
+        // скорости в обе стороны, а время человек ищет рядом с состоянием.
+        if (state is TunnelState.On) c.powerHint.text = sessionLine(MarviaState.traffic.value.seconds)
         c.statusText.isClickable = !hasKey
         c.statusText.isFocusable = !hasKey
 
@@ -662,10 +665,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Скорость в обе стороны: цифра — последний замер, линия — полминуты. */
+    private fun showSpeed(c: ScreenConnectBinding, t: TrafficSnapshot) {
+        val samples = SessionDetails.snapshot().samples
+        val last = samples.lastOrNull()
+        val on = MarviaState.state.value is TunnelState.On
+        fun mbps(bytes: Double) = getString(R.string.stats_mbps, String.format(java.util.Locale.getDefault(), "%.1f", bytes * 8 / 1_000_000))
+        c.downValue.text = mbps(if (on) last?.down ?: 0.0 else 0.0)
+        c.upValue.text = mbps(if (on) last?.up ?: 0.0 else 0.0)
+        c.downSpark.show(if (on) samples.map { it.down } else emptyList())
+        c.upSpark.show(if (on) samples.map { it.up } else emptyList())
+        if (on) c.powerHint.text = sessionLine(t.seconds)
+    }
+
+    private fun sessionLine(seconds: Long) = getString(R.string.session_running,
+        String.format(java.util.Locale.US, "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60))
+
     /** Цвет ленты — личный выбор; состояние передаём дугой и строкой. */
     private fun paintPower(color: Int) {
         val c = ui.connectScreen
         c.todayBars.theme = theme
+        c.downSpark.theme = theme
+        c.upSpark.theme = theme
         c.halo.theme = theme
         c.halo.lit = MarviaState.state.value is TunnelState.On
         c.powerAction.theme = theme.copy(acc = color)

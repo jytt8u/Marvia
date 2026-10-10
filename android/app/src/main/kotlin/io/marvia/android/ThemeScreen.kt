@@ -151,7 +151,7 @@ class ThemeScreen(
         return when {
             tab == Tab.MORE -> listOfNotNull(v(R.id.heroMarkButton), v(R.id.heroName))
             tab != Tab.SHAPE -> null
-            previewScreen == Screen.MAIN -> listOfNotNull(v(R.id.todayCard), s.findViewById<View>(R.id.sessionValue)?.parent as? View)
+            previewScreen == Screen.MAIN -> listOfNotNull(v(R.id.todayCard), v(R.id.tilesRow))
             previewScreen == Screen.SETTINGS -> listOfNotNull(v(R.id.rowApps), v(R.id.rowLan))
             else -> listOfNotNull(v(R.id.providerList))
         }?.takeIf { it.isNotEmpty() }
@@ -538,8 +538,10 @@ class ThemeScreen(
                 id<TextView>(R.id.nodeLine)?.text = host.getString(R.string.theme_preview_country) + " · " + host.getString(R.string.theme_preview_place)
                 id<TextView>(R.id.todayTotal)?.text = Format.size(host, 4_509_715_660L)
                 id<HourBars>(R.id.todayBars)?.apply { theme = t; hours = MINI.map { it.toLong() }; current = 19 }
-                id<TextView>(R.id.sessionValue)?.text = "01:12:34"
-                id<TextView>(R.id.speedValue)?.text = host.getString(R.string.stats_mbps, "48,0")
+                id<TextView>(R.id.downValue)?.text = host.getString(R.string.stats_mbps, "48,0")
+                id<TextView>(R.id.upValue)?.text = host.getString(R.string.stats_mbps, "6,2")
+                id<SpeedSpark>(R.id.downSpark)?.apply { theme = t; show(SPARK_DOWN) }
+                id<SpeedSpark>(R.id.upSpark)?.apply { theme = t; show(SPARK_UP) }
                 // Шапка — как настоящая: знак по выбору из «Ещё», имя шрифтом темы.
                 // Иначе вкладка «Ещё» меняла бы то, чего в предпросмотре не видно.
                 val custom = if (store.logo == Store.LOGO_CUSTOM) store.logoBitmap() else null
@@ -1118,5 +1120,8 @@ class ThemeScreen(
         val LAMP = listOf("nw", "n", "ne", "w", "c", "e", "sw", "s", "se")
         /** Мегабайты по часам для предпросмотра — как в макете. */
         val MINI = listOf(2, 1, 0, 0, 0, 0, 3, 6, 12, 16, 11, 9, 13, 18, 17, 10, 9, 15, 22, 22, 20, 12, 5, 0)
+        // Предпросмотр скорости: неровные замеры в байтах в секунду, как у живой загрузки.
+        val SPARK_DOWN = listOf(2.1, 2.4, 3.8, 3.1, 4.6, 5.9, 5.2, 6.4, 4.8, 5.5, 7.2, 6.1, 6.8, 5.7, 6.0).map { it * 1_000_000 }
+        val SPARK_UP = listOf(0.3, 0.4, 0.6, 0.5, 0.9, 0.7, 0.8, 1.1, 0.6, 0.7, 0.9, 0.8, 1.0, 0.7, 0.78).map { it * 1_000_000 }
     }
 }

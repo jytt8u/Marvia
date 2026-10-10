@@ -598,6 +598,9 @@
     <string name="stats_session">Session</string>
     <string name="stats_speed">Speed</string>
     <string name="stats_mbps">%1$s Mbps</string>
+    <string name="stats_download">↓ Download</string>
+    <string name="stats_upload">↑ Upload</string>
+    <string name="session_running">Session · %1$s</string>
     <string name="stats_kbps">%1$s kbps</string>
     <string name="connection_warning_details">Some requests failed · View details</string>
     <string name="theme_show_all">All themes</string>

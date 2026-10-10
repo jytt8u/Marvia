@@ -125,27 +125,30 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <!-- Скорость в обе стороны: цифра сейчас и бегущая линия за полминуты. -->
             <LinearLayout android:id="@+id/tilesRow" android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="12dp" android:orientation="horizontal" android:baselineAligned="false" android:tag="gap">
-                <LinearLayout android:id="@+id/sessionCard" android:clickable="true" android:focusable="true" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                <LinearLayout android:id="@+id/downCard" android:clickable="true" android:focusable="true" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                     android:layout_marginEnd="6dp" android:background="@drawable/bg_card" android:orientation="vertical"
-                    android:tag="card" android:paddingHorizontal="16dp" android:paddingVertical="14dp">
+                    android:tag="card" android:paddingHorizontal="16dp" android:paddingTop="14dp" android:paddingBottom="12dp">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="@string/stats_session" android:tag="dim" android:textSize="13sp" />
-                    <TextView android:id="@+id/sessionValue" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp" android:fontFamily="@font/mono" android:textStyle="bold" android:tag="fg"
-                        android:textSize="20sp" android:text="00:00:00" android:maxLines="1"
-                        app:autoSizeTextType="uniform" app:autoSizeMinTextSize="13sp" app:autoSizeMaxTextSize="20sp" app:autoSizeStepGranularity="1sp" />
-                </LinearLayout>
-                <LinearLayout android:id="@+id/speedCard" android:clickable="true" android:focusable="true" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                    android:layout_marginStart="6dp" android:background="@drawable/bg_card" android:orientation="vertical"
-                    android:tag="card" android:paddingHorizontal="16dp" android:paddingVertical="14dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="@string/stats_speed" android:tag="dim" android:textSize="13sp" />
-                    <TextView android:id="@+id/speedValue" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp" android:fontFamily="@font/mono" android:textStyle="bold" android:tag="fg"
+                        android:text="@string/stats_download" android:tag="dim" android:textSize="13sp" />
+                    <TextView android:id="@+id/downValue" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp" android:fontFamily="@font/mono" android:textStyle="bold" android:tag="fg"
                         android:textSize="20sp" android:maxLines="1"
                         app:autoSizeTextType="uniform" app:autoSizeMinTextSize="13sp" app:autoSizeMaxTextSize="20sp" app:autoSizeStepGranularity="1sp" />
+                    <io.marvia.android.SpeedSpark android:id="@+id/downSpark" android:layout_width="match_parent" android:layout_height="30dp" android:layout_marginTop="8dp" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/upCard" android:clickable="true" android:focusable="true" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                    android:layout_marginStart="6dp" android:background="@drawable/bg_card" android:orientation="vertical"
+                    android:tag="card" android:paddingHorizontal="16dp" android:paddingTop="14dp" android:paddingBottom="12dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/stats_upload" android:tag="dim" android:textSize="13sp" />
+                    <TextView android:id="@+id/upValue" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp" android:fontFamily="@font/mono" android:textStyle="bold" android:tag="fg"
+                        android:textSize="20sp" android:maxLines="1"
+                        app:autoSizeTextType="uniform" app:autoSizeMinTextSize="13sp" app:autoSizeMaxTextSize="20sp" app:autoSizeStepGranularity="1sp" />
+                    <io.marvia.android.SpeedSpark android:id="@+id/upSpark" android:layout_width="match_parent" android:layout_height="30dp" android:layout_marginTop="8dp" />
                 </LinearLayout>
             </LinearLayout>
 

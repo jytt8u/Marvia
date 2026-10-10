@@ -544,17 +544,12 @@
      там его и хвалят. Числа взяты из Android-кода (Paint.card, HaloView,
      SpeedSpark), чтобы два клиента не расходились «на глаз». */
 
-  /* Карточка — с лёгким отливом акцента из левого верхнего угла (Paint.card:
-     6,5 % на тёмных, 2,5 % на светлых). У плоских отлива нет. */
-  body:not([data-card="flat"]) .card, body:not([data-card="flat"]) .kpi {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--surf), var(--acc) 6.5%), var(--surf));
-  }
+  /* Карточка — с лёгким отливом акцента из угла: --cardBg считает тема
+     (look.js) теми же числами, что Paint.card на телефоне. */
+  .card, .kpi { background: var(--cardBg, var(--surf)); }
   /* «Сегодня» — главная карточка, как на телефоне: отлив сильнее и тонкая
      акцентная обводка (Paint, тег feature). */
-  .card.feature {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--surf), var(--acc) 18%), var(--surf));
-    border-color: rgba(var(--accRgb), .25);
-  }
+  .card.feature { background: var(--featureBg, var(--surf)); border-color: var(--featureLine, var(--cardLine)); }
   .card.feature #today-total { font-size: 22px; font-weight: 700; color: var(--acc); }
   .card.feature .card-head b { font-weight: 500; color: var(--dim); font-size: 14px; }
   .card, .kpi { transition: transform .35s var(--ease), border-color .3s, box-shadow .3s; }
@@ -1674,8 +1669,6 @@ function applyLook() {
   paintBackdrop();
   // Кнопка питания: вид — из темы. Ставится атрибутом, а красится в CSS.
   $("power").dataset.btn = t.btn;
-  // Подача карточек — тоже атрибутом: у плоских нет и отлива, как на телефоне.
-  document.body.dataset.card = t.card;
   paintTheme();
 }
 

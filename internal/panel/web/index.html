@@ -451,14 +451,14 @@
             <div style="display: flex; gap: var(--gap, 12px);">
               <sc-for list="{{ kpis }}" as="k">
                 <div style="{{ k.style }}">
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .16em; color: var(--dim, #6c8a76);">{{ k.label }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--fg, #eaf5ee); margin-top: 7px;">{{ k.value }}</div>
+                  <div style="font-size: 13px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: var(--fg, #eaf5ee); margin-top: 8px; letter-spacing: -.01em;">{{ k.value }}</div>
                   <div style="{{ k.deltaStyle }}">{{ k.delta }}</div>
                 </div>
               </sc-for>
             </div>
             <div style="display: flex; gap: var(--gap, 12px); height: 210px;">
-              <div style="flex: 1.6; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf, #0c1a11); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 12px;">
+              <div style="flex: 1.6; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--featureBg, var(--surf, #0c1a11)); border: 1px solid var(--featureLine, var(--cardLine, var(--line))); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 12px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                   <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.traffic }}</div>
                   <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim, #6c8a76);">{{ totalTraffic }}</div>
@@ -473,7 +473,7 @@
                 </div>
                 <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .12em; color: var(--dim, #6c8a76);"><span>{{ firstDay }}</span><span>{{ lastDay }}</span></div>
               </div>
-              <div style="flex: 1; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf, #0c1a11); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
+              <div style="flex: 1; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf, #0c1a11)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
                 <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.nodes }}</div>
                 <sc-for list="{{ nodes }}" as="n">
                   <div style="{{ n.rowStyle }}">
@@ -489,7 +489,7 @@
                 </sc-if>
               </div>
             </div>
-            <div style="flex: 1; min-height: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf, #0c1a11); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
+            <div style="flex: 1; min-height: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf, #0c1a11)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.clients }}</div>
                 <div style="{{ allClients }}" onClick="{{ goClients }}">{{ allClientsLabel }}</div>
@@ -518,13 +518,13 @@
             <div style="display: flex; gap: var(--gap, 12px);">
               <sc-for list="{{ pageKpis }}" as="k">
                 <div style="{{ k.style }}">
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .16em; color: var(--dim);">{{ k.label }}</div>
+                  <div style="font-size: 13px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
                   <div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--fg); margin-top: 7px;">{{ k.value }}</div>
                   <div style="{{ k.deltaStyle }}">{{ k.delta }}</div>
                 </div>
               </sc-for>
             </div>
-            <div style="flex: 1; min-height: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
+            <div style="flex: 1; min-height: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
               <div style="{{ tableHead }}">
                 <sc-for list="{{ tableCols }}" as="col">
                   <div>{{ col }}</div>
@@ -594,14 +594,14 @@
             <div style="display: flex; gap: var(--gap, 12px);">
               <sc-for list="{{ pageKpis }}" as="k">
                 <div style="{{ k.style }}">
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .16em; color: var(--dim);">{{ k.label }}</div>
+                  <div style="font-size: 13px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
                   <div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--fg); margin-top: 7px;">{{ k.value }}</div>
                   <div style="{{ k.deltaStyle }}">{{ k.delta }}</div>
                 </div>
               </sc-for>
             </div>
             <div style="flex: 1; min-height: 0; display: flex; gap: var(--gap, 12px);">
-              <div style="flex: 1.5; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 14px;">
+              <div style="flex: 1.5; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                   <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.statsPage.byDay }}</div>
                   <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim);">{{ totalTraffic }}</div>
@@ -615,7 +615,7 @@
                   </sc-for>
                 </div>
               </div>
-              <div style="flex: 1; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
+              <div style="flex: 1; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
                 <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.statsPage.byNode }}</div>
                 <sc-for list="{{ shareRows }}" as="sr">
                   <div style="display: flex; flex-direction: column; gap: 6px;">
@@ -724,7 +724,7 @@
 
         <sc-if value="{{ isAlerts }}">
           <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--gap, 12px); max-width: 640px;">
-            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
+            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
               <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.alerts.title }}</div>
               <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.alerts.what }}</div>
 
@@ -752,7 +752,7 @@
               <div style="font-size: 12px; line-height: 1.5; color: var(--dim); border-top: 1px solid var(--line); padding-top: 12px;">{{ d18.alerts.privacy }}</div>
             </div>
 
-            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
+            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
               <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.bk.title }}</div>
               <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.bk.what }}</div>
               <label><input id="bk-on" type="checkbox" /> {{ d18.bk.on }}</label>
@@ -793,7 +793,7 @@
               https и только наружу; секрет подписи браузер обратно не
               получает — пустое поле оставляет прежний.
             -->
-            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
+            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
               <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.wh.title }}</div>
               <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.wh.what }}</div>
               <label><input id="wh-on" type="checkbox" /> {{ d18.wh.on }}</label>
@@ -809,7 +809,7 @@
               <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ webhookStatus }}</div>
             </div>
 
-            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--surf); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
+            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
               <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.seller.title }}</div>
               <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.seller.what }}</div>
 
@@ -2386,9 +2386,9 @@ const TEXTS = {
     },
 
     kpi: {
-      activeKeys: "АКТИВНЫЕ КЛЮЧИ", traffic30: "ТРАФИК · 30 Д", nodesLive: "НОДЫ НА СВЯЗИ",
-      expiring: "ИСТЕКАЮТ", total: "ВСЕГО", active: "АКТИВНЫХ", keysCount: "КЛЮЧЕЙ",
-      trafficTotal: "ТРАФИК", nodesWithTraffic: "НОД С ТРАФИКОМ", perDay: "В СУТКИ",
+      activeKeys: "Активные ключи", traffic30: "Трафик за 30 дней", nodesLive: "Ноды на связи",
+      expiring: "Истекают", total: "Всего", active: "Активных", keysCount: "Ключей",
+      trafficTotal: "Трафик", nodesWithTraffic: "Нод с трафиком", perDay: "В сутки",
       ofAll: "заведено", forBots: "для ботов", forPeriod: "за 30 дней", onAverage: "в среднем",
       byAllNodes: "по всем нодам", allAnswer: "все отвечают", notAllAnswer: "не все отвечают",
       noNodes: "ни одной ноды", inSevenDays: "в ближайшие 7 дней", sevenDays: "7 дней",
@@ -2403,9 +2403,9 @@ const TEXTS = {
     },
 
     col: {
-      client: "КЛИЕНТ", key: "КЛЮЧ", until: "ДО", traffic: "ТРАФИК", status: "СТАТУС",
-      devices: "УСТРОЙСТВ", name: "ИМЯ", rights: "ПРАВА", created: "СОЗДАН", lastSeen: "ПОСЛЕДНИЙ ВХОД",
-      size: "РАЗМЕР", share: "ДОЛЯ", online: "НА СВЯЗИ", traffic30: "ТРАФИК · 30 Д",
+      client: "Клиент", key: "Ключ", until: "До", traffic: "Трафик", status: "Статус",
+      devices: "Устройств", name: "Имя", rights: "Права", created: "Создан", lastSeen: "Последний вход",
+      size: "Размер", share: "Доля", online: "На связи", traffic30: "Трафик за 30 дней",
     },
 
     status: { active: "Активен", expiring: "Истекает", expired: "Истёк", off: "Отключён", revoked: "Отозван" },
@@ -2794,9 +2794,9 @@ const TEXTS = {
     },
 
     kpi: {
-      activeKeys: "ACTIVE KEYS", traffic30: "TRAFFIC · 30 D", nodesLive: "NODES ONLINE",
-      expiring: "EXPIRING", total: "TOTAL", active: "ACTIVE", keysCount: "KEYS",
-      trafficTotal: "TRAFFIC", nodesWithTraffic: "NODES WITH TRAFFIC", perDay: "PER DAY",
+      activeKeys: "Active keys", traffic30: "Traffic, 30 days", nodesLive: "Nodes online",
+      expiring: "Expiring", total: "Total", active: "Active", keysCount: "Keys",
+      trafficTotal: "Traffic", nodesWithTraffic: "Nodes with traffic", perDay: "Per day",
       ofAll: "created", forBots: "for bots", forPeriod: "over 30 days", onAverage: "on average",
       byAllNodes: "across all nodes", allAnswer: "all responding", notAllAnswer: "not all responding",
       noNodes: "no nodes yet", inSevenDays: "within 7 days", sevenDays: "7 days",
@@ -2811,9 +2811,9 @@ const TEXTS = {
     },
 
     col: {
-      client: "CLIENT", key: "KEY", until: "UNTIL", traffic: "TRAFFIC", status: "STATUS",
-      devices: "DEVICES", name: "NAME", rights: "RIGHTS", created: "CREATED", lastSeen: "LAST SEEN",
-      size: "SIZE", share: "SHARE", online: "ONLINE", traffic30: "TRAFFIC · 30 D",
+      client: "Client", key: "Key", until: "Until", traffic: "Traffic", status: "Status",
+      devices: "Devices", name: "Name", rights: "Rights", created: "Created", lastSeen: "Last seen",
+      size: "Size", share: "Share", online: "Online", traffic30: "Traffic, 30 days",
     },
 
     status: { active: "Active", expiring: "Expiring", expired: "Expired", off: "Disabled", revoked: "Revoked" },
@@ -3358,7 +3358,7 @@ function updatesView(t, d, dict) {
   });
 
   return {
-    updCard: "padding:" + d.pad + "px;border-radius:" + t.r + "px;background:" + t.surf
+    updCard: "padding:" + d.pad + "px;border-radius:" + t.r + "px;background:var(--cardBg," + t.surf + ")"
       + ";border:1px solid " + t.line + ";display:flex;flex-direction:column;gap:12px",
     updLatestErr: !!(u && u.latest_error),
     updLatestErrText: u && u.latest_error ? up.latestErr(u.latest_error) : "",
@@ -3411,7 +3411,7 @@ function renderVals() {
   const vars = Look.vars(t);
 
   const card = "flex:1;min-width:0;padding:" + d.pad + "px;border-radius:" + t.r
-    + "px;background:" + t.surf + ";border:1px solid " + t.cardLine + ";box-shadow:" + t.cardShadow;
+    + "px;background:var(--cardBg," + t.surf + ")" + ";border:1px solid " + t.cardLine + ";box-shadow:" + t.cardShadow;
 
   const users = state.users || [];
   const nodes = state.nodes || [];
@@ -3536,7 +3536,7 @@ function renderVals() {
 
   const clientRow = "2fr 1.2fr 1fr 1fr 0.9fr";
   const dashHead = "display:grid;grid-template-columns:" + clientRow
-    + ";gap:12px;padding:0 12px;font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.14em;color:" + t.dim;
+    + ";gap:12px;padding:0 12px;font-size:12px;color:" + t.dim;
 
   function clientStatus(u) {
     if (!u.enabled) return [d18.status.off, "dim"];
@@ -3594,7 +3594,7 @@ function renderVals() {
   const tbl = TABLES[page] || TABLES.clients;
   const tableCols = tbl.cols;
   const tableHead = "display:grid;grid-template-columns:" + tbl.grid
-    + ";gap:12px;padding:0 12px;font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.14em;color:" + t.dim;
+    + ";gap:12px;padding:0 12px;font-size:12px;color:" + t.dim;
   // Постраничность. Рисовать тысячу строк разом браузер умеет, но человек их
   // не читает, а прокрутка перестаёт быть навигацией.
   const totalRows = tbl.rows.length;
@@ -3669,7 +3669,7 @@ function renderVals() {
       share: total ? Math.round((traffic / total) * 100) + "%" : "0%",
       seen: alive ? sinceLabel(n.last_seen) : n.enabled ? d18.nodesPage.silentShort : d18.nodesPage.offShort,
       state: alive ? d18.nodesPage.online : n.enabled ? d18.nodesPage.silent : d18.nodesPage.off,
-      style: "padding:" + d.pad + "px;border-radius:" + t.r + "px;background:" + t.surf
+      style: "padding:" + d.pad + "px;border-radius:" + t.r + "px;background:var(--cardBg," + t.surf + ")"
         + ";border:1px solid " + (st === "warn" ? t.warn : t.line) + ";display:flex;flex-direction:column;gap:14px",
       badge: "flex:none;padding:4px 9px;border-radius:6px;font-family:JetBrains Mono,monospace;font-size:10px;color:"
         + (st === "ok" ? t.acc : t.warn) + ";background:" + (st === "ok" ? t.accSoft : "rgba(242,160,61,.13)"),
@@ -3714,7 +3714,7 @@ function renderVals() {
   const swatch = (bg, on) => "width:26px;height:26px;border-radius:8px;cursor:pointer;background:" + bg
     + ";outline:2px solid " + (on ? t.fg : "transparent") + ";outline-offset:2px";
 
-  const knobCard = "padding:" + d.pad + "px;border-radius:" + t.r + "px;background:" + t.surf
+  const knobCard = "padding:" + d.pad + "px;border-radius:" + t.r + "px;background:var(--cardBg," + t.surf + ")"
     + ";border:1px solid " + t.cardLine + ";box-shadow:" + t.cardShadow + ";display:flex;flex-direction:column;gap:10px";
   const knobTitle = "font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.16em;color:" + t.dim;
   const knobSub = knobTitle + ";margin-top:4px";

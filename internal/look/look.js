@@ -302,7 +302,9 @@ const Look = (() => {
   // decode разбирает код. Возвращает null на чужом или битом: показать
   // человеку «код не наш» честнее, чем молча перекрасить в серый.
   function decode(code) {
-    const p = String(code || "").trim().toUpperCase().split("-");
+    // После «~» окно на ПК дописывает образ и узор фона. Панели и телефону
+    // показать их нечем, а цвет и форму из того же кода принять они обязаны.
+    const p = String(code || "").split("~")[0].trim().toUpperCase().split("-");
     if (p.length !== 8 || p[0] !== "MV") return null;
     const preset = find(Object.keys(PRESETS), p[1], 3);
     const kind = find(KINDS, p[3].slice(0, 3), 3);

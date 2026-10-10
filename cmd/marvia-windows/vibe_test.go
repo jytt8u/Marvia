@@ -2,9 +2,13 @@ package main
 
 import (
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/jytt8u/marvia/internal/look"
 )
 
 // Каждый образ из таблицы VIBES подписан на обоих языках. Без подписи
@@ -54,5 +58,32 @@ func TestSplashLeavesEvenWithoutScript(t *testing.T) {
 	}
 	if !regexp.MustCompile(`@keyframes splash-failsafe \{ to \{[^}]*visibility: hidden`).MatchString(page) {
 		t.Fatal("запасной уход заставки не прячет её")
+	}
+}
+
+// Скрипт окна вообще разбирается. Одна синтаксическая ошибка в нём — и окно
+// показывает голую разметку: ни перевода, ни кнопки, ни опроса состояния.
+// Сборка Go такого не видит, поэтому проверяем тем же разбором, что у
+// браузера, — через node, если он есть на машине.
+func TestWindowScriptParses(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("нет node — проверить разбор скрипта нечем")
+	}
+	raw, err := os.ReadFile("ui/app.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := look.Inline(string(raw))
+	start, end := strings.Index(page, "<script>"), strings.LastIndex(page, "</script>")
+	if start < 0 || end < start {
+		t.Fatal("в странице нет скрипта")
+	}
+	file := filepath.Join(t.TempDir(), "app.js")
+	if err := os.WriteFile(file, []byte(page[start+len("<script>"):end]), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command(node, "--check", file).CombinedOutput(); err != nil {
+		t.Fatalf("скрипт окна не разбирается:\n%s", out)
 	}
 }

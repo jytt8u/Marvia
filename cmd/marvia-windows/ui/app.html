@@ -107,7 +107,7 @@
             mask: var(--mark-img) center / contain no-repeat;
   }
   .wordmark {
-    display: block; height: 12px; aspect-ratio: 610 / 136; font-size: 0;
+    display: block; height: 14px; aspect-ratio: 614 / 144; font-size: 0;
     background: var(--fg);
     -webkit-mask: var(--word-img) center / contain no-repeat;
             mask: var(--word-img) center / contain no-repeat;
@@ -600,6 +600,23 @@
   #field { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
   body::before { display: none; }
 
+  /* Шрифты и надпись состояния — переменными: их задаёт образ, а точная
+     настройка переписывает поле за полем. */
+  body { font-family: var(--uiFont, Onest, "Segoe UI", system-ui, sans-serif); }
+  .status { font-family: var(--statusFont, inherit); font-size: var(--statusSize, 32px);
+    text-transform: var(--statusCase, none); letter-spacing: var(--statusTrack, -.015em); }
+  .kpi .v, #today-total, .session-extra strong { font-family: var(--numFont, var(--mono)); }
+  body[data-caps="true"] .spd-head .k, body[data-caps="true"] .side .kpi .k,
+  body[data-caps="true"] .card.feature .card-head b {
+    font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em; font-size: 10.5px; }
+  /* Стекло: полупрозрачная карточка пропускает узор, размытие делает его
+     фоном, а не шумом. Без размытия фильтра нет совсем — он не бесплатный. */
+  .card, .kpi, .node, aside .sub-card { -webkit-backdrop-filter: var(--glassFilter, none); backdrop-filter: var(--glassFilter, none); }
+
+  /* Знак — фирменный металл; в цвет акцента — только если так выбрано. */
+  body:not([data-logo="tint"]) .logo::after { background: transparent; }
+  .top .logo { filter: drop-shadow(0 1px 3px rgba(0,0,0,.35)); }
+
   /* Заставка. Если код окна не дошёл до неё, через три секунды она уходит
      сама: окно, закрытое заставкой навсегда, хуже окна без заставки. */
   #splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; align-content: center; gap: 18px;
@@ -614,71 +631,78 @@
   @keyframes mark-in { from { opacity: 0; transform: scale(.62) rotate(-8deg); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
   @keyframes word-in { from { opacity: 0; clip-path: inset(0 100% 0 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
   @keyframes splash-failsafe { to { opacity: 0; pointer-events: none; visibility: hidden; } }
-  /* После заставки интерфейс поднимается каскадом, а не возникает разом. */
   body.arrive .top, body.arrive aside .tab, body.arrive aside .sub-card, body.arrive .page[data-open] > * {
     animation: arrive .6s var(--ease) both; }
   body.arrive aside .tab:nth-child(2) { animation-delay: .04s; }
   body.arrive aside .tab:nth-child(3) { animation-delay: .08s; }
   body.arrive aside .tab:nth-child(4) { animation-delay: .12s; }
-  body.arrive .page[data-open] > *:nth-child(2) { animation-delay: .1s; }
   @keyframes arrive { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
-  /* Карточки образов: у каждой свой фон и узор, не зависящие от текущей темы. */
-  .vibes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .vibe { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 12px; border-radius: calc(var(--r) + 4px); cursor: pointer;
-    background: transparent; border: 1px solid var(--cardLine); color: var(--fg); text-align: left;
+  /* Вкладка «Тема»: прокрутка целиком, лента образов в два ряда вбок. */
+  .theme-scroll { display: flex; flex-direction: column; gap: var(--gap); flex: 1; min-height: 0; padding-right: 4px; }
+  .vibes-nav { display: flex; gap: 6px; }
+  .vibes-nav .chip { width: 34px; padding: 6px 0; justify-content: center; font-size: 16px; }
+  .vibes-nav .chip[disabled] { opacity: .35; cursor: default; }
+  .vibes { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: 214px; gap: 12px;
+    overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; padding: 4px 2px 10px; scrollbar-width: thin;
+    scrollbar-color: var(--dim) transparent; -webkit-mask: linear-gradient(90deg, #000 0, #000 calc(100% - 28px), transparent); }
+  .vibe { scroll-snap-align: start; display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 12px; border-radius: calc(var(--r) + 4px);
+    cursor: pointer; background: transparent; border: 1px solid var(--cardLine); color: var(--fg); text-align: left;
     transition: transform .35s cubic-bezier(.2,.9,.25,1.05), border-color .3s, background .3s; }
-  .vibe:hover { transform: translateY(-3px); background: rgba(var(--accRgb), .05); }
-  .vibe:active { transform: scale(.98); }
+  .vibe:hover { background: rgba(var(--accRgb), .05); }
+  .vibe:active { transform: scale(.97) !important; }
   .vibe[aria-pressed="true"] { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc) inset; }
-  .vibe-art { position: relative; height: 92px; border-radius: var(--r); overflow: hidden; display: grid; place-items: center; }
-  .vibe-btn { width: 38px; height: 38px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--vacc), 0 0 22px -4px var(--vacc);
-    background: radial-gradient(circle at 40% 30%, color-mix(in srgb, var(--vfg) 18%, transparent), transparent 70%); }
+  .vibe-art { position: relative; height: 88px; border-radius: var(--r); overflow: hidden; display: grid; place-items: center; }
+  .vibe-btn { width: 36px; height: 36px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--vacc), 0 0 22px -4px var(--vacc);
+    background: radial-gradient(circle at 40% 30%, color-mix(in srgb, var(--vfg) 18%, transparent), transparent 70%);
+    transition: transform .5s cubic-bezier(.2,.9,.25,1.05); }
+  .vibe:hover .vibe-btn { transform: scale(1.15) rotate(-90deg); }
   .vibe-btn::after { content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%;
     border: 2px solid var(--vacc); border-top-color: transparent; }
   .vibe-name { font-weight: 600; font-size: 14px; padding: 0 4px; }
   .vibe-line { font-size: 12px; line-height: 1.4; color: var(--dim); padding: 0 4px; }
-  /* Тонкая настройка — свёрнута: образа хватает почти всем. */
-  .page[data-tab="theme"]:not(.fine-open) .fine { display: none; }
-  .page[data-tab="theme"]:not(.fine-open) .col.knobs { display: none; }
-  .fine-row { display: flex; justify-content: flex-start; }
+  .fine-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* Точная настройка — свёрнута: образа хватает почти всем. */
+  .fine-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
+  .fine-grid .col { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+  .page[data-tab="theme"]:not(.fine-open) .fine-grid { display: none; }
+  .page[data-tab="theme"].fine-open .fine-grid { animation: arrive .45s var(--ease) both; }
+  .fine-list { display: flex; flex-direction: column; gap: 12px; }
+  .fine-item { display: flex; flex-direction: column; gap: 6px; }
+  .fine-head { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+  .fine-name { flex: 1; color: var(--fg); }
+  .fine-val { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .fine-item.own .fine-val { color: var(--acc); }
+  .fine-reset { border: 0; background: none; color: var(--dim); cursor: pointer; padding: 0 2px; font-size: 13px; }
+  .fine-reset:hover { color: var(--acc); }
+  .fine-item input[type="color"], .pick-row input[type="color"] { width: 100%; height: 30px; padding: 2px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--surf2); cursor: pointer; }
+  .pick-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--dim); cursor: pointer; }
+  .pick-row input[type="color"] { width: 46px; flex: none; }
+
+  /* Отклик на руку. */
+  .hero .ring { transition: transform .35s var(--ease); transform-style: preserve-3d; will-change: transform; }
+  .tilt { transition: transform .12s linear !important; }
+  .card, .kpi { transform-origin: center; }
+  .press-ring { position: absolute; width: 10px; height: 10px; margin: -5px; border-radius: 50%; pointer-events: none;
+    border: 2px solid var(--acc); animation: press 0.7s var(--ease) forwards; }
+  @keyframes press { to { transform: scale(26); opacity: 0; } }
+  .power { overflow: hidden; }
 
   .dotnum { height: .82em; width: auto; fill: currentColor; vertical-align: -.02em; overflow: visible; }
   .dotunit { margin-left: .45em; font-size: .62em; font-family: var(--mono); letter-spacing: .04em; color: var(--dim); font-weight: 500; }
-
-  /* «Точка» и «Бумага»: табло. Надписи — моноширинные капсы, один акцент. */
-  body[data-vibe="dot"] .status, body[data-vibe="paper"] .status {
-    font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em; font-size: 26px; font-weight: 600; }
-  body[data-vibe="dot"] .spd-head .k, body[data-vibe="paper"] .spd-head .k,
-  body[data-vibe="dot"] .side .kpi .k, body[data-vibe="paper"] .side .kpi .k,
-  body[data-vibe="dot"] .card.feature .card-head b, body[data-vibe="paper"] .card.feature .card-head b {
-    font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em; font-size: 10.5px; }
-  body[data-vibe="dot"] .kpi .v, body[data-vibe="paper"] .kpi .v { font-size: 22px; color: var(--fg); }
-  body[data-vibe="dot"] .card.feature #today-total, body[data-vibe="paper"] .card.feature #today-total { color: var(--fg); }
   body[data-vibe="dot"] .node .mark, body[data-vibe="paper"] .node .mark { background: var(--acc); box-shadow: 0 0 8px var(--acc); }
-  body[data-vibe="dot"] .card.feature, body[data-vibe="paper"] .card.feature { background: var(--cardBg, var(--surf)); border-color: var(--cardLine); }
 
-  /* «Кислота»: крупный жирный гротеск и бегущие полосы. */
-  body[data-vibe="acid"] .status, body[data-vibe="acid"] .title { font-family: Unbounded, Onest, sans-serif; font-weight: 700; letter-spacing: -.02em; }
-  body[data-vibe="acid"] .status { font-size: 30px; text-transform: uppercase; }
-  body[data-vibe="acid"] .kpi .v, body[data-vibe="acid"] #today-total { font-family: Unbounded, Onest, sans-serif; font-weight: 600; }
-  /* Гротеск широкий: в тех же пикселях «38,4 Мбит/с» уже не помещалась. */
-  body[data-vibe="acid"] .side .kpi .v { font-size: 16px; }
-
-  /* «Аврора»: стеклянные карточки над сиянием. */
-  body[data-vibe="aurora"] .card, body[data-vibe="aurora"] .kpi, body[data-vibe="aurora"] .node, body[data-vibe="aurora"] aside .sub-card {
-    background: rgba(255, 255, 255, .045); border-color: rgba(255, 255, 255, .09);
-    -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); }
-  body[data-vibe="aurora"] .card.feature { background: rgba(var(--accRgb), .10); border-color: rgba(var(--accRgb), .3); }
-
-  /* «Терминал»: всё моноширинным, свечение фосфора. */
-  body[data-vibe="terminal"] { font-family: var(--mono); }
-  body[data-vibe="terminal"] .status { font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+  /* «Терминал»: свечение фосфора и мигающий курсор после надписи. */
   body[data-vibe="terminal"] .status, body[data-vibe="terminal"] .kpi .v, body[data-vibe="terminal"] #today-total {
     text-shadow: 0 0 8px rgba(var(--accRgb), .55); }
   body[data-vibe="terminal"] .status::after { content: "_"; animation: blink 1s steps(1) infinite; margin-left: .1em; }
+  /* «Неон»: надпись светится цветом акцента. */
+  body[data-vibe="neon"] .status { text-shadow: 0 0 18px rgba(var(--accRgb), .7), 0 0 2px rgba(var(--accRgb), .9); }
   @keyframes blink { 50% { opacity: 0; } }
 
+  @media (max-width: 1000px) { .fine-grid { grid-template-columns: minmax(0, 1fr); } }
   @media (prefers-reduced-motion: reduce) {
     #splash { display: none; }
     body.arrive * { animation: none !important; }
@@ -928,77 +952,103 @@
 
       <!-- ----------------------------------------------------------- тема -->
       <section class="page" data-tab="theme">
-        <div class="split">
-          <div class="col wide scroll">
-            <!-- Образ — первым: это выбор характера, а не одной ручки. -->
-            <div class="card vibes-card">
-              <div class="card-head"><b data-t="vibeTitle"></b><span class="hint" data-t="vibeHint"></span></div>
-              <div class="vibes" id="vibes"></div>
-              <div class="fine-row"><button class="chip" id="fine-toggle" type="button"></button></div>
-            </div>
-            <div class="card fine">
-              <div class="k" data-t="themePresets"></div>
-              <div class="presets" id="presets"></div>
-            </div>
-            <div class="card fine">
-              <div class="k" data-t="themeAccent"></div>
-              <div class="swatches" id="accents"></div>
-              <div class="k" data-t="themeTint"></div>
-              <div class="swatches" id="tints"></div>
-            </div>
-            <div class="card fine">
-              <div class="k" data-t="themeProfiles"></div>
-              <div class="pills" id="profiles"></div>
-              <div class="pills">
-                <button class="pillb" id="profile-save" data-t="themeSaveHere" aria-pressed="true"></button>
-                <button class="pillb" id="theme-random" data-t="themeRandom"></button>
+        <div class="scroll theme-scroll">
+          <!--
+            Сначала образ — выбор характера целиком. Всё остальное — в точной
+            настройке: она свёрнута, потому что образа хватает почти всем, а
+            кому не хватает — тому нужно уже всё, до цвета пипеткой.
+          -->
+          <div class="card vibes-card">
+            <div class="card-head">
+              <div><b data-t="vibeTitle"></b> <span class="hint" data-t="vibeHint"></span></div>
+              <div class="vibes-nav">
+                <button class="chip" id="vibes-prev" type="button" aria-label="‹">‹</button>
+                <button class="chip" id="vibes-next" type="button" aria-label="›">›</button>
               </div>
-              <div class="k" data-t="themeCode"></div>
-              <button type="button" class="code" id="theme-code" style="text-align:left;width:100%;user-select:text;white-space:normal;overflow-wrap:anywhere;"></button>
-              <p class="hint" id="theme-copy-status" role="status" aria-live="polite"></p>
-              <input type="text" class="code-in" id="code-in" autocomplete="off" spellcheck="false">
-              <p class="hint" id="code-bad" hidden data-t="themeCodeBad"></p>
-              <p class="lead" data-t="themeNote"></p>
-              <div class="row"><button class="chip" id="theme-reset" data-t="themeReset"></button></div>
+            </div>
+            <div class="vibes" id="vibes"></div>
+            <div class="fine-row">
+              <button class="primary" id="fine-toggle" type="button"></button>
+              <button class="chip" id="theme-random" type="button" data-t="themeRandom"></button>
             </div>
           </div>
-          <div class="col knobs">
-            <div class="card">
-              <div class="card-head"><div class="k" data-t="themeLight"></div><span class="hint" id="light-note"></span></div>
-              <div class="lamp" id="lamp"></div>
-              <div class="kinds" id="kinds"></div>
-              <div class="card-head"><span data-t="themeDepth"></span><span class="hint" id="depth-note"></span></div>
-              <input type="range" class="range" id="depth" min="8" max="98">
-            </div>
-            <div class="card">
-              <div class="k" data-t="themeRadius"></div>
-              <div class="pills" id="radii"></div>
-              <div class="k" data-t="themeDensity"></div>
-              <div class="pills" id="densities"></div>
-              <div class="k" data-t="themeCards"></div>
-              <div class="pills" id="cardKinds"></div>
-              <div class="k" data-t="themeButton"></div>
-              <div class="pills" id="buttons"></div>
-              <div class="k" data-t="themeGlow"></div>
-              <div class="pills" id="glows"></div>
-            </div>
-            <div class="card">
-              <div class="k" data-t="themeBackdrop"></div>
-              <div class="file-row">
-                <button class="pillb" id="bg-pick"></button>
-                <button class="pillb" id="bg-drop" hidden data-t="themeBackdropDrop"></button>
+
+          <div class="fine-grid" id="fine-anchor">
+            <div class="col">
+              <div class="card">
+                <div class="k" data-t="themeBase"></div>
+                <div class="swatches" id="bases"></div>
+                <div class="k" data-t="themeAccent"></div>
+                <div class="swatches" id="accents"></div>
+                <label class="pick-row"><input type="color" id="acc-pick"><span data-t="themePickAccent"></span></label>
+                <div class="k" data-t="themeTint"></div>
+                <div class="swatches" id="tints"></div>
+                <label class="pick-row"><input type="color" id="tint-pick"><span data-t="themePickTint"></span></label>
               </div>
-              <input type="file" id="bg-file" accept="image/*,video/*" hidden>
-              <p class="hint" id="bg-bad" hidden></p>
-              <div id="bg-knobs" hidden>
-                <div class="k" data-t="themeBackdropFit"></div>
-                <div class="pills" id="bg-fits"></div>
-                <div class="card-head"><span data-t="themeBackdropDim"></span><span class="hint" id="bg-dim-note"></span></div>
-                <input type="range" class="range" id="bg-dim" min="0" max="95">
-                <div class="card-head"><span data-t="themeBackdropBlur"></span><span class="hint" id="bg-blur-note"></span></div>
-                <input type="range" class="range" id="bg-blur" min="0" max="24">
+              <div class="card">
+                <div class="k" data-t="fineColors"></div>
+                <div class="fine-list" id="fine-colors"></div>
               </div>
-              <p class="hint" data-t="themeBackdropNote"></p>
+              <div class="card">
+                <div class="k" data-t="finePattern"></div>
+                <div class="fine-list" id="fine-pattern"></div>
+              </div>
+              <div class="card">
+                <div class="k" data-t="themeBackdrop"></div>
+                <div class="file-row">
+                  <button class="pillb" id="bg-pick"></button>
+                  <button class="pillb" id="bg-drop" hidden data-t="themeBackdropDrop"></button>
+                </div>
+                <input type="file" id="bg-file" accept="image/*,video/*" hidden>
+                <p class="hint" id="bg-bad" hidden></p>
+                <div id="bg-knobs" hidden>
+                  <div class="k" data-t="themeBackdropFit"></div>
+                  <div class="pills" id="bg-fits"></div>
+                  <div class="card-head"><span data-t="themeBackdropDim"></span><span class="hint" id="bg-dim-note"></span></div>
+                  <input type="range" class="range" id="bg-dim" min="0" max="95">
+                  <div class="card-head"><span data-t="themeBackdropBlur"></span><span class="hint" id="bg-blur-note"></span></div>
+                  <input type="range" class="range" id="bg-blur" min="0" max="24">
+                </div>
+                <p class="hint" data-t="themeBackdropNote"></p>
+              </div>
+            </div>
+            <div class="col">
+              <div class="card">
+                <div class="card-head"><div class="k" data-t="themeLight"></div><span class="hint" id="light-note"></span></div>
+                <div class="lamp" id="lamp"></div>
+                <div class="kinds" id="kinds"></div>
+                <div class="card-head"><span data-t="themeDepth"></span><span class="hint" id="depth-note"></span></div>
+                <input type="range" class="range" id="depth" min="8" max="98">
+              </div>
+              <div class="card">
+                <div class="k" data-t="fineShape"></div>
+                <div class="fine-list" id="fine-shape"></div>
+                <div class="k" data-t="themeCards"></div>
+                <div class="pills" id="cardKinds"></div>
+                <div class="k" data-t="themeButton"></div>
+                <div class="pills" id="buttons"></div>
+              </div>
+              <div class="card">
+                <div class="k" data-t="fineType"></div>
+                <div class="fine-list" id="fine-type"></div>
+              </div>
+              <div class="card">
+                <div class="k" data-t="themeProfiles"></div>
+                <div class="pills" id="profiles"></div>
+                <div class="pills">
+                  <button class="pillb" id="profile-save" data-t="themeSaveHere" aria-pressed="true"></button>
+                </div>
+                <div class="k" data-t="themeCode"></div>
+                <button type="button" class="code" id="theme-code" style="text-align:left;width:100%;user-select:text;white-space:normal;overflow-wrap:anywhere;"></button>
+                <p class="hint" id="theme-copy-status" role="status" aria-live="polite"></p>
+                <input type="text" class="code-in" id="code-in" autocomplete="off" spellcheck="false">
+                <p class="hint" id="code-bad" hidden data-t="themeCodeBad"></p>
+                <p class="lead" data-t="themeNote"></p>
+                <div class="row">
+                  <button class="chip" id="fine-reset-all" type="button" data-t="fineResetAll"></button>
+                  <button class="chip" id="theme-reset" data-t="themeReset"></button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1076,6 +1126,14 @@
                   <div class="grow"><span class="name" data-t="soundName"></span><span class="sub" data-t="soundHint"></span></div>
                   <button class="chip" id="vibe-sound" type="button" aria-pressed="false"></button>
                 </div>
+                <div>
+                  <div class="grow"><span class="name" data-t="fxName"></span><span class="sub" data-t="fxHint"></span></div>
+                  <button class="chip" id="vibe-fx" type="button" aria-pressed="true"></button>
+                </div>
+                <div>
+                  <div class="grow"><span class="name" data-t="clickName"></span><span class="sub" data-t="clickHint"></span></div>
+                  <button class="chip" id="vibe-click" type="button" aria-pressed="true"></button>
+                </div>
               </div>
             </div>
             <!--
@@ -1150,6 +1208,14 @@
                 <div>
                   <div class="grow"><span class="name" data-t="autostart"></span><span class="sub" data-t="autostartHint"></span><span class="sub" id="autostart-msg"></span></div>
                   <button class="chip" id="autostart" type="button"></button>
+                </div>
+                <!-- Что делает крестик: прячет в трей или закрывает программу. -->
+                <div class="stack">
+                  <div class="grow"><span class="name" data-t="closeName"></span><span class="sub" data-t="closeHint"></span><span class="sub" id="close-msg"></span></div>
+                  <div class="pick" id="close-pick">
+                    <button class="chip" type="button" data-quit="false" data-t="closeTray" aria-pressed="false"></button>
+                    <button class="chip" type="button" data-quit="true" data-t="closeQuit" aria-pressed="false"></button>
+                  </div>
                 </div>
                 <div>
                   <div class="grow"><span class="name" data-t="settingsLang"></span><span class="sub" data-t="settingsLangHint"></span></div>
@@ -1329,6 +1395,8 @@ const T = {
     settingsApp: "Программа", settingsLang: "Язык интерфейса", settingsLangHint: "Русский или английский; окно переключается сразу.",
     wOpen: "Открыть окно", wHide: "Спрятать в трей",
     updateTitle: (v) => "Есть новая версия " + v, updateOpen: "Скачать", updateHint: "Ссылка ведёт на сервер того, кто дал тебе доступ, а не в магазин: оттуда приложение качается и тогда, когда магазины не открываются. Скачал — закрой это окно и запусти новый файл.",
+    closeName: "Крестик окна", closeHint: "В трее туннель продолжает работать; значок — у часов, а если его не видно, нажмите «^» и перетащите на панель задач.",
+    closeTray: "Прятать в трей", closeQuit: "Закрывать программу",
     autostart: "Запускать вместе с Windows", autostartHint: "Без окна, в трее; туннель поднимется сам, если ключ сохранён. Ставится задача планировщика с правами администратора — так Windows не спрашивает согласия при каждом входе.",
     autostartOn: "Включено", autostartOff: "Выключено",
     settingsConn: "Подключение", toggleOn: "Включено", toggleOff: "Выключено",
@@ -1366,15 +1434,42 @@ const T = {
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
     kSession: "Сессия", kPing: "Отклик ноды", down: "↓ Загрузка", up: "↑ Отдача",
-    vibeTitle: "Образ", vibeHint: "цвет, узор, шрифт и характер разом",
-    fineShow: "Тонкая настройка", fineHide: "Скрыть тонкую настройку",
+    vibeTitle: "Образ", vibeHint: "листайте вбок — четырнадцать характеров",
+    fineShow: "Открыть точную настройку", fineHide: "Скрыть точную настройку",
     vibes: {
       graphite: ["Графит", "Фирменный серый и спокойная сетка"],
-      dot: ["Точка", "Чёрное табло, точечные цифры, красный акцент"],
+      dot: ["Точка", "Чёрное табло, точечные цифры, красный"],
       paper: ["Бумага", "Светлый лист в точку, чернила и красный"],
-      acid: ["Кислота", "Чёрный и кислотный лайм, бегущие полосы"],
+      glass: ["Стекло", "Матовое стекло и системный синий"],
+      pastel: ["Пастель", "Мягкие тона, плитки переворачиваются"],
+      acid: ["Кислота", "Чёрный и лайм, бегущие полосы"],
       aurora: ["Аврора", "Северное сияние и стеклянные карточки"],
-      terminal: ["Терминал", "Зелёный фосфор и развёртка экрана"],
+      terminal: ["Терминал", "Зелёный фосфор и развёртка"],
+      neon: ["Неон", "Розовый и бирюзовый, надпись светится"],
+      sunset: ["Закат", "Тёплое сияние, оранжевый и розовый"],
+      mica: ["Мика", "Светлая подложка и прозрачные окна"],
+      retro: ["Ретро", "Вейпорвейв: розовый, голубой, плитки"],
+      ocean: ["Океан", "Глубокий синий и стекло над волной"],
+      coffee: ["Кофе", "Тёплая медь и неспешные полосы"],
+    },
+    themeBase: "Основа", themePickAccent: "Свой акцент — любой цвет", themePickTint: "Свой оттенок света",
+    fineColors: "Цвета", finePattern: "Узор фона", fineShape: "Форма", fineType: "Шрифт и знак",
+    fineResetAll: "Вернуть настройки образа",
+    fine: {
+      bg: "Фон", surf: "Карточки", fg: "Текст", dim: "Подписи", line: "Обводка", pcolor: "Цвет узора",
+      pattern: "Узор", amount: "Насыщенность", pstep: "Шаг", psize: "Размер элементов", pspeed: "Скорость",
+      r: "Скругление", pad: "Отступы внутри", gap: "Зазоры между карточками", glow: "Свечение",
+      blur: "Размытие стекла", calpha: "Непрозрачность карточек",
+      font: "Шрифт текста", sfont: "Шрифт надписи", nums: "Цифры", statusSize: "Размер надписи",
+      caps: "Надпись заглавными", logo: "Знак",
+      auto: "из темы", byVibe: "как у образа", px: "пкс", reset: "Вернуть как в образе", yes: "Да", no: "Нет",
+      opts: {
+        font: { onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Моно", system: "Системный" },
+        sfont: { same: "Как текст", onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Моно", system: "Системный" },
+        nums: { mono: "Моно", text: "Как текст", status: "Как надпись", dot: "Точки" },
+        pattern: { none: "Нет", grid: "Сетка", matrix: "Матрица", tiles: "Плитки", stripes: "Полосы", mesh: "Сияние", scan: "Развёртка" },
+        logo: { metal: "Металл", tint: "Цвет акцента" },
+      },
     },
     settingsLook: "Вид и звук",
     splashName: "Заставка при запуске", splashHint: "Знак собирается из точек, пока окно открывается. Клик её пропускает.",
@@ -1382,6 +1477,8 @@ const T = {
     motions: { off: "Выкл", calm: "Спокойно", lively: "Живо" },
     motionSystem: "В Windows включено «уменьшение движения» — фон стоит, пока оно включено.",
     soundName: "Звук подключения", soundHint: "Короткий щелчок, когда туннель поднялся или опустился.",
+    fxName: "Отклик на руку", fxHint: "Кнопка тянется за курсором, карточки наклоняются, от нажатия расходится кольцо.",
+    clickName: "Волна по клику", clickHint: "Клик по пустому фону пускает по узору волну.",
     todayTraffic: "Трафик сегодня", peakDown: "Пик приёма за сессию", peakUp: "Пик отдачи за сессию",
     averageDown: "Приём в среднем", averageUp: "Отдача в среднем", wNoKey: "Добавьте ключ в настройках",
     chartTitle: "Трафик за час", chartFrom: "−60 мин", chartNow: "сейчас",
@@ -1505,6 +1602,8 @@ const T = {
     settingsApp: "Program", settingsLang: "Interface language", settingsLangHint: "Russian or English; the window switches at once.",
     wOpen: "Open the window", wHide: "Hide to tray",
     updateTitle: (v) => "New version " + v + " available", updateOpen: "Download", updateHint: "The link goes to the server of whoever gave you access, not to a store: it works even when stores do not. Once downloaded, close this window and run the new file.",
+    closeName: "Window close button", closeHint: "In the tray the tunnel keeps running; the icon sits by the clock — if you don't see it, click «^» and drag it onto the taskbar.",
+    closeTray: "Hide to tray", closeQuit: "Quit the app",
     autostart: "Start with Windows", autostartHint: "Without a window, in the tray; the tunnel comes up by itself if a key is saved. A scheduler task with administrator rights is created, so Windows does not ask for consent at every sign-in.",
     autostartOn: "On", autostartOff: "Off",
     settingsConn: "Connection", toggleOn: "On", toggleOff: "Off",
@@ -1542,15 +1641,42 @@ const T = {
 
     pingUnknown: "Not measured", setupLabel: "Connection",
     kSession: "Session", kPing: "Node response", down: "↓ Download", up: "↑ Upload",
-    vibeTitle: "Vibe", vibeHint: "colour, pattern, type and character in one go",
-    fineShow: "Fine-tune", fineHide: "Hide fine-tuning",
+    vibeTitle: "Vibe", vibeHint: "scroll sideways — fourteen characters",
+    fineShow: "Open fine-tuning", fineHide: "Hide fine-tuning",
     vibes: {
       graphite: ["Graphite", "Signature grey and a calm grid"],
-      dot: ["Dot", "Black board, dot-matrix digits, red accent"],
+      dot: ["Dot", "Black board, dot-matrix digits, red"],
       paper: ["Paper", "Light dotted sheet, ink and red"],
-      acid: ["Acid", "Black and acid lime, running stripes"],
+      glass: ["Glass", "Frosted glass and system blue"],
+      pastel: ["Pastel", "Soft tones, flipping tiles"],
+      acid: ["Acid", "Black and lime, running stripes"],
       aurora: ["Aurora", "Northern lights and glass cards"],
       terminal: ["Terminal", "Green phosphor and scanlines"],
+      neon: ["Neon", "Pink and cyan, glowing status"],
+      sunset: ["Sunset", "Warm glow, orange and pink"],
+      mica: ["Mica", "Light backdrop, translucent panes"],
+      retro: ["Retro", "Vaporwave: pink, cyan, tiles"],
+      ocean: ["Ocean", "Deep blue and glass over a wave"],
+      coffee: ["Coffee", "Warm copper and slow stripes"],
+    },
+    themeBase: "Base", themePickAccent: "Your own accent — any colour", themePickTint: "Your own light tint",
+    fineColors: "Colours", finePattern: "Background pattern", fineShape: "Shape", fineType: "Type and mark",
+    fineResetAll: "Restore the vibe's settings",
+    fine: {
+      bg: "Background", surf: "Cards", fg: "Text", dim: "Captions", line: "Outline", pcolor: "Pattern colour",
+      pattern: "Pattern", amount: "Intensity", pstep: "Spacing", psize: "Element size", pspeed: "Speed",
+      r: "Corner radius", pad: "Inner padding", gap: "Gap between cards", glow: "Glow",
+      blur: "Glass blur", calpha: "Card opacity",
+      font: "Text font", sfont: "Status font", nums: "Digits", statusSize: "Status size",
+      caps: "Status in capitals", logo: "Mark",
+      auto: "from theme", byVibe: "as the vibe", px: "px", reset: "Back to the vibe's value", yes: "Yes", no: "No",
+      opts: {
+        font: { onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Mono", system: "System" },
+        sfont: { same: "As text", onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Mono", system: "System" },
+        nums: { mono: "Mono", text: "As text", status: "As status", dot: "Dots" },
+        pattern: { none: "None", grid: "Grid", matrix: "Matrix", tiles: "Tiles", stripes: "Stripes", mesh: "Glow", scan: "Scanlines" },
+        logo: { metal: "Metal", tint: "Accent colour" },
+      },
     },
     settingsLook: "Look and sound",
     splashName: "Launch animation", splashHint: "The mark assembles from dots while the window opens. Click to skip.",
@@ -1558,6 +1684,8 @@ const T = {
     motions: { off: "Off", calm: "Calm", lively: "Lively" },
     motionSystem: "Windows has reduced motion on — the background stays still while it is.",
     soundName: "Connection sound", soundHint: "A short chirp when the tunnel goes up or down.",
+    fxName: "Responds to touch", fxHint: "The button leans toward the cursor, cards tilt, a ring spreads from a press.",
+    clickName: "Ripple on click", clickHint: "Clicking the empty background sends a ripple through the pattern.",
     todayTraffic: "Traffic today", peakDown: "Session download peak", peakUp: "Session upload peak",
     averageDown: "Average download", averageUp: "Average upload", wNoKey: "Add your access key in settings",
     chartTitle: "Traffic, last hour", chartFrom: "−60 min", chartNow: "now",
@@ -1983,7 +2111,7 @@ function swatches(id, colors, current, paint, onPick) {
     const b = el("button", "swatch");
     b.type = "button";
     b.dataset.focus = id + "-" + c;
-    b.setAttribute("aria-label", c == null ? L().themeTintAuto : (id === "accents" ? L().themeAccent : L().themeTint) + " " + c);
+    b.setAttribute("aria-label", c == null ? L().themeTintAuto : (id === "accents" ? L().themeAccent : id === "bases" ? L().themeBase : L().themeTint) + " " + c);
     b.style.background = paint(c);
     b.setAttribute("aria-pressed", String(current === c));
     b.addEventListener("click", () => onPick(c));
@@ -2001,34 +2129,19 @@ function paintTheme() {
   const t = Look.theme(look);
   $("theme-copy-status").textContent = "";
 
-  // Готовые виды — мини-макет окна в цветах каждого: боковая, кнопка, карточки.
-  const presets = $("presets");
-  presets.replaceChildren();
-  Look.LOOKS.forEach((lk, i) => {
-    const lt = Look.theme(Object.assign({}, lk, { acc: null, tint: null }));
-    const b = el("button", "preset");
-    b.type = "button";
-    b.dataset.focus = "preset-" + i;
-    b.setAttribute("aria-pressed", String(Look.same(look, lk)));
-    const pv = el("span", "pv");
-    pv.style.background = lt.bgcss;
-    const side = el("i"); side.style.cssText = "left:0;top:0;bottom:0;width:30%;background:" + lt.surf + ";border-right:1px solid " + lt.line;
-    const ring = el("i"); ring.style.cssText = "left:52%;top:22%;width:12px;height:12px;border-radius:50%;box-sizing:border-box;border:2px solid " + lt.acc
-      + (lk.btn === "solid" ? ";background:" + lt.acc : "");
-    const cardA = el("i"); cardA.style.cssText = "left:38%;right:8%;bottom:8%;height:22%;border-radius:" + Math.round(lt.r * 0.25) + "px;background:" + lt.surf
-      + ";border:1px solid " + lt.cardLine;
-    pv.append(side, ring, cardA);
-    const nm = el("span", "nm", d.themes[i] || lk.preset);
-    b.append(pv, nm);
-    // Вид задаёт всё разом; акцент и оттенок сбрасываются: у каждого свой.
-    b.addEventListener("click", () => setLook(Object.assign({ acc: null, tint: null }, lk)));
-    presets.append(b);
-  });
+  // Основа — фон и текст палитры. Готовых видов больше нет: их место заняли
+  // образы, а здесь остаётся только то, чего образ сам не решает.
+  swatches("bases", Object.keys(Look.PRESETS), look.preset,
+    (k) => "linear-gradient(135deg," + Look.PRESETS[k].bg + " 55%," + Look.PRESETS[k].acc + " 55%)",
+    (k) => setLook({ preset: k }));
 
   swatches("accents", Look.ACCENTS, t.acc, (c) => c, (c) => setLook({ acc: c }));
   swatches("tints", [null].concat(Look.ACCENTS), look.tint,
     (c) => "linear-gradient(135deg," + (c || t.acc) + "," + Look.mix(c || t.acc, "#000000", 0.6) + ")",
     (c) => setLook({ tint: c }));
+  // Пипетки: любой цвет, а не только из кружков.
+  $("acc-pick").value = t.acc;
+  $("tint-pick").value = look.tint || t.acc;
 
   // Лампа: экран, залитый настоящим фоном; нажатие в угол переносит свет.
   const litBg = (kind, dir) => Look.theme(Object.assign({}, look, { kind, dir })).bgcss;
@@ -2067,11 +2180,8 @@ function paintTheme() {
   depth.value = Math.round(look.depth * 100);
   $("depth-note").textContent = d.depths[look.depth <= 0.3 ? 0 : look.depth <= 0.5 ? 1 : look.depth <= 0.7 ? 2 : look.depth <= 0.85 ? 3 : 4];
 
-  pills("radii", Object.keys(Look.RADII), look.radius, d.radii, (k) => setLook({ radius: k }));
-  pills("densities", Object.keys(Look.DENSITY), look.density, d.density, (k) => setLook({ density: k }));
   pills("cardKinds", Look.CARDS, look.card, d.cardKinds, (k) => setLook({ card: k }));
   pills("buttons", Look.BUTTONS, look.btn, d.buttons, (k) => setLook({ btn: k }));
-  pills("glows", Object.keys(Look.GLOWS), look.glow, d.glows, (k) => setLook({ glow: k }));
 
   // Профили — три слота с кодами. Пустой слот занимается кнопкой «сохранить
   // сюда», занятый по нажатию применяется.
@@ -2085,14 +2195,13 @@ function paintTheme() {
     b.setAttribute("aria-pressed", String(profileSlot === i));
     b.addEventListener("click", () => {
       profileSlot = i;
-      const st = code ? Look.decode(code) : null;
-      if (st) setLook(st); else paintTheme();
+      if (!code || !applyCode(code)) paintTheme();
     });
     profiles.append(b);
   });
 
   paintBackdropKnobs();
-  $("theme-code").textContent = Look.encode(look);
+  $("theme-code").textContent = fullCode();
   $("theme-code").title = d.themeCopy;
   $("code-in").placeholder = d.themeCodePlaceholder;
   $("code-in").setAttribute("aria-label", d.themeCodePlaceholder);
@@ -2106,36 +2215,32 @@ function paintTheme() {
 let profileSlot = 0;
 
 on("depth", "input", (e) => setLook({ depth: Number(e.target.value) / 100 }));
+on("acc-pick", "input", (e) => setLook({ acc: e.target.value.toLowerCase() }));
+on("tint-pick", "input", (e) => setLook({ tint: e.target.value.toLowerCase() }));
 on("profile-save", "click", () => {
   const slots = Look.loadProfiles();
-  slots[profileSlot] = Look.encode(look);
+  slots[profileSlot] = fullCode();
   Look.saveProfiles(slots);
   paintTheme();
 });
 on("theme-random", "click", () => {
-  const pick = (a) => a[Math.floor(Math.random() * a.length)];
-  setLook({
-    preset: pick(Object.keys(Look.PRESETS)), acc: pick([null].concat(Look.ACCENTS)), tint: pick([null, null].concat(Look.ACCENTS)),
-    kind: pick(["linear", "radial", "aurora"]), dir: pick(Object.keys(Look.DIRS)),
-    depth: Math.round((0.2 + Math.random() * 0.75) * 100) / 100,
-    radius: pick(Object.keys(Look.RADII)), density: pick(Object.keys(Look.DENSITY)),
-    btn: pick(Look.BUTTONS), glow: pick(Object.keys(Look.GLOWS)), card: pick(Look.CARDS),
-  });
+  // Наугад — образ и свой акцент к нему: случайная смесь ручек давала кашу.
+  const ids = Object.keys(VIBES);
+  chooseVibe(ids[Math.floor(Math.random() * ids.length)]);
+  setLook({ acc: Look.ACCENTS[Math.floor(Math.random() * Look.ACCENTS.length)] });
 });
 on("theme-code", "click", async () => {
   try {
-    await navigator.clipboard.writeText(Look.encode(look));
+    await navigator.clipboard.writeText(fullCode());
     $("theme-copy-status").textContent = L().themeCopied;
   } catch (_) { $("theme-copy-status").textContent = L().themeCopyFailed; }
 });
 on("code-in", "change", (e) => {
-  const st = Look.decode(e.target.value);
-  $("code-bad").hidden = !!st;
-  if (!st) return;
-  e.target.value = "";
-  setLook(st);
+  const ok = applyCode(e.target.value);
+  $("code-bad").hidden = ok;
+  if (ok) e.target.value = "";
 });
-on("theme-reset", "click", () => setLook(Object.assign({}, Look.DEFAULT)));
+on("theme-reset", "click", () => chooseVibe("graphite"));
 on("update-open", "click", () => api("POST", "api/update/open").catch(() => {}));
 
 /* ------------------------------------------------------------- прокси */
@@ -2685,6 +2790,22 @@ on("autostart", "click", async () => {
 });
 paintAutostart();
 
+// Крестик: состояние у программы — она и решает, что делать по закрытию.
+async function paintClose() {
+  try {
+    const c = await api("GET", "api/close");
+    for (const b of $("close-pick").querySelectorAll("[data-quit]")) b.setAttribute("aria-pressed", String(b.dataset.quit === String(!!c.quit)));
+  } catch (_) { /* покажем при следующем заходе */ }
+}
+for (const b of $("close-pick").querySelectorAll("[data-quit]")) {
+  b.addEventListener("click", async () => {
+    $("close-msg").textContent = "";
+    try { await api("POST", "api/close", { quit: b.dataset.quit === "true" }); } catch (err) { $("close-msg").textContent = err.message; }
+    paintClose();
+  });
+}
+paintClose();
+
 on("proxy-off", "click", dropProxy);
 
 // Канал продавца. Объявление — только через textContent: его пишет продавец,
@@ -2996,60 +3117,172 @@ setInterval(tick, 1000);
 // ───────────────────────────────────────────────────────────── образы ──
 //
 // Образ — тема с характером: палитра, свет и кнопка из общей темы (look.js)
-// плюс то, чего у неё нет: живой узор фона, шрифт и подача цифр. 27 палитр
-// и десяток ручек дают выбор, но не лицо — из двадцати восьми одинаковых
-// квадратиков человек выбирает наугад. Образов шесть, и каждый узнаётся.
+// плюс то, чего у неё нет: живой узор фона, шрифты, подача цифр, стекло.
+// Из двадцати восьми одинаковых квадратиков человек выбирал наугад; образ
+// узнаётся с первого взгляда.
 //
-// Ручки темы никуда не делись: «Тонкая настройка» открывает их все, а образ
-// остаётся — узор и шрифт живут отдельно от цвета.
+// Всё, что задаёт образ, можно переписать в точной настройке, поле за полем:
+// у образа — значения по умолчанию (o), у человека — свои (vibe.o). Пустое
+// поле значит «как у образа», поэтому смена образа не затирает чужой выбор
+// там, где он сделан, и не тащит его туда, где не сделан.
 const VIBES = {
   graphite: {
     look: {},
-    pattern: "grid", mono: false,
+    o: { pattern: "grid", font: "onest", sfont: "same", nums: "mono", caps: false },
     preview: { bg: "linear-gradient(135deg,#43474c,#0c0e11)", fg: "#f1f4f7", acc: "#c3ccd6", pat: "radial-gradient(rgba(195,204,214,.22) 1px,transparent 1.6px) 0 0/10px 10px" },
   },
+  // В духе прозрачной техники: чёрное табло, точечная матрица, один красный.
   dot: {
     look: { preset: "oled", acc: "#ff3b30", kind: "flat", radius: "soft", density: "normal", btn: "ring", glow: "soft", card: "outline", tint: null },
-    pattern: "matrix", mono: true, numerals: "dot",
+    o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26 },
     preview: { bg: "#000", fg: "#fff", acc: "#ff3b30", pat: "radial-gradient(rgba(255,255,255,.35) 1.1px,transparent 1.7px) 0 0/7px 7px" },
   },
   paper: {
     look: { preset: "paper", acc: "#d6362a", kind: "flat", radius: "soft", density: "roomy", btn: "ring", glow: "none", card: "outline", tint: null },
-    pattern: "matrix", mono: true, numerals: "dot",
+    o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26 },
     preview: { bg: "#f7f4ee", fg: "#14120e", acc: "#d6362a", pat: "radial-gradient(rgba(20,18,14,.28) 1.1px,transparent 1.7px) 0 0/7px 7px" },
+  },
+  // В духе телефонов с матовым стеклом. Шрифт — системный Windows: чужой
+  // фирменный в окно не встраиваем.
+  glass: {
+    look: { preset: "midnight", acc: "#0a84ff", kind: "flat", radius: "pill", density: "roomy", btn: "glass", glow: "soft", card: "flat", tint: null },
+    o: { pattern: "mesh", font: "system", sfont: "same", nums: "text", caps: false, blur: 24, calpha: 55 },
+    preview: { bg: "#05070c", fg: "#f2f5fa", acc: "#0a84ff", pat: "radial-gradient(55% 65% at 30% 30%,rgba(10,132,255,.5),transparent 70%),radial-gradient(45% 55% at 78% 72%,rgba(255,159,10,.32),transparent 70%)" },
+  },
+  // Мягкие тона и плитки, что переворачиваются волной.
+  pastel: {
+    look: { preset: "linen", acc: "#7c5cc4", kind: "linear", dir: "nw", depth: 0.35, radius: "pill", density: "roomy", btn: "solid", glow: "none", card: "flat", tint: "#e8c0a8" },
+    o: { pattern: "tiles", font: "manrope", sfont: "same", nums: "text", caps: false },
+    preview: { bg: "#f4f1ea", fg: "#171512", acc: "#7c5cc4", pat: "linear-gradient(90deg,rgba(124,92,196,.12) 50%,transparent 50%) 0 0/16px 16px,linear-gradient(rgba(124,92,196,.12) 50%,transparent 50%) 0 0/16px 16px" },
   },
   acid: {
     look: { preset: "mono", acc: "#c8ff00", kind: "flat", radius: "pill", density: "normal", btn: "solid", glow: "mid", card: "flat", tint: null },
-    pattern: "stripes", mono: false,
+    o: { pattern: "stripes", font: "onest", sfont: "unbounded", nums: "status", caps: true, statusSize: 30 },
     preview: { bg: "#0a0a0a", fg: "#fafafa", acc: "#c8ff00", pat: "repeating-linear-gradient(-45deg,rgba(200,255,0,.16) 0 2px,transparent 2px 9px)" },
   },
   aurora: {
     look: { preset: "plum", acc: "#a98bff", kind: "aurora", dir: "ne", depth: 0.8, radius: "round", density: "roomy", btn: "glass", glow: "mid", card: "flat", tint: null },
-    pattern: "mesh", mono: false,
+    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "mono", caps: false, blur: 18, calpha: 60 },
     preview: { bg: "#0b0714", fg: "#efe7fb", acc: "#a98bff", pat: "radial-gradient(60% 70% at 25% 30%,rgba(169,139,255,.55),transparent 70%),radial-gradient(50% 60% at 80% 75%,rgba(64,200,255,.35),transparent 70%)" },
   },
   terminal: {
     look: { preset: "emerald", acc: "#3dff8f", kind: "radial", dir: "c", depth: 0.85, radius: "sharp", density: "compact", btn: "bare", glow: "mid", card: "outline", tint: null },
-    pattern: "scan", mono: false,
+    o: { pattern: "scan", font: "mono", sfont: "same", nums: "mono", caps: true },
     preview: { bg: "#06100c", fg: "#c9ffe0", acc: "#3dff8f", pat: "repeating-linear-gradient(0deg,rgba(61,255,143,.13) 0 1px,transparent 1px 4px)" },
   },
+  neon: {
+    look: { preset: "fuchsia", acc: "#ff2bd6", kind: "radial", dir: "c", depth: 0.88, radius: "sharp", density: "normal", btn: "ring", glow: "neon", card: "outline", tint: "#00e5ff" },
+    o: { pattern: "grid", font: "onest", sfont: "unbounded", nums: "mono", caps: true, pstep: 30, psize: 140 },
+    preview: { bg: "#120616", fg: "#fbe6f6", acc: "#ff2bd6", pat: "linear-gradient(rgba(0,229,255,.18) 1px,transparent 1px) 0 0/14px 14px,linear-gradient(90deg,rgba(255,43,214,.18) 1px,transparent 1px) 0 0/14px 14px" },
+  },
+  sunset: {
+    look: { preset: "ember", acc: "#ff7a3d", kind: "aurora", dir: "s", depth: 0.75, radius: "round", density: "normal", btn: "solid", glow: "mid", card: "flat", tint: "#ff4d8d" },
+    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "text", caps: false, blur: 14, calpha: 70 },
+    preview: { bg: "#120902", fg: "#fbeadc", acc: "#ff7a3d", pat: "radial-gradient(70% 60% at 50% 110%,rgba(255,122,61,.6),transparent 70%),radial-gradient(50% 50% at 20% 20%,rgba(255,77,141,.35),transparent 70%)" },
+  },
+  // В духе окон Windows 11: светлая подложка, полупрозрачные карточки.
+  mica: {
+    look: { preset: "daylight", acc: "#0067c0", kind: "linear", dir: "nw", depth: 0.3, radius: "soft", density: "normal", btn: "ring", glow: "none", card: "outline", tint: "#9ec9f0" },
+    o: { pattern: "none", font: "system", sfont: "same", nums: "text", caps: false, blur: 30, calpha: 70 },
+    preview: { bg: "linear-gradient(135deg,#dfe9f3,#f3f5f7)", fg: "#0d1013", acc: "#0067c0", pat: "linear-gradient(transparent,transparent)" },
+  },
+  retro: {
+    look: { preset: "plum", acc: "#ff71ce", kind: "linear", dir: "s", depth: 0.7, radius: "sharp", density: "normal", btn: "solid", glow: "mid", card: "outline", tint: "#01cdfe" },
+    o: { pattern: "tiles", font: "onest", sfont: "unbounded", nums: "mono", caps: true, pstep: 52 },
+    preview: { bg: "linear-gradient(180deg,#2b0f3f,#0b0714)", fg: "#ffe8fb", acc: "#ff71ce", pat: "linear-gradient(rgba(1,205,254,.22) 1px,transparent 1px) 0 0/12px 12px" },
+  },
+  ocean: {
+    look: { preset: "ice", acc: "#3fd0ff", kind: "aurora", dir: "n", depth: 0.8, radius: "round", density: "normal", btn: "glass", glow: "mid", card: "flat", tint: "#2b6cff" },
+    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "mono", caps: false, blur: 16, calpha: 65 },
+    preview: { bg: "#060c14", fg: "#e2f0fb", acc: "#3fd0ff", pat: "radial-gradient(60% 50% at 30% 80%,rgba(63,208,255,.45),transparent 70%),radial-gradient(50% 50% at 80% 20%,rgba(43,108,255,.4),transparent 70%)" },
+  },
+  coffee: {
+    look: { preset: "copper", acc: "#d9a066", kind: "linear", dir: "nw", depth: 0.55, radius: "pill", density: "roomy", btn: "glass", glow: "soft", card: "outline", tint: null },
+    o: { pattern: "stripes", font: "manrope", sfont: "same", nums: "text", caps: false, pspeed: 40, pstep: 40 },
+    preview: { bg: "#110a06", fg: "#f8e9dd", acc: "#d9a066", pat: "repeating-linear-gradient(-45deg,rgba(217,160,102,.12) 0 2px,transparent 2px 12px)" },
+  },
+};
+
+// Поля точной настройки и их значения по умолчанию. Цвета null — «из темы».
+const O_DEFAULTS = {
+  bg: null, surf: null, fg: null, dim: null, line: null,
+  r: null, pad: null, gap: null, glow: null, blur: 0, calpha: 100,
+  font: "onest", sfont: "same", nums: "mono", caps: false, statusSize: 32,
+  pattern: "grid", pcolor: null, amount: 60, pstep: 0, psize: 100, pspeed: 100,
+  logo: "metal",
+};
+const O_CHOICES = {
+  font: ["onest", "manrope", "unbounded", "mono", "system"],
+  sfont: ["same", "onest", "manrope", "unbounded", "mono", "system"],
+  nums: ["mono", "text", "status", "dot"],
+  pattern: ["none", "grid", "matrix", "tiles", "stripes", "mesh", "scan"],
+  logo: ["metal", "tint"],
+};
+const O_RANGES = {
+  r: [0, 32], pad: [8, 28], gap: [4, 24], glow: [0, 100], blur: [0, 32], calpha: [30, 100],
+  statusSize: [20, 46], amount: [0, 100], pstep: [0, 64], psize: [40, 220], pspeed: [0, 300],
+};
+const O_COLORS = ["bg", "surf", "fg", "dim", "line", "pcolor"];
+const FONTS = {
+  onest: 'Onest, "Segoe UI", system-ui, sans-serif',
+  manrope: 'Manrope, Onest, "Segoe UI", sans-serif',
+  unbounded: 'Unbounded, Onest, sans-serif',
+  mono: '"JetBrains Mono", ui-monospace, Consolas, monospace',
+  system: '"Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif',
 };
 const VIBE_KEY = "marvia-vibe";
 const MOTIONS = ["off", "calm", "lively"];
+const isHexColor = (v) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v);
+const has = (t, k) => Object.prototype.hasOwnProperty.call(t, k);
+
+// normO отбрасывает из своих настроек всё чужое: код темы приходит от
+// других людей, а битое поле не должно уронить окно или протащить в CSS
+// что-то, кроме цвета и числа.
+function normO(raw) {
+  const out = {};
+  const v = raw && typeof raw === "object" ? raw : {};
+  for (const k of Object.keys(O_DEFAULTS)) {
+    const x = v[k];
+    if (x === undefined || x === null) continue;
+    if (O_COLORS.includes(k)) { if (isHexColor(x)) out[k] = x.toLowerCase(); }
+    else if (has(O_CHOICES, k)) { if (O_CHOICES[k].includes(x)) out[k] = x; }
+    else if (k === "caps") { if (typeof x === "boolean") out[k] = x; }
+    else if (has(O_RANGES, k)) {
+      const [lo, hi] = O_RANGES[k];
+      if (typeof x === "number" && isFinite(x)) out[k] = Math.round(Math.min(hi, Math.max(lo, x)));
+    }
+  }
+  return out;
+}
 
 function loadVibe() {
   let v = {};
   try { v = JSON.parse(localStorage.getItem(VIBE_KEY)) || {}; } catch (_) { /* испорченное — с нуля */ }
   return {
-    id: Object.prototype.hasOwnProperty.call(VIBES, v.id) ? v.id : "graphite",
+    id: has(VIBES, v.id) ? v.id : "graphite",
     motion: MOTIONS.includes(v.motion) ? v.motion : "calm",
     splash: v.splash !== false,
     sound: v.sound === true,
+    // Отклик на руку: кнопка тянется за курсором, карточки наклоняются,
+    // клик по пустому фону пускает волну. По умолчанию включено — ради этого
+    // окно и хочется трогать.
+    fx: v.fx !== false,
+    clickWave: v.clickWave !== false,
+    o: normO(v.o),
   };
 }
-let vibe = loadVibe();
+// var, а не let: вкладку «Тема» страница рисует при запуске раньше, чем
+// доходит до этого места, и обращение к let до объявления роняло весь скрипт.
+var vibe = loadVibe();
 function saveVibe() {
   try { localStorage.setItem(VIBE_KEY, JSON.stringify(vibe)); } catch (_) { /* не запомнится — не беда */ }
+}
+
+// eff — действующее значение поля: своё, иначе образа, иначе общее.
+function eff(k) {
+  if (has(vibe.o, k)) return vibe.o[k];
+  const own = VIBES[vibe.id].o;
+  return has(own, k) ? own[k] : O_DEFAULTS[k];
 }
 
 // Движение выключено системой — значит, выключено и у нас, что бы ни стояло
@@ -3057,19 +3290,111 @@ function saveVibe() {
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const motion = () => (reducedMotion() ? "off" : vibe.motion);
 
+// Код окна: общий код темы (его понимают панель и телефон) и после «~» —
+// образ и все поля точной настройки. Друг вставляет код и получает то же
+// окно, а не только те же цвета.
+function b64url(s) { return btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+function unb64url(s) { return decodeURIComponent(escape(atob(s.replace(/-/g, "+").replace(/_/g, "/")))); }
+function fullCode() { if (!vibe) return Look.encode(look); return Look.encode(look) + "~" + b64url(JSON.stringify({ i: vibe.id, o: vibe.o })); }
+function applyCode(code) {
+  const st = Look.decode(code);
+  if (!st) return false;
+  const tail = String(code).trim().split("~")[1];
+  if (tail) {
+    let extra = null;
+    try { extra = JSON.parse(unb64url(tail)); } catch (_) { return false; }
+    if (!extra || !has(VIBES, extra.i)) return false;
+    vibe.id = extra.i;
+    vibe.o = normO(extra.o);
+    saveVibe();
+  }
+  setLook(st);
+  applyVibe();
+  return true;
+}
+
+// ── свои значения поверх темы ──
+//
+// Тема (look.js) считает цвета и контраст. Точная настройка позволяет
+// заменить любой из них руками — тогда ответственность за читаемость на
+// человеке, и мы не спорим. Пустые поля темы не трогают.
+function rgbOf(hex) {
+  const v = hex.replace("#", "");
+  return [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16));
+}
+function alphaOf(hex, a) { return "rgba(" + rgbOf(hex).join(",") + "," + a + ")"; }
+function overrideCss(t) {
+  const o = vibe.o, out = [];
+  const acc = t.acc;
+  const surf = o.surf || t.surf;
+  if (o.bg) {
+    out.push("--bg:" + o.bg, "--shade:" + Look.mix(o.bg, "#000000", 0.45));
+    if (!backdropURL) out.push("--bgcss:radial-gradient(130% 100% at top left," + Look.mix(o.bg, "#ffffff", 0.07) + " 0%," + o.bg + " 48%," + Look.mix(o.bg, "#000000", 0.45) + " 100%)");
+  }
+  if (o.surf) out.push("--surf:" + o.surf, "--surf2:" + Look.mix(o.surf, o.fg || t.fg, 0.08));
+  if (o.fg) out.push("--fg:" + o.fg);
+  if (o.dim) out.push("--dim:" + o.dim);
+  if (o.line) out.push("--line:" + o.line, "--cardLine:" + (t.card === "flat" ? "transparent" : o.line));
+  // Карточка: тот же отлив, что у темы, но от своей поверхности и со своей
+  // непрозрачностью — полупрозрачная пускает под себя узор и стекло.
+  const ca = eff("calpha") / 100;
+  if (o.surf || ca < 1) {
+    const paint = (c) => (ca < 1 ? alphaOf(c, ca) : c);
+    const a = t.card === "flat" ? surf : Look.mix(surf, acc, t.dark ? 0.065 : 0.025);
+    out.push("--cardBg:linear-gradient(135deg," + paint(a) + "," + paint(surf) + ")");
+    out.push("--featureBg:linear-gradient(135deg," + paint(Look.mix(surf, acc, t.dark ? 0.18 : 0.10)) + "," + paint(surf) + ")");
+  }
+  if (o.r != null) out.push("--r:" + o.r + "px");
+  if (o.pad != null) out.push("--pad:" + o.pad + "px");
+  if (o.gap != null) out.push("--gap:" + o.gap + "px");
+  if (o.glow != null) {
+    const g = o.glow / 100;
+    out.push("--glow:" + (g <= 0 ? "none" : "0 0 " + Math.round(36 * g) + "px " + alphaOf(acc, (0.25 + g * 0.55).toFixed(2))));
+  }
+  const blur = eff("blur");
+  out.push("--glassFilter:" + (blur > 0 ? "blur(" + blur + "px) saturate(1.25)" : "none"));
+  const font = FONTS[eff("font")], sfont = eff("sfont") === "same" ? font : FONTS[eff("sfont")];
+  const nums = eff("nums");
+  out.push("--uiFont:" + font, "--statusFont:" + sfont,
+    "--numFont:" + (nums === "text" ? font : nums === "status" ? sfont : FONTS.mono),
+    "--statusSize:" + eff("statusSize") + "px",
+    "--statusCase:" + (eff("caps") ? "uppercase" : "none"),
+    "--statusTrack:" + (eff("caps") ? ".1em" : "-.015em"));
+  return ";" + out.join(";");
+}
+
+// paintOverrides переписывает переменные страницы без похода в окно: ползунок
+// шлёт десятки изменений в секунду, а заголовку окна они не нужны.
+function paintOverrides() {
+  const t = Look.theme(look);
+  document.documentElement.style.cssText = Look.vars(t) + (backdropURL ? ";--bgcss:transparent" : "") + overrideCss(t);
+}
+
 function applyVibe() {
   document.body.dataset.vibe = vibe.id;
   document.body.dataset.motion = motion();
+  document.body.dataset.logo = eff("logo");
+  document.body.dataset.caps = String(eff("caps"));
+  paintOverrides();
   Field.restyle();
   paintDotNums();
   paintVibeControls();
 }
 
+function setO(k, v) {
+  if (v === null || v === undefined) delete vibe.o[k];
+  else vibe.o[k] = v;
+  vibe.o = normO(vibe.o);
+  saveVibe();
+  applyVibe();
+}
+
 function chooseVibe(id) {
   vibe.id = id;
+  // Образ — это характер целиком: свои поля точной настройки уходят, иначе
+  // остатки прошлого образа смешали бы два характера в один невнятный.
+  vibe.o = {};
   saveVibe();
-  // Образ задаёт тему целиком, с нуля: остатки прошлой ручной настройки
-  // смешали бы два характера в один невнятный.
   setLook(Object.assign(Look.normalize({}), VIBES[id].look));
   applyVibe();
   Field.wave(0.9);
@@ -3079,35 +3404,36 @@ function chooseVibe(id) {
 //
 // Узор рисуется на холсте под интерфейсом. Отвечает на курсор, расходится
 // волной при подключении и дышит, пока туннель работает. Кадров не больше
-// тридцати в секунду, а в свёрнутом окне — ни одного: фон, который ест
-// процессор, пока его никто не видит, — это не фон, а утечка.
+// тридцати в секунду, а в покое и в свёрнутом окне — ни одного: фон, который
+// ест процессор, пока его никто не видит, — это не фон, а утечка.
 const Field = (() => {
   const cv = document.getElementById("field");
   const ctx = cv.getContext("2d");
   let W = 0, H = 0, dpr = 1, raf = 0, last = 0;
   let mx = -9999, my = -9999;
   let lastMove = 0, idleTimer = 0;
-  let fg = [241, 244, 247], acc = [195, 204, 214];
+  let fg = [241, 244, 247], acc = [195, 204, 214], ink = acc;
   const waves = [];
   const t0 = performance.now();
   let nextBreath = 0;
   // Точка — готовая картинка нужного цвета: тысячи arc() на кадр съели бы
   // больше, чем весь остальной интерфейс.
-  const spriteFg = document.createElement("canvas"), spriteAcc = document.createElement("canvas");
+  const spriteFg = document.createElement("canvas"), spriteInk = document.createElement("canvas");
   let light = false;
+  // Узоры, которые двигаются сами, — им кадры нужны и без курсора.
+  const MOVING = ["tiles", "stripes", "mesh", "scan"];
 
   function rgb(css, fallback) {
     const m = String(css).match(/\d+/g);
     return m && m.length >= 3 ? m.slice(0, 3).map(Number) : fallback;
   }
-  function paintSprite(cv, c) {
-    cv.width = cv.height = 16;
-    const s = cv.getContext("2d");
+  function paintSprite(c, color) {
+    c.width = c.height = 16;
+    const s = c.getContext("2d");
     s.clearRect(0, 0, 16, 16);
-    s.fillStyle = "rgb(" + c.join(",") + ")";
+    s.fillStyle = "rgb(" + color.join(",") + ")";
     s.beginPath(); s.arc(8, 8, 7.2, 0, Math.PI * 2); s.fill();
   }
-  function makeSprite() { paintSprite(spriteFg, fg); paintSprite(spriteAcc, acc); }
   function resize() {
     dpr = Math.min(2, window.devicePixelRatio || 1);
     W = innerWidth; H = innerHeight;
@@ -3134,76 +3460,114 @@ const Field = (() => {
     const d = Math.hypot(x - mx, y - my);
     return d < 170 ? 1 - d / 170 : 0;
   }
-  function dots(now, step, base, mono) {
-    const base0 = mono ? spriteFg : spriteAcc;
+  const rgba = (c, a) => "rgba(" + c.join(",") + "," + Math.max(0, Math.min(1, a)).toFixed(3) + ")";
+
+  function dots(now, step, base, mono, k, size) {
+    const plain = mono ? spriteFg : spriteInk;
     const ox = (W % step) / 2, oy = (H % step) / 2;
     for (let y = oy; y < H; y += step) {
       for (let x = ox; x < W; x += step) {
         const w = waves.length ? waveAt(x, y, now) : 0, n = near(x, y);
-        const a = base + n * 0.32 + w * 0.6;
-        const r = (step / 16) * (1 + n * 0.7 + w * 0.9);
-        ctx.globalAlpha = Math.min(1, a);
-        // В монохромных образах волна — единственное, что окрашено акцентом.
-        ctx.drawImage(mono && w > 0.15 ? spriteAcc : base0, x - r, y - r, r * 2, r * 2);
-      }
-    }
-  }
-  function draw(now) {
-    const v = VIBES[vibe.id];
-    const time = (now - t0) / 1000;
-    const live = motion() !== "off";
-    const speed = motion() === "lively" ? 1 : 0.4;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    for (let i = waves.length - 1; i >= 0; i--) if (now - waves[i].at > 2400) waves.splice(i, 1);
-    if (v.pattern === "grid") dots(now, 24, 0.07, false);
-    else if (v.pattern === "matrix") {
-      // Точки-«пиксели» цветом текста: им нужен акцент, только когда что-то случилось.
-      dots(now, 16, light ? 0.16 : 0.11, true);
-    } else if (v.pattern === "stripes") {
-      const gap = 30, off = live ? (time * 14 * speed) % gap : 0;
-      ctx.lineWidth = 1.2;
-      for (let k = -H; k < W + H; k += gap) {
-        const x = k + off, mid = x + H / 2;
-        const w = waves.length ? waveAt(mid, H / 2, now) : 0;
-        ctx.strokeStyle = "rgba(" + acc.join(",") + "," + (0.05 + w * 0.35 + near(mid, my) * 0.12) + ")";
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + H, H); ctx.stroke();
-      }
-    } else if (v.pattern === "mesh") {
-      const blobs = [[0.22, 0.28, acc], [0.8, 0.7, [64, 200, 255]], [0.6, 0.15, [255, 120, 200]]];
-      blobs.forEach(([bx, by, c], i) => {
-        const x = W * (bx + (live ? Math.sin(time * 0.12 * speed + i * 2) * 0.08 : 0));
-        const y = H * (by + (live ? Math.cos(time * 0.1 * speed + i) * 0.08 : 0));
-        const r = Math.max(W, H) * 0.55;
-        const w = waves.length ? waveAt(x, y, now) : 0;
-        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-        g.addColorStop(0, "rgba(" + c.join(",") + "," + (0.16 + w * 0.12) + ")");
-        g.addColorStop(1, "rgba(" + c.join(",") + ",0)");
-        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      });
-    } else if (v.pattern === "scan") {
-      ctx.fillStyle = "rgba(" + acc.join(",") + ",0.045)";
-      for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
-      const band = live ? ((time * 90 * speed) % (H + 240)) - 120 : H * 0.3;
-      const g = ctx.createLinearGradient(0, band - 120, 0, band + 120);
-      g.addColorStop(0, "rgba(" + acc.join(",") + ",0)");
-      g.addColorStop(0.5, "rgba(" + acc.join(",") + ",0.07)");
-      g.addColorStop(1, "rgba(" + acc.join(",") + ",0)");
-      ctx.fillStyle = g; ctx.fillRect(0, band - 120, W, 240);
-      for (const w of waves) {
-        const age = (now - w.at) / 1000, r = age * 520;
-        ctx.strokeStyle = "rgba(" + acc.join(",") + "," + Math.max(0, 0.4 * w.s * (1 - age / 1.8)) + ")";
-        ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(w.x, w.y, r, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = Math.min(1, (base + n * 0.32 + w * 0.6) * k);
+        const r = (step / 16) * size * (1 + n * 0.7 + w * 0.9);
+        // В монохромных образах волна — единственное, что окрашено цветом узора.
+        ctx.drawImage(mono && w > 0.15 ? spriteInk : plain, x - r, y - r, r * 2, r * 2);
       }
     }
     ctx.globalAlpha = 1;
   }
+
+  // Плитки переворачиваются волной по диагонали: лицо — тусклое, изнанка —
+  // ярче, следующая волна возвращает их обратно. Переворот рисуется сжатием
+  // по ширине — без трёхмерной сцены, и потому почти даром.
+  function tiles(now, step, k, size, speed, live) {
+    const time = (now - t0) / 1000;
+    const tile = Math.max(6, step * 0.8 * size);
+    const period = 7 / Math.max(0.05, speed);
+    const sweep = Math.floor(time / period), local = time - sweep * period;
+    const ox = (W % step) / 2, oy = (H % step) / 2;
+    const rad = Math.min(8, tile * 0.16);
+    for (let y = oy; y < H; y += step) {
+      for (let x = ox; x < W; x += step) {
+        const d = (x + y) / (W + H);
+        const p = live ? Math.max(0, Math.min(1, (local - d * period * 0.55) / 0.7)) : 0;
+        const face = (sweep + (p > 0.5 ? 1 : 0)) % 2;
+        const scale = Math.abs(Math.cos(p * Math.PI));
+        const w = waves.length ? waveAt(x + step / 2, y + step / 2, now) : 0, n = near(x + step / 2, y + step / 2);
+        const a = ((face ? 0.11 : 0.045) + n * 0.18 + w * 0.4) * k;
+        const tw = tile * Math.max(0.04, scale);
+        ctx.fillStyle = rgba(ink, a);
+        const cx = x + step / 2, cy = y + step / 2;
+        ctx.beginPath();
+        ctx.roundRect(cx - tw / 2, cy - tile / 2, tw, tile, rad * scale);
+        ctx.fill();
+      }
+    }
+  }
+
+  function draw(now) {
+    const pat = eff("pattern");
+    const time = (now - t0) / 1000;
+    const live = motion() !== "off";
+    const speed = (motion() === "lively" ? 1 : 0.45) * eff("pspeed") / 100;
+    const k = eff("amount") / 60;
+    const size = eff("psize") / 100;
+    const step = (def) => eff("pstep") > 0 ? Math.max(6, eff("pstep")) : def;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    for (let i = waves.length - 1; i >= 0; i--) if (now - waves[i].at > 2400) waves.splice(i, 1);
+    if (k <= 0 || pat === "none") {
+      // Узора нет, но волна подключения остаётся: без неё кнопка нажимается в тишину.
+      for (const w of waves) {
+        const age = (now - w.at) / 1000;
+        ctx.strokeStyle = rgba(ink, 0.35 * w.s * (1 - age / 1.8));
+        ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(w.x, w.y, age * 520, 0, Math.PI * 2); ctx.stroke();
+      }
+      return;
+    }
+    if (pat === "grid") dots(now, step(24), 0.07, false, k, size);
+    else if (pat === "matrix") dots(now, step(16), light ? 0.16 : 0.11, true, k, size);
+    else if (pat === "tiles") tiles(now, step(44), k, size, speed, live);
+    else if (pat === "stripes") {
+      const gap = step(30), off = live ? (time * 14 * speed) % gap : 0;
+      ctx.lineWidth = 1.2 * size;
+      for (let x0 = -H; x0 < W + H; x0 += gap) {
+        const x = x0 + off, mid = x + H / 2;
+        const w = waves.length ? waveAt(mid, H / 2, now) : 0;
+        ctx.strokeStyle = rgba(ink, (0.05 + w * 0.35 + near(mid, my) * 0.12) * k);
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + H, H); ctx.stroke();
+      }
+    } else if (pat === "mesh") {
+      const blobs = [[0.22, 0.28, ink], [0.8, 0.7, [64, 200, 255]], [0.6, 0.15, [255, 120, 200]]];
+      blobs.forEach(([bx, by, c], i) => {
+        const x = W * (bx + (live ? Math.sin(time * 0.12 * speed + i * 2) * 0.08 : 0));
+        const y = H * (by + (live ? Math.cos(time * 0.1 * speed + i) * 0.08 : 0));
+        const r = Math.max(W, H) * 0.55 * size;
+        const w = waves.length ? waveAt(x, y, now) : 0;
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, rgba(c, (0.16 + w * 0.12) * k));
+        g.addColorStop(1, rgba(c, 0));
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      });
+    } else if (pat === "scan") {
+      const gap = step(3);
+      ctx.fillStyle = rgba(ink, 0.045 * k);
+      for (let y = 0; y < H; y += gap) ctx.fillRect(0, y, W, Math.max(1, size));
+      const band = live ? ((time * 90 * speed) % (H + 240)) - 120 : H * 0.3;
+      const g = ctx.createLinearGradient(0, band - 120, 0, band + 120);
+      g.addColorStop(0, rgba(ink, 0)); g.addColorStop(0.5, rgba(ink, 0.07 * k)); g.addColorStop(1, rgba(ink, 0));
+      ctx.fillStyle = g; ctx.fillRect(0, band - 120, W, 240);
+      for (const w of waves) {
+        const age = (now - w.at) / 1000;
+        ctx.strokeStyle = rgba(ink, 0.4 * w.s * (1 - age / 1.8));
+        ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(w.x, w.y, age * 520, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
+  }
+
   function loop(now) {
     raf = 0;
     if (document.hidden || motion() === "off") return;
-    // Неподвижный узор без курсора и волн перерисовывать незачем: сетка в
-    // покое — это одна картинка, а не тридцать в секунду. Просыпаемся к
-    // следующему вдоху, если туннель поднят.
     // Пока подключено — редкий вдох от кнопки: видно, что туннель живой.
     // Проверка — до решения «спать или рисовать»: иначе таймер будил бы фон к
     // вдоху, а вдох так и не наступал.
@@ -3212,8 +3576,11 @@ const Field = (() => {
       const [x, y] = origin();
       waves.push({ x, y, at: now, s: 0.35 });
     }
-    const pat = VIBES[vibe.id].pattern;
-    const busy = waves.length || now - lastMove < 1500 || pat === "stripes" || pat === "mesh" || pat === "scan";
+    // Неподвижный узор без курсора и волн перерисовывать незачем: сетка в
+    // покое — это одна картинка, а не тридцать в секунду.
+    const pat = eff("pattern");
+    const moving = MOVING.includes(pat) && eff("pspeed") > 0 && eff("amount") > 0;
+    const busy = waves.length || now - lastMove < 1500 || moving;
     if (!busy) {
       draw(now);
       clearTimeout(idleTimer);
@@ -3233,12 +3600,22 @@ const Field = (() => {
     waves.push({ x, y, at: performance.now(), s: strength });
     kick();
   }
+  function waveFrom(x, y, strength) {
+    if (motion() === "off") return;
+    waves.push({ x, y, at: performance.now(), s: strength });
+    kick();
+  }
   function restyle() {
     const cs = getComputedStyle(document.documentElement);
     fg = rgb(cs.getPropertyValue("--fg"), fg);
     acc = rgb(cs.getPropertyValue("--accRgb"), acc);
-    light = !Look.theme(look).dark;
-    makeSprite();
+    // Цвет узора — свой из точной настройки, иначе акцент темы.
+    ink = eff("pcolor") ? rgbOf(eff("pcolor")) : acc;
+    // Светлый ли фон — по своему цвету, если он задан, иначе по теме: на
+    // светлом точкам нужно чуть больше плотности, чтобы их было видно.
+    light = vibe.o.bg ? rgbOf(vibe.o.bg).reduce((a, c) => a + c, 0) > 380 : !Look.theme(look).dark;
+    paintSprite(spriteFg, fg);
+    paintSprite(spriteInk, ink);
     draw(performance.now());
     kick();
   }
@@ -3246,14 +3623,14 @@ const Field = (() => {
   addEventListener("pointermove", (e) => { mx = e.clientX; my = e.clientY; lastMove = performance.now(); kick(); });
   addEventListener("pointerleave", () => { mx = my = -9999; });
   document.addEventListener("visibilitychange", kick);
-  makeSprite();
   resize();
-  return { wave, restyle, kick };
+  return { wave, waveFrom, restyle, kick };
 })();
 
 // ── точечные цифры ──
 //
-// В образах «Точка» и «Бумага» цифры набраны матрицей 5×7, как на табло.
+// Цифры можно набрать матрицей 5×7, как на табло («Точка», «Бумага» или
+// «Цифры: точки» в точной настройке).
 // Шрифт свой, из точек, — не чужой фирменный. Единица измерения остаётся
 // обычным текстом: «Мбит/с» точками читается хуже, чем выглядит.
 const DOT_GLYPHS = {
@@ -3290,7 +3667,7 @@ function dotSvg(text) {
 }
 const DOT_TARGETS = ["s-down", "s-up", "k-session", "k-ping", "today-total"];
 function paintDotNums() {
-  const on = VIBES[vibe.id].numerals === "dot";
+  const on = eff("nums") === "dot";
   for (const id of DOT_TARGETS) {
     const el = $(id);
     if (!el) continue;
@@ -3345,56 +3722,248 @@ function vibeState(state) {
   if ((state === "idle" || state === "failed") && (prev === "connected" || prev === "stalled")) { Field.wave(0.5); chirp(false); }
 }
 
-// ── вкладка «Тема»: карточки образов ──
-function paintVibeControls() {
-  const d = L();
+
+// ── вкладка «Тема»: лента образов ──
+//
+// Образов больше, чем помещается в ширину, поэтому они идут лентой в два
+// ряда и листаются слева направо: стрелками, колесом мыши или перетаскиванием
+// полосы прокрутки.
+function buildVibes() {
   const box = $("vibes");
-  if (box && !box.children.length) {
-    for (const id of Object.keys(VIBES)) {
-      const p = VIBES[id].preview;
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "vibe";
-      b.dataset.vibe = id;
-      b.innerHTML = '<span class="vibe-art"><i class="vibe-btn"></i></span><span class="vibe-name"></span><span class="vibe-line"></span>';
-      const art = b.firstElementChild;
-      art.style.background = p.pat + "," + p.bg;
-      art.style.setProperty("--vfg", p.fg);
-      art.style.setProperty("--vacc", p.acc);
-      b.addEventListener("click", () => chooseVibe(id));
-      box.append(b);
-    }
+  if (box.children.length) return;
+  for (const id of Object.keys(VIBES)) {
+    const p = VIBES[id].preview;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "vibe";
+    b.dataset.vibe = id;
+    b.innerHTML = '<span class="vibe-art"><i class="vibe-btn"></i></span><span class="vibe-name"></span><span class="vibe-line"></span>';
+    const art = b.firstElementChild;
+    art.style.background = p.pat + "," + p.bg;
+    art.style.setProperty("--vfg", p.fg);
+    art.style.setProperty("--vacc", p.acc);
+    b.addEventListener("click", () => chooseVibe(id));
+    box.append(b);
   }
-  if (box) {
-    for (const b of box.children) {
-      b.setAttribute("aria-pressed", String(b.dataset.vibe === vibe.id));
-      b.querySelector(".vibe-name").textContent = d.vibes[b.dataset.vibe][0];
-      b.querySelector(".vibe-line").textContent = d.vibes[b.dataset.vibe][1];
-    }
+  const page = () => Math.max(200, box.clientWidth - 120);
+  $("vibes-prev").addEventListener("click", () => box.scrollBy({ left: -page(), behavior: "smooth" }));
+  $("vibes-next").addEventListener("click", () => box.scrollBy({ left: page(), behavior: "smooth" }));
+  // Колесо листает ленту вбок: вертикальной прокрутки у неё нет, а тянуться
+  // к стрелкам ради каждого образа — лишняя работа.
+  box.addEventListener("wheel", (e) => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    box.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }, { passive: false });
+  const arrows = () => {
+    $("vibes-prev").disabled = box.scrollLeft <= 2;
+    $("vibes-next").disabled = box.scrollLeft + box.clientWidth >= box.scrollWidth - 2;
+  };
+  box.addEventListener("scroll", arrows, { passive: true });
+  addEventListener("resize", arrows);
+  requestAnimationFrame(arrows);
+}
+
+// ── точная настройка ──
+//
+// Каждое поле образа — своей ручкой: цвета пипеткой, размеры в пикселях,
+// узор до скорости и шага. Ручки строятся один раз, дальше только сверяются
+// с состоянием: перестроенный ползунок вырвался бы из руки посреди движения.
+const FINE = {
+  "fine-colors": [["bg", "color"], ["surf", "color"], ["fg", "color"], ["dim", "color"], ["line", "color"]],
+  "fine-pattern": [["pattern", "pills"], ["amount", "range", "%"], ["pstep", "range", "px"], ["psize", "range", "%"], ["pspeed", "range", "%"], ["pcolor", "color"]],
+  "fine-shape": [["r", "range", "px"], ["pad", "range", "px"], ["gap", "range", "px"], ["glow", "range", "%"], ["blur", "range", "px"], ["calpha", "range", "%"]],
+  "fine-type": [["font", "pills"], ["sfont", "pills"], ["nums", "pills"], ["statusSize", "range", "px"], ["caps", "bool"], ["logo", "pills"]],
+};
+const fineInputs = {};
+
+// themeValue — что сейчас стоит в поле, если человек его не трогал: цвет
+// или размер темы. Ползунок и пипетка показывают правду, а не ноль.
+function themeValue(k) {
+  const t = Look.theme(look);
+  switch (k) {
+    case "bg": return t.bg;
+    case "surf": return t.surf;
+    case "fg": return t.fg;
+    case "dim": return t.dim;
+    case "line": return t.line;
+    case "pcolor": return t.acc;
+    case "r": return t.r;
+    case "pad": return t.pad;
+    case "gap": return t.gap;
+    case "glow": return Math.round(t.glowA * 100);
   }
-  const fine = document.querySelector('.page[data-tab="theme"]');
-  if (fine && $("fine-toggle")) $("fine-toggle").textContent = fine.classList.contains("fine-open") ? d.fineHide : d.fineShow;
-  if ($("vibe-splash")) {
-    $("vibe-splash").setAttribute("aria-pressed", String(vibe.splash));
-    $("vibe-splash").textContent = vibe.splash ? d.toggleOn : d.toggleOff;
-    $("vibe-sound").setAttribute("aria-pressed", String(vibe.sound));
-    $("vibe-sound").textContent = vibe.sound ? d.toggleOn : d.toggleOff;
-    for (const b of $("vibe-motion").querySelectorAll("[data-motion]")) {
-      b.setAttribute("aria-pressed", String(b.dataset.motion === vibe.motion));
-      b.textContent = d.motions[b.dataset.motion];
+  return eff(k);
+}
+
+function buildFine() {
+  if (Object.keys(fineInputs).length) return;
+  for (const [box, rows] of Object.entries(FINE)) {
+    const host = $(box);
+    for (const [k, type, unit] of rows) {
+      const row = el("div", "fine-item");
+      row.dataset.k = k;
+      const head = el("div", "fine-head");
+      const name = el("span", "fine-name");
+      const val = el("span", "fine-val");
+      const reset = el("button", "fine-reset", "↺");
+      reset.type = "button";
+      reset.addEventListener("click", () => setO(k, null));
+      head.append(name, val, reset);
+      row.append(head);
+      const ctl = { row, name, val, reset, type, unit };
+      if (type === "color") {
+        const input = document.createElement("input");
+        input.type = "color";
+        input.addEventListener("input", () => setO(k, input.value));
+        ctl.input = input;
+        row.append(input);
+      } else if (type === "range") {
+        const input = document.createElement("input");
+        input.type = "range";
+        input.className = "range";
+        [input.min, input.max] = O_RANGES[k];
+        input.addEventListener("input", () => setO(k, Number(input.value)));
+        ctl.input = input;
+        row.append(input);
+      } else {
+        const pills = el("div", "pills");
+        const opts = type === "bool" ? [false, true] : O_CHOICES[k];
+        ctl.buttons = opts.map((v) => {
+          const b = el("button", "pillb");
+          b.type = "button";
+          b.dataset.v = String(v);
+          b.addEventListener("click", () => setO(k, v));
+          pills.append(b);
+          return b;
+        });
+        row.append(pills);
+      }
+      fineInputs[k] = ctl;
+      host.append(row);
     }
-    $("vibe-motion-note").textContent = reducedMotion() ? d.motionSystem : "";
   }
 }
+
+function syncFine() {
+  const d = L();
+  for (const [k, c] of Object.entries(fineInputs)) {
+    const own = has(vibe.o, k);
+    c.name.textContent = d.fine[k];
+    c.reset.hidden = !own;
+    c.reset.title = d.fine.reset;
+    c.row.classList.toggle("own", own);
+    if (c.type === "color") {
+      const v = own ? vibe.o[k] : themeValue(k);
+      if (document.activeElement !== c.input) c.input.value = v;
+      c.val.textContent = own ? v.toUpperCase() : d.fine.auto;
+    } else if (c.type === "range") {
+      const v = own ? vibe.o[k] : themeValue(k);
+      if (document.activeElement !== c.input) c.input.value = v;
+      c.val.textContent = k === "pstep" && !v ? d.fine.byVibe : v + " " + (c.unit === "%" ? "%" : d.fine.px);
+    } else {
+      const cur = String(eff(k));
+      for (const b of c.buttons) {
+        b.textContent = c.type === "bool" ? (b.dataset.v === "true" ? d.fine.yes : d.fine.no) : d.fine.opts[k][b.dataset.v];
+        b.setAttribute("aria-pressed", String(b.dataset.v === cur));
+      }
+      c.val.textContent = "";
+    }
+  }
+}
+
+function paintVibeControls() {
+  const d = L();
+  buildVibes();
+  for (const b of $("vibes").children) {
+    b.setAttribute("aria-pressed", String(b.dataset.vibe === vibe.id));
+    b.querySelector(".vibe-name").textContent = d.vibes[b.dataset.vibe][0];
+    b.querySelector(".vibe-line").textContent = d.vibes[b.dataset.vibe][1];
+  }
+  const page = document.querySelector('.page[data-tab="theme"]');
+  $("fine-toggle").textContent = page.classList.contains("fine-open") ? d.fineHide : d.fineShow;
+  buildFine();
+  syncFine();
+
+  const toggle = (id, on) => { $(id).setAttribute("aria-pressed", String(on)); $(id).textContent = on ? d.toggleOn : d.toggleOff; };
+  toggle("vibe-splash", vibe.splash);
+  toggle("vibe-sound", vibe.sound);
+  toggle("vibe-fx", vibe.fx);
+  toggle("vibe-click", vibe.clickWave);
+  for (const b of $("vibe-motion").querySelectorAll("[data-motion]")) {
+    b.setAttribute("aria-pressed", String(b.dataset.motion === vibe.motion));
+    b.textContent = d.motions[b.dataset.motion];
+  }
+  $("vibe-motion-note").textContent = reducedMotion() ? d.motionSystem : "";
+}
+
 $("fine-toggle").addEventListener("click", () => {
-  document.querySelector('.page[data-tab="theme"]').classList.toggle("fine-open");
+  const page = document.querySelector('.page[data-tab="theme"]');
+  page.classList.toggle("fine-open");
   paintVibeControls();
+  if (page.classList.contains("fine-open")) $("fine-anchor").scrollIntoView({ behavior: "smooth", block: "start" });
 });
-$("vibe-splash").addEventListener("click", () => { vibe.splash = !vibe.splash; saveVibe(); paintVibeControls(); });
-$("vibe-sound").addEventListener("click", () => { vibe.sound = !vibe.sound; saveVibe(); paintVibeControls(); if (vibe.sound) chirp(true); });
+$("fine-reset-all").addEventListener("click", () => { vibe.o = {}; saveVibe(); setLook(Object.assign(Look.normalize({}), VIBES[vibe.id].look)); applyVibe(); });
+const flip = (key) => () => { vibe[key] = !vibe[key]; saveVibe(); paintVibeControls(); };
+$("vibe-splash").addEventListener("click", flip("splash"));
+$("vibe-sound").addEventListener("click", () => { flip("sound")(); if (vibe.sound) chirp(true); });
+$("vibe-fx").addEventListener("click", () => { flip("fx")(); if (!vibe.fx) resetTilt(); });
+$("vibe-click").addEventListener("click", flip("clickWave"));
 for (const b of $("vibe-motion").querySelectorAll("[data-motion]")) {
   b.addEventListener("click", () => { vibe.motion = b.dataset.motion; saveVibe(); applyVibe(); Field.wave(0.6); });
 }
+
+// ── отклик на руку ──
+//
+// Кнопка питания чуть тянется за курсором и наклоняется к нему, карточки
+// поворачиваются в объёме, клик по пустому фону пускает волну. Всё — через
+// transform, без перерисовки страницы, и всё выключается одной строкой в
+// настройках или системным «уменьшением движения».
+const fxOn = () => vibe.fx && motion() !== "off";
+const ring = document.querySelector(".hero .ring");
+function resetTilt() {
+  if (ring) ring.style.transform = "";
+  for (const c of document.querySelectorAll(".tilt")) { c.style.transform = ""; c.classList.remove("tilt"); }
+}
+if (ring) {
+  const zone = ring.closest(".hero");
+  zone.addEventListener("pointermove", (e) => {
+    if (!fxOn()) return;
+    const r = ring.getBoundingClientRect();
+    const dx = (e.clientX - (r.left + r.width / 2)) / r.width, dy = (e.clientY - (r.top + r.height / 2)) / r.height;
+    const pull = Math.max(0, 1 - Math.hypot(dx, dy) / 1.6);
+    ring.style.transform = "translate(" + (dx * 14 * pull).toFixed(1) + "px," + (dy * 14 * pull).toFixed(1) + "px) "
+      + "rotateX(" + (-dy * 10 * pull).toFixed(1) + "deg) rotateY(" + (dx * 10 * pull).toFixed(1) + "deg)";
+  });
+  zone.addEventListener("pointerleave", () => { ring.style.transform = ""; });
+}
+document.addEventListener("pointermove", (e) => {
+  if (!fxOn()) return;
+  const card = e.target.closest && e.target.closest(".page .card, .page .kpi, .vibe");
+  for (const c of document.querySelectorAll(".tilt")) if (c !== card) { c.style.transform = ""; c.classList.remove("tilt"); }
+  if (!card || card.closest(".fine-grid")) return;
+  const r = card.getBoundingClientRect();
+  const dx = (e.clientX - r.left) / r.width - 0.5, dy = (e.clientY - r.top) / r.height - 0.5;
+  card.classList.add("tilt");
+  card.style.transform = "perspective(900px) rotateX(" + (-dy * 4).toFixed(2) + "deg) rotateY(" + (dx * 5).toFixed(2) + "deg) translateY(-2px)";
+});
+document.addEventListener("pointerdown", (e) => {
+  if (!vibe.clickWave || e.button !== 0) return;
+  // Волна — только от пустого фона: клик по кнопке или полю — это дело, а не игра.
+  if (e.target.closest("button, a, input, textarea, select, label, .card, .kpi, .node, .seller, .leak, aside, header")) return;
+  Field.waveFrom(e.clientX, e.clientY, 0.7);
+});
+
+// Кнопка питания при нажатии расходится кольцом от точки касания.
+$("power").addEventListener("pointerdown", (e) => {
+  if (!fxOn()) return;
+  const r = $("power").getBoundingClientRect();
+  const dot = el("i", "press-ring");
+  dot.style.left = e.clientX - r.left + "px";
+  dot.style.top = e.clientY - r.top + "px";
+  $("power").append(dot);
+  setTimeout(() => dot.remove(), 700);
+});
 
 // ── заставка ──
 //
@@ -3441,9 +4010,11 @@ const Splash = (() => {
   return { play };
 })();
 
-// Ручки «Тонкой настройки» меняют тему мимо образа — фон должен узнать новый цвет.
-window.onLookApplied = () => { Field.restyle(); paintDotNums(); };
+
+// Общая тема и точная настройка меняют переменные — фон и цифры узнают сразу.
+window.onLookApplied = () => { paintOverrides(); Field.restyle(); paintDotNums(); };
 applyVibe();
+paintTheme();
 Splash.play();
 
 window.vibeState = vibeState;

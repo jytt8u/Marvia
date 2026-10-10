@@ -141,4 +141,15 @@ class LookTest {
             assertNull(bad, Look.decode(parts.joinToString("-")))
         }
     }
+
+    // Окно на ПК дописывает после «~» образ и точную настройку. Телефону их
+    // показать нечем, но цвет и форму из того же кода он принимать обязан —
+    // иначе код от друга с компьютера на телефоне просто не вставится.
+    @Test
+    fun windowCodeWithVibeIsAcceptedForColourAndShape() {
+        val choice = Look.Choice()
+        val code = Look.encode(choice)
+        assertEquals(code, Look.encode(Look.decode("$code~eyJpIjoibmVvbiJ9")!!))
+        assertEquals(null, Look.decode("~eyJpIjoibmVvbiJ9"))
+    }
 }

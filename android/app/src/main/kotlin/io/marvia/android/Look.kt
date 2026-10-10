@@ -192,7 +192,9 @@ object Look {
 
     /** decode разбирает код; null — чужой или битый. */
     fun decode(code: String?): Choice? {
-        val p = code.orEmpty().trim().uppercase().split("-")
+        // После «~» окно на ПК дописывает свой образ и узор фона. Телефону их
+        // показать нечем, а цвет и форму из того же кода он принять обязан.
+        val p = code.orEmpty().substringBefore("~").trim().uppercase().split("-")
         if (p.size != 8 || p[0] != "MV") return null
         val preset = LookTable.presets.map { it.key }.find(3, p[1]) ?: return null
         if (p[3].length < 4) return null

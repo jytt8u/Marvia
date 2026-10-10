@@ -197,7 +197,13 @@ func (s *shell) subclass() {
 		switch msg {
 		case wmClose:
 			if s.tray != nil {
-				s.hide()
+				// Крестик закрывает программу так же, как «Выйти» в меню значка:
+				// с отключением туннеля, а не обрывом посреди соединений.
+				if closeQuits() {
+					s.menu(menuExit)
+				} else {
+					s.hide()
+				}
 				return 0
 			}
 		case wmActivate:

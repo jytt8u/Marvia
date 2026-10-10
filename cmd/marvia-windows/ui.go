@@ -121,6 +121,8 @@ func serveUI(ctl *Controller, log *journal, onWindow *func(windowRequest)) (stri
 	mux.HandleFunc("POST "+prefix+"/api/window", u.window)
 	mux.HandleFunc("GET "+prefix+"/api/autostart", u.getAutostart)
 	mux.HandleFunc("POST "+prefix+"/api/autostart", u.setAutostart)
+	mux.HandleFunc("GET "+prefix+"/api/close", u.getClose)
+	mux.HandleFunc("POST "+prefix+"/api/close", u.setClose)
 	mux.HandleFunc("GET "+prefix+"/api/keys", u.keys)
 	mux.HandleFunc("POST "+prefix+"/api/keys/use", u.useKey)
 	mux.HandleFunc("POST "+prefix+"/api/keys/remove", u.removeKey)
@@ -461,4 +463,35 @@ func (u *ui) removeKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"keys": u.ctl.Keys()})
+}
+
+// closeSetting — что делает крестик окна. По умолчанию прячет в трей:
+// туннель продолжает работать, а окно VPN, которое закрылось вместе с
+// защитой, — неприятный сюрприз. Кто хочет, чтобы крестик закрывал
+// программу, выбирает это сам в «Настройках».
+const closeSetting = "close"
+
+func closeQuits() bool { return readUISetting(closeSetting) == "quit" }
+
+func (u *ui) getClose(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"quit": closeQuits()})
+}
+
+func (u *ui) setClose(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Quit bool `json:"quit"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": say("badRequest")})
+		return
+	}
+	value := "tray"
+	if body.Quit {
+		value = "quit"
+	}
+	if err := writeUISetting(closeSetting, value); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"quit": closeQuits()})
 }

@@ -57,3 +57,12 @@ test('недоступное хранилище не мешает выбрать
   assert.equal(look.load().preset, 'steel');
   assert.doesNotThrow(() => look.save(look.LOOKS[1]));
 });
+
+test('код окна с образом принимают панель и телефон: цвет и форма — из общей части', () => {
+  const look = load();
+  const chosen = { ...look.LOOKS[7], acc: '#ff2bd6', tint: '#00e5ff' };
+  const code = look.encode(chosen);
+  const withVibe = code + '~eyJpIjoibmVvbiIsIm8iOnt9fQ';
+  assert.equal(look.encode(look.decode(withVibe)), code);
+  assert.equal(look.decode('~eyJpIjoibmVvbiJ9'), null);
+});

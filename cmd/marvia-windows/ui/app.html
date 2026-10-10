@@ -772,6 +772,112 @@
   .rows .switch[aria-pressed="true"]:active::after, .rows .switch[data-on="true"]:active::after { transform: translateX(16px); }
 
   @media (max-width: 900px) { .settings { grid-template-columns: 64px minmax(0, 1fr); } .set-txt { display: none; } }
+
+  /* ───── Миниатюры образов ───── */
+  .vibe-art { position: relative; height: 104px; border-radius: var(--r); overflow: hidden; display: grid;
+    grid-template-columns: 18% 1fr 30%; gap: 6px; padding: 8px; place-items: stretch; background-size: auto;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); transition: background-position 3s linear; }
+  .vibe:hover .vibe-art { background-position: 40px 20px, 0 0; }
+  .mini-side { display: flex; flex-direction: column; gap: 4px; padding: 5px 4px; border-radius: var(--vr);
+    background: color-mix(in srgb, var(--vsurf) 80%, transparent); }
+  .mini-side i { height: 4px; border-radius: 2px; background: var(--vdim); opacity: .45; }
+  .mini-side i:first-child { background: var(--vacc); opacity: .9; width: 70%; }
+  .mini-hero { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+  .mini-btn { position: relative; width: 34px; height: 34px; border-radius: 50%; transition: transform .5s cubic-bezier(.2,.9,.25,1.05), box-shadow .4s; }
+  .mini-btn::after { content: ""; position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; margin: -5.5px; border-radius: 50%;
+    border: 2px solid currentColor; border-top-color: transparent; }
+  .vibe-art[data-btn="solid"] .mini-btn { background: var(--vacc); color: var(--vaccFg); box-shadow: 0 0 16px -4px var(--vacc); }
+  .vibe-art[data-btn="ring"] .mini-btn { box-shadow: inset 0 0 0 2px var(--vacc), 0 0 14px -6px var(--vacc); color: var(--vacc);
+    background: color-mix(in srgb, var(--vsurf) 70%, transparent); }
+  .vibe-art[data-btn="glass"] .mini-btn { background: color-mix(in srgb, var(--vacc) 22%, transparent); color: var(--vacc);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vacc) 50%, transparent), 0 0 18px -6px var(--vacc); }
+  .vibe-art[data-btn="bare"] .mini-btn { box-shadow: inset 0 0 0 1px var(--vacc); color: var(--vacc); }
+  .vibe:hover .mini-btn { transform: scale(1.12); box-shadow: 0 0 0 4px color-mix(in srgb, var(--vacc) 18%, transparent), 0 0 24px -2px var(--vacc); }
+  /* .vibe впереди: общее «.card b» иначе перебивало размер и цвет. */
+  .vibe .mini-status { font: 700 9.5px/1 var(--vfont); text-transform: var(--vcase); letter-spacing: var(--vtrack); color: var(--vacc);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  /* Широкий гротеск заглавными в ту же ширину не помещается — мельче. */
+  .vibe[data-vibe="acid"] .mini-status, .vibe[data-vibe="neon"] .mini-status, .vibe[data-vibe="retro"] .mini-status { font-size: 7.5px; }
+  .mini-cards { display: flex; flex-direction: column; gap: 6px; }
+  .mini-cards i { flex: 1; border-radius: var(--vr); background: color-mix(in srgb, var(--vsurf) 85%, transparent);
+    box-shadow: inset 0 0 0 1px var(--vline); position: relative; overflow: hidden; }
+  .mini-cards i:first-child::after { content: ""; position: absolute; left: 12%; right: 12%; bottom: 22%; height: 30%;
+    background: linear-gradient(90deg, var(--vacc) 0 12%, transparent 12% 18%, var(--vacc) 18% 30%, transparent 30% 36%,
+      var(--vacc) 36% 52%, transparent 52% 58%, var(--vacc) 58% 66%, transparent 66% 72%, var(--vacc) 72% 92%, transparent 92%);
+    opacity: .7; clip-path: polygon(0 60%, 12% 40%, 30% 70%, 52% 20%, 66% 50%, 92% 0, 100% 100%, 0 100%); }
+  .vibe[data-vibe="mica"] .mini-cards i, .vibe[data-vibe="glass"] .mini-cards i, .vibe[data-vibe="aurora"] .mini-cards i,
+  .vibe[data-vibe="ocean"] .mini-cards i, .vibe[data-vibe="sunset"] .mini-cards i { background: rgba(255,255,255,.10); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .vibe .vibe-btn { display: none; }
+
+  /* ───── Фирменные детали образов ─────
+     Цвет меняет любая тема; образ узнаётся по детали, которой нет у других. */
+
+  /* Графит: металлический отблеск медленно проходит по кнопке. */
+  body[data-vibe="graphite"] .power::before { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.16) 48%, transparent 60%) -200% 0 / 300% 100% no-repeat;
+    animation: sheen 6s ease-in-out infinite; }
+  @keyframes sheen { 0%, 60% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+  /* Точка и Бумага: красная точка «в эфире» мигает у надписи, пока туннель поднят. */
+  body[data-vibe="dot"] .status::before, body[data-vibe="paper"] .status::before {
+    content: ""; display: inline-block; width: .32em; height: .32em; margin-right: .45em; vertical-align: .18em; border-radius: 50%;
+    background: var(--dim); opacity: .5; }
+  body[data-vibe="dot"][data-state="connected"] .status::before, body[data-vibe="paper"][data-state="connected"] .status::before {
+    background: var(--acc); opacity: 1; animation: rec 1.6s steps(1) infinite; box-shadow: 0 0 10px var(--acc); }
+  @keyframes rec { 50% { opacity: .15; } }
+
+  /* Стекло и Мика: блик по верхней кромке карточек, как у настоящего стекла. */
+  body[data-vibe="glass"] .card::after, body[data-vibe="glass"] .kpi::after,
+  body[data-vibe="mica"] .card::after, body[data-vibe="mica"] .kpi::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 40%; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(180deg, rgba(255,255,255,.14), transparent); }
+  body[data-vibe="glass"] .card, body[data-vibe="glass"] .kpi, body[data-vibe="mica"] .card, body[data-vibe="mica"] .kpi { position: relative; }
+
+  /* Пастель: мягкие объёмные тени, как у пластика. */
+  body[data-vibe="pastel"] .card, body[data-vibe="pastel"] .kpi, body[data-vibe="pastel"] .node {
+    box-shadow: 0 10px 24px -14px rgba(124,92,196,.45), 0 1px 0 rgba(255,255,255,.7) inset; border-color: transparent; }
+
+  /* Кислота: надпись подчёркнута толстой полосой акцента. */
+  body[data-vibe="acid"][data-state="connected"] .status { background: linear-gradient(transparent 62%, rgba(var(--accRgb), .35) 62% 92%, transparent 92%); padding: 0 .1em; }
+
+  /* Аврора: рамка главной карточки переливается. */
+  body[data-vibe="aurora"] .card.feature { border-color: transparent;
+    background: linear-gradient(var(--surf), var(--surf)) padding-box,
+      linear-gradient(var(--aurA, 0deg), #a98bff, #40c8ff, #ff78c8, #a98bff) border-box; border: 1px solid transparent;
+    animation: aurora-border 8s linear infinite; }
+  @property --aurA { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+  @keyframes aurora-border { to { --aurA: 360deg; } }
+
+  /* Неон: контуры карточек светятся, надпись горит. */
+  body[data-vibe="neon"] .card, body[data-vibe="neon"] .kpi, body[data-vibe="neon"] .node {
+    border-color: rgba(var(--accRgb), .55); box-shadow: 0 0 14px -4px rgba(var(--accRgb), .55), inset 0 0 12px -8px rgba(var(--accRgb), .6); }
+
+  /* Ретро: надпись с цветным сдвигом, как на старом телевизоре. */
+  body[data-vibe="retro"] .status { text-shadow: -2px 0 rgba(1,205,254,.75), 2px 0 rgba(255,113,206,.75); }
+
+  /* Закат: тёплое зарево поднимается из-под кнопки. */
+  body[data-vibe="sunset"] .hero .ring::before { content: ""; position: absolute; inset: -40% -60% -70%; z-index: -1; pointer-events: none;
+    background: radial-gradient(50% 40% at 50% 75%, rgba(255,122,61,.35), rgba(255,77,141,.12) 45%, transparent 70%); }
+  body[data-vibe="sunset"][data-state="connected"] .hero .ring::before { animation: dusk 5s ease-in-out infinite; }
+  @keyframes dusk { 50% { opacity: .55; transform: translateY(6px); } }
+
+  /* Океан: под кнопкой медленно катится волна. */
+  body[data-vibe="ocean"] .hero .ring::after { content: ""; position: absolute; left: -30%; right: -30%; bottom: -26px; height: 18px; pointer-events: none;
+    background: radial-gradient(12px 9px at 12px 0, transparent 8px, rgba(var(--accRgb), .35) 9px, transparent 10px) 0 0 / 24px 18px repeat-x;
+    animation: tide 4s linear infinite; opacity: .8; }
+  @keyframes tide { to { background-position: 24px 0; } }
+
+  /* Терминал: узкий зелёный кант слева у карточек, как курсор строки. */
+  body[data-vibe="terminal"] .card, body[data-vibe="terminal"] .kpi { box-shadow: inset 3px 0 0 rgba(var(--accRgb), .7); }
+
+  /* Кофе: тёплая зернистость поверх карточек. */
+  body[data-vibe="coffee"] .card, body[data-vibe="coffee"] .kpi {
+    background-image: var(--cardBg, none), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.07'/%3E%3C/svg%3E"); }
+
+  @media (prefers-reduced-motion: reduce) {
+    body[data-vibe] .power::before, body[data-vibe] .status::before, body[data-vibe] .card.feature,
+    body[data-vibe] .hero .ring::before, body[data-vibe] .hero .ring::after { animation: none !important; }
+  }
 </style>
 </head>
 <body data-state="idle">
@@ -3239,71 +3345,71 @@ const VIBES = {
   // В духе прозрачной техники: чёрное табло, точечная матрица, один красный.
   dot: {
     look: { preset: "oled", acc: "#ff3b30", kind: "flat", radius: "soft", density: "normal", btn: "ring", glow: "soft", card: "outline", tint: null },
-    o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26 },
+    o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26, r: 10, psize: 120 },
     preview: { bg: "#000", fg: "#fff", acc: "#ff3b30", pat: "radial-gradient(rgba(255,255,255,.35) 1.1px,transparent 1.7px) 0 0/7px 7px" },
   },
   paper: {
     look: { preset: "paper", acc: "#d6362a", kind: "flat", radius: "soft", density: "roomy", btn: "ring", glow: "none", card: "outline", tint: null },
-    o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26 },
+    o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26, r: 10, psize: 120 },
     preview: { bg: "#f7f4ee", fg: "#14120e", acc: "#d6362a", pat: "radial-gradient(rgba(20,18,14,.28) 1.1px,transparent 1.7px) 0 0/7px 7px" },
   },
   // В духе телефонов с матовым стеклом. Шрифт — системный Windows: чужой
   // фирменный в окно не встраиваем.
   glass: {
     look: { preset: "midnight", acc: "#0a84ff", kind: "flat", radius: "pill", density: "roomy", btn: "glass", glow: "soft", card: "flat", tint: null },
-    o: { pattern: "mesh", font: "system", sfont: "same", nums: "text", caps: false, blur: 24, calpha: 55 },
+    o: { pattern: "mesh", font: "system", sfont: "same", nums: "text", caps: false, blur: 24, calpha: 55, r: 26, statusSize: 34 },
     preview: { bg: "#05070c", fg: "#f2f5fa", acc: "#0a84ff", pat: "radial-gradient(55% 65% at 30% 30%,rgba(10,132,255,.5),transparent 70%),radial-gradient(45% 55% at 78% 72%,rgba(255,159,10,.32),transparent 70%)" },
   },
   // Мягкие тона и плитки, что переворачиваются волной.
   pastel: {
     look: { preset: "linen", acc: "#7c5cc4", kind: "linear", dir: "nw", depth: 0.35, radius: "pill", density: "roomy", btn: "solid", glow: "none", card: "flat", tint: "#e8c0a8" },
-    o: { pattern: "tiles", font: "manrope", sfont: "same", nums: "text", caps: false },
+    o: { pattern: "tiles", font: "manrope", sfont: "same", nums: "text", caps: false, r: 24, pad: 20 },
     preview: { bg: "#f4f1ea", fg: "#171512", acc: "#7c5cc4", pat: "linear-gradient(90deg,rgba(124,92,196,.12) 50%,transparent 50%) 0 0/16px 16px,linear-gradient(rgba(124,92,196,.12) 50%,transparent 50%) 0 0/16px 16px" },
   },
   acid: {
     look: { preset: "mono", acc: "#c8ff00", kind: "flat", radius: "pill", density: "normal", btn: "solid", glow: "mid", card: "flat", tint: null },
-    o: { pattern: "stripes", font: "onest", sfont: "unbounded", nums: "status", caps: true, statusSize: 30 },
+    o: { pattern: "stripes", font: "onest", sfont: "unbounded", nums: "status", caps: true, statusSize: 34, r: 30, glow: 70 },
     preview: { bg: "#0a0a0a", fg: "#fafafa", acc: "#c8ff00", pat: "repeating-linear-gradient(-45deg,rgba(200,255,0,.16) 0 2px,transparent 2px 9px)" },
   },
   aurora: {
     look: { preset: "plum", acc: "#a98bff", kind: "aurora", dir: "ne", depth: 0.8, radius: "round", density: "roomy", btn: "glass", glow: "mid", card: "flat", tint: null },
-    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "mono", caps: false, blur: 18, calpha: 60 },
+    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "mono", caps: false, blur: 18, calpha: 60, r: 22, glow: 60 },
     preview: { bg: "#0b0714", fg: "#efe7fb", acc: "#a98bff", pat: "radial-gradient(60% 70% at 25% 30%,rgba(169,139,255,.55),transparent 70%),radial-gradient(50% 60% at 80% 75%,rgba(64,200,255,.35),transparent 70%)" },
   },
   terminal: {
     look: { preset: "emerald", acc: "#3dff8f", kind: "radial", dir: "c", depth: 0.85, radius: "sharp", density: "compact", btn: "bare", glow: "mid", card: "outline", tint: null },
-    o: { pattern: "scan", font: "mono", sfont: "same", nums: "mono", caps: true },
+    o: { pattern: "scan", font: "mono", sfont: "same", nums: "mono", caps: true, r: 2, gap: 8, statusSize: 28 },
     preview: { bg: "#06100c", fg: "#c9ffe0", acc: "#3dff8f", pat: "repeating-linear-gradient(0deg,rgba(61,255,143,.13) 0 1px,transparent 1px 4px)" },
   },
   neon: {
     look: { preset: "fuchsia", acc: "#ff2bd6", kind: "radial", dir: "c", depth: 0.88, radius: "sharp", density: "normal", btn: "ring", glow: "neon", card: "outline", tint: "#00e5ff" },
-    o: { pattern: "grid", font: "onest", sfont: "unbounded", nums: "mono", caps: true, pstep: 30, psize: 140 },
+    o: { pattern: "grid", font: "onest", sfont: "unbounded", nums: "mono", caps: true, pstep: 30, psize: 140, r: 4, glow: 90 },
     preview: { bg: "#120616", fg: "#fbe6f6", acc: "#ff2bd6", pat: "linear-gradient(rgba(0,229,255,.18) 1px,transparent 1px) 0 0/14px 14px,linear-gradient(90deg,rgba(255,43,214,.18) 1px,transparent 1px) 0 0/14px 14px" },
   },
   sunset: {
     look: { preset: "ember", acc: "#ff7a3d", kind: "aurora", dir: "s", depth: 0.75, radius: "round", density: "normal", btn: "solid", glow: "mid", card: "flat", tint: "#ff4d8d" },
-    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "text", caps: false, blur: 14, calpha: 70 },
+    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "text", caps: false, blur: 14, calpha: 70, r: 22, statusSize: 34 },
     preview: { bg: "#120902", fg: "#fbeadc", acc: "#ff7a3d", pat: "radial-gradient(70% 60% at 50% 110%,rgba(255,122,61,.6),transparent 70%),radial-gradient(50% 50% at 20% 20%,rgba(255,77,141,.35),transparent 70%)" },
   },
   // В духе окон Windows 11: светлая подложка, полупрозрачные карточки.
   mica: {
     look: { preset: "daylight", acc: "#0067c0", kind: "linear", dir: "nw", depth: 0.3, radius: "soft", density: "normal", btn: "ring", glow: "none", card: "outline", tint: "#9ec9f0" },
-    o: { pattern: "none", font: "system", sfont: "same", nums: "text", caps: false, blur: 30, calpha: 70 },
+    o: { pattern: "none", font: "system", sfont: "same", nums: "text", caps: false, blur: 30, calpha: 70, r: 8, statusSize: 30 },
     preview: { bg: "linear-gradient(135deg,#dfe9f3,#f3f5f7)", fg: "#0d1013", acc: "#0067c0", pat: "linear-gradient(transparent,transparent)" },
   },
   retro: {
     look: { preset: "plum", acc: "#ff71ce", kind: "linear", dir: "s", depth: 0.7, radius: "sharp", density: "normal", btn: "solid", glow: "mid", card: "outline", tint: "#01cdfe" },
-    o: { pattern: "tiles", font: "onest", sfont: "unbounded", nums: "mono", caps: true, pstep: 52 },
+    o: { pattern: "tiles", font: "onest", sfont: "unbounded", nums: "mono", caps: true, pstep: 52, r: 0, statusSize: 30 },
     preview: { bg: "linear-gradient(180deg,#2b0f3f,#0b0714)", fg: "#ffe8fb", acc: "#ff71ce", pat: "linear-gradient(rgba(1,205,254,.22) 1px,transparent 1px) 0 0/12px 12px" },
   },
   ocean: {
     look: { preset: "ice", acc: "#3fd0ff", kind: "aurora", dir: "n", depth: 0.8, radius: "round", density: "normal", btn: "glass", glow: "mid", card: "flat", tint: "#2b6cff" },
-    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "mono", caps: false, blur: 16, calpha: 65 },
+    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "mono", caps: false, blur: 16, calpha: 65, r: 20, glow: 55 },
     preview: { bg: "#060c14", fg: "#e2f0fb", acc: "#3fd0ff", pat: "radial-gradient(60% 50% at 30% 80%,rgba(63,208,255,.45),transparent 70%),radial-gradient(50% 50% at 80% 20%,rgba(43,108,255,.4),transparent 70%)" },
   },
   coffee: {
     look: { preset: "copper", acc: "#d9a066", kind: "linear", dir: "nw", depth: 0.55, radius: "pill", density: "roomy", btn: "glass", glow: "soft", card: "outline", tint: null },
-    o: { pattern: "stripes", font: "manrope", sfont: "same", nums: "text", caps: false, pspeed: 40, pstep: 40 },
+    o: { pattern: "stripes", font: "manrope", sfont: "same", nums: "text", caps: false, pspeed: 40, pstep: 40, r: 18, statusSize: 30 },
     preview: { bg: "#110a06", fg: "#f8e9dd", acc: "#d9a066", pat: "repeating-linear-gradient(-45deg,rgba(217,160,102,.12) 0 2px,transparent 2px 12px)" },
   },
 };
@@ -3449,11 +3555,10 @@ function overrideCss(t) {
     out.push("--cardBg:linear-gradient(135deg," + paint(a) + "," + paint(surf) + ")");
     out.push("--featureBg:linear-gradient(135deg," + paint(Look.mix(surf, acc, t.dark ? 0.18 : 0.10)) + "," + paint(surf) + ")");
   }
-  if (o.r != null) out.push("--r:" + o.r + "px");
-  if (o.pad != null) out.push("--pad:" + o.pad + "px");
-  if (o.gap != null) out.push("--gap:" + o.gap + "px");
-  if (o.glow != null) {
-    const g = o.glow / 100;
+  // Размеры — свои или образа: у образа свой силуэт, а не только цвет.
+  for (const k of ["r", "pad", "gap"]) if (eff(k) != null) out.push("--" + k + ":" + eff(k) + "px");
+  if (eff("glow") != null) {
+    const g = eff("glow") / 100;
     out.push("--glow:" + (g <= 0 ? "none" : "0 0 " + Math.round(36 * g) + "px " + alphaOf(acc, (0.25 + g * 0.55).toFixed(2))));
   }
   const blur = eff("blur");
@@ -3836,17 +3941,28 @@ function vibeState(state) {
 function buildVibes() {
   const box = $("vibes");
   if (box.children.length) return;
+  // Карточка — честная миниатюра окна в этом образе: его фон и узор, боковая
+  // панель, кнопка его вида, надпись его шрифтом, карточки его скругления.
+  // Узор и кружок одинаковой формы ничего не говорили о том, каким станет окно.
   for (const id of Object.keys(VIBES)) {
-    const p = VIBES[id].preview;
+    const v = VIBES[id], p = v.preview;
+    const t = Look.theme(Object.assign(Look.normalize({}), v.look));
+    const font = FONTS[v.o.font || "onest"], sfont = !v.o.sfont || v.o.sfont === "same" ? font : FONTS[v.o.sfont];
     const b = document.createElement("button");
     b.type = "button";
     b.className = "vibe";
     b.dataset.vibe = id;
-    b.innerHTML = '<span class="vibe-art"><i class="vibe-btn"></i></span><span class="vibe-name"></span><span class="vibe-line"></span>';
+    b.innerHTML = '<span class="vibe-art"><span class="mini-side"><i></i><i></i><i></i></span>'
+      + '<span class="mini-hero"><i class="mini-btn"></i><b class="mini-status"></b></span>'
+      + '<span class="mini-cards"><i></i><i></i></span></span>'
+      + '<span class="vibe-name"></span><span class="vibe-line"></span>';
     const art = b.firstElementChild;
-    art.style.background = p.pat + "," + p.bg;
-    art.style.setProperty("--vfg", p.fg);
-    art.style.setProperty("--vacc", p.acc);
+    art.dataset.btn = v.look.btn || "ring";
+    art.style.background = p.pat + "," + t.bgcss;
+    const r = Math.round((v.look.radius ? Look.RADII[v.look.radius] : t.r) * 0.45);
+    art.style.cssText += ";--vfg:" + t.fg + ";--vdim:" + t.dim + ";--vacc:" + t.acc + ";--vaccFg:" + t.accFg
+      + ";--vsurf:" + t.surf + ";--vline:" + t.cardLine + ";--vr:" + r + "px;--vfont:" + sfont
+      + ";--vcase:" + (v.o.caps ? "uppercase" : "none") + ";--vtrack:" + (v.o.caps ? ".12em" : "-.01em");
     b.addEventListener("click", () => chooseVibe(id));
     box.append(b);
   }
@@ -3951,6 +4067,7 @@ const fineInputs = {};
 // или размер темы. Ползунок и пипетка показывают правду, а не ноль.
 function themeValue(k) {
   const t = Look.theme(look);
+  if (has(VIBES[vibe.id].o, k)) return VIBES[vibe.id].o[k];
   switch (k) {
     case "bg": return t.bg;
     case "surf": return t.surf;
@@ -4049,6 +4166,7 @@ function paintVibeControls() {
     b.setAttribute("aria-pressed", String(b.dataset.vibe === vibe.id));
     b.querySelector(".vibe-name").textContent = d.vibes[b.dataset.vibe][0];
     b.querySelector(".vibe-line").textContent = d.vibes[b.dataset.vibe][1];
+    b.querySelector(".mini-status").textContent = d.state.connected;
   }
   const page = document.querySelector('.page[data-tab="theme"]');
   $("fine-toggle").textContent = page.classList.contains("fine-open") ? d.fineHide : d.fineShow;

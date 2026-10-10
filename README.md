@@ -10,15 +10,15 @@
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [فارسی](README.fa.md)
 
-[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.7/marvia-android.apk)
+[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.8/marvia-android.apk)
 [Обновлять через Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.marvia.android%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fjytt8u%2Fmarvia%22%2C%22author%22%3A%22jytt8u%22%2C%22name%22%3A%22Marvia%22%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Atrue%2C%5C%22verifyLatestTag%5C%22%3Afalse%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22%5Emarvia-android%5C%5C%5C%5C.apk%24%5C%22%7D%22%7D)
-[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.7)
+[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.8)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#установка-панели)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
-**Стадия — alpha, `0.13.0-alpha.7`.** Выпуск 1.0 отложен до проверки на
+**Стадия — alpha, `0.13.0-alpha.8`.** Выпуск 1.0 отложен до проверки на
 реальных устройствах и сетях — [критерии](docs/development-plan.md).
-Свежая тестовая сборка — [v0.13.0-alpha.7](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.7); стабильной она не объявляется.
+Свежая тестовая сборка — [v0.13.0-alpha.8](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.8); стабильной она не объявляется.
 
 [Свой VPN с нуля](docs/start-from-zero.md) · [Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
 
@@ -128,8 +128,8 @@ Marvia пока уступает по автоматическому месяч�
 
 ## Начать
 
-> **Получили ключ?** Скачайте [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.7/marvia-android.apk)
-> или [установщик Windows](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.7) (`marvia-windows-setup.exe`;
+> **Получили ключ?** Скачайте [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.8/marvia-android.apk)
+> или [установщик Windows](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.8) (`marvia-windows-setup.exe`;
 > [подробнее](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)),
 > добавьте ссылку `marvia://…` в приложении и подключитесь.
 
@@ -142,7 +142,7 @@ Android также принимает VLESS, VMess, Trojan, Shadowsocks, Hysteri
 выпуски и задайте фильтр APK `^marvia-android\.apk$`.
 [Конфигурация](docs/obtainium.json).
 
-Публичная alpha.7 — тестовая.
+Публичная alpha.8 — тестовая.
 Полная проверка на реальных устройствах ещё не завершена.
 Известные ограничения — в [списке изменений](CHANGELOG.md).
 

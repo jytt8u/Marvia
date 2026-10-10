@@ -273,7 +273,14 @@ func TestQRCodeImportsTheExactSubscriptionEvenWithABrowserUserAgent(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Токен подписки каждый раз новый, и примерно на одном узоре из двухсот
+	// поиск угловых меток gozxing промахивается — тест краснел без причины.
+	// Второй попыткой читаем как чистый код без фона: страница его таким и
+	// рисует. Испорченный QR не прочитается ни так, ни так.
 	result, err := qrcode.NewQRCodeReader().Decode(bitmap, nil)
+	if err != nil {
+		result, err = qrcode.NewQRCodeReader().Decode(bitmap, map[gozxing.DecodeHintType]interface{}{gozxing.DecodeHintType_PURE_BARCODE: true})
+	}
 	if err != nil {
 		t.Fatalf("независимый сканер не прочитал QR-код: %v", err)
 	}

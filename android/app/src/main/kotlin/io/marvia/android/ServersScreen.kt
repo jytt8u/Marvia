@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -99,7 +100,7 @@ class ServersScreen(
      * Ключ приходит строкой, картинкой или показан на другом экране.
      * Все способы доступны и после добавления первой подписки.
      */
-    private fun askWhereFrom() {
+    fun askWhereFrom() {
         val items = listOf(
             host.getString(R.string.servers_add_clipboard),
             host.getString(R.string.servers_add_qr),
@@ -160,14 +161,25 @@ class ServersScreen(
             setPadding(pad, (8 * dp).toInt(), pad, 0)
         }
         val name = EditText(host).apply {
+            id = View.generateViewId()
             setHint(R.string.servers_sub_name)
             setSingleLine()
         }
         val link = EditText(host).apply {
-            setHint(R.string.servers_sub_link)
+            id = View.generateViewId()
+            setHint(R.string.appearance_access_hint)
             setSingleLine()
         }
+        fun label(text: Int, field: EditText) = TextView(host).apply {
+            setText(text)
+            textSize = 13f
+            labelFor = field.id
+            setTextColor(theme().dim)
+            setPadding(0, (10 * dp).toInt(), 0, 0)
+        }
+        box.addView(label(R.string.appearance_access_name, name))
         box.addView(name)
+        box.addView(label(R.string.appearance_access_link, link))
         box.addView(link)
 
         val t = theme()

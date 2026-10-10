@@ -139,7 +139,7 @@
     <string name="servers_use">Сделать рабочей</string>
     <string name="servers_collapsed">свернуто</string>
     <string name="servers_stale">Панель не ответила — список вчерашний</string>
-    <string name="servers_no_subs">Подписок пока нет. Нажми «+» и добавь ссылку от того, кто дал доступ: ключ Marvia, ссылку VLESS, VMess, Trojan, Shadowsocks, Hysteria2, WireGuard или адрес подписки.</string>
+    <string name="servers_no_subs">Добавьте ссылку доступа кнопкой «+». Подойдут ключ или подписка.</string>
     <string name="servers_unlimited">∞</string>
     <string name="servers_quota">%1$s / %2$s</string>
     <string name="servers_days_left">Осталось %1$s</string>
@@ -263,7 +263,7 @@
     <string name="about_privacy">Политика конфиденциальности ↗</string>
     <string name="about_privacy_sub">Что видит приложение и владелец VPN-ноды</string>
     <string name="about_privacy_unavailable">Не удалось открыть политику: нет браузера</string>
-    <string name="theme_title">Тема</string>
+    <string name="theme_title">Темы</string>
     <string name="theme_tab_color">Цвет</string>
     <string name="theme_tab_light">Свет</string>
     <string name="theme_tab_bg">Фон</string>
@@ -277,7 +277,7 @@
     <string name="theme_pv_main">Главная</string>
     <string name="theme_pv_settings">Настройки</string>
     <string name="theme_pv_servers">Серверы</string>
-    <string name="theme_looks_caps">ГОТОВЫЕ ВИДЫ</string>
+    <string name="theme_looks_caps">Все палитры</string>
     <string name="theme_accent_caps">АКЦЕНТ</string>
     <string name="theme_accent_hint">кнопка, отметки, переключатели</string>
     <string name="theme_tint_caps">ОТТЕНОК СВЕТЛОЙ СТОРОНЫ</string>
@@ -312,7 +312,7 @@
     <string name="font_onest">Onest</string>
     <string name="font_manrope">Manrope</string>
     <string name="font_geologica">Geologica</string>
-    <string name="theme_profiles_caps">МОИ ПРОФИЛИ</string>
+    <string name="theme_profiles_caps">Мои темы</string>
     <string name="theme_profiles_hint">пустой слот запоминает текущий вид</string>
     <string name="theme_code_caps">КОД ТЕМЫ · МОЖНО ПЕРЕДАТЬ ДРУГУ</string>
     <string name="theme_hint">Всё применяется сразу</string>
@@ -364,7 +364,7 @@
     <string name="glow_soft">Мягко</string>
     <string name="glow_mid">Средне</string>
     <string name="glow_neon">Неон</string>
-    <string name="theme_profiles">Мои профили</string>
+    <string name="theme_profiles">Мои темы</string>
     <string name="profile_full">Стиль %1$d</string>
     <string name="profile_empty">Пусто %1$d</string>
     <string name="theme_save_here">Сохранить сюда</string>
@@ -471,11 +471,11 @@
     <string name="more_title">Настройки</string>
     <string name="more_sub">Marvia для Android · %1$s</string>
     <string name="more_back">Назад</string>
-    <string name="more_apps_card">Прокси по приложениям</string>
-    <string name="more_apps_card_sub">приложения и российские сайты мимо туннеля</string>
+    <string name="more_apps_card">Приложения и сайты</string>
+    <string name="more_apps_card_sub">Выберите, какой трафик пускать через VPN</string>
     <string name="more_group_conn">ПОДКЛЮЧЕНИЕ</string>
     <string name="more_group_routes">МАРШРУТЫ И DNS</string>
-    <string name="more_group_app">ПРИЛОЖЕНИЕ</string>
+    <string name="more_group_app">Диагностика и приложение</string>
     <string name="more_group_mask">МАСКИРОВКА</string>
     <string name="more_group_apps">ПРИЛОЖЕНИЯ</string>
     <string name="more_logs_row">Журнал соединений</string>
@@ -562,7 +562,6 @@
     </plurals>
 
     <string name="connect_space">Ваше пространство</string>
-    <string name="connect_welcome">Здесь всё по-вашему</string>
     <string name="connect_error_hint">Соединение не установлено. Подробности ниже.</string>
     <string name="connect_add_key">Добавить ключ</string>
     <string name="connect_disconnect">Отключиться</string>

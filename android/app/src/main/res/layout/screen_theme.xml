@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    «Тема» по макету: сверху предпросмотр (настоящие экраны в масштабе, с
-    переворотом при смене), под ним вкладки Цвет · Свет · Фон · Форма · Ещё,
-    и разделы той вкладки, что открыта. Ряды кнопок собирает код.
--->
+<!-- Готовые образы, предпросмотр и настройки отдельных деталей темы. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -22,7 +18,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/theme_title"
-            android:tag="fg"
+            android:tag="fg title"
             android:textSize="26sp"
             android:textStyle="bold"
             android:letterSpacing="-0.01" />
@@ -51,6 +47,22 @@
             android:paddingHorizontal="16dp"
             android:paddingBottom="16dp">
 
+            <LinearLayout android:id="@+id/featuredSection" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginBottom="18dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/appearance_styles"
+                    android:tag="fg" android:textSize="20sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/appearance_styles_sub"
+                    android:tag="dim" android:textSize="13sp" android:layout_marginTop="4dp" android:lineSpacingExtra="2dp" />
+                <HorizontalScrollView android:id="@+id/profileScroll" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp" android:scrollbars="none" android:requiresFadingEdge="horizontal" android:fadingEdgeLength="36dp">
+                    <GridLayout android:id="@+id/featuredProfiles" android:layout_width="wrap_content" android:layout_height="wrap_content" android:columnCount="6" />
+                </HorizontalScrollView>
+                <TextView android:id="@+id/selectedAppearance" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp" android:textSize="13sp" android:tag="dim" />
+            </LinearLayout>
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp"
+                android:text="@string/appearance_preview_example" android:textSize="14sp" android:textStyle="bold" android:tag="fg" />
             <!--
                 Предпросмотр: телефон в масштабе слева, справа — какой экран
                 показать. Вкладки «Форма» и «Ещё» приближают телефон к тому, что
@@ -104,6 +116,14 @@
                     android:visibility="gone" />
             </LinearLayout>
 
+            <TextView android:id="@+id/previewExpand" style="@style/VeilRowTitle" android:layout_width="match_parent"
+                android:minHeight="48dp" android:gravity="center" android:text="@string/appearance_preview_expand" android:tag="dim"
+                android:clickable="true" android:focusable="true" />
+            <TextView android:id="@+id/customizeTheme" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:minHeight="52dp" android:gravity="center" android:layout_marginTop="8dp" android:text="@string/appearance_customize"
+                android:textSize="15sp" android:textStyle="bold" android:tag="action" android:clickable="true" android:focusable="true" />
+            <LinearLayout android:id="@+id/editorDetails" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:visibility="gone">
             <!-- Вкладки: значок в таблетке и подпись, как нижняя панель. -->
             <LinearLayout
                 android:id="@+id/tabsRow"
@@ -431,6 +451,7 @@
                     android:text="@string/theme_note"
                     android:tag="dim"
                     android:textSize="12sp" />
+            </LinearLayout>
             </LinearLayout>
         </LinearLayout>
     </ScrollView>

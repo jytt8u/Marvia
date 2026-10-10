@@ -55,12 +55,38 @@ object Paint {
      * приложение: её ставит MainActivity перед покраской, и экраны, что
      * собирают строки позже, красят их тем же.
      */
-    data class Style(val pattern: String = Store.PATTERN_DOTS, val font: String = Store.FONT_ONEST, val photo: Boolean = false)
+    data class Style(
+        val pattern: String = Store.PATTERN_DOTS,
+        val font: String = Store.FONT_ONEST,
+        val photo: Boolean = false,
+        val motion: Boolean = true,
+        val haptics: Boolean = true,
+        val appearanceStyle: AppearanceStyle = AppearanceStyle.CLASSIC,
+    )
 
     var style = Style()
 
     fun apply(root: View, t: Theme) {
-        walk(root) { view -> paint(view, t) }
+        walk(root) { view ->
+            if (view.id == R.id.navBar && view is android.widget.GridLayout) NavigationLayout.fit(view)
+            paint(view, t)
+        }
+    }
+
+    fun navigationTab(pill: View, icon: ImageView, label: TextView, active: Boolean, t: Theme) {
+        val signal = style.appearanceStyle == AppearanceStyle.SIGNAL
+        val dp = pill.resources.displayMetrics.density
+        pill.background = when {
+            !active -> null
+            signal -> rounded(t.accSoft, 10, dp).apply { setStroke(dp.toInt().coerceAtLeast(1), t.acc) }
+            else -> rounded(t.acc, 999, dp)
+        }
+        ImageViewCompat.setImageTintList(icon, ColorStateList.valueOf(
+            if (!active) t.dim else if (signal) t.acc else t.accFg,
+        ))
+        label.setTextColor(if (!active) t.dim else if (signal) t.fg else t.acc)
+        label.typeface = android.graphics.Typeface.create(label.typeface,
+            if (active) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
     }
 
     /**
@@ -99,6 +125,7 @@ object Paint {
     }
 
     private fun paint(v: View, t: Theme) {
+        v.isHapticFeedbackEnabled = style.haptics
         if (v.isClickable && inNavbar(v)) {
             // На нижней панели уже есть компактная отметка вкладки. Общая
             // рябь разрасталась на всю ячейку и закрывала соседние значки.
@@ -108,11 +135,21 @@ object Paint {
             v.foreground = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(t.accSoft), null, rounded(android.graphics.Color.WHITE, t.r, v.resources.displayMetrics.density))
             // Нажатие чуть вжимает кнопку, как в макете (scale .96): без этого
             // экран отвечает только рябью, и кажется, что ничего не произошло.
-            if (v.stateListAnimator == null) v.stateListAnimator = pressAnimator(v)
+            if (style.motion) {
+                if (v.stateListAnimator == null) v.stateListAnimator = pressAnimator(v)
+            } else if (v.stateListAnimator != null) {
+                v.stateListAnimator = null
+                v.scaleX = 1f
+                v.scaleY = 1f
+            }
         }
         // Знак красится сам: у него не тон, а светотень, и тегом её не передать.
         if (v is MarviaLogoView) {
             v.setTheme(t)
+            return
+        }
+        if (v is DotWordmark) {
+            v.color = t.fg
             return
         }
         if (v is TextView) {
@@ -202,6 +239,7 @@ object Paint {
                 text(v, t.fg, t.dim)
             }
             tag == FG -> text(v, t.fg, t.dim)
+            tag == "title" && v is TextView -> v.textSize = if (style.appearanceStyle == AppearanceStyle.SIGNAL) 32f else 26f
             tag == DIM -> text(v, t.dim, t.dim)
             tag == ACC -> text(v, t.acc, t.dim)
             tag == FAIL -> text(v, t.fail, t.dim)

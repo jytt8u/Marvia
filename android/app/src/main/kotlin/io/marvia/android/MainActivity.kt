@@ -201,6 +201,8 @@ class MainActivity : AppCompatActivity() {
                 more.showPendingConnectionChange()
             },
             onReset = { resetAll() },
+            onAppearanceChanged = { repaint() },
+            onTheme = { show(Screen.THEME) },
         )
 
         lifecycleScope.launch {
@@ -288,7 +290,24 @@ class MainActivity : AppCompatActivity() {
             AppCompatDelegate.setDefaultNightMode(night)
         }
 
-        Paint.style = Paint.Style(pattern = store.pattern, font = store.font, photo = store.hasBackdrop())
+        Paint.style = Paint.Style(
+            pattern = store.pattern, font = store.font, photo = store.hasBackdrop(),
+            motion = !store.reduceMotion, haptics = store.hapticFeedback,
+            appearanceStyle = store.appearanceStyle,
+        )
+        ConnectionAppearance.apply(ui.connectScreen, store.appearanceStyle, theme)
+        ui.connectScreen.powerAction.motionEnabled = !store.reduceMotion
+        if (store.reduceMotion) {
+            listOf(ui.connectScreen.root, ui.serversScreen.root, ui.statsScreen.root,
+                ui.themeScreen.root, ui.moreScreen.root, ui.insightsScreen.root,
+                ui.connectScreen.nodeLine, ui.connectScreen.todayCard, ui.connectScreen.tilesRow,
+                ui.connectScreen.statusText, ui.connectScreen.heroName).forEach {
+                it.animate().cancel()
+                it.alpha = 1f
+                it.translationX = 0f
+                it.translationY = 0f
+            }
+        }
         Paint.apply(ui.root, theme)
         applyBackdrop()
         paintLogo()
@@ -381,7 +400,7 @@ class MainActivity : AppCompatActivity() {
         ui.permsScreen.root.isVisible = next == Screen.PERMS
         // Экран поднимается снизу и проявляется, как .rise в макете: смена
         // вкладки без движения выглядит как сбой отрисовки, а не как переход.
-        if (was != next) {
+        if (was != next && !store.reduceMotion) {
             val root = when (next) {
                 Screen.CONNECT -> ui.connectScreen.root
                 Screen.INSIGHTS -> ui.insightsScreen.root
@@ -454,12 +473,7 @@ class MainActivity : AppCompatActivity() {
      * Без внешнего ripple: широкое пятно закрывало соседние подписи.
      */
     private fun paintTab(pill: View, icon: ImageView, label: TextView, active: Boolean) {
-        val dp = resources.displayMetrics.density
-        val color = if (active) theme.acc else theme.dim
-        pill.background = if (active) Paint.rounded(theme.acc, 999, dp) else null
-        ImageViewCompat.setImageTintList(icon, ColorStateList.valueOf(if (active) theme.accFg else color))
-        label.setTextColor(color)
-        label.typeface = if (active) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+        Paint.navigationTab(pill, icon, label, active, theme)
     }
 
     // --------------------------------------------------------- подключение
@@ -468,6 +482,7 @@ class MainActivity : AppCompatActivity() {
         if (MarviaState.state.value !is TunnelState.On) MarviaState.traffic.value = TrafficHistory(this).saved()
         val c = ui.connectScreen
         c.powerAction.setOnClickListener { toggle() }
+        c.accessAction.setOnClickListener { servers.askWhereFrom() }
         c.techText.setOnClickListener { more.openLogs(); show(Screen.MORE) }
         c.nodeLine.setOnClickListener { show(Screen.SERVERS) }
         c.statusText.setOnClickListener {
@@ -496,13 +511,20 @@ class MainActivity : AppCompatActivity() {
         c.heroMarkButton.setOnClickListener {
             c.heroName.animate().cancel()
             val show = !c.heroName.isVisible
-            if (show) {
+            if (store.reduceMotion) {
+                c.heroName.isVisible = show
+                ConnectionAppearance.header(c, store.appearanceStyle)
+            } else if (show) {
                 c.heroName.alpha = 0f
                 c.heroName.translationX = -10 * resources.displayMetrics.density
                 c.heroName.isVisible = true
+                ConnectionAppearance.header(c, store.appearanceStyle)
                 c.heroName.animate().alpha(1f).translationX(0f).setDuration(450).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).start()
             } else {
-                c.heroName.animate().alpha(0f).setDuration(200).withEndAction { c.heroName.isVisible = false }.start()
+                c.heroName.animate().alpha(0f).setDuration(200).withEndAction {
+                    c.heroName.isVisible = false
+                    ConnectionAppearance.header(c, store.appearanceStyle)
+                }.start()
             }
         }
         lifecycleScope.launch {
@@ -520,6 +542,20 @@ class MainActivity : AppCompatActivity() {
     private fun render(state: TunnelState) {
         val c = ui.connectScreen
         val hasKey = store.accountLink.isNotBlank()
+        c.accessAction.isVisible = !hasKey && state != TunnelState.Connecting
+        c.todayCard.isVisible = store.homeStats && hasKey
+        c.tilesRow.isVisible = store.homeStats && hasKey
+        c.connectionBadge.setText(when (state) {
+            TunnelState.Off -> R.string.connect_badge_off
+            TunnelState.Connecting -> R.string.connect_badge_wait
+            is TunnelState.On -> if (state.warning.isBlank()) R.string.connect_badge_on else R.string.connect_badge_error
+            is TunnelState.Failed -> R.string.connect_badge_error
+        })
+        c.connectionBadge.setTextColor(when (state) {
+            is TunnelState.Failed -> theme.fail
+            is TunnelState.On -> if (state.warning.isBlank()) theme.acc else theme.warn
+            else -> theme.dim
+        })
         if (state !is TunnelState.On) more.clearPendingConnectionChange()
 
         c.techText.isVisible = false
@@ -540,7 +576,7 @@ class MainActivity : AppCompatActivity() {
         if (state is TunnelState.On) lastNode = state.node
         c.nodeLine.isVisible = c.nodeLine.text.isNotEmpty()
         c.powerHint.setText(when (state) {
-            TunnelState.Off -> if (hasKey) R.string.power_hint_start else R.string.connect_add_key_in_servers
+            TunnelState.Off -> if (hasKey) R.string.power_hint_start else R.string.connect_signal_add
             TunnelState.Connecting -> R.string.power_hint_cancel
             is TunnelState.On -> R.string.power_hint_stop
             is TunnelState.Failed -> R.string.connect_retry
@@ -553,7 +589,7 @@ class MainActivity : AppCompatActivity() {
 
         when (state) {
             TunnelState.Off -> {
-                status(if (hasKey) R.string.status_off else R.string.connect_welcome, theme.fg)
+                status(if (hasKey) R.string.status_off else R.string.connect_signal_ready, theme.fg)
                 c.powerAction.contentDescription = getString(if (hasKey) R.string.action_connect else R.string.connect_add_key)
                 paintPower(theme.acc)
                 c.nodeNote.text = ""
@@ -658,7 +694,7 @@ class MainActivity : AppCompatActivity() {
         val changed = v.text.toString() != getString(text)
         v.setText(text)
         v.setTextColor(color)
-        if (changed && v.isAttachedToWindow && v.isShown) {
+        if (changed && v.isAttachedToWindow && v.isShown && !store.reduceMotion) {
             v.alpha = 0f
             v.translationY = 6 * resources.displayMetrics.density
             v.animate().alpha(1f).translationY(0f).setDuration(360).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).start()
@@ -688,6 +724,7 @@ class MainActivity : AppCompatActivity() {
         c.downSpark.theme = theme
         c.upSpark.theme = theme
         c.halo.theme = theme
+        c.halo.isVisible = !c.powerAction.dottedPower
         c.halo.lit = MarviaState.state.value is TunnelState.On
         c.powerAction.theme = theme.copy(acc = color)
     }
@@ -895,7 +932,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (store.accountLink.isBlank()) {
-            show(Screen.SERVERS)
+            servers.askWhereFrom()
             return
         }
 

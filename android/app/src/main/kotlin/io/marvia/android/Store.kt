@@ -413,15 +413,40 @@ class Store(context: Context) {
         }
 
     /**
-     * Ручки темы, которых нет в общем коде: узор фона, шрифт, значок в шапке.
+     * Ручки Android: композиция экрана, узор фона, шрифт, значок в шапке.
      *
      * В код темы они не входят намеренно: код общий с панелью и окном, и
-     * узор с фотографией-значком там не значат ничего. Живут на телефоне и
-     * профили их не запоминают.
+     * узор с фотографией-значком там не значат ничего. Живут на телефоне;
+     * сохранённые профили запоминают только композицию рядом с кодом цветов.
      */
+    // Композиция экрана выбирается явно: плоская палитра сама по себе не
+    // должна превращать другую тему в точечную. Общий код цветов не меняется.
+    var appearanceStyle: AppearanceStyle
+        get() = AppearanceStyle.entries.firstOrNull { it.key == prefs.getString(KEY_APPEARANCE_STYLE, null) }
+            ?: AppearanceStyle.CLASSIC
+        set(value) { prefs.edit().putString(KEY_APPEARANCE_STYLE, value.key).apply() }
+
+    fun profileStyle(slot: Int): AppearanceStyle = AppearanceStyle.entries.firstOrNull {
+        it.key == prefs.getString("$KEY_PROFILE_STYLE$slot", null)
+    } ?: AppearanceStyle.CLASSIC
+
+    fun saveProfileStyle(slot: Int) { prefs.edit().putString("$KEY_PROFILE_STYLE$slot", appearanceStyle.key).apply() }
+
     var pattern: String
         get() = prefs.getString(KEY_PATTERN, PATTERN_DOTS)?.takeIf { it in PATTERNS } ?: PATTERN_DOTS
         set(value) { prefs.edit().putString(KEY_PATTERN, value.takeIf { it in PATTERNS } ?: PATTERN_DOTS).apply() }
+
+    var reduceMotion: Boolean
+        get() = prefs.getBoolean(KEY_REDUCE_MOTION, false)
+        set(value) { prefs.edit().putBoolean(KEY_REDUCE_MOTION, value).apply() }
+
+    var hapticFeedback: Boolean
+        get() = prefs.getBoolean(KEY_HAPTICS, true)
+        set(value) { prefs.edit().putBoolean(KEY_HAPTICS, value).apply() }
+
+    var homeStats: Boolean
+        get() = prefs.getBoolean(KEY_HOME_STATS, true)
+        set(value) { prefs.edit().putBoolean(KEY_HOME_STATS, value).apply() }
 
     var font: String
         get() = prefs.getString(KEY_FONT, FONT_ONEST)?.takeIf { it in FONTS } ?: FONT_ONEST
@@ -789,7 +814,12 @@ class Store(context: Context) {
         private const val BACKDROP_FILE = "backdrop.jpg"
         private const val BACKDROP_MAX_SIDE = 2048
 
+        private const val KEY_APPEARANCE_STYLE = "look_appearance_style"
+        private const val KEY_PROFILE_STYLE = "look_profile_style_"
         private const val KEY_PATTERN = "look_pattern"
+        private const val KEY_REDUCE_MOTION = "reduce_motion"
+        private const val KEY_HAPTICS = "haptic_feedback"
+        private const val KEY_HOME_STATS = "home_stats"
         private const val KEY_FONT = "look_font"
         private const val KEY_LOGO = "look_logo"
         private const val LOGO_FILE = "logo.png"

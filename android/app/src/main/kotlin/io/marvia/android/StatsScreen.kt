@@ -11,7 +11,6 @@ import io.marvia.mobile.Mobile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -40,36 +39,45 @@ class StatsScreen(
     private var week = false
 
     /** Срок и остаток рабочей подписки из кэша; пусто — не читали или нет. */
-    private var quotaLimit = 0L
-    private var quotaLeft = 0L
-    private var quotaUntil = ""
+    private var quota: AccountQuota? = null
+    private var quotaLink = ""
+    private var details = false
+    private var hasTraffic = false
 
     init {
         ui.rangeWeek.setOnClickListener { week = true; paint(theme()) }
         ui.rangeMonth.setOnClickListener { week = false; paint(theme()) }
+        ui.statsDetailsToggle.setOnClickListener { details = !details; paintDetails() }
     }
 
     /** open зовётся при каждом показе: за время на других экранах трафик шёл. */
     fun open() {
-        paint(theme())
         val link = store.accountLink
+        if (quotaLink != link) {
+            quotaLink = link
+            quota = null
+        }
+        paint(theme())
         if (link.isEmpty()) return
         host.lifecycleScope.launch {
             val json = withContext(Dispatchers.IO) { runCatching { Mobile.subscription(link, store.cacheDir(), false) }.getOrDefault("") }
             if (json.isEmpty()) return@launch
-            val o = runCatching { JSONObject(json) }.getOrNull() ?: return@launch
-            quotaLimit = o.optLong("limit", 0)
-            quotaLeft = o.optLong("left", 0)
-            quotaUntil = o.optString("until", "")
+            if (store.accountLink != link) return@launch
+            quota = AccountQuota.read(json)
             paintFacts(theme())
         }
     }
 
     fun paint(t: Theme) {
+        StatisticsLayout.fit(ui)
         val count = if (week) 7 else Traffic.KEEP_DAYS
         val days = traffic.lastDays(count)
         val values = days.map { it.bytes }
         val total = values.sum()
+        hasTraffic = total > 0
+        ui.statsEmpty.isVisible = !hasTraffic
+        ui.trendCard.isVisible = hasTraffic
+        paintDetails()
         val observed = traffic.observedDays(count)
         val peak = values.maxOrNull() ?: 0L
         val peakBack = if (peak > 0) values.size - 1 - values.indexOf(peak) else -1
@@ -106,16 +114,28 @@ class StatsScreen(
 
     /** Факты под кольцом: остаток подписки — из кэша, без похода в панель. */
     private fun paintFacts(t: Theme) {
-        val days = if (quotaUntil.isEmpty()) null else Format.daysLeft(quotaUntil)
-        val until = if (quotaUntil.isEmpty()) "" else Format.day(host, quotaUntil)
-        if (quotaLimit > 0) {
-            ui.factQuota.text = compactQuota(quotaLeft, quotaLimit)
+        val quota = quota
+        if (quota == null) {
+            ui.factQuota.text = "—"
+            ui.factQuotaNote.setText(R.string.appearance_quota_unknown)
+            return
+        }
+        val days = if (quota.until.isEmpty()) null else Format.daysLeft(quota.until)
+        val until = if (quota.until.isEmpty()) "" else Format.day(host, quota.until)
+        if (quota.limit > 0) {
+            ui.factQuota.text = compactQuota(quota.left, quota.limit)
             ui.factQuotaNote.text = if (days != null) host.getString(R.string.stats_quota_left_days, host.resources.getQuantityString(R.plurals.days_left, days, days))
             else host.getString(R.string.stats_quota_left)
         } else {
             ui.factQuota.text = host.getString(R.string.servers_unlimited)
             ui.factQuotaNote.text = if (until.isNotEmpty()) host.getString(R.string.stats_unlimited_until, until) else host.getString(R.string.stats_unlimited)
         }
+    }
+
+    private fun paintDetails() {
+        ui.statsDetails.isVisible = hasTraffic && details
+        ui.statsDetailsToggle.isVisible = hasTraffic
+        ui.statsDetailsToggle.setText(if (details) R.string.appearance_stats_less else R.string.appearance_stats_details)
     }
 
     /**

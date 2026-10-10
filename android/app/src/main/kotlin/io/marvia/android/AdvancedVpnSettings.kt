@@ -48,17 +48,12 @@ class AdvancedVpnSettings(
         ) { store.compactNotification = it == 1 }
 
         group(R.string.advanced_monitor_group)
-        val presets = listOf(Triple(10, 60, 60), Triple(2, 30, 30), Triple(2, 10, 10))
-        val current = Triple(store.liveRefreshSeconds, store.idleRefreshSeconds, store.pingIntervalSeconds)
         choice(
             R.string.advanced_preset, R.string.advanced_preset_sub,
-            listOf(R.string.advanced_preset_battery, R.string.advanced_preset_balanced, R.string.advanced_preset_detailed).map { host.getString(it) },
-            presets.indexOf(current),
+            MonitoringProfiles.all.map { host.getString(it.label) },
+            MonitoringProfiles.selected(store),
         ) {
-            val (live, idle, ping) = presets[it]
-            store.liveRefreshSeconds = live
-            store.idleRefreshSeconds = idle
-            store.pingIntervalSeconds = ping
+            MonitoringProfiles.apply(store, it)
         }
         choice(
             R.string.advanced_live, R.string.advanced_live_sub,

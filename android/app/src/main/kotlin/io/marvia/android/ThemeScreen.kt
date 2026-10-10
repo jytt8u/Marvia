@@ -57,6 +57,7 @@ class ThemeScreen(
 ) {
 
     private val dp = host.resources.displayMetrics.density
+    private val appVersion = host.packageManager.getPackageInfo(host.packageName, 0).versionName.orEmpty()
 
     private enum class Tab { COLOR, LIGHT, BG, SHAPE, MORE }
     private enum class Screen { MAIN, SETTINGS, SERVERS }
@@ -74,16 +75,33 @@ class ThemeScreen(
     /** Собранный предпросмотр: пересобирается только при смене экрана, иначе перекрашивается. */
     private var stage: View? = null
     private var stageOf: Screen? = null
+    private val appearance by lazy { AppearancePicker(host, ui.featuredProfiles, store, onChanged) }
 
     init {
-        ui.themeReset.setOnClickListener { choose(Look.Choice()) }
+        ui.customizeTheme.setOnClickListener {
+            ui.editorDetails.isVisible = !ui.editorDetails.isVisible
+            paint(Look.theme(store.look))
+            ui.themeScroll.post {
+                val target = if (ui.editorDetails.isVisible) ui.customizeTheme.top else ui.previewCard.top
+                val y = (target - 12 * dp).toInt().coerceAtLeast(0)
+                if (store.reduceMotion) ui.themeScroll.scrollTo(0, y) else ui.themeScroll.smoothScrollTo(0, y)
+            }
+        }
+        ui.previewExpand.setOnClickListener { openPreview() }
+        ui.previewStage.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        ui.previewFrame.contentDescription = host.getString(R.string.appearance_preview_example)
+        ui.themeReset.setOnClickListener {
+            AppearanceProfiles.apply(store, AppearanceProfiles.classic)
+            onChanged()
+        }
         ui.profileSave.setOnClickListener {
             val list = store.profiles.toMutableList()
             list[slot] = Look.encode(store.look)
             store.profiles = list
+            store.saveProfileStyle(slot)
             paint(Look.theme(store.look))
         }
-        ui.themeRandom.setOnClickListener { choose(random()) }
+        ui.themeRandom.setOnClickListener { choose(random(), AppearanceStyle.CLASSIC) }
         ui.themeCode.setOnClickListener {
             host.getSystemService(ClipboardManager::class.java)
                 ?.setPrimaryClip(ClipData.newPlainText("marvia-look", Look.encode(store.look)))
@@ -158,8 +176,8 @@ class ThemeScreen(
     }
 
     private fun zoomFor(t: Tab): Zoom {
-        val whole = Zoom(133f, 287f, 0.34f, 0f, 0f)
-        if (t != Tab.SHAPE && t != Tab.MORE) return whole
+        val whole = Zoom(172f, 372f, 0.44f, 0f, 0f)
+        if (!ui.editorDetails.isVisible || (t != Tab.SHAPE && t != Tab.MORE)) return whole
         val s = stage as? ViewGroup ?: return whole
         val targets = focusOf(s) ?: return whole
         if (s.width == 0) return whole
@@ -274,7 +292,7 @@ class ThemeScreen(
             stage.translationX = fromX + (z.dx * dp - fromX) * f
             stage.translationY = fromY + (z.dy * dp - fromY) * f
         }
-        if (!animate) { apply(1f); return }
+        if (!animate || store.reduceMotion) { apply(1f); return }
         zoomAnim = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 550
             // Кривая макета, cubic-bezier(.2,.8,.2,1): быстрый разгон и
@@ -285,8 +303,9 @@ class ThemeScreen(
         }
     }
 
-    private fun choose(next: Look.Choice) {
+    private fun choose(next: Look.Choice, style: AppearanceStyle = store.appearanceStyle) {
         store.look = Look.normalize(next)
+        store.appearanceStyle = style
         onChanged()
     }
 
@@ -296,7 +315,7 @@ class ThemeScreen(
         ui.codeBad.isVisible = next == null
         if (next == null) return
         ui.codeInput.setText("")
-        choose(next)
+        choose(next, AppearanceStyle.CLASSIC)
     }
 
     private fun random(): Look.Choice {
@@ -320,6 +339,14 @@ class ThemeScreen(
     /** paint перерисовывает выбор под текущую тему. Зовётся при каждой смене. */
     fun paint(t: Theme, flip: Boolean = false) {
         val choice = store.look
+        ui.featuredSection.isVisible = true
+        appearance.render(t)
+        ui.selectedAppearance.text = AppearanceProfiles.selected(store)?.let {
+            host.getString(it.name) + " · " + host.getString(it.description)
+        } ?: host.getString(R.string.theme_look_custom)
+        ui.customizeTheme.setText(if (ui.editorDetails.isVisible) R.string.appearance_customizing else R.string.appearance_customize)
+        ui.previewExpand.background = Paint.rounded(t.surf2, minOf(t.r, 12), dp)
+        ui.previewExpand.setTextColor(t.fg)
         // Ряды собираются заново, и прокрутка на миг теряет опору — возвращаем
         // её после раскладки, иначе каждое нажатие уносит экран наверх.
         val scrollY = ui.themeScroll.scrollY
@@ -456,25 +483,34 @@ class ThemeScreen(
             stageOf = previewScreen
         }
         val s = stage ?: return
+        if (previewScreen == Screen.MAIN) {
+            val connect = s.findViewById<View>(R.id.connectRoot)
+            ConnectionAppearance.apply(ScreenConnectBinding.bind(connect), store.appearanceStyle, t)
+        }
         Paint.apply(s, t)
         s.background = photoBackdrop(t) ?: Backdrop(t)
         ui.previewFrame.foreground = GradientDrawable().apply { cornerRadius = 18 * dp; setColor(0); setStroke((1 * dp).toInt(), t.line) }
         ui.previewFrame.elevation = 8 * dp
         fillStage(s, t)
-        if (flip) {
+        ui.previewFrame.animate().cancel()
+        if (flip && !store.reduceMotion) {
             // Переворот, как в макете: карта уходит ребром и возвращается новой.
             ui.previewFrame.cameraDistance = 8000 * dp
             ui.previewFrame.rotationY = -90f
             ui.previewFrame.alpha = 0.3f
             ui.previewFrame.animate().rotationY(0f).alpha(1f).setDuration(700).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).start()
+        } else {
+            ui.previewFrame.rotationY = 0f
+            ui.previewFrame.alpha = 1f
         }
 
         // Переключатель экрана предпросмотра: точка и имя. Столбиком справа,
         // а в приближении, где справа места нет, — строкой под телефоном.
-        val zoomed = tab == Tab.SHAPE || tab == Tab.MORE
+        val zoomed = (ui.editorDetails.isVisible && (tab == Tab.SHAPE || tab == Tab.MORE)) || host.resources.configuration.fontScale > 1.5f
         val picker = if (zoomed) ui.previewPickerBelow else ui.previewPicker
         ui.previewPicker.isVisible = !zoomed
         ui.previewPickerBelow.isVisible = zoomed
+        ui.previewPickerBelow.orientation = if (host.resources.configuration.fontScale > 1.5f) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
         picker.removeAllViews()
         for ((key, name) in listOf(Screen.MAIN to R.string.theme_pv_main, Screen.SETTINGS to R.string.theme_pv_settings, Screen.SERVERS to R.string.theme_pv_servers)) {
             val on = previewScreen == key
@@ -484,6 +520,7 @@ class ThemeScreen(
                 setPadding((10 * dp).toInt(), (8 * dp).toInt(), (10 * dp).toInt(), (8 * dp).toInt())
                 isClickable = true
                 isFocusable = true
+                minimumHeight = (48 * dp).toInt()
                 setOnClickListener {
                     if (previewScreen != key) {
                         pickedScreen = key
@@ -504,6 +541,41 @@ class ThemeScreen(
     }
 
     /** buildStage надувает экран предпросмотра: тот же XML, что у настоящего. */
+    private fun openPreview() {
+        val t = Look.theme(store.look)
+        val dialog = android.app.Dialog(host, R.style.Theme_Veil)
+        val column = LinearLayout(host).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * dp).toInt(), (24 * dp).toInt(), (16 * dp).toInt(), (16 * dp).toInt())
+        }
+        column.addView(TextView(host).apply {
+            setText(R.string.appearance_preview_example)
+            textSize = 16f
+            tag = "fg"
+        })
+        val screen = buildStage(previewScreen)
+        column.addView(screen, LinearLayout.LayoutParams(MATCH, 0, 1f))
+        fillStage(screen, t)
+        screen.background = photoBackdrop(t) ?: Backdrop(t)
+        setTouchless(screen)
+        column.addView(TextView(host).apply {
+            setText(R.string.appearance_close_preview)
+            textSize = 16f
+            gravity = Gravity.CENTER
+            minimumHeight = (52 * dp).toInt()
+            tag = "action"
+            isFocusable = true
+            setOnClickListener { dialog.dismiss() }
+        }, LinearLayout.LayoutParams(MATCH, WRAP))
+        Paint.apply(column, t)
+        dialog.setContentView(column)
+        dialog.show()
+        dialog.window?.apply {
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(t.bg))
+            setLayout(MATCH, MATCH)
+        }
+    }
+
     private fun buildStage(which: Screen): View {
         val inflater = LayoutInflater.from(host)
         val column = LinearLayout(host).apply { orientation = LinearLayout.VERTICAL }
@@ -532,8 +604,13 @@ class ThemeScreen(
         when (previewScreen) {
             Screen.MAIN -> {
                 id<PowerButton>(R.id.powerAction)?.apply { motionEnabled = false; theme = t; state = PowerButton.State.ON }
+                id<TextView>(R.id.connectionBadge)?.apply {
+                    setText(R.string.connect_badge_on); setTextColor(t.acc)
+                }
+                id<View>(R.id.todayCard)?.isVisible = store.homeStats
+                id<View>(R.id.tilesRow)?.isVisible = store.homeStats
                 id<TextView>(R.id.powerHint)?.isVisible = false
-                id<HaloView>(R.id.halo)?.apply { theme = t; lit = true }
+                id<HaloView>(R.id.halo)?.apply { theme = t; lit = true; isVisible = id<PowerButton>(R.id.powerAction)?.dottedPower != true }
                 id<TextView>(R.id.statusText)?.apply { setText(R.string.status_on); setTextColor(if (t.dark) t.fg else t.acc) }
                 id<TextView>(R.id.nodeLine)?.text = host.getString(R.string.theme_preview_country) + " · " + host.getString(R.string.theme_preview_place)
                 id<TextView>(R.id.todayTotal)?.text = Format.size(host, 4_509_715_660L)
@@ -546,6 +623,7 @@ class ThemeScreen(
                 // Иначе вкладка «Ещё» меняла бы то, чего в предпросмотре не видно.
                 val custom = if (store.logo == Store.LOGO_CUSTOM) store.logoBitmap() else null
                 id<View>(R.id.heroName)?.isVisible = tab == Tab.MORE
+                ConnectionAppearance.header(ScreenConnectBinding.bind(id<View>(R.id.connectRoot)!!), store.appearanceStyle)
                 id<View>(R.id.heroMarkButton)?.isVisible = store.logo != Store.LOGO_NONE
                 id<View>(R.id.heroMark)?.isVisible = store.logo == Store.LOGO_MARVIA || (store.logo == Store.LOGO_CUSTOM && custom == null)
                 id<ImageView>(R.id.heroCustom)?.apply {
@@ -600,11 +678,15 @@ class ThemeScreen(
             }
             Screen.SETTINGS -> {
                 id<TextView>(R.id.moreTitle)?.setText(R.string.more_title)
-                id<TextView>(R.id.moreSub)?.text = host.getString(R.string.more_sub, "0.9.3")
+                id<TextView>(R.id.moreTitle)?.textSize = if (store.appearanceStyle == AppearanceStyle.SIGNAL) 32f else 26f
+                id<TextView>(R.id.moreSub)?.text = host.getString(R.string.more_sub, appVersion)
                 id<TextView>(R.id.appsSummary)?.text = host.getString(R.string.apps_summary_names, 3, "Госуслуги, Сбербанк, Т-Банк")
                 id<TextView>(R.id.languageValue)?.setText(if (store.language == Store.LANG_EN) R.string.language_en else R.string.language_ru)
                 id<TextView>(R.id.dnsValue)?.text = "Cloudflare"
-                id<TextView>(R.id.aboutSub)?.text = host.getString(R.string.about_sub, "0.9.3")
+                id<TextView>(R.id.aboutSub)?.text = host.getString(R.string.about_sub, appVersion)
+                id<LinearLayout>(R.id.appearanceRows)?.let { rows ->
+                    AppearanceSettings(host, rows, store, { t }, {}).render()
+                }
                 id<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switchAutostart)?.isChecked = true
                 id<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switchDnsSecure)?.isChecked = true
                 id<View>(R.id.moreBack)?.isVisible = false
@@ -612,12 +694,16 @@ class ThemeScreen(
         }
         // Нижняя панель сцены: таблетка под активной вкладкой, как настоящая.
         val active = when (previewScreen) { Screen.MAIN -> R.id.navConnectPill to R.id.navConnectLabel; Screen.SERVERS -> R.id.navServersPill to R.id.navServersLabel; Screen.SETTINGS -> R.id.navMorePill to R.id.navMoreLabel }
-        id<View>(active.first)?.background = Paint.rounded(t.acc, 999, dp)
-        id<TextView>(active.second)?.apply { setTextColor(t.acc); typeface = android.graphics.Typeface.create(typeface, android.graphics.Typeface.BOLD) }
-        val navIcons = listOf(R.id.navConnectIcon, R.id.navServersIcon, R.id.navStatsIcon, R.id.navThemeIcon, R.id.navMoreIcon)
-        val activeIcon = when (previewScreen) { Screen.MAIN -> R.id.navConnectIcon; Screen.SERVERS -> R.id.navServersIcon; Screen.SETTINGS -> R.id.navMoreIcon }
-        for (icon in navIcons) id<ImageView>(icon)?.imageTintList = android.content.res.ColorStateList.valueOf(if (icon == activeIcon) t.accFg else t.dim)
-        for (pill in listOf(R.id.navConnectPill, R.id.navServersPill, R.id.navStatsPill, R.id.navThemePill, R.id.navMorePill)) if (pill != active.first) id<View>(pill)?.background = null
+        for ((pill, icon, label) in listOf(
+            Triple(R.id.navConnectPill, R.id.navConnectIcon, R.id.navConnectLabel),
+            Triple(R.id.navServersPill, R.id.navServersIcon, R.id.navServersLabel),
+            Triple(R.id.navStatsPill, R.id.navStatsIcon, R.id.navStatsLabel),
+            Triple(R.id.navThemePill, R.id.navThemeIcon, R.id.navThemeLabel),
+            Triple(R.id.navMorePill, R.id.navMoreIcon, R.id.navMoreLabel),
+        )) {
+            Paint.navigationTab(id<View>(pill) ?: continue, id<ImageView>(icon) ?: continue,
+                id<TextView>(label) ?: continue, pill == active.first, t)
+        }
         setTouchless(s)
     }
 
@@ -660,7 +746,7 @@ class ThemeScreen(
                 gravity = Gravity.CENTER_HORIZONTAL
                 isClickable = true
                 isFocusable = true
-                setOnClickListener { performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); choose(Look.ofLook(lk)) }
+                setOnClickListener { performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); choose(Look.ofLook(lk), AppearanceStyle.CLASSIC) }
             }
             val canvas = FrameLayout(host).apply {
                 background = Backdrop(preview, Store.PATTERN_NONE)
@@ -1096,7 +1182,7 @@ class ThemeScreen(
             val c = chip(t, host.getString(if (code != null) R.string.profile_full else R.string.profile_empty, i + 1), on) {
                 slot = i
                 val next = code?.let { Look.decode(it) }
-                if (next != null) choose(next) else paint(t)
+                if (next != null) choose(next, store.profileStyle(i)) else paint(t)
             }
             row.addView(c, LinearLayout.LayoutParams(0, WRAP, 1f).apply { if (i > 0) marginStart = (8 * dp).toInt() })
         }

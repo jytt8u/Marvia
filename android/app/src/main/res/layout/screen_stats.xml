@@ -28,7 +28,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/stats_title"
-                android:tag="fg"
+                android:tag="fg title"
                 android:textSize="26sp"
                 android:textStyle="bold"
                 android:letterSpacing="-0.01" />
@@ -53,7 +53,7 @@
             <TextView
                 android:id="@+id/rangeWeek"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
+                android:layout_height="wrap_content" android:minHeight="48dp"
                 android:gravity="center"
                 android:paddingHorizontal="12dp"
                 android:text="@string/stats_range_week"
@@ -63,7 +63,7 @@
             <TextView
                 android:id="@+id/rangeMonth"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
+                android:layout_height="wrap_content" android:minHeight="48dp"
                 android:gravity="center"
                 android:paddingHorizontal="12dp"
                 android:text="@string/stats_range_month"
@@ -87,7 +87,7 @@
             android:paddingTop="4dp"
             android:paddingBottom="16dp">
 
-            <!-- Циферблат: кольцо из сегментов, по одному на день; ярче — больше. -->
+            <!-- Итог и факты; подробные графики раскрываются отдельно. -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -98,21 +98,11 @@
                 android:paddingTop="12dp"
                 android:paddingBottom="14dp">
 
-                <FrameLayout
-                    android:layout_width="236dp"
-                    android:layout_height="236dp"
-                    android:layout_gravity="center_horizontal">
-
-                    <io.marvia.android.RangeDial
-                        android:id="@+id/rangeDial"
+                <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent" />
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:gravity="center_horizontal"
+
+                        android:gravity="start"
                         android:orientation="vertical">
 
                         <TextView
@@ -141,11 +131,10 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:gravity="center"
-                            android:maxWidth="204dp"
+
                             android:tag="dim"
                             android:textSize="12sp" />
                     </LinearLayout>
-                </FrameLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -245,7 +234,12 @@
             </LinearLayout>
 
             <!-- Линия по дням. -->
-            <LinearLayout
+            <LinearLayout android:id="@+id/statsEmpty" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginTop="12dp" android:tag="card">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/appearance_stats_empty" android:textStyle="bold" android:textSize="18sp" android:tag="fg" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/appearance_stats_empty_sub" android:textSize="14sp" android:tag="dim" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/trendCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
@@ -375,7 +369,23 @@
             </LinearLayout>
 
             <!-- Неделя по часам. -->
-            <LinearLayout
+            <TextView android:id="@+id/statsDetailsToggle" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:minHeight="52dp" android:gravity="center" android:text="@string/appearance_stats_details" android:tag="action" android:textSize="15sp" />
+            <LinearLayout android:id="@+id/statsDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+<FrameLayout
+                    android:layout_width="236dp"
+                    android:layout_height="236dp"
+                    android:layout_gravity="center_horizontal">
+
+                    <io.marvia.android.RangeDial
+                        android:id="@+id/rangeDial"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+
+
+                </FrameLayout>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/appearance_dial_legend" android:tag="dim" android:textSize="13sp" />
+<LinearLayout android:id="@+id/weekCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
@@ -427,6 +437,7 @@
                     <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="@font/mono" android:gravity="center" android:tag="dim" android:text="18" android:textSize="9.5sp" />
                     <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="@font/mono" android:gravity="end" android:tag="dim" android:text="23" android:textSize="9.5sp" />
                 </LinearLayout>
+            </LinearLayout>
             </LinearLayout>
 
             <TextView

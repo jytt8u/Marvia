@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Нижняя панель из макета: пять вкладок, у активной — таблетка под значком
-    и подпись цветом текста. Своя, а не BottomNavigationView: у той свои
-    правила подсветки и отступов, и подгонять их под макет вышло бы длиннее,
-    чем нарисовать пять кнопок. Таблетку и цвета ставит код по теме.
--->
+<!-- Пять вкладок. Подписи подстраиваются под ширину и размер шрифта. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -20,11 +15,11 @@
         android:tag="line"
         android:background="@color/veil_border" />
 
-    <LinearLayout
+    <GridLayout
         android:id="@+id/navBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:columnCount="5"
         android:paddingHorizontal="8dp"
         android:paddingTop="8dp"
         android:paddingBottom="6dp">
@@ -33,7 +28,7 @@
             android:id="@+id/navConnect"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_columnWeight="1"
             android:background="@null" android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
@@ -53,21 +48,20 @@
                     android:src="@drawable/ic_nav_tunnel" />
             </FrameLayout>
 
-            <TextView
+            <androidx.appcompat.widget.AppCompatTextView style="@style/VeilNavLabel"
                 android:id="@+id/navConnectLabel"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="@string/nav_connect"
-                android:maxLines="1"
-                android:textSize="10.5sp" />
+                />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/navServers"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_columnWeight="1"
             android:background="@null" android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
@@ -87,21 +81,20 @@
                     android:src="@drawable/ic_nav_servers" />
             </FrameLayout>
 
-            <TextView
+            <androidx.appcompat.widget.AppCompatTextView style="@style/VeilNavLabel"
                 android:id="@+id/navServersLabel"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="@string/nav_servers"
-                android:maxLines="1"
-                android:textSize="10.5sp" />
+                />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/navStats"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_columnWeight="1"
             android:background="@null" android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
@@ -121,21 +114,20 @@
                     android:src="@drawable/ic_nav_stats" />
             </FrameLayout>
 
-            <TextView
+            <androidx.appcompat.widget.AppCompatTextView style="@style/VeilNavLabel"
                 android:id="@+id/navStatsLabel"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="@string/nav_stats"
-                android:maxLines="1"
-                android:textSize="10.5sp" />
+                />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/navTheme"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_columnWeight="1"
             android:background="@null" android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
@@ -155,21 +147,20 @@
                     android:src="@drawable/ic_nav_theme" />
             </FrameLayout>
 
-            <TextView
+            <androidx.appcompat.widget.AppCompatTextView style="@style/VeilNavLabel"
                 android:id="@+id/navThemeLabel"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="@string/nav_theme"
-                android:maxLines="1"
-                android:textSize="10.5sp" />
+                />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/navMore"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_columnWeight="1"
             android:background="@null" android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
@@ -189,14 +180,13 @@
                     android:src="@drawable/ic_nav_more" />
             </FrameLayout>
 
-            <TextView
+            <androidx.appcompat.widget.AppCompatTextView style="@style/VeilNavLabel"
                 android:id="@+id/navMoreLabel"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="@string/nav_more"
-                android:maxLines="1"
-                android:textSize="10.5sp" />
+                />
         </LinearLayout>
-    </LinearLayout>
+    </GridLayout>
 </LinearLayout>

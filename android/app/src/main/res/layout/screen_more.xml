@@ -1,14 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    «Настройки» по макету: одна прокручиваемая страница — карточка прокси по
-    приложениям, группы «Подключение», «Маршруты и DNS», «Приложение».
-    Приложения, дополнительные настройки и журнал — подэкраны с кнопкой
-    «назад» в шапке. Число соединений и транспорт решает ядро; здесь только
-    настройки с реальным действием в Android или клиенте.
-
-    Файл собран скриптом (scratchpad/gen_more.sh в сессии автора) — строки
-    однотипные; править можно и руками, лишь бы они остались однотипными.
--->
+<!-- Настройки подключения, маршрутов, отображения и измерений. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -90,29 +81,7 @@
             android:paddingBottom="16dp">
 
         <!-- Прокси по приложениям: карточка-ссылка с итогом. -->
-        <LinearLayout
-            android:id="@+id/rowApps"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_card"
-            android:clickable="true"
-            android:focusable="true"
-            android:orientation="vertical"
-            android:tag="card"
-            android:paddingHorizontal="14dp"
-            android:paddingVertical="12dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
-                <FrameLayout android:layout_width="44dp" android:layout_height="44dp" android:layout_marginEnd="12dp" android:tag="icon.box">
-                    <ImageView android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:contentDescription="@null" android:src="@drawable/ic_grid" android:tag="icon:acc" />
-                </FrameLayout>
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/more_apps_card" android:tag="fg" android:textSize="16sp" android:textStyle="bold" />
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="@string/more_apps_card_sub" android:tag="dim" android:textSize="12sp" />
-                </LinearLayout>
-                <ImageView android:layout_width="18dp" android:layout_height="18dp" android:contentDescription="@null" android:src="@drawable/ic_chevron_right" android:tag="icon:dim" />
-            </LinearLayout>
-            <TextView android:id="@+id/appsSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:tag="dim" android:textSize="12.5sp" />
-        </LinearLayout>
+
 
         <TextView style="@style/ThemeK" android:layout_marginTop="18dp" android:layout_marginStart="4dp" android:text="@string/more_group_conn" />
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="@drawable/bg_card" android:orientation="vertical" android:tag="card">
@@ -150,6 +119,29 @@
             </LinearLayout>
         </LinearLayout>
         <TextView style="@style/ThemeK" android:layout_marginTop="18dp" android:layout_marginStart="4dp" android:text="@string/more_group_routes" />
+<LinearLayout
+            android:id="@+id/rowApps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_card"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="vertical"
+            android:tag="card"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="12dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+                <FrameLayout android:layout_width="44dp" android:layout_height="44dp" android:layout_marginEnd="12dp" android:tag="icon.box">
+                    <ImageView android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:contentDescription="@null" android:src="@drawable/ic_grid" android:tag="icon:acc" />
+                </FrameLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/more_apps_card" android:tag="fg" android:textSize="16sp" android:textStyle="bold" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="@string/more_apps_card_sub" android:tag="dim" android:textSize="12sp" />
+                </LinearLayout>
+                <ImageView android:layout_width="18dp" android:layout_height="18dp" android:contentDescription="@null" android:src="@drawable/ic_chevron_right" android:tag="icon:dim" />
+            </LinearLayout>
+            <TextView android:id="@+id/appsSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:tag="dim" android:textSize="12.5sp" />
+        </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="@drawable/bg_card" android:orientation="vertical" android:tag="card">
             <LinearLayout android:id="@+id/rowLan" style="@style/VeilRow">
                 <FrameLayout android:layout_width="34dp" android:layout_height="34dp" android:layout_marginEnd="12dp" android:tag="icon.box">
@@ -209,6 +201,26 @@
                 <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchFragment" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:clickable="false" android:focusable="false" android:tag="switch" />
             </LinearLayout>
         </LinearLayout>
+        <TextView style="@style/ThemeK" android:layout_marginTop="18dp" android:layout_marginStart="4dp" android:text="@string/appearance_screen_language" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:tag="card" android:layout_marginTop="8dp">
+            <LinearLayout android:id="@+id/rowTheme" style="@style/VeilRow">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView style="@style/VeilRowTitle" android:text="@string/theme_title" />
+                    <TextView android:id="@+id/appearanceValue" style="@style/VeilRowSub" />
+                </LinearLayout>
+                <ImageView android:layout_width="18dp" android:layout_height="18dp" android:src="@drawable/ic_chevron_right" android:contentDescription="@null" android:tag="icon:dim" />
+            </LinearLayout>
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:tag="line" />
+<LinearLayout android:id="@+id/rowLanguage" style="@style/VeilRow">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView style="@style/VeilRowTitle" android:text="@string/settings_language" android:id="@+id/languageValueTitle" />
+                </LinearLayout>
+                <TextView android:id="@+id/languageValue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:tag="dim" android:textSize="13sp" />
+                <ImageView android:layout_width="18dp" android:layout_height="18dp" android:layout_marginStart="6dp" android:contentDescription="@null" android:src="@drawable/ic_chevron_right" android:tag="icon:dim" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/appearanceRows" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:layout_marginTop="18dp" />
         <TextView style="@style/ThemeK" android:layout_marginTop="18dp" android:layout_marginStart="4dp" android:text="@string/more_group_app" />
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="@drawable/bg_card" android:orientation="vertical" android:tag="card">
             <LinearLayout android:id="@+id/rowUpdate" style="@style/VeilRow" android:visibility="gone">
@@ -219,14 +231,7 @@
                 <ImageView android:layout_width="18dp" android:layout_height="18dp" android:layout_marginStart="8dp" android:contentDescription="@null" android:src="@drawable/ic_chevron_right" android:tag="icon:dim" />
             </LinearLayout>
             <View android:layout_width="match_parent" android:layout_height="1dp" android:tag="line" android:id="@+id/rowUpdateLine" android:visibility="gone" />
-            <LinearLayout android:id="@+id/rowLanguage" style="@style/VeilRow">
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                    <TextView style="@style/VeilRowTitle" android:text="@string/settings_language" android:id="@+id/languageValueTitle" />
-                </LinearLayout>
-                <TextView android:id="@+id/languageValue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:tag="dim" android:textSize="13sp" />
-                <ImageView android:layout_width="18dp" android:layout_height="18dp" android:layout_marginStart="6dp" android:contentDescription="@null" android:src="@drawable/ic_chevron_right" android:tag="icon:dim" />
-            </LinearLayout>
-            <View android:layout_width="match_parent" android:layout_height="1dp" android:tag="line" />
+
             <LinearLayout android:id="@+id/rowLogs" style="@style/VeilRow">
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
                     <TextView style="@style/VeilRowTitle" android:text="@string/more_logs_row" />
@@ -434,7 +439,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:tag="dim"
-                   
+
                     android:textSize="12.5sp" />
 
                 <TextView
@@ -445,7 +450,7 @@
                     android:paddingVertical="7dp"
                     android:tag="chip"
                     android:text="@string/logs_copy"
-                   
+
                     android:textSize="12sp" />
 
                 <TextView
@@ -457,7 +462,7 @@
                     android:paddingVertical="7dp"
                     android:tag="chip"
                     android:text="@string/journal_send"
-                   
+
                     android:textSize="12sp" />
             </LinearLayout>
 

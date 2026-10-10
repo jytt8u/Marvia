@@ -135,4 +135,17 @@
         <item name="android:maxLines">2</item>
         <item name="android:ellipsize">end</item>
     </style>
+    <style name="VeilNavLabel" parent="VeilText">
+        <item name="android:gravity">center</item>
+        <item name="android:layout_marginStart">2dp</item>
+        <item name="android:layout_marginEnd">2dp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:textSize">10.5sp</item>
+        <item name="autoSizeTextType">uniform</item>
+        <item name="autoSizeMinTextSize">7.5sp</item>
+        <item name="autoSizeMaxTextSize">10.5sp</item>
+        <item name="autoSizeStepGranularity">0.5sp</item>
+    </style>
+
 </resources>

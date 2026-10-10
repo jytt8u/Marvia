@@ -64,6 +64,8 @@ class MoreScreen(
     private val onNextConnect: () -> Unit,
     /** Человек сбросил всё: выключить туннель и начать с чистого листа. */
     private val onReset: () -> Unit,
+    private val onAppearanceChanged: () -> Unit,
+    private val onTheme: () -> Unit,
 ) {
 
     enum class Section { CONN, ADVANCED, APPS, LOGS, ABOUT }
@@ -79,6 +81,9 @@ class MoreScreen(
     private val advanced by lazy {
         AdvancedVpnSettings(host, ui.sectionAdvanced, ui.advancedRows, store, theme, onNextConnect)
     }
+    private val appearance by lazy {
+        AppearanceSettings(host, ui.appearanceRows, store, theme, onAppearanceChanged)
+    }
 
     private val version: String = try {
         host.packageManager.getPackageInfo(host.packageName, 0).versionName.orEmpty()
@@ -93,6 +98,7 @@ class MoreScreen(
         ui.moreBack.setOnClickListener { show(Section.CONN) }
         ui.rowApps.setOnClickListener { show(Section.APPS) }
         ui.rowLogs.setOnClickListener { show(Section.LOGS) }
+        ui.rowTheme.setOnClickListener { onTheme() }
 
         wireConnection()
         wireApps()
@@ -107,6 +113,9 @@ class MoreScreen(
     /** paint перекрашивает то, что красится кодом: таблетки и строки логов. */
     fun paint() {
         val t = theme()
+        paintTitleSize()
+        ui.appearanceValue.text = AppearanceProfiles.selected(store)?.let { host.getString(it.name) }
+            ?: host.getString(R.string.theme_look_custom)
         paintModes()
         renderConnection()
         if (section == Section.ADVANCED) advanced.render()
@@ -138,6 +147,13 @@ class MoreScreen(
         return true
     }
 
+    private fun paintTitleSize() {
+        val signal = store.appearanceStyle == AppearanceStyle.SIGNAL
+        ui.moreTitle.textSize = if (section == Section.CONN) {
+            if (signal) 32f else 26f
+        } else if (signal) 24f else 21f
+    }
+
     private fun show(next: Section) {
         section = next
         val state = MarviaState.state.value
@@ -150,7 +166,7 @@ class MoreScreen(
 
         ui.moreBack.isVisible = next != Section.CONN
         // Подэкран — заголовок помельче: «Прокси по приложениям» в 26 не влезает.
-        ui.moreTitle.textSize = if (next == Section.CONN) 26f else 21f
+        paintTitleSize()
         ui.moreTitle.setText(
             when (next) {
                 Section.CONN -> R.string.more_title
@@ -268,6 +284,7 @@ class MoreScreen(
     }
 
     private fun renderConnection() {
+        appearance.render()
         ui.switchAutostart.isChecked = store.autoStart
         ui.switchLan.isChecked = store.lanOutside
         ui.switchRussian.isChecked = store.bypassRussian

@@ -18,22 +18,27 @@ import androidx.appcompat.widget.AppCompatButton
 import androidx.core.graphics.ColorUtils
 
 /**
- * PowerButton — кнопка питания из макета: объёмный диск и дуга вокруг.
- *
- * Дуга живёт отдельно от диска и говорит о состоянии: выключено — ровное
- * кольцо цветом линии; подключаемся — короткий отрезок, который крутится;
- * подключено — три четверти круга акцентом с разрывом внизу справа, как на
- * референсе. Диск при этом остаётся диском: у него свой объём и свои варианты
- * из темы (обычный, сплошной, стекло, без диска).
- *
- * Дуга плавно меняет состояние. При подключении она вращается, затем
- * останавливается: постоянная анимация на главной расходовала батарею.
- * Подсветка остаётся узкой линией вокруг дуги, без цветного пятна на фоне.
+ * Кнопка подключения: точечное кольцо в теме Nothing, дуга в остальных.
+ * Вращение работает только при подключении и останавливается вне экрана.
  */
 class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : AppCompatButton(context, attrs) {
     enum class State { OFF, CONNECTING, ON, FAILED }
 
     private val brush = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    var appearanceStyle: AppearanceStyle = AppearanceStyle.CLASSIC
+        set(value) {
+            if (field == value) return
+            field = value
+            morpher?.cancel()
+            from = arc(state)
+            to = from
+            mix = 1f
+            invalidate()
+        }
+
+    // Ручной выбор другой кнопки или свечения имеет приоритет над точками.
+    val dottedPower: Boolean get() = appearanceStyle == AppearanceStyle.SIGNAL && theme.btn == "ring" && theme.glowA == 0.0
 
     var theme: Theme = Look.theme(Look.Choice())
         set(value) {
@@ -130,6 +135,7 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
 
     private fun morph() {
         morpher?.cancel()
+        if (dottedPower) { mix = 1f; return }
         if (!animationsAllowed() || !isAttachedToWindow) { mix = 1f; return }
         mix = 0f
         morpher = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -250,6 +256,10 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
 
     override fun onDraw(canvas: Canvas) {
         if (dirty || width == 0) rebuild()
+        if (dottedPower) {
+            drawDottedButton(canvas)
+            return
+        }
         val dp = resources.displayMetrics.density
         val on = state == State.ON
         val bare = theme.btn == "bare"
@@ -373,6 +383,42 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
         canvas.restore()
     }
 
+    private fun drawDottedButton(canvas: Canvas) {
+        val dp = resources.displayMetrics.density
+        val signal = if (state == State.FAILED) theme.fail else theme.acc
+        canvas.save()
+        val scale = if (isPressed) .97f else 1f
+        canvas.scale(scale, scale, cx, cy)
+        brush.shader = null
+        brush.style = Paint.Style.FILL
+        brush.color = theme.surf
+        canvas.drawCircle(cx, cy, radius, brush)
+        brush.style = Paint.Style.STROKE
+        brush.strokeWidth = dp
+        brush.color = theme.line
+        canvas.drawCircle(cx, cy, radius, brush)
+        brush.style = Paint.Style.FILL
+        val head = (turn / 360f * DOTS.size).toInt()
+        DOTS.forEachIndexed { i, point ->
+            val active = when (state) {
+                State.ON -> i < 54
+                State.CONNECTING -> (i - head + DOTS.size) % DOTS.size < 12
+                State.FAILED -> i % 8 < 3
+                State.OFF -> i < 3
+            }
+            brush.color = if (active) signal else theme.line
+            canvas.drawCircle(cx + point.first * arcR, cy + point.second * arcR, if (active) 2.2f * dp else 1.8f * dp, brush)
+        }
+        brush.style = Paint.Style.STROKE
+        brush.strokeCap = Paint.Cap.ROUND
+        brush.strokeWidth = 3.1f * dp
+        brush.color = if (state == State.OFF) theme.fg else signal
+        canvas.drawArc(iconBox, -55f, 290f, false, brush)
+        val r = radius * .235f
+        canvas.drawLine(cx, cy - r - 3 * dp, cx, cy - r * .15f, brush)
+        canvas.restore()
+    }
+
     /**
      * Градиент вдоль дуги: полный цвет в начале, 12 % в конце. Шейдер один на
      * цвет и длину, поворот — матрицей: во время вращения меняется только он.
@@ -398,7 +444,7 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
 
     override fun performClick(): Boolean {
         performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-        if (animationsAllowed() && theme.btn != "bare") {
+        if (animationsAllowed() && theme.btn != "bare" && !dottedPower) {
             pulser?.cancel()
             pulser = ValueAnimator.ofFloat(0.05f, 1f).apply {
                 duration = 480
@@ -418,6 +464,10 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
     }
 
     private companion object {
+        val DOTS = Array(64) { i ->
+            val angle = Math.toRadians(i * 360.0 / 64 - 90)
+            kotlin.math.cos(angle).toFloat() to kotlin.math.sin(angle).toFloat()
+        }
         /** Запас от дуги до края вьюхи под свечение и тень, dp. */
         const val ROOM = 16
     }

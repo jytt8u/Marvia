@@ -321,7 +321,8 @@ func (d *Dialer) Warmup(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return stream.Close()
+	_ = stream.Close()
+	return d.pool.Check(ctx)
 }
 
 // measureSpeeds доспрашивает у живых нод, с какой скоростью они отдают данные.

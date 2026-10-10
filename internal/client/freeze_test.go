@@ -39,6 +39,7 @@ type freezingProxy struct {
 	armed   atomic.Bool
 	blocked atomic.Bool
 	accepts atomic.Int64
+	rate    atomic.Int64
 }
 
 func freezeProxy(t *testing.T, upstream string, limit int64, endpoint bool) *freezingProxy {
@@ -129,6 +130,15 @@ func freezeProxy(t *testing.T, upstream string, limit int64, endpoint bool) *fre
 					}
 					n, readErr := u.Read(buf)
 					if n > 0 {
+						if rate := p.rate.Load(); rate > 0 {
+							timer := time.NewTimer(time.Duration(n) * time.Second / time.Duration(rate))
+							select {
+							case <-timer.C:
+							case <-stop:
+								timer.Stop()
+								return
+							}
+						}
 						allowed := n
 						if p.armed.Load() {
 							allowed = int(min(int64(n), max(int64(0), limit-forwarded)))
@@ -420,6 +430,8 @@ func measureFreezeRecovery(t *testing.T, kind client.Transport, limit int64, end
 		}
 	case <-ctx.Done():
 		t.Fatal("клиент не обнаружил заморозку за 150 секунд")
+	case <-time.After(15 * time.Second):
+		t.Fatal("клиент не обнаружил заморозку за 15 секунд")
 	}
 	select {
 	case err := <-writeDone:
@@ -430,11 +442,17 @@ func measureFreezeRecovery(t *testing.T, kind client.Transport, limit int64, end
 		t.Fatal("запись не закончилась")
 	}
 	var switched time.Time
-	if endpoint {
+	{
+		remaining := 30*time.Second - time.Since(frozen.At)
 		select {
 		case switched = <-switches:
 		case <-ctx.Done():
 			t.Fatal("надзор не переехал на запасную ноду за 150 секунд")
+		case <-time.After(max(remaining, time.Nanosecond)):
+			t.Fatal("надзор не переехал на запасную ноду за 30 секунд")
+		}
+		if s.Node().ID != 2 {
+			t.Fatalf("надзор повторно выбрал замороженный адрес: %d", s.Node().ID)
 		}
 	}
 	fresh, err := s.DialTarget(ctx, target)
@@ -468,7 +486,7 @@ func measureFreezeRecovery(t *testing.T, kind client.Transport, limit int64, end
 	}
 	select {
 	case at := <-legacy:
-		t.Logf("FREEZE false_legacy=%.3fs", at.Sub(frozen.At).Seconds())
+		t.Fatalf("молчание ошибочно названо старой версией: %.3fs", at.Sub(frozen.At).Seconds())
 	default:
 	}
 	if !endpoint {

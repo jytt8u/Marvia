@@ -266,9 +266,11 @@ func (d *Dialer) DialTarget(ctx context.Context, target vp1.Address) (net.Conn, 
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", vp1.ErrNodeUnreachable, err)
 	}
+	release := armStream(ctx, stream)
+	defer release()
 	if err := vp1.WriteRequestOf(stream, target, vp1.KindTCP); err != nil {
 		_ = stream.Close()
-		return nil, fmt.Errorf("%w: запрос на %s: %w", vp1.ErrNodeUnreachable, target, err)
+		return nil, fmt.Errorf("%w: запрос на %s: %w", vp1.ErrNodeUnreachable, target, streamError(ctx, err))
 	}
 	return newEarlyConn(stream, target), nil
 }
@@ -314,15 +316,17 @@ func (d *Dialer) MeasureFetch(ctx context.Context, size int) (time.Duration, err
 		return 0, err
 	}
 	defer stream.Close()
+	release := armStream(ctx, stream)
+	defer release()
 
 	granted, err := vp1.ReadGrant(stream)
 	if err != nil {
-		return 0, err
+		return 0, streamError(ctx, err)
 	}
 
 	read, err := io.CopyN(io.Discard, stream, int64(granted))
 	if err != nil {
-		return 0, fmt.Errorf("замер оборван: %w", err)
+		return 0, fmt.Errorf("замер оборван: %w", streamError(ctx, err))
 	}
 	if read <= 0 {
 		return 0, errors.New("замер пустой")
@@ -350,7 +354,10 @@ func (d *Dialer) Granted(ctx context.Context, size int) (int, error) {
 	}
 	defer stream.Close()
 
-	return vp1.ReadGrant(stream)
+	release := armStream(ctx, stream)
+	defer release()
+	granted, err := vp1.ReadGrant(stream)
+	return granted, streamError(ctx, err)
 }
 
 // open открывает поток нужного вида.
@@ -366,20 +373,23 @@ func (d *Dialer) open(ctx context.Context, target vp1.Address, kind vp1.Kind, ta
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", vp1.ErrNodeUnreachable, err)
 	}
+	release := armStream(ctx, stream)
+	defer release()
 
 	if err := vp1.WriteRequestOf(stream, target, kind); err != nil {
 		_ = stream.Close()
-		return nil, fmt.Errorf("%w: запрос на %s: %w", vp1.ErrNodeUnreachable, target, err)
+		return nil, fmt.Errorf("%w: запрос на %s: %w", vp1.ErrNodeUnreachable, target, streamError(ctx, err))
 	}
 	if len(tail) > 0 {
 		if _, err := stream.Write(tail); err != nil {
 			_ = stream.Close()
-			return nil, fmt.Errorf("%w: запрос на %s: %w", vp1.ErrNodeUnreachable, target, err)
+			return nil, fmt.Errorf("%w: запрос на %s: %w", vp1.ErrNodeUnreachable, target, streamError(ctx, err))
 		}
 	}
 
 	status, err := vp1.ReadStatus(stream)
 	if err != nil {
+		err = streamError(ctx, err)
 		_ = stream.Close()
 		// Старая нода не знает про датаграммы: она видит незнакомый тип
 		// адреса и закрывает поток, не ответив. Обрыв ровно здесь и ровно на

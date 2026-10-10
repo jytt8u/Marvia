@@ -26,6 +26,7 @@ func (s *Supervisor) NetworkChanged(available bool) {
 	}
 	s.dialer = fresh
 	s.offline = !available
+	s.excluded = nil
 	s.fails.Store(0)
 	if s.networkCancel != nil {
 		s.networkCancel()

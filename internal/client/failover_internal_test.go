@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jytt8u/marvia/internal/tunnel"
 	"github.com/jytt8u/marvia/internal/vp1"
 )
 
@@ -100,5 +101,30 @@ func TestSupervisorWatchStopsOnCancel(t *testing.T) {
 	case <-s.done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("сторож не ушёл по отмене")
+	}
+}
+
+func TestFrozenAddressCanReturnAfterQuarantineExpires(t *testing.T) {
+	nodes := []Node{{ID: 1, Address: "bad:443"}, {ID: 2, Address: "good:443"}, {ID: 3, Address: "bad:443"}}
+	excluded := map[string]time.Time{"bad:443": time.Now().Add(time.Minute)}
+	got := eligibleNodes(nodes, excluded)
+	if len(got) != 1 || got[0].ID != 2 {
+		t.Fatalf("замороженный адрес остался среди кандидатов: %+v", got)
+	}
+	excluded["bad:443"] = time.Now().Add(-time.Second)
+	if got := eligibleNodes(nodes, excluded); len(got) != len(nodes) {
+		t.Fatalf("временное исключение стало постоянным: %+v", got)
+	}
+}
+
+func TestSelectingQuarantinedCurrentNodeRequiresReconnect(t *testing.T) {
+	p := tunnel.NewPool(nil, 1, 32)
+	defer p.Close()
+	p.Quarantine()
+	s := &Supervisor{dialer: &Dialer{node: Node{ID: 7}, pool: p}, log: func(string, ...any) {}}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := s.Select(ctx, 7); err == nil {
+		t.Fatal("повторный выбор исключённой ноды объявил закрытый пул подключённым")
 	}
 }

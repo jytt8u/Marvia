@@ -234,7 +234,9 @@ type testNode struct {
 	statusDelay atomic.Int64
 
 	// refuse — каким статусом нода отказывает в любой цели; ноль — пускает.
-	refuse atomic.Int32
+	refuse     atomic.Int32
+	noProbe    atomic.Bool
+	probeBlock atomic.Int32
 }
 
 func startTestNode(t *testing.T) *testNode {
@@ -324,11 +326,30 @@ func serveNodeConn(conn net.Conn, key vp1.KeyPair, guard *vp1.ReplayGuard, node 
 				if err != nil {
 					return
 				}
+				if node.noProbe.Load() {
+					return
+				}
+				wait := func(phase int32) bool {
+					if node.probeBlock.Load() != phase {
+						return false
+					}
+					_, _ = stream.Read(make([]byte, 1))
+					return true
+				}
 				sampled.Store(int64(size))
+				if wait(1) {
+					return
+				}
 				if err := vp1.WriteStatus(stream, vp1.StatusOK); err != nil {
 					return
 				}
+				if wait(2) {
+					return
+				}
 				if err := vp1.GrantSample(stream, size); err != nil {
+					return
+				}
+				if wait(3) {
 					return
 				}
 				_ = vp1.WriteSample(stream, size)

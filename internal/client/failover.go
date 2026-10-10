@@ -36,9 +36,13 @@ var (
 	// наполовину работающий интернет, не начав искать виноватого.
 	probeEvery = 30 * time.Second
 
-	// Сколько ждём ответа. Живая нода отвечает за доли секунды; молчащая не
-	// ответит и за минуту, а ждать минуту значит растянуть поломку впятеро.
-	probeTimeout = 8 * time.Second
+	// Сколько ждём ответа. Живая нода отвечает за доли секунды. Раньше ждали
+	// восемь секунд, и вместе с keepalive замороженное соединение замечали за
+	// минуту: ТСПУ держит TCP открытым и молча роняет данные после 15–20 КБ.
+	// Три секунды и два промаха подряд — шесть секунд на подтверждение, а
+	// медленный, но рабочий TCP от ложного переезда защищают поступающие
+	// данные (Pool.Flowing), а не длинный тайм-аут.
+	probeTimeout = 3 * time.Second
 
 	// Через сколько повторяем проверку, когда уже есть основания думать, что
 	// нода мертва: первый промах или сигнал от упавших соединений.
@@ -65,8 +69,19 @@ var (
 	// Сколько байт просим на проверку: килобайт раз в полминуты.
 	probeSample = 1024
 
-	// Сколько даём на сам переезд: он и есть обычное подключение — поход в
-	// панель, замеры всех нод, — только человек его не нажимал.
+	// Молчание при ожидающем чтении или записи лишь запускает проверку:
+	// сервер сайта может отвечать долго, хотя сама нода работает.
+	trafficSilence    = 5 * time.Second
+	trafficCheckEvery = time.Second
+
+	// Сколько замолчавший адрес не предлагаем при автоматическом переезде.
+	// Без карантина новый хендшейк проходил до порога, выбор признавал ноду
+	// живой и возвращал к ней же — и большая загрузка снова замерзала. Минута:
+	// дольше держать нельзя, адрес мог замолчать из-за сети, а не блокировки.
+	// Человек, выбравший ноду руками, карантин снимает.
+	quarantineFor = time.Minute
+
+	// Бюджет подключения включает панель и замеры кандидатов.
 	moveTimeout = 80 * time.Second
 
 	// Сколько ждём между неудачными попытками переезда.
@@ -119,9 +134,10 @@ const (
 // Подставляется мосту вместо *Dialer: методы те же, а внутри живёт текущий
 // дозвон, который можно заменить, не трогая ни мост, ни интерфейс.
 type Supervisor struct {
-	mu     sync.Mutex
-	dialer *Dialer
-	closed bool
+	mu       sync.Mutex
+	dialer   *Dialer
+	closed   bool
+	excluded map[string]time.Time
 
 	cfg ConnectConfig
 	log func(string, ...any)
@@ -279,11 +295,20 @@ func (s *Supervisor) Select(ctx context.Context, id int64) error {
 	}
 	s.cfg.Prefer = id
 	cur := s.dialer
+	// Явный выбор разрешает повторить адрес; автоматический надзор этого
+	// не делает, пока действует временное исключение.
+	if cur != nil {
+		for _, node := range cur.Subscription().Nodes {
+			if node.ID == id {
+				delete(s.excluded, node.Address)
+			}
+		}
+	}
 	s.mu.Unlock()
 
 	// Уже на ней — переподключаться незачем: это стоило бы человеку всех
 	// открытых соединений ради того, что и так выполнено.
-	if cur != nil && id != 0 && cur.Node().ID == id {
+	if cur != nil && id != 0 && cur.Node().ID == id && cur.pool.Live() {
 		return nil
 	}
 
@@ -450,6 +475,8 @@ func (s *Supervisor) watch(ctx context.Context) {
 	// случиться скоро, а не по прежнему получасовому расписанию.
 	timer := time.NewTimer(probeEvery)
 	defer timer.Stop()
+	traffic := time.NewTicker(trafficCheckEvery)
+	defer traffic.Stop()
 
 	misses := 0
 
@@ -459,31 +486,33 @@ func (s *Supervisor) watch(ctx context.Context) {
 	// troubled — человеку уже сказали, что связи нет. Надо будет сказать и
 	// обратное, когда она вернётся.
 	troubled := false
+	var checked *Dialer
+	quarantined := false
+	var retryAt time.Time
 	for {
 		networkChanged := false
 		select {
 		case <-ctx.Done():
 			return
 		case <-timer.C:
+		case <-traffic.C:
+			s.mu.Lock()
+			d, offline := s.dialer, s.offline
+			s.mu.Unlock()
+			if offline || d == nil || !d.pool.Stalled(trafficSilence) {
+				continue
+			}
+			stopTimer(timer)
 		case <-s.networkWake:
 			networkChanged = true
 		case <-s.suspect:
-			// Соединения уже падают. Ждать расписания нечего: то, что должна
-			// была выяснить проверка, трафик выяснил за нас.
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
+			if time.Now().Before(retryAt) {
+				continue
 			}
+			stopTimer(timer)
 		}
 		if networkChanged {
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
+			stopTimer(timer)
 			misses = 0
 			byWarmup = false
 			troubled = true
@@ -504,60 +533,23 @@ func (s *Supervisor) watch(ctx context.Context) {
 		if d == nil {
 			return
 		}
-		var err error
-
-		// Щупаем тем же замером, каким выбирали ноду: он проходит весь путь —
-		// сессия, поток, ответ ноды, — и потому ловит не только оборванный
-		// провод, но и ноду, которая жива, а обслуживать перестала.
-		probe, cancel := context.WithTimeout(networkCtx, probeTimeout)
-		if byWarmup || networkChanged {
-			err = d.Warmup(probe)
-			if err == nil && networkChanged {
-				if rtt, pingErr := d.pool.Ping(probe); pingErr == nil {
-					d.recordRTT(rtt)
-				}
-			}
-		} else {
-			_, err = d.MeasureFetch(probe, probeSample)
+		if d != checked {
+			misses, byWarmup = 0, false
+			checked = d
+			quarantined = false
+			retryAt = time.Time{}
 		}
-		cancel()
-
+		legacy, err := checkConnection(networkCtx, d, networkChanged, byWarmup)
 		if ctx.Err() != nil {
 			return
 		}
 		if networkCtx.Err() != nil {
 			continue
 		}
-
-		// Замер не умеет старая нода: она видит незнакомый вид запроса и
-		// закрывает поток. Выбор ноды это давно учитывает и такую ноду не
-		// выбрасывает, а надзор — не учитывал и считал её мёртвой.
-		//
-		// Ноды продавец обновляет по одной и своими руками, так что нода на
-		// прошлой версии — обычное состояние в середине выкатки, а не
-		// редкость. Для неё получался вечный круг: проверка провалилась,
-		// переехали, выбор вернул её же как живую, через полминуты всё
-		// сначала — и каждый круг рвал человеку все открытые соединения.
-		//
-		// Поэтому при первой же неудаче спрашиваем ноду проще: подняться до
-		// готовности она обязана уметь в любой версии. Ответила — она жива,
-		// просто старая, и дальше спрашиваем только так.
-		if err != nil && !byWarmup && !networkChanged {
-			check, cancelCheck := context.WithTimeout(networkCtx, probeTimeout)
-			warmErr := d.Warmup(check)
-			cancelCheck()
-			if ctx.Err() != nil {
-				return
-			}
-			if networkCtx.Err() != nil {
-				continue
-			}
-			if warmErr == nil {
-				byWarmup = true
-				s.log("нода %s не умеет замер — старая версия; слежу за ней проще", d.Node().Title())
-				err = nil
-			}
+		if legacy && !byWarmup {
+			s.log("нода %s не умеет замер — старая версия; слежу за ней проще", d.Node().Title())
 		}
+		byWarmup = legacy
 
 		if err == nil {
 			misses = 0
@@ -589,7 +581,26 @@ func (s *Supervisor) watch(ctx context.Context) {
 		}
 
 		s.log("нода %s не отвечает на %d проверки подряд: %v", d.Node().Title(), misses, err)
-		if s.move(networkCtx, d) {
+		s.mu.Lock()
+		if s.dialer != d || networkCtx.Err() != nil {
+			s.mu.Unlock()
+			continue
+		}
+		if s.excluded == nil {
+			s.excluded = make(map[string]time.Time)
+		}
+		if !quarantined {
+			s.excluded[d.Node().Address] = time.Now().Add(quarantineFor)
+		}
+		s.mu.Unlock()
+		if !quarantined {
+			d.pool.Quarantine()
+			quarantined = true
+		}
+		pick, cancelPick := context.WithTimeout(networkCtx, 15*time.Second)
+		moved := s.move(pick, d)
+		cancelPick()
+		if moved {
 			misses = 0
 			s.fails.Store(0)
 			// Вывод «нода старая» относился к прежней ноде. Новую спрашиваем
@@ -615,7 +626,85 @@ func (s *Supervisor) watch(ctx context.Context) {
 
 		// Переехать не вышло — подождём и попробуем снова. Счётчик не
 		// сбрасываем: следующая же неудачная проверка снова приведёт сюда.
+		retryAt = time.Now().Add(retryAfter)
 		timer.Reset(retryAfter)
+	}
+}
+
+// checkConnection отличает отказ ноды от очереди медленного TCP и отсутствия
+// замера в старой версии. Смена сети требует нового рукопожатия.
+//
+// Сначала пинг каждой уже открытой сессии, и только потом замер: свежий
+// хендшейк проходит и до замороженного порога, поэтому проверка новой сессией
+// показывала «жива» ноде, на которой стоят все текущие загрузки. Замер тем же
+// путём, каким выбирали ноду, — сессия, поток, ответ, — ловит и ноду, которая
+// жива, а обслуживать перестала.
+func checkConnection(ctx context.Context, d *Dialer, networkChanged, byWarmup bool) (bool, error) {
+	timeout := probeTimeout
+	if networkChanged {
+		// Бюджет нового соединения включает отказ UDP и переход на TCP.
+		timeout = ProbeTimeout
+	}
+	probe, cancel := context.WithTimeout(ctx, timeout)
+	var err error
+	measurementFailed := false
+	if networkChanged {
+		err = d.Warmup(probe)
+		if err == nil {
+			if rtt, pingErr := d.pool.Ping(probe); pingErr == nil {
+				d.recordRTT(rtt)
+			}
+		}
+	} else {
+		err = d.pool.Check(probe)
+		if err == nil && !byWarmup {
+			_, err = d.MeasureFetch(probe, probeSample)
+			measurementFailed = err != nil
+		}
+	}
+	cancel()
+	if ctx.Err() != nil {
+		return byWarmup, ctx.Err()
+	}
+
+	// Контрольный ответ может ждать за загрузкой. Поступающие данные
+	// подтверждают работу ноды, даже если короткая проверка не успела.
+	if err != nil && d.pool.Flowing(trafficSilence) {
+		return byWarmup, nil
+	}
+	if !measurementFailed || !closedEarly(err) || byWarmup || networkChanged {
+		return byWarmup, err
+	}
+
+	// Замер не умеет старая нода: она видит незнакомый вид запроса и
+	// закрывает поток. Ноды продавец обновляет по одной, так что нода на
+	// прошлой версии — обычное состояние посреди выкатки. Считай мы её
+	// мёртвой, получался бы вечный круг: переехали, выбор вернул её же как
+	// живую, через полминуты всё сначала — и каждый круг рвал бы открытые
+	// соединения. Поэтому спрашиваем проще: подняться до готовности нода
+	// обязана в любой версии.
+	//
+	// Старой версией закрытие считаем, только если мультиплексор отвечает:
+	// на замороженном TCP поток тоже «закрывается», и раньше это давало
+	// ложное «старая версия ноды». У упрощённой проверки свой тайм-аут.
+	probe, cancel = context.WithTimeout(ctx, probeTimeout)
+	warmErr := d.Warmup(probe)
+	cancel()
+	if ctx.Err() != nil {
+		return byWarmup, ctx.Err()
+	}
+	if warmErr == nil {
+		return true, nil
+	}
+	return byWarmup, err
+}
+
+func stopTimer(timer *time.Timer) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
 	}
 }
 
@@ -635,6 +724,14 @@ func (s *Supervisor) move(ctx context.Context, dead *Dialer) bool {
 	// потока, и без замка это была бы гонка за поле cfg.Prefer.
 	s.mu.Lock()
 	cfg := s.cfg
+	cfg.excluded = make(map[string]time.Time, len(s.excluded))
+	for address, until := range s.excluded {
+		if time.Now().Before(until) {
+			cfg.excluded[address] = until
+		} else {
+			delete(s.excluded, address)
+		}
+	}
 	s.mu.Unlock()
 
 	fresh, _, err := Connect(pick, cfg)

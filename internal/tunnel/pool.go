@@ -76,7 +76,9 @@ const reapEvery = time.Minute
 
 // pooled — сессия и срок её жизни.
 type pooled struct {
-	sess *yamux.Session
+	sess     *yamux.Session
+	activity activity
+	check    *responseCheck
 	// tcp — сокет под сессией, если он есть: по нему ядро отдаёт отклик.
 	tcp *net.TCPConn
 	rtt rttState
@@ -96,18 +98,22 @@ type Pool struct {
 	now         func() time.Time
 	rotateAfter func() time.Duration
 
-	mu       sync.Mutex
-	sessions []*pooled
-	closed   bool
+	mu        sync.Mutex
+	sessions  []*pooled
+	closed    bool
+	unhealthy bool
 
 	// done останавливает сборщик, когда пул закрывают.
 	done   chan struct{}
 	life   context.Context
 	cancel context.CancelFunc
 
-	// dialMu не даёт двум хендшейкам идти одновременно, lastDial хранит
-	// время последнего, чтобы выдержать разбег.
-	dialMu   sync.Mutex
+	// Один слот не даёт двум хендшейкам идти одновременно: два разом — уже
+	// половина того порога, по которому ТСПУ опознаёт туннель. Слот, а не
+	// мьютекс: ожидание отменяется контекстом, и замер не висит за чужим
+	// дозвоном к замороженной ноде. lastDial хранит время последнего, чтобы
+	// выдержать разбег.
+	dialSlot chan struct{}
 	lastDial time.Time
 	pingBusy atomic.Bool
 }
@@ -217,6 +223,7 @@ func newPool(dial DialFunc, maxSessions, maxStreams int, reap time.Duration) *Po
 		done:        make(chan struct{}),
 		life:        life,
 		cancel:      cancel,
+		dialSlot:    make(chan struct{}, 1),
 	}
 	go p.reap(reap)
 	return p
@@ -250,9 +257,21 @@ func (p *Pool) Open(ctx context.Context) (net.Conn, error) {
 		if err != nil {
 			return nil, err
 		}
-		stream, err := mux.Open(session)
+		stream, err := openContext(ctx, session)
 		if err == nil {
-			return stream, nil
+			p.mu.Lock()
+			for _, s := range p.sessions {
+				if s.sess == session {
+					p.mu.Unlock()
+					return &observedStream{Conn: stream, activity: &s.activity}, nil
+				}
+			}
+			p.mu.Unlock()
+			_ = stream.Close()
+			return nil, errors.New("сессия уже закрыта")
+		}
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
 		}
 		lastErr = err
 		p.drop(session)
@@ -296,7 +315,7 @@ func (p *Pool) Close() error {
 // session подбирает сессию под новый поток, при необходимости создавая её.
 func (p *Pool) session(ctx context.Context) (*yamux.Session, error) {
 	p.mu.Lock()
-	if p.closed {
+	if p.closed || p.unhealthy {
 		p.mu.Unlock()
 		return nil, errors.New("пул закрыт")
 	}
@@ -329,8 +348,12 @@ func (p *Pool) spawn(ctx context.Context) (*yamux.Session, error) {
 	stop := context.AfterFunc(p.life, cancel)
 	defer stop()
 	defer cancel()
-	p.dialMu.Lock()
-	defer p.dialMu.Unlock()
+	select {
+	case p.dialSlot <- struct{}{}:
+		defer func() { <-p.dialSlot }()
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -363,7 +386,7 @@ func (p *Pool) spawn(ctx context.Context) (*yamux.Session, error) {
 	}
 
 	p.mu.Lock()
-	if p.closed {
+	if p.closed || p.unhealthy {
 		p.mu.Unlock()
 		_ = session.Close()
 		return nil, errors.New("пул закрыт")

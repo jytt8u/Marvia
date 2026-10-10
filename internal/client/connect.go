@@ -51,6 +51,10 @@ type ConnectConfig struct {
 	// Идентификатор, а не имя: продавец переименовывает ноды, и выбор,
 	// записанный именем, молча перестал бы действовать после переименования.
 	Prefer int64
+
+	// Временное исключение после подтверждённого зависания; в подписку и
+	// настройки пользователя не записывается и снимается при смене сети.
+	excluded map[string]time.Time
 }
 
 // Connect выбирает лучшую ноду, стараясь не ходить в панель.
@@ -100,7 +104,7 @@ func Connect(ctx context.Context, cfg ConnectConfig) (*Dialer, []Measurement, er
 	}
 	if cacheUsable {
 		logf("пробую ноды из кэша, их %d", len(cached.Nodes()))
-		dialer, m, err := SelectPreferred(ctx, cached.Nodes(), cfg.Key, cfg.Dial, cfg.Prefer)
+		dialer, m, err := SelectPreferred(ctx, eligibleNodes(cached.Nodes(), cfg.excluded), cfg.Key, cfg.Dial, cfg.Prefer)
 		if err == nil {
 			// До обновления показываем последнюю известную подписку.
 			return dialer.withSubscription(cached.Subscription), m, nil
@@ -147,8 +151,21 @@ func Connect(ctx context.Context, cfg ConnectConfig) (*Dialer, []Measurement, er
 	}
 
 	logf("замеряю ноды, их %d", len(sub.Nodes))
-	dialer, m, err := SelectPreferred(ctx, sub.Nodes, cfg.Key, cfg.Dial, cfg.Prefer)
+	dialer, m, err := SelectPreferred(ctx, eligibleNodes(sub.Nodes, cfg.excluded), cfg.Key, cfg.Dial, cfg.Prefer)
 	return dialer.withSubscription(sub), m, err
+}
+
+func eligibleNodes(nodes []Node, excluded map[string]time.Time) []Node {
+	if len(excluded) == 0 {
+		return nodes
+	}
+	result := make([]Node, 0, len(nodes))
+	for _, node := range nodes {
+		if until := excluded[node.Address]; !time.Now().Before(until) {
+			result = append(result, node)
+		}
+	}
+	return result
 }
 
 type subscriptionResult struct {

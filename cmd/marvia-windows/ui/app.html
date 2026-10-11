@@ -33,6 +33,27 @@
   @font-face { font-family: Manrope; src: url(fonts/manrope-cyrillic.woff2) format('woff2');
     font-weight: 400 700; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
 
+  /* Шрифты образов в духе систем: Inter — вместо SF у macOS и как основа
+     Adwaita Sans у GNOME, Noto Sans — у KDE, Ubuntu — свой у Ubuntu. Все
+     свободные (OFL и Ubuntu Font Licence), вшиты, как остальные. Шрифты
+     Windows — Segoe UI, Tahoma, MS Sans Serif — уже есть в системе. */
+  @font-face { font-family: Inter; src: url(fonts/inter-latin.woff2) format('woff2');
+    font-weight: 400 700; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2122, U+2212; }
+  @font-face { font-family: Inter; src: url(fonts/inter-cyrillic.woff2) format('woff2');
+    font-weight: 400 700; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: 'Noto Sans'; src: url(fonts/noto-latin.woff2) format('woff2');
+    font-weight: 400 700; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2122, U+2212; }
+  @font-face { font-family: 'Noto Sans'; src: url(fonts/noto-cyrillic.woff2) format('woff2');
+    font-weight: 400 700; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: Ubuntu; src: url(fonts/ubuntu-400-latin.woff2) format('woff2');
+    font-weight: 400; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2122, U+2212; }
+  @font-face { font-family: Ubuntu; src: url(fonts/ubuntu-400-cyrillic.woff2) format('woff2');
+    font-weight: 400; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: Ubuntu; src: url(fonts/ubuntu-700-latin.woff2) format('woff2');
+    font-weight: 600 700; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2122, U+2212; }
+  @font-face { font-family: Ubuntu; src: url(fonts/ubuntu-700-cyrillic.woff2) format('woff2');
+    font-weight: 600 700; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+
   /*
     Цвета не написаны здесь ни разу: все они — переменные, которые ставит
     тема (Look.vars) на корневой элемент. Запасные значения ниже — вид «Серый»
@@ -709,17 +730,8 @@
   @keyframes press { to { transform: scale(26); opacity: 0; } }
   .power { overflow: hidden; }
 
-  .dotnum { height: .82em; width: auto; fill: currentColor; vertical-align: -.02em; overflow: visible; }
   .dotunit { margin-left: .45em; font-size: .62em; font-family: var(--mono); letter-spacing: .04em; color: var(--dim); font-weight: 500; }
   body[data-vibe="dot"] .node .mark, body[data-vibe="paper"] .node .mark { background: var(--acc); box-shadow: 0 0 8px var(--acc); }
-
-  /* «Терминал»: свечение фосфора и мигающий курсор после надписи. */
-  body[data-vibe="terminal"] .status, body[data-vibe="terminal"] .kpi .v, body[data-vibe="terminal"] #today-total {
-    text-shadow: 0 0 8px rgba(var(--accRgb), .55); }
-  body[data-vibe="terminal"] .status::after { content: "_"; animation: blink 1s steps(1) infinite; margin-left: .1em; }
-  /* «Неон»: надпись светится цветом акцента. */
-  body[data-vibe="neon"] .status { text-shadow: 0 0 18px rgba(var(--accRgb), .7), 0 0 2px rgba(var(--accRgb), .9); }
-  @keyframes blink { 50% { opacity: 0; } }
 
   @media (max-width: 1000px) { .fine-grid { grid-template-columns: minmax(0, 1fr); } }
   @media (prefers-reduced-motion: reduce) {
@@ -781,88 +793,300 @@
 
   @media (max-width: 900px) { .settings { grid-template-columns: 64px minmax(0, 1fr); } .set-txt { display: none; } }
 
-  /* ───── Миниатюры образов: как обои в выборе темы ───── */
-  .vibe-art { position: relative; height: 118px; border-radius: calc(var(--r) + 2px); overflow: hidden; display: block;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); transition: background-position 4s linear; }
-  .vibe:hover .vibe-art { background-position: 30px 16px, 0 0; }
-  .mv-btn { position: absolute; left: 16px; top: 16px; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
-    transition: transform .5s cubic-bezier(.2,.9,.25,1.2), filter .4s; color: var(--vacc); }
-  .mv-btn i { width: 15px; height: 15px; border-radius: 50%; border: 2.4px solid currentColor; border-top-color: transparent; position: relative; }
-  .mv-btn i::after { content: ""; position: absolute; left: 50%; top: -5px; width: 2.4px; height: 8px; margin-left: -1.2px; border-radius: 2px; background: currentColor; }
-  .vibe-art[data-btn="solid"] .mv-btn { background: radial-gradient(circle at 38% 30%, rgba(255,255,255,.35), transparent 58%), var(--vacc); color: var(--vaccFg);
-    box-shadow: 0 8px 22px -8px var(--vacc); }
-  .vibe-art[data-btn="ring"] .mv-btn { background: color-mix(in srgb, var(--vsurf) 82%, transparent); box-shadow: inset 0 0 0 2px var(--vacc), 0 0 18px -6px var(--vacc); }
-  .vibe-art[data-btn="glass"] .mv-btn { background: rgba(255,255,255,.14); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 0 0 1px rgba(255,255,255,.22), 0 8px 20px -8px rgba(0,0,0,.5); }
-  .vibe-art[data-btn="bare"] .mv-btn { box-shadow: inset 0 0 0 1.5px var(--vacc), 0 0 16px -6px var(--vacc); }
-  .vibe:hover .mv-btn { transform: scale(1.06); filter: brightness(1.1); }
-  .vibe .mini-status { position: absolute; left: 16px; bottom: 14px; max-width: calc(60% - 30px); padding: 0; background: none;
-    font: 700 13px/1.1 var(--vfont); text-transform: var(--vcase); letter-spacing: var(--vtrack); color: var(--vfg);
-    white-space: nowrap; overflow: hidden; text-overflow: clip; }
-  .mv-card { position: absolute; right: 12px; top: 14px; bottom: 14px; width: 40%; border-radius: var(--vr); padding: 8px 9px;
-    display: flex; flex-direction: column; justify-content: space-between;
-    background: color-mix(in srgb, var(--vsurf) 88%, transparent); box-shadow: inset 0 0 0 1px var(--vline), 0 10px 22px -14px rgba(0,0,0,.6); }
-  .mv-card small { font-size: 9px; color: var(--vdim); line-height: 1; }
-  .mv-num { font: 700 17px/1 var(--vnum); color: var(--vfg); letter-spacing: -.02em; display: block; }
-  .mv-num .dotnum { height: 15px; }
-  .mv-card svg { width: 100%; height: 18px; overflow: visible; }
-  .mv-card path { fill: none; stroke: var(--vacc); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+  /* ───── Заголовок окна ─────
+     Системной полосы больше нет: шапка страницы и есть заголовок. За пустое
+     место в ней окно перетаскивают, двойным щелчком разворачивают, кнопки
+     справа (у macOS — слева) работают как системные. Верхнюю кромку окна
+     ловит тонкая полоска: остальные три держит сама Windows. */
+  .top { position: relative; padding: 0 0 0 16px; gap: 12px; }
+  .top .lang { margin-left: auto; }
+  .grip-top { position: absolute; left: 0; right: 0; top: 0; height: 5px; z-index: 5; cursor: ns-resize; }
+  body[data-max="1"] .grip-top { display: none; }
+  .wctl { display: flex; align-self: stretch; flex: none; }
+  .wbtn { width: 46px; padding: 0; border: 0; background: transparent; color: var(--fg); display: grid; place-items: center;
+    cursor: default; transition: background .12s, color .12s; }
+  .wbtn svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1; overflow: visible; }
+  .wbtn:hover { background: color-mix(in srgb, var(--fg) 9%, transparent); }
+  .wbtn:active { background: color-mix(in srgb, var(--fg) 5%, transparent); }
+  .wbtn.close:hover { background: #c42b1c; color: #fff; }
+  .wbtn .g2, .wbtn .grest { display: none; }
+  body[data-max="1"] .wbtn .gmax { display: none; }
+  body[data-max="1"] .wbtn .grest { display: block; }
 
-  /* Стекло: прозрачные панели с бликом по кромке над яркими пятнами. */
-  .vibe[data-vibe="glass"] .mv-card { background: rgba(255,255,255,.12); -webkit-backdrop-filter: blur(12px) saturate(1.6); backdrop-filter: blur(12px) saturate(1.6);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 1px rgba(255,255,255,.22); }
-  /* Экспрессив: кнопка живой формы и тональная карточка. */
-  .vibe[data-vibe="expressive"] .mv-btn { border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%; animation: blob 7s ease-in-out infinite; }
-  .vibe[data-vibe="expressive"] .mv-card { background: color-mix(in srgb, var(--vacc) 14%, #fff); box-shadow: none; }
-  @keyframes blob { 33% { border-radius: 58% 42% 45% 55% / 42% 58% 52% 48%; } 66% { border-radius: 50% 50% 38% 62% / 60% 40% 60% 40%; } }
-  /* Хром: металлическая кнопка, хромированная надпись, голографическая рамка. */
-  .vibe[data-vibe="chrome"] .mv-btn { background: conic-gradient(from 210deg, #f4f7fb, #8a95a3, #e9eef4, #6b7480, #f4f7fb); color: #1b1f24;
-    box-shadow: inset 0 1px 1px rgba(255,255,255,.8), 0 8px 22px -8px rgba(0,0,0,.8); }
-  .vibe[data-vibe="chrome"] .mini-status { background: linear-gradient(180deg, #ffffff 0%, #c9d1db 45%, #6b7480 55%, #e6ebf1 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .vibe[data-vibe="chrome"] .mv-card { background: linear-gradient(#15181d, #15181d) padding-box, conic-gradient(#a78bfa, #5eead4, #facc15, #f472b6, #a78bfa) border-box;
-    border: 1.5px solid transparent; box-shadow: none; }
-  /* Брутал: чёрные рамки и жёсткие тени без размытия. */
-  .vibe[data-vibe="brutal"] .mv-btn, .vibe[data-vibe="brutal"] .mv-card { box-shadow: 0 0 0 2px #111, 4px 4px 0 2px #111; }
-  .vibe[data-vibe="brutal"] .mv-card { background: #fffaf0; border-radius: 3px; }
-  .vibe[data-vibe="brutal"] .mini-status { color: #111; }
-  /* Пластилин: объём из двух внутренних и одной внешней тени. */
-  .vibe[data-vibe="clay"] .mv-btn, .vibe[data-vibe="clay"] .mv-card {
-    box-shadow: inset -4px -5px 9px rgba(0,0,0,.10), inset 4px 5px 9px rgba(255,255,255,.75), 8px 12px 20px -10px rgba(190,90,140,.45); }
-  .vibe[data-vibe="clay"] .mv-card { background: #fff6fa; }
-  /* Плёнка: антиква и виньетка. */
-  .vibe[data-vibe="film"] .vibe-art::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-    background: radial-gradient(120% 100% at 50% 45%, transparent 55%, rgba(0,0,0,.55)); }
-  .vibe[data-vibe="film"] .mini-status { font-weight: 600; font-style: italic; font-size: 16px; }
-  /* Точка и Бумага: красная точка «в эфире». */
-  .vibe[data-vibe="dot"] .mini-status::before, .vibe[data-vibe="paper"] .mini-status::before {
-    content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--vacc); margin-right: 6px; vertical-align: 1px;
-    box-shadow: 0 0 8px var(--vacc); animation: rec 1.6s steps(1) infinite; }
-  /* Терминал: фосфор светится. */
-  .vibe[data-vibe="terminal"] .mini-status, .vibe[data-vibe="terminal"] .mv-num { color: var(--vacc); text-shadow: 0 0 8px var(--vacc); }
+  /* Обои образа — свои, нарисованные кодом; поверх — слюда у Windows 11. */
+  #wall { position: fixed; inset: -140px; z-index: 0; pointer-events: none; display: none;
+    background: var(--wallImg) center / cover no-repeat; filter: blur(70px) saturate(1.35); }
+  #wall::after { content: ""; position: absolute; inset: 0; background: var(--wallVeil, transparent); }
+  body[data-shell="win11"] #wall { display: block; }
+  body.custom-bg #wall { display: none; }
 
-  /* ───── Фирменные детали образов в окне ─────
-     Цвет меняет любая тема; образ узнаётся по детали, которой нет у других. */
+  /* ───── Образы в духе систем ─────
+     Каждый узнаётся по тому, по чему узнают саму систему: слюда и полоска
+     выбора у Windows 11, стеклянная боковая у macOS, синяя панель задач XP,
+     выпуклые серые кнопки 98-й, карточки-списки GNOME, голубой фокус
+     Breeze, плитки с цветной рамкой у Hyprland. Обои — по мотивам, но свои:
+     картинки систем принадлежат их авторам. */
 
-  /* Графит: металлический отблеск медленно проходит по кнопке. */
+  /* Windows 11: слюда, содержимое на светлом слое со скруглённым углом,
+     полоска акцента у выбранной вкладки — как NavigationView. */
+  body[data-shell="win11"] .top, body[data-shell="win11"] aside { background: transparent; border: 0; }
+  body[data-shell="win11"] main { margin: 0 0 0 0; border-radius: 8px 0 0 0; border: 1px solid color-mix(in srgb, var(--fg) 7%, transparent);
+    border-right: 0; border-bottom: 0; background: color-mix(in srgb, var(--fg) 3%, transparent); }
+  body[data-shell="win11"] .tab { position: relative; border-radius: 4px; min-height: 36px; font-weight: 400; }
+  body[data-shell="win11"] .tab:hover { background: color-mix(in srgb, var(--fg) 6%, transparent); }
+  body[data-shell="win11"] .tab[aria-selected="true"] { background: color-mix(in srgb, var(--fg) 7%, transparent); font-weight: 600; }
+  body[data-shell="win11"] .tab[aria-selected="true"]::before { content: ""; position: absolute; left: 0; top: 50%; width: 3px; height: 16px;
+    margin-top: -8px; border-radius: 3px; background: var(--acc); }
+  body[data-shell="win11"] .card, body[data-shell="win11"] .kpi, body[data-shell="win11"] .node, body[data-shell="win11"] .sub-card,
+  body[data-shell="win11"] .set-nav, body[data-shell="win11"] .set-panes .rows > div {
+    background: color-mix(in srgb, var(--surf) 72%, transparent); border: 1px solid color-mix(in srgb, var(--fg) 8%, transparent); box-shadow: none; }
+  body[data-shell="win11"] .card.feature { background: color-mix(in srgb, var(--surf) 82%, transparent); }
+  body[data-shell="win11"] .primary, body[data-shell="win11"] .chip, body[data-shell="win11"] .pillb { border-radius: 4px; }
+  body[data-shell="win11"] .power[data-state="connected"] { background: var(--acc); }
+  body[data-shell="win11"] .power[data-state="connected"] svg { color: var(--accFg); }
+
+  /* macOS: светофор слева, боковая — плавающая плита жидкого стекла,
+     карточки — матовое стекло над обоями. */
+  body[data-shell="mac"] .top { background: transparent; border: 0; padding-left: 18px; }
+  body[data-shell="mac"] .wctl { order: -1; align-self: center; gap: 8px; margin-right: 6px; }
+  body[data-shell="mac"] .wbtn { width: 12px; height: 12px; border-radius: 50%; color: rgba(0,0,0,.6);
+    box-shadow: inset 0 0 0 .5px rgba(0,0,0,.18); }
+  body[data-shell="mac"] .wbtn[data-win="close"] { order: 1; background: #ff5f57; }
+  body[data-shell="mac"] .wbtn[data-win="min"] { order: 2; background: #febc2e; }
+  body[data-shell="mac"] .wbtn[data-win="max"] { order: 3; background: #28c840; }
+  body[data-shell="mac"] .wbtn:hover { filter: brightness(.94); }
+  body[data-shell="mac"] .wbtn svg { width: 6px; height: 6px; stroke-width: 1.6; opacity: 0; transition: opacity .12s; }
+  body[data-shell="mac"] .wctl:hover svg { opacity: 1; }
+  body[data-shell="mac"] aside { margin: 0 0 12px 12px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
+    background: color-mix(in srgb, var(--bg) 42%, transparent); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 12px 40px -18px rgba(0,0,0,.5); }
+  body[data-shell="mac"] .tab { border-radius: 10px; min-height: 34px; font-weight: 500; }
+  body[data-shell="mac"] .tab[aria-selected="true"] { background: color-mix(in srgb, var(--fg) 12%, transparent); font-weight: 600; }
+  body[data-shell="mac"] .card, body[data-shell="mac"] .kpi, body[data-shell="mac"] .node, body[data-shell="mac"] .sub-card,
+  body[data-shell="mac"] .set-nav, body[data-shell="mac"] .set-panes .rows > div {
+    background: color-mix(in srgb, var(--surf) 70%, transparent); border: 1px solid color-mix(in srgb, var(--fg) 9%, transparent);
+    -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6); box-shadow: 0 10px 30px -20px rgba(0,0,0,.6); }
+  body[data-shell="mac"] .primary, body[data-shell="mac"] .chip, body[data-shell="mac"] .pillb { border-radius: 999px; }
+
+  /* Windows XP: синий глянцевый заголовок, панель задач слева, зелёная
+     кнопка — та самая «Пуск», Tahoma. */
+  body[data-shell="xp"] .top { height: 40px; border: 0; color: #fff;
+    background: linear-gradient(180deg, #0997ff 0%, #0053ee 9%, #0050ee 18%, #06f 45%, #0052ea 88%, #003dd7 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35); text-shadow: 1px 1px 0 rgba(0,0,0,.35); }
+  body[data-shell="xp"] .top .wordmark { background: #fff; }
+  body[data-shell="xp"] .top .ver { color: rgba(255,255,255,.85); }
+  body[data-shell="xp"] .top button.lang { color: #fff; border-color: rgba(255,255,255,.6); }
+  body[data-shell="xp"] .wctl { align-self: center; gap: 3px; margin-right: 8px; }
+  body[data-shell="xp"] .wbtn { width: 24px; height: 24px; border-radius: 4px; color: #fff; border: 1px solid #fff;
+    background: radial-gradient(circle at 30% 25%, #7fb4ff, #2a6cf0 60%, #1450d8); box-shadow: inset 0 0 0 1px rgba(0,0,40,.15); }
+  body[data-shell="xp"] .wbtn svg { width: 9px; height: 9px; stroke-width: 2.2; }
+  body[data-shell="xp"] .wbtn.close { background: radial-gradient(circle at 30% 25%, #f7a48f, #e0532f 60%, #c23412); }
+  body[data-shell="xp"] .wbtn:hover { filter: brightness(1.12); background-color: transparent; }
+  body[data-shell="xp"] .wbtn.close:hover { color: #fff; }
+  body[data-shell="xp"] aside { border: 0; background: linear-gradient(180deg, #5b82da, #3d56c6); }
+  body[data-shell="xp"] .tab { color: #fff; border-radius: 4px; font-weight: 600; text-shadow: 0 1px 1px rgba(0,0,50,.45); }
+  body[data-shell="xp"] .tab svg { color: #fff; }
+  body[data-shell="xp"] .tab:hover { color: #fff; text-decoration: underline; }
+  body[data-shell="xp"] .tab[aria-selected="true"] { background: #fff; color: #0b3fa5; text-shadow: none; box-shadow: 0 1px 3px rgba(0,0,60,.3); }
+  body[data-shell="xp"] .tab[aria-selected="true"] svg { color: #0b3fa5; }
+  body[data-shell="xp"] .about-link { color: #eef3ff; }
+  body[data-shell="xp"] .card, body[data-shell="xp"] .kpi, body[data-shell="xp"] .node, body[data-shell="xp"] .sub-card,
+  body[data-shell="xp"] .set-nav, body[data-shell="xp"] .set-panes .rows > div {
+    background: #fff; border: 1px solid #a5b6d6; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,60,.12); }
+  body[data-shell="xp"] .card.feature { border-top: 3px solid #316ac5; }
+  body[data-shell="xp"] .primary { border-radius: 3px; border: 1px solid #003c74; color: #000; font-weight: 400;
+    background: linear-gradient(180deg, #fff, #ecebe6 85%, #d6d0c5); box-shadow: none; }
+  body[data-shell="xp"] .chip, body[data-shell="xp"] .pillb { border-radius: 3px; border-color: #003c74;
+    background: linear-gradient(180deg, #fff, #ecebe6 85%, #d6d0c5); font-weight: 400; }
+  body[data-shell="xp"] .power { background: linear-gradient(180deg, #f4f7fc, #c9d6ee); box-shadow: inset 0 0 0 2px #fff, 0 0 0 1px #7f9db9, 0 14px 30px rgba(0,0,60,.25); }
+  body[data-shell="xp"] .power svg { color: #1c5ad8; }
+  body[data-shell="xp"] .power[data-state="connected"] { background: radial-gradient(circle at 35% 25%, #8ee07a, #3c9d2b 55%, #23731a);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 0 0 1px #1c5a12, 0 14px 30px rgba(20,80,10,.35); }
+  body[data-shell="xp"] .power[data-state="connected"] svg { color: #fff; filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
+
+  /* Windows 98: бирюзовый стол, серые выпуклые окна с синими полосками
+     заголовков, кнопки вдавливаются фаской, а не тенью. */
+  body[data-shell="w98"] { --bevel: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+    --sunken: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a; }
+  body[data-shell="w98"] .top { height: 30px; border: 0; color: #fff; background: linear-gradient(90deg, #000080, #1084d0); font-weight: 700; }
+  body[data-shell="w98"] .top .wordmark { background: #fff; height: 12px; }
+  body[data-shell="w98"] .top .ver { color: #dfe6ff; }
+  body[data-shell="w98"] .top button.lang { color: #000; background: #c0c0c0; border: 0; border-radius: 0; box-shadow: var(--bevel); padding: 1px 8px; }
+  body[data-shell="w98"] .wctl { align-self: center; gap: 2px; margin-right: 4px; }
+  body[data-shell="w98"] .wbtn { width: 18px; height: 16px; background: #c0c0c0; color: #000; box-shadow: var(--bevel); border-radius: 0; }
+  body[data-shell="w98"] .wbtn.close { margin-left: 2px; }
+  body[data-shell="w98"] .wbtn svg { width: 8px; height: 8px; stroke-width: 1.8; }
+  body[data-shell="w98"] .wbtn:hover, body[data-shell="w98"] .wbtn.close:hover { background: #c0c0c0; color: #000; }
+  body[data-shell="w98"] .wbtn:active { box-shadow: var(--sunken); }
+  body[data-shell="w98"] aside { background: #c0c0c0; border: 0; box-shadow: var(--bevel); }
+  body[data-shell="w98"] .tab { color: #000; border-radius: 0; font-weight: 400; }
+  body[data-shell="w98"] .tab svg { color: #000; }
+  body[data-shell="w98"] .tab:hover { color: #000; }
+  body[data-shell="w98"] .tab[aria-selected="true"] { background: #000080; color: #fff; font-weight: 400; }
+  body[data-shell="w98"] .tab[aria-selected="true"] svg { color: #fff; }
+  body[data-shell="w98"] .about-link { color: #000; }
+  body[data-shell="w98"] .card, body[data-shell="w98"] .kpi, body[data-shell="w98"] .sub-card, body[data-shell="w98"] .set-nav,
+  body[data-shell="w98"] .set-panes .rows > div {
+    border: 0; border-radius: 0; box-shadow: var(--bevel); padding-top: calc(var(--pad) + 18px);
+    background: linear-gradient(90deg, #000080, #1084d0) top / 100% 18px no-repeat, #c0c0c0; }
+  body[data-shell="w98"] .side .kpi, body[data-shell="w98"] .set-nav { padding-top: calc(var(--pad) + 14px); background-size: 100% 14px, auto; }
+  body[data-shell="w98"] .head .title, body[data-shell="w98"] .head .sub, body[data-shell="w98"] .status,
+  body[data-shell="w98"] .detail { color: #fff; }
+  body[data-shell="w98"] .set-head h2, body[data-shell="w98"] .set-head p { color: #fff; }
+  body[data-shell="w98"] .node { border-radius: 0; background: #c0c0c0; border: 0; box-shadow: var(--bevel); }
+  body[data-shell="w98"] .primary, body[data-shell="w98"] .chip, body[data-shell="w98"] .pillb { border-radius: 0; border: 0; background: #c0c0c0;
+    color: #000; font-weight: 400; box-shadow: var(--bevel); }
+  body[data-shell="w98"] .primary:active, body[data-shell="w98"] .chip:active, body[data-shell="w98"] .pillb:active { box-shadow: var(--sunken); transform: none; }
+  body[data-shell="w98"] .chip[aria-pressed="true"], body[data-shell="w98"] .pillb[aria-pressed="true"] { box-shadow: var(--sunken); background: #dcdcdc; }
+  body[data-shell="w98"] .power { border-radius: 0; width: 170px; height: 170px; background: #c0c0c0; box-shadow: var(--bevel), 6px 6px 0 rgba(0,0,0,.35); }
+  body[data-shell="w98"] .power:active { box-shadow: var(--sunken); transform: translate(1px, 1px); }
+  body[data-shell="w98"] .power svg { color: #000; }
+  body[data-shell="w98"] .power[data-state="connected"] svg { color: #000080; }
+  body[data-shell="w98"] .ring > svg { display: none; }
+  body[data-shell="w98"] .rows .switch { border-radius: 0; box-shadow: var(--sunken); background: #fff; border: 0; }
+  body[data-shell="w98"] .rows .switch::after { border-radius: 0; background: #c0c0c0; box-shadow: var(--bevel); }
+
+  /* GNOME: заголовок как headerbar, круглые кнопки окна, карточки-списки
+     со скруглением 12 и мягкой тенью вместо обводки. */
+  body[data-shell="gnome"] .top, body[data-shell="ubuntu"] .top { border: 0; background: color-mix(in srgb, var(--bg) 70%, transparent); }
+  body[data-shell="gnome"] .wctl, body[data-shell="ubuntu"] .wctl, body[data-shell="kde"] .wctl { align-self: center; gap: 10px; margin: 0 12px 0 4px; }
+  body[data-shell="gnome"] .wbtn, body[data-shell="ubuntu"] .wbtn, body[data-shell="kde"] .wbtn { width: 24px; height: 24px; border-radius: 50%; }
+  body[data-shell="gnome"] .wbtn, body[data-shell="ubuntu"] .wbtn { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+  body[data-shell="gnome"] .wbtn svg, body[data-shell="ubuntu"] .wbtn svg, body[data-shell="kde"] .wbtn svg { width: 8px; height: 8px; stroke-width: 1.6; }
+  body[data-shell="gnome"] .wbtn:hover, body[data-shell="ubuntu"] .wbtn:hover { background: color-mix(in srgb, var(--fg) 16%, transparent); }
+  body[data-shell="gnome"] .wbtn.close:hover { background: color-mix(in srgb, var(--fg) 16%, transparent); color: var(--fg); }
+  body[data-shell="gnome"] aside, body[data-shell="ubuntu"] aside { border: 0; background: color-mix(in srgb, var(--bg) 80%, transparent); }
+  body[data-shell="gnome"] .tab, body[data-shell="ubuntu"] .tab { border-radius: 6px; font-weight: 400; }
+  body[data-shell="gnome"] .tab[aria-selected="true"], body[data-shell="ubuntu"] .tab[aria-selected="true"] {
+    background: color-mix(in srgb, var(--fg) 10%, transparent); font-weight: 600; }
+  body[data-shell="gnome"] .card, body[data-shell="gnome"] .kpi, body[data-shell="gnome"] .node, body[data-shell="gnome"] .sub-card,
+  body[data-shell="gnome"] .set-nav, body[data-shell="gnome"] .set-panes .rows > div {
+    background: var(--surf); border: 0; box-shadow: 0 0 0 1px rgba(0,0,6,.03), 0 1px 3px 1px rgba(0,0,6,.07), 0 2px 6px 2px rgba(0,0,6,.03); }
+  body[data-shell="gnome"] .primary, body[data-shell="gnome"] .chip, body[data-shell="gnome"] .pillb { border-radius: 6px; }
+  body[data-shell="gnome"] .chip, body[data-shell="gnome"] .pillb { border: 0; background: color-mix(in srgb, var(--fg) 8%, transparent); }
+  body[data-shell="gnome"] .power { background: color-mix(in srgb, var(--fg) 7%, var(--surf)); box-shadow: 0 1px 3px rgba(0,0,6,.12), 0 18px 40px -16px rgba(0,0,6,.25); }
+  body[data-shell="gnome"] .power[data-state="connected"] { background: var(--acc); }
+  body[data-shell="gnome"] .power[data-state="connected"] svg { color: var(--accFg); }
+
+  /* Ubuntu: то же семейство, но оранжевый крестик, оранжевые значки
+     выбора и свой шрифт. */
+  body[data-shell="ubuntu"] .wbtn.close { background: #e95420; color: #fff; }
+  body[data-shell="ubuntu"] .wbtn.close:hover { background: #f06b3b; color: #fff; }
+  body[data-shell="ubuntu"] .tab[aria-selected="true"] svg { color: var(--acc); }
+  body[data-shell="ubuntu"] .card, body[data-shell="ubuntu"] .kpi, body[data-shell="ubuntu"] .node, body[data-shell="ubuntu"] .sub-card,
+  body[data-shell="ubuntu"] .set-nav, body[data-shell="ubuntu"] .set-panes .rows > div {
+    background: color-mix(in srgb, var(--surf) 90%, transparent); border: 1px solid color-mix(in srgb, var(--fg) 7%, transparent); box-shadow: 0 8px 24px -16px rgba(0,0,0,.6); }
+  body[data-shell="ubuntu"] .primary, body[data-shell="ubuntu"] .chip, body[data-shell="ubuntu"] .pillb { border-radius: 6px; }
+
+  /* KDE Plasma: свёрнуть и развернуть — шевроны, крестик краснеет в круге,
+     выбор и наведение — голубой рамкой фокуса Breeze. */
+  body[data-shell="kde"] .top { border: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); }
+  body[data-shell="kde"] .wbtn .g1 { display: none; }
+  body[data-shell="kde"] .wbtn .g2 { display: block; }
+  body[data-shell="kde"] .wbtn:hover { background: color-mix(in srgb, var(--fg) 14%, transparent); }
+  body[data-shell="kde"] .wbtn.close:hover { background: #da4453; color: #fff; }
+  body[data-shell="kde"] aside { border: 0; background: color-mix(in srgb, var(--bg) 88%, transparent); border-right: 1px solid var(--line); }
+  body[data-shell="kde"] .tab { border-radius: 3px; border: 1px solid transparent; font-weight: 400; }
+  body[data-shell="kde"] .tab:hover { border-color: color-mix(in srgb, var(--acc) 60%, transparent); }
+  body[data-shell="kde"] .tab[aria-selected="true"] { background: color-mix(in srgb, var(--acc) 26%, transparent); border-color: var(--acc); font-weight: 400; }
+  body[data-shell="kde"] .card, body[data-shell="kde"] .kpi, body[data-shell="kde"] .node, body[data-shell="kde"] .sub-card,
+  body[data-shell="kde"] .set-nav, body[data-shell="kde"] .set-panes .rows > div {
+    background: color-mix(in srgb, var(--surf) 92%, transparent); border: 1px solid var(--line); box-shadow: none; }
+  body[data-shell="kde"] .card:hover, body[data-shell="kde"] .kpi:hover, body[data-shell="kde"] .set-panes .rows > div:hover { border-color: var(--acc); }
+  body[data-shell="kde"] .primary, body[data-shell="kde"] .chip, body[data-shell="kde"] .pillb { border-radius: 3px; }
+  body[data-shell="kde"] .power { box-shadow: inset 0 0 0 1px var(--line), 0 18px 40px rgba(0,0,0,.45); }
+  body[data-shell="kde"] .power[data-state="connected"] { box-shadow: inset 0 0 0 2px var(--acc), 0 0 0 4px rgba(var(--accRgb), .25), 0 18px 40px rgba(0,0,0,.45); }
+
+  /* Плиточные — Hyprland, Nord, Gruvbox: окно делится на плитки с зазорами,
+     у активной (содержимое) — цветная рамка, у остальных — серая. Сверху —
+     бар из капсул, как waybar. */
+  body[data-shell="tile"] .app { padding: 8px; gap: 8px; }
+  body[data-shell="tile"] .body { gap: 8px; }
+  body[data-shell="tile"] .top, body[data-shell="tile"] aside, body[data-shell="tile"] main {
+    position: relative; border: 0; border-radius: var(--r); background: color-mix(in srgb, var(--bg) 72%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2); }
+  body[data-shell="tile"] main { background: color-mix(in srgb, var(--bg) 50%, transparent); }
+  body[data-shell="tile"] .top { height: 40px; padding-left: 12px; font-family: var(--mono); }
+  body[data-shell="tile"] .top::after, body[data-shell="tile"] aside::after, body[data-shell="tile"] main::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px; pointer-events: none;
+    background: var(--line);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+            mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+  body[data-shell="tile"] main::after { background: linear-gradient(45deg, var(--tileA, var(--acc)), var(--tileB, var(--acc))); }
+  body[data-shell="tile"] .wctl { align-self: center; gap: 6px; margin-right: 8px; }
+  body[data-shell="tile"] .wbtn { width: 28px; height: 22px; border-radius: 7px; background: var(--surf); }
+  body[data-shell="tile"] .wbtn svg { width: 8px; height: 8px; stroke-width: 1.6; }
+  body[data-shell="tile"] .wbtn.close:hover { background: var(--fail); color: var(--bg); }
+  body[data-shell="tile"] .tab { font-family: var(--mono); font-size: 13px; border-radius: 8px; font-weight: 500; }
+  body[data-shell="tile"] .tab[aria-selected="true"] { background: var(--acc); color: var(--accFg); font-weight: 700; }
+  body[data-shell="tile"] .tab[aria-selected="true"] svg { color: var(--accFg); }
+  body[data-shell="tile"] .card, body[data-shell="tile"] .kpi, body[data-shell="tile"] .node, body[data-shell="tile"] .sub-card,
+  body[data-shell="tile"] .set-nav, body[data-shell="tile"] .set-panes .rows > div { background: var(--surf); border: 0; box-shadow: none; }
+  body[data-shell="tile"] .head .title, body[data-shell="tile"] .status { font-family: var(--mono); letter-spacing: -.02em; }
+  body[data-shell="tile"] .power[data-state="connected"] { background: radial-gradient(circle at 38% 30%, var(--surf2), var(--surf) 60%);
+    box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--acc), 0 0 40px -6px rgba(var(--accRgb), .6); }
+
+  /* ───── Миниатюры: обои и маленькое окно образа ───── */
+  .vibes { grid-auto-columns: 226px; }
+  .vibe-art { position: relative; height: 128px; border-radius: calc(var(--r) + 2px); overflow: hidden; display: block;
+    background-size: cover; background-position: center; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+  .mw { position: absolute; left: 14%; right: 14%; top: 16%; bottom: 12%; display: flex; flex-direction: column; overflow: hidden;
+    border-radius: var(--vwr, 6px); background: var(--vbg); color: var(--vfg); box-shadow: 0 10px 24px -10px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.18);
+    transition: transform .45s cubic-bezier(.2,.9,.25,1.1); }
+  .vibe:hover .mw { transform: translateY(-3px) scale(1.03); }
+  .mw-bar { height: 14px; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 3px; padding: 0 5px;
+    background: var(--vbar, var(--vbg)); }
+  .mw-bar i { width: 7px; height: 5px; display: block; border-radius: 1px; background: color-mix(in srgb, var(--vfg) 45%, transparent); }
+  .mw-body { flex: 1; display: flex; min-height: 0; }
+  .mw-side { width: 26%; flex: none; background: var(--vside, color-mix(in srgb, var(--vfg) 5%, transparent)); }
+  .mw-main { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 4px; }
+  .mw-btn { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: var(--vacc);
+    background: color-mix(in srgb, var(--vsurf) 85%, transparent); box-shadow: inset 0 0 0 1.5px var(--vacc); }
+  .mw-btn i { width: 10px; height: 10px; border-radius: 50%; border: 1.8px solid currentColor; border-top-color: transparent; position: relative; }
+  .mw-btn i::after { content: ""; position: absolute; left: 50%; top: -4px; width: 1.8px; height: 6px; margin-left: -.9px; border-radius: 2px; background: currentColor; }
+  .vibe .mini-status { max-width: 100%; font: 700 10px/1.1 var(--vfont); color: var(--vfg); white-space: nowrap; overflow: hidden;
+    text-transform: var(--vcase); letter-spacing: var(--vtrack); }
+  .vibe-groups { display: flex; gap: 6px; flex-wrap: wrap; }
+  .vibe-groups .chip { min-height: 30px; font-size: 12px; padding: 0 12px; }
+
+  .vibe-art[data-shell="mac"] .mw { --vwr: 9px; }
+  .vibe-art[data-shell="mac"] .mw-bar { justify-content: flex-start; background: transparent; }
+  .vibe-art[data-shell="mac"] .mw-bar i { width: 5px; height: 5px; border-radius: 50%; }
+  .vibe-art[data-shell="mac"] .mw-bar i:nth-child(1) { background: #ff5f57; }
+  .vibe-art[data-shell="mac"] .mw-bar i:nth-child(2) { background: #febc2e; }
+  .vibe-art[data-shell="mac"] .mw-bar i:nth-child(3) { background: #28c840; }
+  .vibe-art[data-shell="mac"] .mw-side { margin: 0 0 4px 4px; border-radius: 6px; background: color-mix(in srgb, var(--vfg) 12%, transparent); }
+  .vibe-art[data-shell="mac"] .mw { background: color-mix(in srgb, var(--vbg) 82%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .vibe-art[data-shell="xp"] .mw { --vwr: 6px 6px 0 0; }
+  .vibe-art[data-shell="xp"] .mw-bar { height: 15px; background: linear-gradient(180deg, #3d95ff, #0053ee 40%, #003dd7); }
+  .vibe-art[data-shell="xp"] .mw-bar i { width: 8px; height: 8px; border-radius: 2px; border: 1px solid #fff; background: #2a6cf0; }
+  .vibe-art[data-shell="xp"] .mw-bar i:last-child { background: #e0532f; }
+  .vibe-art[data-shell="xp"] .mw-side { background: linear-gradient(180deg, #7ba2e7, #6375d6); }
+  .vibe-art[data-shell="xp"] .mw-btn { background: radial-gradient(circle at 35% 25%, #8ee07a, #3c9d2b 55%, #23731a); color: #fff; box-shadow: none; }
+  .vibe-art[data-shell="w98"] .mw { --vwr: 0; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf, 4px 4px 0 rgba(0,0,0,.3); padding: 2px; }
+  .vibe-art[data-shell="w98"] .mw-bar { background: linear-gradient(90deg, #000080, #1084d0); }
+  .vibe-art[data-shell="w98"] .mw-bar i { width: 7px; height: 6px; border-radius: 0; background: #c0c0c0; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff; }
+  .vibe-art[data-shell="w98"] .mw-btn { border-radius: 0; background: #c0c0c0; color: #000; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080; }
+  .vibe-art[data-shell="w98"] .mw-side { background: #c0c0c0; box-shadow: inset -1px 0 #808080; }
+  .vibe-art[data-shell="gnome"] .mw, .vibe-art[data-shell="ubuntu"] .mw { --vwr: 9px; }
+  .vibe-art[data-shell="gnome"] .mw-bar i, .vibe-art[data-shell="ubuntu"] .mw-bar i, .vibe-art[data-shell="kde"] .mw-bar i { width: 6px; height: 6px; border-radius: 50%; }
+  .vibe-art[data-shell="ubuntu"] .mw-bar i:last-child { background: #e95420; }
+  .vibe-art[data-shell="kde"] .mw-bar i:last-child { background: #da4453; }
+  .vibe-art[data-shell="tile"] .mw { left: 6%; right: 6%; top: 10%; bottom: 8%; background: transparent; box-shadow: none; gap: 3px; }
+  .vibe-art[data-shell="tile"] .mw-bar { border-radius: 4px; background: color-mix(in srgb, var(--vbg) 85%, transparent); }
+  .vibe-art[data-shell="tile"] .mw-body { gap: 3px; }
+  .vibe-art[data-shell="tile"] .mw-side { border-radius: 4px; background: color-mix(in srgb, var(--vbg) 85%, transparent); box-shadow: inset 0 0 0 1px var(--vline); }
+  .vibe-art[data-shell="tile"] .mw-main { border-radius: 4px; background: color-mix(in srgb, var(--vbg) 85%, transparent);
+    box-shadow: inset 0 0 0 1.5px var(--vacc); }
+  .vibe-art[data-shell="win11"] .mw { --vwr: 7px; background: color-mix(in srgb, var(--vbg) 90%, transparent); }
+  .vibe-art[data-shell="win11"] .mw-bar i { width: 6px; height: 1px; border-radius: 0; }
+
+  /* ───── Наши образы: Графит, Точка, Бумага ───── */
+  .dotnum { height: .82em; width: auto; fill: currentColor; vertical-align: -.02em; overflow: visible; }
   body[data-vibe="graphite"] .power::before { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
     background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.16) 48%, transparent 60%) -200% 0 / 300% 100% no-repeat;
     animation: sheen 6s ease-in-out infinite; }
   @keyframes sheen { 0%, 60% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-
-  /* Стекло: блик по верхней кромке и светлая кайма — как у настоящего стекла. */
-  body[data-vibe="glass"] .card, body[data-vibe="glass"] .kpi, body[data-vibe="glass"] .node, body[data-vibe="glass"] .set-nav,
-  body[data-vibe="glass"] .set-panes .rows > div {
-    position: relative; border-color: rgba(255,255,255,.18); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 18px 40px -24px rgba(0,0,0,.8); }
-  body[data-vibe="glass"] .card::after, body[data-vibe="glass"] .kpi::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 45%;
-    border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,.12), transparent); }
-
-  /* Экспрессив: кнопка живой формы, тональные карточки. */
-  body[data-vibe="expressive"] .power { border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%; animation: blob 9s ease-in-out infinite; }
-  body[data-vibe="expressive"] .card, body[data-vibe="expressive"] .kpi, body[data-vibe="expressive"] .node,
-  body[data-vibe="expressive"] .set-panes .rows > div { background: color-mix(in srgb, var(--acc) 9%, var(--surf)); border-color: transparent; }
-  body[data-vibe="expressive"] .card.feature { background: color-mix(in srgb, var(--acc) 18%, var(--surf)); }
-
-  /* Точка и Бумага: красная точка «в эфире» мигает у надписи, пока туннель поднят. */
   body[data-vibe="dot"] .status::before, body[data-vibe="paper"] .status::before {
     content: ""; display: inline-block; width: .32em; height: .32em; margin-right: .45em; vertical-align: .18em; border-radius: 50%;
     background: var(--dim); opacity: .5; }
@@ -870,60 +1094,15 @@
     background: var(--acc); opacity: 1; animation: rec 1.6s steps(1) infinite; box-shadow: 0 0 10px var(--acc); }
   @keyframes rec { 50% { opacity: .15; } }
 
-  /* Хром: металлическая кнопка, хромированная надпись, голографическая рамка главной карточки. */
-  body[data-vibe="chrome"] .power { background: conic-gradient(from 210deg, #f4f7fb, #8a95a3, #e9eef4, #6b7480, #f4f7fb) !important;
-    box-shadow: inset 0 2px 2px rgba(255,255,255,.8), inset 0 -10px 24px rgba(0,0,0,.25), 0 24px 48px rgba(0,0,0,.6) !important; }
-  body[data-vibe="chrome"] .power svg { color: #1b1f24 !important; }
-  body[data-vibe="chrome"] .status { background: linear-gradient(180deg, #ffffff 0%, #c9d1db 45%, #6b7480 55%, #e6ebf1 100%);
-    -webkit-background-clip: text; background-clip: text; color: transparent !important; }
-  body[data-vibe="chrome"] .card.feature { border-color: transparent;
-    background: linear-gradient(var(--surf), var(--surf)) padding-box, conic-gradient(from var(--aurA, 0deg), #a78bfa, #5eead4, #facc15, #f472b6, #a78bfa) border-box;
-    border: 1.5px solid transparent; animation: aurora-border 10s linear infinite; }
-
-  /* Брутал: чёрные рамки, жёсткие тени без размытия, кнопки вдавливаются. */
-  body[data-vibe="brutal"] .card, body[data-vibe="brutal"] .kpi, body[data-vibe="brutal"] .node, body[data-vibe="brutal"] .set-nav,
-  body[data-vibe="brutal"] .set-panes .rows > div, body[data-vibe="brutal"] aside .sub-card {
-    border: 2px solid #111; box-shadow: 4px 4px 0 #111; }
-  body[data-vibe="brutal"] .power { box-shadow: 0 0 0 2.5px #111, 6px 6px 0 2.5px #111 !important; }
-  body[data-vibe="brutal"] .power:active { transform: translate(4px, 4px); box-shadow: 0 0 0 2.5px #111, 2px 2px 0 2.5px #111 !important; }
-  body[data-vibe="brutal"] .chip, body[data-vibe="brutal"] .pillb, body[data-vibe="brutal"] button.primary {
-    border: 2px solid #111 !important; box-shadow: 3px 3px 0 #111; }
-  body[data-vibe="brutal"] .chip:active, body[data-vibe="brutal"] .pillb:active, body[data-vibe="brutal"] button.primary:active {
-    transform: translate(3px, 3px); box-shadow: none; }
-
-  /* Пластилин: мягкий объём — две внутренние тени и одна внешняя. */
-  body[data-vibe="clay"] .card, body[data-vibe="clay"] .kpi, body[data-vibe="clay"] .node, body[data-vibe="clay"] .set-nav,
-  body[data-vibe="clay"] .set-panes .rows > div {
-    border-color: transparent; box-shadow: inset -6px -7px 14px rgba(0,0,0,.06), inset 6px 7px 14px rgba(255,255,255,.8), 12px 18px 30px -18px rgba(190,90,140,.4); }
-  body[data-vibe="clay"] .power { box-shadow: inset -10px -12px 22px rgba(0,0,0,.12), inset 10px 12px 22px rgba(255,255,255,.55), 16px 22px 40px -18px rgba(190,90,140,.55) !important; }
-
-  /* Плёнка: зерно по всему окну и виньетка — фото, а не экран. */
-  body[data-vibe="film"]::after { content: ""; position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: .12; mix-blend-mode: overlay;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
-  body[data-vibe="film"] .app::after { content: ""; position: fixed; inset: 0; z-index: 89; pointer-events: none;
-    background: radial-gradient(130% 110% at 50% 45%, transparent 60%, rgba(0,0,0,.45)); }
-  body[data-vibe="film"] .status { font-style: italic; font-weight: 600; }
-
-  /* Аврора: рамка главной карточки переливается. */
-  body[data-vibe="aurora"] .card.feature { border-color: transparent;
-    background: linear-gradient(var(--surf), var(--surf)) padding-box,
-      linear-gradient(var(--aurA, 0deg), #a98bff, #40c8ff, #ff78c8, #a98bff) border-box; border: 1px solid transparent;
-    animation: aurora-border 8s linear infinite; }
-  @property --aurA { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
-  @keyframes aurora-border { to { --aurA: 360deg; } }
-
-  /* Терминал: узкий зелёный кант слева у карточек, как курсор строки. */
-  body[data-vibe="terminal"] .card, body[data-vibe="terminal"] .kpi { box-shadow: inset 3px 0 0 rgba(var(--accRgb), .7); }
-
   @media (prefers-reduced-motion: reduce) {
-    body[data-vibe] .power, body[data-vibe] .power::before, body[data-vibe] .status::before, body[data-vibe] .card.feature,
-    .vibe .mv-btn, .vibe .mini-status::before { animation: none !important; }
+    body[data-vibe] .power::before, body[data-vibe] .status::before { animation: none !important; }
   }
 </style>
 </head>
 <body data-state="idle">
 <div id="bg-layer" hidden></div>
 <div id="bg-veil" hidden></div>
+<div id="wall" aria-hidden="true"></div>
 <canvas id="field" aria-hidden="true"></canvas>
 <!-- Заставка: знак из точек, слово, затем интерфейс. Видна сразу, до кода:
      иначе мелькнул бы интерфейс, а потом заставка поверх него. -->
@@ -934,13 +1113,20 @@
 </div>
 <div class="app">
 
-  <header class="top">
+  <header class="top" id="titlebar">
+    <i class="grip-top" id="grip-top" aria-hidden="true"></i>
     <div class="brand">
       <span class="logo" aria-hidden="true"></span>
       <span class="wordmark">MARVIA</span>
       <span class="ver" id="version"></span>
     </div>
     <button class="lang" id="lang" type="button"></button>
+    <!-- Кнопки окна: системных больше нет, вид — от образа, действие — у окна. -->
+    <div class="wctl" id="wctl">
+      <button class="wbtn" type="button" data-win="min"><svg class="g1" viewBox="0 0 10 10"><path d="M0 5.5h10"/></svg><svg class="g2" viewBox="0 0 10 10"><path d="M1 3.5l4 4 4-4"/></svg></button>
+      <button class="wbtn" type="button" data-win="max"><svg class="g1 gmax" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9"/></svg><svg class="g1 grest" viewBox="0 0 10 10"><path d="M2.5 2.5V.5h7v7h-2"/><rect x=".5" y="2.5" width="7" height="7"/></svg><svg class="g2" viewBox="0 0 10 10"><path d="M1 6.5l4-4 4 4"/></svg></button>
+      <button class="wbtn close" type="button" data-win="close"><svg viewBox="0 0 10 10"><path d="M.5.5l9 9M9.5.5l-9 9"/></svg></button>
+    </div>
   </header>
 
   <div class="body">
@@ -1175,6 +1361,7 @@
               <div><b data-t="vibeTitle"></b> <span class="hint" data-t="vibeHint"></span></div>
               <span class="hint" data-t="vibeDrag"></span>
             </div>
+            <div class="vibe-groups" id="vibe-groups"></div>
             <div class="vibes" id="vibes"></div>
             <div class="vibes-bar" id="vibes-bar" aria-hidden="true"><i></i></div>
             <div class="fine-row">
@@ -1660,22 +1847,27 @@ const T = {
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
     kSession: "Сессия", kPing: "Отклик ноды", down: "↓ Загрузка", up: "↑ Отдача",
-    vibeTitle: "Образ", vibeHint: "двенадцать характеров по нынешним трендам",
+    vibeTitle: "Образ", vibeHint: "в духе Windows, macOS и Linux — и наши",
     fineShow: "Открыть точную настройку", fineHide: "Скрыть точную настройку",
     vibes: {
       graphite: ["Графит", "Наш серый: спокойно и без лишнего"],
-      glass: ["Стекло", "Прозрачные панели над яркими пятнами света"],
-      expressive: ["Экспрессив", "Смелый цвет и кнопка живой формы"],
       dot: ["Точка", "Чёрное табло, точечные цифры, красный"],
       paper: ["Бумага", "Светлое табло в точку, чернила и красный"],
-      chrome: ["Хром", "Жидкий металл и голографическая рамка"],
-      brutal: ["Брутал", "Чёрные рамки, жёсткие тени, кнопки вдавливаются"],
-      clay: ["Пластилин", "Мягкие объёмные формы в пастели"],
-      film: ["Плёнка", "Зерно, виньетка и антиква"],
-      aurora: ["Аврора", "Северное сияние и стеклянные карточки"],
-      terminal: ["Терминал", "Зелёный фосфор и развёртка"],
-      day: ["День", "Светлый и спокойный, без узора"],
+      win11: ["Windows 11", "Слюда над обоями, скругления и синий акцент"],
+      win11l: ["Windows 11 светлая", "Светлая слюда и цветок на обоях"],
+      xp: ["Windows XP", "Синий заголовок, зелёная кнопка, холм под небом"],
+      w98: ["Windows 98", "Серые выпуклые окна на бирюзовом столе"],
+      mac: ["macOS", "Светофор, жидкое стекло, волны заката"],
+      macl: ["macOS светлая", "Стеклянная боковая панель над пастелью"],
+      ubuntu: ["Ubuntu", "Баклажан, оранжевый и свой шрифт"],
+      gnome: ["GNOME", "Adwaita: круглые кнопки, карточки-списки"],
+      kde: ["KDE Plasma", "Breeze: шевроны, грани и голубой фокус"],
+      hypr: ["Hyprland", "Catppuccin Mocha, плитки и цветная рамка"],
+      nord: ["Nord", "Арктика: холодный синий и сияние"],
+      gruvbox: ["Gruvbox", "Тёплый ретро-терминал на закате"],
     },
+    vibeGroups: { all: "Все", marvia: "Наши", windows: "Windows", mac: "macOS", linux: "Linux" },
+    win: { min: "Свернуть", max: "Развернуть", restore: "Восстановить", close: "Закрыть" },
     themeBase: "Основа", themePickAccent: "Свой акцент — любой цвет", themePickTint: "Свой оттенок света",
     fineColors: "Цвета", finePattern: "Узор фона", fineShape: "Форма", fineType: "Шрифт и знак",
     fineResetAll: "Вернуть настройки образа",
@@ -1688,8 +1880,8 @@ const T = {
       caps: "Надпись заглавными", logo: "Знак",
       auto: "из темы", byVibe: "как у образа", px: "пкс", reset: "Вернуть как в образе", yes: "Да", no: "Нет",
       opts: {
-        font: { onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Моно", system: "Системный", serif: "Антиква" },
-        sfont: { same: "Как текст", onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Моно", system: "Системный", serif: "Антиква" },
+        font: { onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Моно", system: "Системный", serif: "Антиква", inter: "Inter", noto: "Noto Sans", ubuntu: "Ubuntu", segoe: "Segoe UI", tahoma: "Tahoma", mssans: "MS Sans Serif" },
+        sfont: { same: "Как текст", onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Моно", system: "Системный", serif: "Антиква", inter: "Inter", noto: "Noto Sans", ubuntu: "Ubuntu", segoe: "Segoe UI", tahoma: "Tahoma", mssans: "MS Sans Serif" },
         nums: { mono: "Моно", text: "Как текст", status: "Как надпись", dot: "Точки" },
         pattern: { none: "Нет", grid: "Сетка", matrix: "Матрица", tiles: "Плитки", stripes: "Полосы", mesh: "Сияние", scan: "Развёртка" },
         logo: { metal: "Металл", tint: "Цвет акцента" },
@@ -1878,22 +2070,27 @@ const T = {
 
     pingUnknown: "Not measured", setupLabel: "Connection",
     kSession: "Session", kPing: "Node response", down: "↓ Download", up: "↑ Upload",
-    vibeTitle: "Vibe", vibeHint: "twelve characters after current trends",
+    vibeTitle: "Vibe", vibeHint: "after Windows, macOS and Linux — plus our own",
     fineShow: "Open fine-tuning", fineHide: "Hide fine-tuning",
     vibes: {
       graphite: ["Graphite", "Our grey: calm and uncluttered"],
-      glass: ["Glass", "Clear panes over bright pools of light"],
-      expressive: ["Expressive", "Bold colour and a shape-shifting button"],
       dot: ["Dot", "Black board, dot-matrix digits, red"],
       paper: ["Paper", "Light dotted board, ink and red"],
-      chrome: ["Chrome", "Liquid metal and a holographic edge"],
-      brutal: ["Brutal", "Black outlines, hard shadows, buttons that press in"],
-      clay: ["Clay", "Soft, puffy shapes in pastel"],
-      film: ["Film", "Grain, vignette and a serif"],
-      aurora: ["Aurora", "Northern lights and glass cards"],
-      terminal: ["Terminal", "Green phosphor and scanlines"],
-      day: ["Day", "Light and calm, no pattern"],
+      win11: ["Windows 11", "Mica over the wallpaper, rounded corners, blue accent"],
+      win11l: ["Windows 11 light", "Light Mica and a bloom on the wallpaper"],
+      xp: ["Windows XP", "Blue title bar, green button, a hill under the sky"],
+      w98: ["Windows 98", "Grey bevelled windows on a teal desktop"],
+      mac: ["macOS", "Traffic lights, liquid glass, sunset waves"],
+      macl: ["macOS light", "A glass sidebar over pastels"],
+      ubuntu: ["Ubuntu", "Aubergine, orange and its own typeface"],
+      gnome: ["GNOME", "Adwaita: round buttons, boxed lists"],
+      kde: ["KDE Plasma", "Breeze: chevrons, sharp edges, blue focus"],
+      hypr: ["Hyprland", "Catppuccin Mocha, tiles and a coloured border"],
+      nord: ["Nord", "Arctic: cold blue and an aurora"],
+      gruvbox: ["Gruvbox", "A warm retro terminal at sunset"],
     },
+    vibeGroups: { all: "All", marvia: "Ours", windows: "Windows", mac: "macOS", linux: "Linux" },
+    win: { min: "Minimise", max: "Maximise", restore: "Restore", close: "Close" },
     themeBase: "Base", themePickAccent: "Your own accent — any colour", themePickTint: "Your own light tint",
     fineColors: "Colours", finePattern: "Background pattern", fineShape: "Shape", fineType: "Type and mark",
     fineResetAll: "Restore the vibe's settings",
@@ -1906,8 +2103,8 @@ const T = {
       caps: "Status in capitals", logo: "Mark",
       auto: "from theme", byVibe: "as the vibe", px: "px", reset: "Back to the vibe's value", yes: "Yes", no: "No",
       opts: {
-        font: { onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Mono", system: "System", serif: "Serif" },
-        sfont: { same: "As text", onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Mono", system: "System", serif: "Serif" },
+        font: { onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Mono", system: "System", serif: "Serif", inter: "Inter", noto: "Noto Sans", ubuntu: "Ubuntu", segoe: "Segoe UI", tahoma: "Tahoma", mssans: "MS Sans Serif" },
+        sfont: { same: "As text", onest: "Onest", manrope: "Manrope", unbounded: "Unbounded", mono: "Mono", system: "System", serif: "Serif", inter: "Inter", noto: "Noto Sans", ubuntu: "Ubuntu", segoe: "Segoe UI", tahoma: "Tahoma", mssans: "MS Sans Serif" },
         nums: { mono: "Mono", text: "As text", status: "As status", dot: "Dots" },
         pattern: { none: "None", grid: "Grid", matrix: "Matrix", tiles: "Tiles", stripes: "Stripes", mesh: "Glow", scan: "Scanlines" },
         logo: { metal: "Metal", tint: "Accent colour" },
@@ -2185,6 +2382,44 @@ on("about-link", "click", () => {
 on("w-full", "click", () => api("POST", "api/window", { mode: "full", tab: "home" }).catch(() => {}));
 on("w-hide", "click", () => api("POST", "api/window", { mode: "hide" }).catch(() => {}));
 
+// ── заголовок окна ──
+//
+// Окно зовётся напрямую (marviaWindow вшивает само окно): перетаскивание
+// должно начаться, пока кнопка мыши ещё нажата. В браузере, где окна нет,
+// кнопки молчат, а не падают.
+const winAct = (a) => (window.marviaWindow ? window.marviaWindow(a) : Promise.resolve(false));
+window.marviaMax = (on) => { document.body.dataset.max = on ? "1" : ""; paintWinLabels(); };
+function paintWinLabels() {
+  const d = L(), max = document.body.dataset.max === "1";
+  for (const b of document.querySelectorAll("[data-win]")) {
+    const label = d.win[b.dataset.win === "max" && max ? "restore" : b.dataset.win];
+    b.setAttribute("aria-label", label);
+    b.title = label;
+  }
+}
+for (const b of document.querySelectorAll("[data-win]")) b.addEventListener("click", () => winAct(b.dataset.win));
+// Тянуть начинаем после сдвига на пару пикселей, а не по нажатию: иначе
+// двойной щелчок — «развернуть» — съедался бы началом перетаскивания.
+{
+  const bar = $("titlebar");
+  let pending = null;
+  bar.addEventListener("mousedown", (e) => {
+    if (e.button !== 0 || e.target.closest("button, input, a, #grip-top")) return;
+    pending = { x: e.screenX, y: e.screenY };
+  });
+  addEventListener("mousemove", (e) => {
+    if (!pending) return;
+    if (!(e.buttons & 1)) { pending = null; return; }
+    if (Math.abs(e.screenX - pending.x) + Math.abs(e.screenY - pending.y) < 4) return;
+    pending = null;
+    winAct("drag");
+  });
+  addEventListener("mouseup", () => { pending = null; });
+  bar.addEventListener("dblclick", (e) => { if (!e.target.closest("button, input, a")) winAct("max"); });
+  $("grip-top").addEventListener("mousedown", (e) => { if (e.button === 0) { e.preventDefault(); winAct("top"); } });
+  winAct("state").then((m) => window.marviaMax(m)).catch(() => {});
+}
+
 /* ------------------------------------------------------------------ тема */
 
 /*
@@ -2200,7 +2435,8 @@ function applyLook() {
   // Свой фон отменяет фон темы: иначе он его и закроет. Читаемость тогда
   // держит пелена над картинкой, а не фон.
   document.documentElement.style.cssText = Look.vars(t) + (backdropURL ? ";--bgcss:transparent" : "");
-  api("POST", "api/window", { mode: "theme", background: t.bg, foreground: t.fg }).catch(() => {});
+  const bg = (vibe && eff("bg")) || t.bg, fg = (vibe && eff("fg")) || t.fg;
+  api("POST", "api/window", { mode: "theme", background: bg, foreground: fg }).catch(() => {});
   paintBackdrop();
   // Кнопка питания: вид — из темы. Ставится атрибутом, а красится в CSS.
   $("power").dataset.btn = t.btn;
@@ -2227,6 +2463,7 @@ let backdropKind = "";
 function paintBackdrop() {
   const layer = $("bg-layer"), veil = $("bg-veil");
   const on = !!backdropURL;
+  document.body.classList.toggle("custom-bg", on);
   layer.hidden = !on;
   veil.hidden = !on;
   if (!on) { layer.replaceChildren(); return; }
@@ -3376,77 +3613,279 @@ setInterval(tick, 1000);
 const VIBES = {
   // Наш: спокойный тёмный минимализм — то, к чему сейчас пришли почти все.
   graphite: {
+    group: "marvia", shell: "marvia",
     look: {},
     o: { pattern: "grid", font: "onest", sfont: "same", nums: "mono", caps: false },
-    preview: { bg: "radial-gradient(120% 90% at 20% 0%,#4a4f55,#16181b 60%,#0b0c0e)", pat: "radial-gradient(rgba(195,204,214,.16) 1px,transparent 1.6px) 0 0/11px 11px" },
-  },
-  // В духе «жидкого стекла» из iOS 26: яркое под прозрачными преломляющими
-  // панелями. Шрифт — системный Windows: чужой фирменный не встраиваем.
-  glass: {
-    look: { preset: "midnight", acc: "#5aa9ff", kind: "aurora", dir: "ne", depth: 0.7, radius: "pill", density: "roomy", btn: "glass", glow: "mid", card: "flat", tint: "#ff8a3d" },
-    o: { pattern: "mesh", amount: 95, psize: 120, font: "system", sfont: "same", nums: "text", caps: false, blur: 30, calpha: 32, r: 28, statusSize: 34 },
-    preview: { bg: "#070a14", pat: "radial-gradient(45% 55% at 22% 30%,#3b82ff,transparent 70%),radial-gradient(40% 50% at 82% 70%,#ff8a3d,transparent 70%),radial-gradient(35% 45% at 70% 15%,#c04bff,transparent 70%)" },
-  },
-  // В духе Material 3 Expressive: смелый цвет, тональные карточки, кнопка
-  // живой формы, которая перетекает из одной в другую.
-  expressive: {
-    look: { preset: "daylight", acc: "#6d4aff", kind: "linear", dir: "nw", depth: 0.3, radius: "pill", density: "roomy", btn: "solid", glow: "soft", card: "flat", tint: "#ffb4a2" },
-    o: { pattern: "tiles", amount: 45, font: "manrope", sfont: "same", nums: "text", caps: false, r: 30, pad: 20, statusSize: 36 },
-    preview: { bg: "linear-gradient(160deg,#efeaff,#ffe4dc)", pat: "radial-gradient(circle at 80% 20%,rgba(109,74,255,.25) 0 18%,transparent 19%),radial-gradient(circle at 10% 90%,rgba(255,140,110,.3) 0 22%,transparent 23%)" },
+    art: "radial-gradient(rgba(195,204,214,.16) 1px,transparent 1.6px) 0 0/11px 11px,radial-gradient(120% 90% at 20% 0%,#4a4f55,#16181b 60%,#0b0c0e)",
   },
   // В духе прозрачной техники: чёрное табло, точечная матрица, один красный.
   dot: {
+    group: "marvia", shell: "marvia",
     look: { preset: "oled", acc: "#ff3b30", kind: "flat", radius: "soft", density: "normal", btn: "ring", glow: "soft", card: "outline", tint: null },
     o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26, r: 10, psize: 120 },
-    preview: { bg: "#000", pat: "radial-gradient(rgba(255,255,255,.3) 1.1px,transparent 1.7px) 0 0/7px 7px" },
+    art: "radial-gradient(rgba(255,255,255,.3) 1.1px,transparent 1.7px) 0 0/7px 7px,#000",
   },
   paper: {
+    group: "marvia", shell: "marvia",
     look: { preset: "paper", acc: "#d6362a", kind: "flat", radius: "soft", density: "roomy", btn: "ring", glow: "none", card: "outline", tint: null },
     o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26, r: 10, psize: 120 },
-    preview: { bg: "#f6f3ec", pat: "radial-gradient(rgba(20,18,14,.24) 1.1px,transparent 1.7px) 0 0/7px 7px" },
+    art: "radial-gradient(rgba(20,18,14,.24) 1.1px,transparent 1.7px) 0 0/7px 7px,#f6f3ec",
   },
-  // Жидкий металл и голография — Y2K, который стал футуризмом.
-  chrome: {
-    look: { preset: "steel", acc: "#dfe7f0", kind: "radial", dir: "n", depth: 0.85, radius: "round", density: "normal", btn: "solid", glow: "mid", card: "outline", tint: "#a78bfa" },
-    o: { pattern: "mesh", amount: 70, font: "onest", sfont: "unbounded", nums: "mono", caps: true, r: 20, statusSize: 30 },
-    preview: { bg: "radial-gradient(120% 100% at 50% 0%,#3a3f47,#0b0c10 65%)", pat: "conic-gradient(from 200deg at 70% 40%,rgba(167,139,250,.35),rgba(94,234,212,.3),rgba(250,204,21,.25),rgba(244,114,182,.3),rgba(167,139,250,.35))" },
+  // Windows 11: слюда поверх обоев, Segoe UI Variable, скругление 8, синий
+  // акцент из палитры Fluent (светлый вариант — для тёмной темы).
+  win11: {
+    group: "windows", shell: "win11", wall: "bloom",
+    look: { preset: "slate", acc: "#60cdff", kind: "flat", radius: "soft", density: "normal", btn: "solid", glow: "none", card: "outline", tint: null },
+    o: { bg: "#202020", surf: "#2d2d2d", fg: "#ffffff", dim: "#c8c8c8", line: "#3d3d3d", r: 8, pattern: "none",
+      font: "segoe", sfont: "system", nums: "text", caps: false, statusSize: 30 },
+    veil: "linear-gradient(rgba(32,32,32,.74),rgba(32,32,32,.74))",
   },
-  // Необрутализм как акцент: толстые чёрные рамки, жёсткие тени без размытия,
-  // кнопка, которая вдавливается.
-  brutal: {
-    look: { preset: "linen", acc: "#ff5a1f", kind: "flat", radius: "sharp", density: "normal", btn: "solid", glow: "none", card: "outline", tint: null },
-    o: { pattern: "grid", amount: 35, pstep: 22, font: "onest", sfont: "unbounded", nums: "mono", caps: true, r: 4, statusSize: 30 },
-    preview: { bg: "#f3eedf", pat: "linear-gradient(rgba(17,17,17,.10) 1px,transparent 1px) 0 0/14px 14px,linear-gradient(90deg,rgba(17,17,17,.10) 1px,transparent 1px) 0 0/14px 14px" },
+  win11l: {
+    group: "windows", shell: "win11", wall: "bloomLight",
+    look: { preset: "daylight", acc: "#005fb8", kind: "flat", radius: "soft", density: "normal", btn: "solid", glow: "none", card: "outline", tint: null },
+    o: { bg: "#f3f3f3", surf: "#fbfbfb", fg: "#1b1b1b", dim: "#5d5d5d", line: "#e2e2e2", r: 8, pattern: "none",
+      font: "segoe", sfont: "system", nums: "text", caps: false, statusSize: 30 },
+    veil: "linear-gradient(rgba(243,243,243,.70),rgba(243,243,243,.70))",
   },
-  // Пластилин: мягкие объёмные формы — внутренние тени плюс одна внешняя.
-  clay: {
-    look: { preset: "linen", acc: "#ff6fa8", kind: "linear", dir: "nw", depth: 0.3, radius: "pill", density: "roomy", btn: "solid", glow: "soft", card: "flat", tint: "#9ad0ff" },
-    o: { pattern: "none", font: "manrope", sfont: "same", nums: "text", caps: false, r: 30, pad: 20, statusSize: 34 },
-    preview: { bg: "linear-gradient(150deg,#ffe3ef,#dff0ff)", pat: "radial-gradient(circle at 75% 30%,rgba(255,255,255,.7) 0 14%,transparent 15%)" },
+  // Windows XP: бежевые окна, синяя панель задач, Tahoma и холм под небом.
+  xp: {
+    group: "windows", shell: "xp", wall: "hill",
+    look: { preset: "daylight", acc: "#316ac5", kind: "flat", radius: "sharp", density: "normal", btn: "solid", glow: "none", card: "outline", tint: null },
+    o: { bg: "#ece9d8", surf: "#ffffff", fg: "#0b1530", dim: "#4a5162", line: "#a5b6d6", r: 4, pattern: "none",
+      font: "tahoma", sfont: "tahoma", nums: "text", caps: false, statusSize: 28 },
+    veil: "linear-gradient(rgba(236,233,216,.30),rgba(236,233,216,.62) 55%,rgba(236,233,216,.30))",
   },
-  // Плёнка: зерно, виньетка и антиква — тёплое и «не стерильное».
-  film: {
-    look: { preset: "sand", acc: "#e8a54b", kind: "radial", dir: "c", depth: 0.78, radius: "soft", density: "roomy", btn: "ring", glow: "soft", card: "flat", tint: null },
-    o: { pattern: "none", font: "manrope", sfont: "serif", nums: "text", caps: false, r: 12, statusSize: 40 },
-    preview: { bg: "radial-gradient(120% 100% at 50% 40%,#3d2f22,#120d08 75%)", pat: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E\")" },
+  // Windows 98: бирюзовый стол и серые выпуклые окна. Обоев у неё не было —
+  // был цвет стола, он и есть обои.
+  w98: {
+    group: "windows", shell: "w98", wall: "teal",
+    look: { preset: "daylight", acc: "#000080", kind: "flat", radius: "sharp", density: "compact", btn: "solid", glow: "none", card: "outline", tint: null },
+    o: { bg: "#008080", surf: "#c0c0c0", fg: "#000000", dim: "#3a3a3a", line: "#808080", r: 0, pattern: "none",
+      font: "mssans", sfont: "mssans", nums: "text", caps: false, statusSize: 26 },
   },
-  aurora: {
-    look: { preset: "plum", acc: "#a98bff", kind: "aurora", dir: "ne", depth: 0.8, radius: "round", density: "roomy", btn: "glass", glow: "mid", card: "flat", tint: null },
-    o: { pattern: "mesh", font: "manrope", sfont: "same", nums: "mono", caps: false, blur: 18, calpha: 60, r: 22, glow: 60 },
-    preview: { bg: "#0b0714", pat: "radial-gradient(60% 70% at 25% 30%,rgba(169,139,255,.6),transparent 70%),radial-gradient(50% 60% at 80% 75%,rgba(64,200,255,.4),transparent 70%)" },
+  // macOS: светофор, жидкое стекло, Inter вместо SF — системный шрифт Apple
+  // на Windows не встраивается.
+  mac: {
+    group: "mac", shell: "mac", wall: "waves",
+    look: { preset: "midnight", acc: "#0a84ff", kind: "flat", radius: "round", density: "roomy", btn: "glass", glow: "soft", card: "flat", tint: null },
+    o: { bg: "#1c1c1e", surf: "#2c2c2e", fg: "#f5f5f7", dim: "#aeaeb2", line: "#3a3a3c", r: 16, pattern: "none",
+      font: "inter", sfont: "inter", nums: "text", caps: false, statusSize: 32 },
+    veil: "linear-gradient(rgba(10,10,20,.30),rgba(10,10,20,.48))",
   },
-  terminal: {
-    look: { preset: "emerald", acc: "#3dff8f", kind: "radial", dir: "c", depth: 0.85, radius: "sharp", density: "compact", btn: "bare", glow: "mid", card: "outline", tint: null },
-    o: { pattern: "scan", font: "mono", sfont: "same", nums: "mono", caps: true, r: 2, gap: 8, statusSize: 28 },
-    preview: { bg: "radial-gradient(100% 100% at 50% 50%,#0b2a1c,#030a07 75%)", pat: "repeating-linear-gradient(0deg,rgba(61,255,143,.12) 0 1px,transparent 1px 4px)" },
+  macl: {
+    group: "mac", shell: "mac", wall: "wavesLight",
+    look: { preset: "daylight", acc: "#007aff", kind: "flat", radius: "round", density: "roomy", btn: "glass", glow: "none", card: "flat", tint: null },
+    o: { bg: "#f5f5f7", surf: "#ffffff", fg: "#1d1d1f", dim: "#5e5e63", line: "#d2d2d7", r: 16, pattern: "none",
+      font: "inter", sfont: "inter", nums: "text", caps: false, statusSize: 32 },
+    veil: "linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,.40))",
   },
-  // День: светлый и спокойный, без узора — для тех, кому тёмное не по душе.
-  day: {
-    look: { preset: "daylight", acc: "#0f766e", kind: "flat", radius: "round", density: "roomy", btn: "ring", glow: "none", card: "outline", tint: null },
-    o: { pattern: "none", font: "onest", sfont: "same", nums: "text", caps: false, r: 18, statusSize: 32 },
-    preview: { bg: "linear-gradient(180deg,#f7f9fa,#e9eef0)", pat: "linear-gradient(transparent,transparent)" },
+  // Ubuntu: Yaru — баклажан, оранжевый, свой шрифт.
+  ubuntu: {
+    group: "linux", shell: "ubuntu", wall: "aubergine",
+    look: { preset: "ember", acc: "#e95420", kind: "flat", radius: "soft", density: "normal", btn: "solid", glow: "soft", card: "outline", tint: null },
+    o: { bg: "#2c2c2c", surf: "#373737", fg: "#ffffff", dim: "#c6c4c1", line: "#4a4a4a", r: 10, pattern: "none",
+      font: "ubuntu", sfont: "ubuntu", nums: "text", caps: false, statusSize: 32 },
+    veil: "linear-gradient(rgba(28,22,26,.50),rgba(28,22,26,.70))",
+  },
+  // GNOME: Adwaita светлая — карточки-списки, синий, Inter (на нём и
+  // построен нынешний Adwaita Sans).
+  gnome: {
+    group: "linux", shell: "gnome", wall: "blobs",
+    look: { preset: "daylight", acc: "#3584e4", kind: "flat", radius: "soft", density: "roomy", btn: "solid", glow: "none", card: "flat", tint: null },
+    o: { bg: "#fafafb", surf: "#ffffff", fg: "#2e2e32", dim: "#5e5e66", line: "#e1e1e4", r: 12, pattern: "none",
+      font: "inter", sfont: "inter", nums: "text", caps: false, statusSize: 30 },
+    veil: "linear-gradient(rgba(250,250,251,.66),rgba(250,250,251,.80))",
+  },
+  // KDE Plasma: Breeze тёмная — голубой фокус, острые грани, Noto Sans.
+  kde: {
+    group: "linux", shell: "kde", wall: "shards",
+    look: { preset: "ice", acc: "#3daee9", kind: "flat", radius: "sharp", density: "normal", btn: "ring", glow: "soft", card: "outline", tint: null },
+    o: { bg: "#202326", surf: "#292c30", fg: "#fcfcfc", dim: "#a7aeb6", line: "#3f454c", r: 5, pattern: "none",
+      font: "noto", sfont: "noto", nums: "text", caps: false, statusSize: 30 },
+    veil: "linear-gradient(rgba(20,22,24,.45),rgba(20,22,24,.62))",
+  },
+  // Hyprland с Catppuccin Mocha — то, чем сейчас забит r/unixporn: плитки
+  // с зазорами, цветная рамка активного окна, моно в баре.
+  hypr: {
+    group: "linux", shell: "tile", wall: "peaks",
+    look: { preset: "plum", acc: "#cba6f7", kind: "flat", radius: "soft", density: "normal", btn: "ring", glow: "soft", card: "flat", tint: null },
+    o: { bg: "#1e1e2e", surf: "#313244", fg: "#cdd6f4", dim: "#a6adc8", line: "#45475a", r: 10, pattern: "none",
+      font: "inter", sfont: "mono", nums: "mono", caps: false, statusSize: 30 },
+    tile: ["#89b4fa", "#cba6f7"],
+  },
+  nord: {
+    group: "linux", shell: "tile", wall: "arctic",
+    look: { preset: "ice", acc: "#88c0d0", kind: "flat", radius: "soft", density: "normal", btn: "ring", glow: "none", card: "flat", tint: null },
+    o: { bg: "#2e3440", surf: "#3b4252", fg: "#eceff4", dim: "#b4bdcc", line: "#4c566a", r: 8, pattern: "none",
+      font: "noto", sfont: "mono", nums: "mono", caps: false, statusSize: 30 },
+    tile: ["#8fbcbb", "#81a1c1"],
+  },
+  gruvbox: {
+    group: "linux", shell: "tile", wall: "sunset",
+    look: { preset: "amber", acc: "#fe8019", kind: "flat", radius: "sharp", density: "normal", btn: "ring", glow: "soft", card: "flat", tint: null },
+    o: { bg: "#282828", surf: "#3c3836", fg: "#ebdbb2", dim: "#bdae93", line: "#504945", r: 4, pattern: "none",
+      font: "mono", sfont: "mono", nums: "mono", caps: false, statusSize: 28 },
+    tile: ["#fabd2f", "#fe8019"],
   },
 };
+// Прежние образы — на ближайшие новые: сохранённый выбор и присланный код
+// не должны молча превращаться в Графит.
+const VIBE_RENAMED = { glass: "mac", expressive: "gnome", chrome: "graphite", brutal: "w98", clay: "macl",
+  film: "gruvbox", aurora: "hypr", terminal: "gruvbox", day: "win11l" };
+const VIBE_GROUPS = ["all", "marvia", "windows", "mac", "linux"];
+
+// ── обои ──
+//
+// Свои, нарисованные кодом: по мотивам систем, но ни одна не копирует их
+// картинки — те принадлежат авторам. Вектор, а не файл: обои растягиваются
+// на любое окно без мыла и почти ничего не весят. Случайность — с зерном:
+// одни и те же обои у всех и при каждом запуске.
+const WALLS = (() => {
+  const cache = {};
+  const rnd = (seed) => () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  const svg = (body) => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">' + body + "</svg>";
+  const lin = (id, a, stops) => '<linearGradient id="' + id + '" ' + a + ">" + stops.map(([o, c, op]) =>
+    '<stop offset="' + o + '" stop-color="' + c + '"' + (op != null ? ' stop-opacity="' + op + '"' : "") + "/>").join("") + "</linearGradient>";
+  const rad = (id, a, stops) => lin(id, a, stops).replace("<linearGradient", "<radialGradient").replace("</linearGradient>", "</radialGradient>");
+
+  // Цветок из лепестков вокруг точки справа внизу — мотив Windows 11.
+  function bloom(light) {
+    const bg = light ? [["0", "#f4f8fd"], [".6", "#d5e6f8"], ["1", "#b9d3f0"]] : [["0", "#1f5aa8"], [".45", "#0b2450"], ["1", "#040b1c"]];
+    const pet = light ? [["0", "#ffffff", .95], [".45", "#8cc4f7", .9], ["1", "#1f6fd6", .85]] : [["0", "#bfe4ff", .95], [".4", "#3a8ef0", .85], ["1", "#0a3c96", .8]];
+    let g = "";
+    const angles = [-28, 8, 44, 80, 116, 152, 188];
+    angles.forEach((a, i) => {
+      g += '<ellipse cx="0" cy="0" rx="430" ry="' + (150 - i * 6) + '" transform="rotate(' + a + ') translate(250 0)" fill="url(#p)" opacity="' + (0.55 + (i % 2) * 0.15) + '"/>';
+    });
+    return svg("<defs>" + rad("b", 'cx="68%" cy="62%" r="85%"', bg) + lin("p", 'x1="0" y1="0" x2="1" y2="1"', pet)
+      + '<filter id="s"><feGaussianBlur stdDeviation="5"/></filter></defs>'
+      + '<rect width="1600" height="1000" fill="url(#b)"/><g transform="translate(1060 600)" filter="url(#s)">' + g + "</g>");
+  }
+  // Слои волн с закатным градиентом — мотив нынешних обоев macOS.
+  function waves(light) {
+    const sky = light ? [["0", "#dfe8ff"], [".55", "#f2e6ff"], ["1", "#ffe9df"]] : [["0", "#070b2b"], [".5", "#21144f"], ["1", "#4a1d6b"]];
+    const bands = light
+      ? [["#c7d7ff", "#e9d2ff"], ["#b9c8ff", "#f7c6e6"], ["#f7c6e6", "#ffd8b8"], ["#9fc0ff", "#c9b6ff"], ["#ffe1c7", "#ffc1c7"]]
+      : [["#2b2a9e", "#5b33c4"], ["#7a36c9", "#d1468f"], ["#e0567a", "#ff9a5c"], ["#2563eb", "#53b8ff"], ["#141447", "#2a1d6e"]];
+    let g = "<defs>" + lin("sky", 'x1="0" y1="0" x2="0" y2="1"', sky);
+    bands.forEach((b, i) => { g += lin("w" + i, 'x1="0" y1="0" x2="1" y2="0"', [["0", b[0]], ["1", b[1]]]); });
+    g += '</defs><rect width="1600" height="1000" fill="url(#sky)"/>';
+    bands.forEach((b, i) => {
+      const y = 360 + i * 120, a = 140 - i * 12;
+      g += '<path d="M-50 ' + y + " C 380 " + (y - a) + ", 760 " + (y + a) + ", 1120 " + (y - a * 0.4) + " S 1500 " + (y + a * 0.6) + ", 1660 " + (y - 20)
+        + ' L1660 1100 L-50 1100 Z" fill="url(#w' + i + ')" opacity="' + (0.92 - i * 0.04) + '"/>';
+    });
+    return svg(g);
+  }
+  // Небо, облака и зелёный холм — мотив стола XP; не фотография.
+  function hill() {
+    const r = rnd(7);
+    let clouds = "";
+    for (let i = 0; i < 7; i++) {
+      const x = r() * 1600, y = 60 + r() * 260, w = 120 + r() * 220;
+      clouds += '<ellipse cx="' + x + '" cy="' + y + '" rx="' + w + '" ry="' + (w * 0.28) + '" fill="#fff" opacity="' + (0.5 + r() * 0.4) + '"/>';
+    }
+    return svg("<defs>" + lin("s", 'x1="0" y1="0" x2="0" y2="1"', [["0", "#2c66d6"], [".55", "#77b1ee"], ["1", "#c5e3fb"]])
+      + lin("h", 'x1="0" y1="0" x2="0" y2="1"', [["0", "#86d84a"], [".5", "#4fae2c"], ["1", "#2d7d1b"]])
+      + lin("h2", 'x1="0" y1="0" x2="0" y2="1"', [["0", "#5fb83a"], ["1", "#2f7a1d"]])
+      + '<filter id="c"><feGaussianBlur stdDeviation="18"/></filter></defs>'
+      + '<rect width="1600" height="1000" fill="url(#s)"/><g filter="url(#c)">' + clouds + "</g>"
+      + '<path d="M-40 700 Q 420 560 900 650 T 1660 640 L1660 1040 L-40 1040Z" fill="url(#h2)"/>'
+      + '<path d="M-40 760 Q 520 560 1050 690 T 1660 720 L1660 1040 L-40 1040Z" fill="url(#h)"/>');
+  }
+  // Баклажан с оранжевым заревом и кольцами света — мотив Ubuntu.
+  function aubergine() {
+    let rings = "";
+    for (let i = 1; i <= 7; i++) rings += '<circle cx="1260" cy="820" r="' + i * 120 + '" fill="none" stroke="#fff" stroke-opacity="' + (0.07 - i * 0.007) + '" stroke-width="2"/>';
+    return svg("<defs>" + lin("b", 'x1="0" y1="0" x2="1" y2="1"', [["0", "#2c001e"], [".55", "#5e2750"], ["1", "#77216f"]])
+      + rad("o", 'cx="80%" cy="85%" r="55%"', [["0", "#e95420", .85], [".5", "#e95420", .25], ["1", "#e95420", 0]])
+      + rad("v", 'cx="10%" cy="5%" r="60%"', [["0", "#a0469d", .55], ["1", "#a0469d", 0]]) + "</defs>"
+      + '<rect width="1600" height="1000" fill="url(#b)"/><rect width="1600" height="1000" fill="url(#v)"/>'
+      + '<rect width="1600" height="1000" fill="url(#o)"/>' + rings);
+  }
+  // Плоские синие фигуры на светлом — мотив обоев GNOME.
+  function blobs() {
+    return svg("<defs>" + lin("b", 'x1="0" y1="0" x2="1" y2="1"', [["0", "#e8f0fb"], ["1", "#c6daf5"]]) + "</defs>"
+      + '<rect width="1600" height="1000" fill="url(#b)"/>'
+      + '<circle cx="1230" cy="260" r="330" fill="#3584e4"/>'
+      + '<rect x="110" y="560" width="560" height="560" rx="150" transform="rotate(-18 390 840)" fill="#99c1f1"/>'
+      + '<circle cx="760" cy="700" r="200" fill="#1c71d8"/>'
+      + '<circle cx="1420" cy="760" r="120" fill="#62a0ea"/>'
+      + '<rect x="420" y="90" width="300" height="300" rx="90" transform="rotate(14 570 240)" fill="#c0d8f6"/>');
+  }
+  // Острые треугольники от тёмного к голубому — мотив Plasma.
+  function shards() {
+    const r = rnd(11), cols = 9, rows = 6, pts = [];
+    for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
+      const edge = i === 0 || j === 0 || i === cols || j === rows;
+      pts.push([i * 1600 / cols + (edge ? 0 : (r() - 0.5) * 140), j * 1000 / rows + (edge ? 0 : (r() - 0.5) * 120)]);
+    }
+    const mix = (a, b, t) => "#" + [0, 2, 4].map((k) => Math.round(parseInt(a.substr(k + 1, 2), 16) * (1 - t) + parseInt(b.substr(k + 1, 2), 16) * t).toString(16).padStart(2, "0")).join("");
+    let g = "";
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const p = (a, b) => pts[b * (cols + 1) + a];
+      const tri = [[p(i, j), p(i + 1, j), p(i, j + 1)], [p(i + 1, j), p(i + 1, j + 1), p(i, j + 1)]];
+      for (const t of tri) {
+        const cx = (t[0][0] + t[1][0] + t[2][0]) / 3, cy = (t[0][1] + t[1][1] + t[2][1]) / 3;
+        const k = Math.min(1, Math.max(0, (cx / 1600) * 0.6 + (cy / 1000) * 0.5 - 0.15 + (r() - 0.5) * 0.18));
+        const c = k < 0.6 ? mix("#0b141d", "#123a5c", k / 0.6) : mix("#123a5c", "#1d99f3", (k - 0.6) / 0.4);
+        g += '<path d="M' + t.map((q) => q[0].toFixed(0) + " " + q[1].toFixed(0)).join("L") + 'Z" fill="' + c + '" stroke="' + c + '" stroke-width="1.5"/>';
+      }
+    }
+    return svg(g);
+  }
+  // Горы под ночным небом — любимые обои плиточных столов.
+  function mountains(sky, layers, extra) {
+    const r = rnd(5);
+    let stars = "";
+    for (let i = 0; i < 110; i++) stars += '<circle cx="' + (r() * 1600).toFixed(0) + '" cy="' + (r() * 520).toFixed(0) + '" r="' + (0.6 + r() * 1.6).toFixed(1) + '" fill="#fff" opacity="' + (0.25 + r() * 0.6).toFixed(2) + '"/>';
+    let g = "<defs>" + lin("sky", 'x1="0" y1="0" x2="0" y2="1"', sky) + "</defs>" + '<rect width="1600" height="1000" fill="url(#sky)"/>' + stars + (extra || "");
+    layers.forEach(([color, base, amp], li) => {
+      let d = "M-20 1020 L-20 " + base;
+      for (let x = 0; x <= 1640; x += 80) d += " L" + x + " " + (base - r() * amp - (li === 0 ? Math.sin(x / 260) * amp * 0.5 : 0)).toFixed(0);
+      g += '<path d="' + d + ' L1660 1020 Z" fill="' + color + '"/>';
+    });
+    return svg(g);
+  }
+  function peaks() {
+    // Закат за горами в цветах Catppuccin: обои плиточного стола должны
+    // быть видны сквозь полупрозрачные плитки, тёмные там просто пропадали.
+    return mountains([["0", "#1e1e2e"], [".24", "#45375c"], [".46", "#b48ad4"], [".6", "#f5c2e7"], [".76", "#fab387"]],
+      [["#6c5f8d", 600, 230], ["#45475a", 730, 170], ["#1e1e2e", 870, 120]],
+      '<circle cx="1120" cy="520" r="90" fill="#f9e2af" opacity=".9"/>');
+  }
+  function arctic() {
+    const aur = '<defs><filter id="a"><feGaussianBlur stdDeviation="28"/></filter></defs><g filter="url(#a)" opacity=".55">'
+      + '<path d="M0 260 C 300 160, 600 360, 900 220 S 1400 300, 1600 180" stroke="#8fbcbb" stroke-width="70" fill="none"/>'
+      + '<path d="M0 340 C 400 260, 700 420, 1000 300 S 1450 380, 1600 280" stroke="#a3be8c" stroke-width="40" fill="none"/>'
+      + '<path d="M200 200 C 500 120, 900 260, 1300 140" stroke="#b48ead" stroke-width="30" fill="none"/></g>';
+    return mountains([["0", "#232831"], [".6", "#2e3440"], ["1", "#4c566a"]],
+      [["#d8dee9", 660, 230], ["#4c566a", 760, 150], ["#3b4252", 880, 90]], aur);
+  }
+  // Солнце с прорезями над сеткой — тёплый ретро в цветах Gruvbox.
+  function sunset() {
+    let cuts = "", grid = "";
+    for (let i = 0; i < 6; i++) cuts += '<rect x="500" y="' + (600 + i * 34) + '" width="600" height="' + (6 + i * 3) + '" fill="#282828"/>';
+    for (let i = 0; i <= 16; i++) grid += '<line x1="' + (800 + (i - 8) * 60) + '" y1="740" x2="' + (800 + (i - 8) * 260) + '" y2="1000" stroke="#504945" stroke-width="2"/>';
+    for (let i = 0; i < 6; i++) grid += '<line x1="0" x2="1600" y1="' + (750 + i * i * 9) + '" y2="' + (750 + i * i * 9) + '" stroke="#504945" stroke-width="2"/>';
+    return svg("<defs>" + lin("b", 'x1="0" y1="0" x2="0" y2="1"', [["0", "#1d2021"], [".7", "#32302f"], ["1", "#282828"]])
+      + lin("sun", 'x1="0" y1="0" x2="0" y2="1"', [["0", "#fabd2f"], [".55", "#fe8019"], ["1", "#fb4934"]]) + "</defs>"
+      + '<rect width="1600" height="1000" fill="url(#b)"/><circle cx="800" cy="600" r="270" fill="url(#sun)"/>' + cuts
+      + '<rect y="740" width="1600" height="260" fill="#1d2021"/>' + grid);
+  }
+  const make = {
+    bloom: () => bloom(false), bloomLight: () => bloom(true), waves: () => waves(false), wavesLight: () => waves(true),
+    hill, aubergine, blobs, shards, peaks, arctic, sunset,
+    // Стол Windows 98 — просто цвет; картинка не нужна.
+    teal: () => svg('<rect width="1600" height="1000" fill="#008080"/>'),
+  };
+  function url(name) {
+    if (!name || !make[name]) return "";
+    if (!cache[name]) cache[name] = 'url("data:image/svg+xml,' + encodeURIComponent(make[name]()) + '")';
+    return cache[name];
+  }
+  return { url };
+})();
 
 // Поля точной настройки и их значения по умолчанию. Цвета null — «из темы».
 const O_DEFAULTS = {
@@ -3457,8 +3896,8 @@ const O_DEFAULTS = {
   logo: "metal",
 };
 const O_CHOICES = {
-  font: ["onest", "manrope", "unbounded", "mono", "system", "serif"],
-  sfont: ["same", "onest", "manrope", "unbounded", "mono", "system", "serif"],
+  font: ["onest", "manrope", "unbounded", "mono", "system", "serif", "inter", "noto", "ubuntu", "segoe", "tahoma", "mssans"],
+  sfont: ["same", "onest", "manrope", "unbounded", "mono", "system", "serif", "inter", "noto", "ubuntu", "segoe", "tahoma", "mssans"],
   nums: ["mono", "text", "status", "dot"],
   pattern: ["none", "grid", "matrix", "tiles", "stripes", "mesh", "scan"],
   logo: ["metal", "tint"],
@@ -3475,6 +3914,12 @@ const FONTS = {
   mono: '"JetBrains Mono", ui-monospace, Consolas, monospace',
   system: '"Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif',
   serif: 'Spectral, Georgia, "Times New Roman", serif',
+  inter: 'Inter, "Segoe UI", system-ui, sans-serif',
+  noto: '"Noto Sans", "Segoe UI", sans-serif',
+  ubuntu: 'Ubuntu, "Segoe UI", sans-serif',
+  segoe: '"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif',
+  tahoma: 'Tahoma, Verdana, "Segoe UI", sans-serif',
+  mssans: '"Microsoft Sans Serif", Tahoma, Arial, sans-serif',
 };
 const VIBE_KEY = "marvia-vibe";
 const MOTIONS = ["off", "calm", "lively"];
@@ -3504,8 +3949,10 @@ function normO(raw) {
 function loadVibe() {
   let v = {};
   try { v = JSON.parse(localStorage.getItem(VIBE_KEY)) || {}; } catch (_) { /* испорченное — с нуля */ }
+  const renamed = has(VIBE_RENAMED, v.id);
   return {
-    id: has(VIBES, v.id) ? v.id : "graphite",
+    id: renamed ? VIBE_RENAMED[v.id] : has(VIBES, v.id) ? v.id : "graphite",
+    renamed,
     motion: MOTIONS.includes(v.motion) ? v.motion : "calm",
     splash: v.splash !== false,
     sound: v.sound === true,
@@ -3514,7 +3961,9 @@ function loadVibe() {
     // окно и хочется трогать.
     fx: v.fx !== false,
     clickWave: v.clickWave !== false,
-    o: normO(v.o),
+    // Настройки прежнего образа к новому не подходят: его цвета легли бы
+    // поверх чужой палитры.
+    o: renamed ? {} : normO(v.o),
   };
 }
 // var, а не let: вкладку «Тема» страница рисует при запуске раньше, чем
@@ -3549,8 +3998,10 @@ function applyCode(code) {
   if (tail) {
     let extra = null;
     try { extra = JSON.parse(unb64url(tail)); } catch (_) { return false; }
-    if (!extra || !has(VIBES, extra.i)) return false;
-    vibe.id = extra.i;
+    if (!extra) return false;
+    const id = has(VIBE_RENAMED, extra.i) ? VIBE_RENAMED[extra.i] : extra.i;
+    if (!has(VIBES, id)) return false;
+    vibe.id = id;
     vibe.o = normO(extra.o);
     saveVibe();
   }
@@ -3570,13 +4021,23 @@ function rgbOf(hex) {
 }
 function alphaOf(hex, a) { return "rgba(" + rgbOf(hex).join(",") + "," + a + ")"; }
 function overrideCss(t) {
-  const o = vibe.o, out = [];
+  // Цвета — свои или образа: у образов в духе систем палитра своя, точная,
+  // а не выведенная из пресета.
+  const o = {}, out = [];
+  for (const k of O_COLORS) { const v = eff(k); if (v) o[k] = v; }
+  const V = VIBES[vibe.id], wall = backdropURL ? "" : WALLS.url(V.wall);
   const acc = t.acc;
   const surf = o.surf || t.surf;
-  if (o.bg) {
-    out.push("--bg:" + o.bg, "--shade:" + Look.mix(o.bg, "#000000", 0.45));
-    if (!backdropURL) out.push("--bgcss:radial-gradient(130% 100% at top left," + Look.mix(o.bg, "#ffffff", 0.07) + " 0%," + o.bg + " 48%," + Look.mix(o.bg, "#000000", 0.45) + " 100%)");
+  if (o.bg) out.push("--bg:" + o.bg, "--shade:" + Look.mix(o.bg, "#000000", 0.45));
+  if (wall) {
+    // Обои — под всем окном, пелена образа держит читаемость. Слюде Windows 11
+    // нужна та же картинка размытой — отдельным слоем.
+    out.push("--bgcss:" + (V.veil ? V.veil + "," : "") + wall + " center / cover no-repeat," + (o.bg || t.bg),
+      "--wallImg:" + wall, "--wallVeil:" + (V.veil || "transparent"));
+  } else if (o.bg && !backdropURL) {
+    out.push("--bgcss:radial-gradient(130% 100% at top left," + Look.mix(o.bg, "#ffffff", 0.07) + " 0%," + o.bg + " 48%," + Look.mix(o.bg, "#000000", 0.45) + " 100%)");
   }
+  if (V.tile) out.push("--tileA:" + V.tile[0], "--tileB:" + V.tile[1]);
   if (o.surf) out.push("--surf:" + o.surf, "--surf2:" + Look.mix(o.surf, o.fg || t.fg, 0.08));
   if (o.fg) out.push("--fg:" + o.fg);
   if (o.dim) out.push("--dim:" + o.dim);
@@ -3617,6 +4078,7 @@ function paintOverrides() {
 
 function applyVibe() {
   document.body.dataset.vibe = vibe.id;
+  document.body.dataset.shell = VIBES[vibe.id].shell || "marvia";
   document.body.dataset.motion = motion();
   document.body.dataset.logo = eff("logo");
   document.body.dataset.caps = String(eff("caps"));
@@ -3992,26 +4454,27 @@ function buildVibes() {
   // Карточка — как обои в выборе темы на телефоне: фон образа во всю
   // карточку, его кнопка, надпись его шрифтом и маленькая карточка с
   // настоящей цифрой. Серые полоски «вместо интерфейса» выглядели заготовкой.
+  // Карточка — кусочек стола: обои образа и маленькое окно в его оболочке —
+  // с его кнопками окна, боковой панелью, кнопкой подключения и надписью его
+  // шрифтом. Так видно не палитру, а то, как будет выглядеть программа.
   for (const id of Object.keys(VIBES)) {
-    const v = VIBES[id], p = v.preview;
+    const v = VIBES[id];
     const t = Look.theme(Object.assign(Look.normalize({}), v.look));
+    const c = (k) => v.o[k] || t[k];
     const font = FONTS[v.o.font || "onest"], sfont = !v.o.sfont || v.o.sfont === "same" ? font : FONTS[v.o.sfont];
-    const nums = v.o.nums === "text" ? font : v.o.nums === "status" ? sfont : FONTS.mono;
     const b = document.createElement("button");
     b.type = "button";
     b.className = "vibe";
     b.dataset.vibe = id;
-    const num = v.o.nums === "dot" ? dotSvg("48,0") : "48,0";
-    b.innerHTML = '<span class="vibe-art"><span class="mv-btn"><i></i></span><b class="mini-status"></b>'
-      + '<span class="mv-card"><small>↓</small><span class="mv-num">' + num + '</span>'
-      + '<svg viewBox="0 0 60 18" preserveAspectRatio="none" aria-hidden="true"><path d="M0 16 L7 14 L13 15 L20 10 L27 12 L34 7 L41 9 L48 4 L54 5 L60 2"/></svg></span></span>'
-      + '<span class="vibe-name"></span><span class="vibe-line"></span>';
+    b.dataset.group = v.group;
+    b.innerHTML = '<span class="vibe-art"><span class="mw"><span class="mw-bar"><i></i><i></i><i></i></span>'
+      + '<span class="mw-body"><span class="mw-side"></span><span class="mw-main"><span class="mw-btn"><i></i></span>'
+      + '<b class="mini-status"></b></span></span></span></span><span class="vibe-name"></span><span class="vibe-line"></span>';
     const art = b.firstElementChild;
-    art.dataset.btn = v.look.btn || "ring";
-    art.style.background = p.pat + "," + p.bg;
-    const r = Math.round((v.o.r != null ? v.o.r : t.r) * 0.5);
-    art.style.cssText += ";--vfg:" + t.fg + ";--vdim:" + t.dim + ";--vacc:" + t.acc + ";--vaccFg:" + t.accFg
-      + ";--vsurf:" + t.surf + ";--vline:" + t.cardLine + ";--vr:" + r + "px;--vfont:" + sfont + ";--vnum:" + nums
+    art.dataset.shell = v.shell;
+    art.style.background = WALLS.url(v.wall) ? WALLS.url(v.wall) + " center / cover" : v.art;
+    art.style.cssText += ";--vbg:" + c("bg") + ";--vsurf:" + c("surf") + ";--vfg:" + c("fg") + ";--vacc:" + t.acc
+      + ";--vline:" + c("line") + ";--vfont:" + sfont
       + ";--vcase:" + (v.o.caps ? "uppercase" : "none") + ";--vtrack:" + (v.o.caps ? ".04em" : "-.01em");
     b.addEventListener("click", () => chooseVibe(id));
     box.append(b);
@@ -4101,6 +4564,33 @@ document.querySelector('.tab[data-tab="theme"]').addEventListener("click", () =>
   document.fonts.ready.then(() => { for (const s of document.querySelectorAll(".vibe .mini-status")) fitLabel(s); });
   setTimeout(hintSwipe, 450);
 });
+
+// Наборы над лентой: все, наши, Windows, macOS, Linux. Фильтр, а не
+// вкладки: лента остаётся одна, просто короче.
+let vibeGroup = "all";
+function paintGroups(d) {
+  const box = $("vibe-groups");
+  if (!box.children.length) {
+    for (const g of VIBE_GROUPS) {
+      const b = el("button", "chip");
+      b.type = "button";
+      b.dataset.group = g;
+      b.addEventListener("click", () => {
+        vibeGroup = g;
+        paintGroups(L());
+        const lane = $("vibes");
+        lane.scrollLeft = 0;
+        lane.dispatchEvent(new Event("scroll"));
+      });
+      box.append(b);
+    }
+  }
+  for (const b of box.children) {
+    b.textContent = d.vibeGroups[b.dataset.group];
+    b.setAttribute("aria-pressed", String(b.dataset.group === vibeGroup));
+  }
+  for (const v of $("vibes").children) v.hidden = vibeGroup !== "all" && v.dataset.group !== vibeGroup;
+}
 
 // ── точная настройка ──
 //
@@ -4221,6 +4711,7 @@ function paintVibeControls() {
     b.querySelector(".mini-status").textContent = d.state.connected;
     fitLabel(b.querySelector(".mini-status"));
   }
+  paintGroups(d);
   const page = document.querySelector('.page[data-tab="theme"]');
   $("fine-toggle").textContent = page.classList.contains("fine-open") ? d.fineHide : d.fineShow;
   buildFine();
@@ -4354,6 +4845,11 @@ const Splash = (() => {
 
 // Общая тема и точная настройка меняют переменные — фон и цифры узнают сразу.
 window.onLookApplied = () => { paintOverrides(); Field.restyle(); paintDotNums(); };
+if (vibe.renamed) {
+  delete vibe.renamed;
+  saveVibe();
+  setLook(Object.assign(Look.normalize({}), VIBES[vibe.id].look));
+}
 applyVibe();
 paintTheme();
 Splash.play();

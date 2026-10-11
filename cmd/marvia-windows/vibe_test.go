@@ -87,3 +87,29 @@ func TestWindowScriptParses(t *testing.T) {
 		t.Fatalf("скрипт окна не разбирается:\n%s", out)
 	}
 }
+
+// У каждого образа с обоями они и правда нарисованы: имя без рисунка дало бы
+// пустой фон вместо стола, и образ не узнать.
+func TestEveryVibeWallpaperIsDrawn(t *testing.T) {
+	raw, err := os.ReadFile("ui/app.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := strings.ReplaceAll(string(raw), "\r\n", "\n")
+	start := strings.Index(page, "const VIBES = {")
+	end := strings.Index(page[start:], "\n};")
+	walls := regexp.MustCompile(`wall: "([a-zA-Z]+)"`).FindAllStringSubmatch(page[start:start+end], -1)
+	if len(walls) < 8 {
+		t.Fatalf("образов с обоями подозрительно мало: %d", len(walls))
+	}
+	m := strings.Index(page, "const make = {")
+	if m < 0 {
+		t.Fatal("в странице нет рисовальщиков обоев")
+	}
+	drawers := page[m : m+strings.Index(page[m:], "\n  };")]
+	for _, w := range walls {
+		if !regexp.MustCompile(`\b` + w[1] + `\b`).MatchString(drawers) {
+			t.Errorf("обои %q названы, но не нарисованы", w[1])
+		}
+	}
+}

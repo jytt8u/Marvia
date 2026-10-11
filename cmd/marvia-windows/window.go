@@ -106,6 +106,12 @@ func showWindow(url string, ctl *Controller, log *journal, hidden bool, onWindow
 	initialTheme, _ := captionColors("#0c0e11", "#f1f4f7")
 	s.applyCaption(initialTheme)
 	s.subclass()
+	// Шапка страницы зовёт окно напрямую, а не через HTTP: перетаскивание
+	// начинается, пока кнопка мыши ещё нажата, и лишний круг через сервер
+	// иногда опаздывал бы к её отпусканию.
+	if err := w.Bind("marviaWindow", s.windowAction); err != nil {
+		log.add("кнопки окна не подключились: %v", err)
+	}
 
 	t, err := newTray()
 	if err != nil {
@@ -209,6 +215,20 @@ func (s *shell) subclass() {
 		case wmActivate:
 			if s.widget && wp&0xffff == waInactive {
 				s.hide()
+			}
+		case wmNCCalcSize:
+			if wp != 0 && !s.widget {
+				return s.calcFrame(hwnd, wp, lp)
+			}
+		case wmSize:
+			// Страница меняет значок «развернуть» на «восстановить» и убирает
+			// верхнюю полоску изменения размера у развёрнутого окна.
+			if !s.widget && s.loaded {
+				if wp == sizeMaximized {
+					s.w.Eval("window.marviaMax && window.marviaMax(true)")
+				} else {
+					s.w.Eval("window.marviaMax && window.marviaMax(false)")
+				}
 			}
 		}
 		r, _, _ := procCallWindowProcW.Call(s.oldProc, hwnd, msg, wp, lp)

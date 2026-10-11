@@ -841,7 +841,13 @@ class Store(context: Context) {
         val PATTERNS = listOf(PATTERN_NONE, PATTERN_DOTS, "grid", "rings", "lines")
 
         const val FONT_ONEST = "onest"
-        val FONTS = listOf(FONT_ONEST, "manrope", "geologica")
+        const val FONT_INTER = "inter"
+        const val FONT_NOTO = "noto"
+        const val FONT_UBUNTU = "ubuntu"
+        const val FONT_MONO = "mono"
+        /** Системный шрифт телефона — у образов Windows: их шрифты встраивать нельзя. */
+        const val FONT_SYSTEM = "system"
+        val FONTS = listOf(FONT_ONEST, "manrope", "geologica", FONT_INTER, FONT_NOTO, FONT_UBUNTU, FONT_MONO, FONT_SYSTEM)
 
         const val LOGO_MARVIA = "marvia"
         const val LOGO_CUSTOM = "custom"

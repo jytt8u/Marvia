@@ -17,6 +17,7 @@ import kotlin.math.sin
 
 /**
  * Backdrop — фон экрана по свету темы: ровный, мягкий, пятном или сияние.
+ * У образов в духе систем вместо света — их обои под пеленой (Wallpaper).
  *
  * Рисуется шейдерами, а не GradientDrawable: тому доступны восемь направлений
  * и круглый градиент без формы, а в look.js фон — это CSS с углом, эллипсом
@@ -27,7 +28,13 @@ import kotlin.math.sin
  * длиной |w·sin| + |h·cos|, цвета — от начала к концу. Так работает
  * linear-gradient, и так же здесь.
  */
-class Backdrop(private val t: Theme, private val pattern: String = io.marvia.android.Paint.style.pattern, private val ink: Int = 12) : Drawable() {
+class Backdrop(
+    private val t: Theme,
+    private val pattern: String = io.marvia.android.Paint.style.pattern,
+    private val ink: Int = 12,
+    /** Обои образа; null — свет темы. Превью палитр и света передают null: там показывают тему, а не образ. */
+    private val scene: Wallpaper.Scene? = io.marvia.android.Paint.style.scene,
+) : Drawable() {
 
     private val brush = Paint(Paint.ANTI_ALIAS_FLAG)
     private var w = 0f
@@ -39,8 +46,21 @@ class Backdrop(private val t: Theme, private val pattern: String = io.marvia.and
         rebuild()
     }
 
+    /** Пелена над обоями — сверху вниз; один цвет — ровная. */
+    private val veil = Paint()
+
     private fun rebuild() {
         if (w <= 0f || h <= 0f) return
+        scene?.veil?.takeIf { it.isNotEmpty() }?.let { colors ->
+            // Прозрачность кисти легла бы и на градиент — у градиента кисть непрозрачная.
+            if (colors.size == 1) {
+                veil.shader = null
+                veil.color = colors[0]
+            } else {
+                veil.color = 0xFFFFFFFF.toInt()
+                veil.shader = LinearGradient(0f, 0f, 0f, h, colors, scene.stops, Shader.TileMode.CLAMP)
+            }
+        }
         when (t.kind) {
             "flat" -> {
                 brush.shader = null
@@ -105,8 +125,18 @@ class Backdrop(private val t: Theme, private val pattern: String = io.marvia.and
 
     override fun draw(canvas: Canvas) {
         val b = bounds
-        canvas.drawRect(b, brush)
-        if (t.kind != "flat") canvas.drawRect(b, grain)
+        val wall = scene?.let { Wallpaper.bitmap(it.wall, b.width(), b.height()) }
+        if (scene != null && wall != null) {
+            // Обои под пеленой образа, как --bgcss на ПК: пелена держит
+            // читаемость текста, который лежит прямо на обоях. Зерно — и
+            // здесь: у обоев тоже есть градиенты, и они тоже шли бы кольцами.
+            canvas.drawBitmap(wall, b.left.toFloat(), b.top.toFloat(), null)
+            if (scene.veil.isNotEmpty()) canvas.drawRect(b, veil)
+            canvas.drawRect(b, grain)
+        } else {
+            canvas.drawRect(b, brush)
+            if (t.kind != "flat") canvas.drawRect(b, grain)
+        }
         // Узор из цвета текста, едва заметный: фон перестаёт быть пустым, но
         // не спорит с содержимым. Плитка, повторённая шейдером: рисовать
         // тысячи точек на каждый кадр дорого, а плитка — один вызов. Точки,

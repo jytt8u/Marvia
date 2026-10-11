@@ -337,6 +337,11 @@
     <string name="font_onest">Onest</string>
     <string name="font_manrope">Manrope</string>
     <string name="font_geologica">Geologica</string>
+    <string name="font_inter">Inter</string>
+    <string name="font_noto">Noto Sans</string>
+    <string name="font_ubuntu">Ubuntu</string>
+    <string name="font_mono">Mono</string>
+    <string name="font_system">System</string>
     <string name="theme_profiles_caps">My themes</string>
     <string name="theme_profiles_hint">an empty slot remembers the current look</string>
     <string name="theme_code_caps">THEME CODE · SHARE WITH A FRIEND</string>

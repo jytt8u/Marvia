@@ -64,6 +64,8 @@ object Paint {
         val appearanceStyle: AppearanceStyle = AppearanceStyle.CLASSIC,
         /** Образ, чьи фирменные детали рисуются поверх темы; пусто — без деталей. */
         val vibe: String = "",
+        /** Обои образа под приложением; null — фон темы. */
+        val scene: Wallpaper.Scene? = null,
     )
 
     var style = Style()
@@ -78,6 +80,14 @@ object Paint {
     fun navigationTab(pill: View, icon: ImageView, label: TextView, active: Boolean, t: Theme) {
         val signal = style.appearanceStyle == AppearanceStyle.SIGNAL
         val dp = pill.resources.displayMetrics.density
+        VibeDetails.tab(style.vibe, t, dp, active)?.let {
+            pill.background = it.pill
+            ImageViewCompat.setImageTintList(icon, ColorStateList.valueOf(it.icon))
+            label.setTextColor(it.label)
+            label.typeface = android.graphics.Typeface.create(label.typeface,
+                if (active) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+            return
+        }
         pill.background = when {
             !active -> null
             signal -> rounded(t.accSoft, 10, dp).apply { setStroke(dp.toInt().coerceAtLeast(1), t.acc) }
@@ -91,30 +101,45 @@ object Paint {
             if (active) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
     }
 
-    /**
-     * typeface — шрифт по ключу с нужной жирностью. Моноширинные и знак
-     * MARVIA не трогаем: у них своя роль, и «Manrope» в цифрах отклика был
-     * бы не сменой шрифта, а поломкой таблицы.
-     */
     private val families = HashMap<String, android.graphics.Typeface?>()
 
+    /**
+     * family — гарнитура по ключу шрифта, одна на всё приложение: лента
+     * образов, ряд шрифтов и экраны берут её отсюда, чтобы не разойтись.
+     * Системный — тот, что у телефона: шрифты Windows встраивать нельзя, а
+     * их стек на ПК вне Windows и так приходит к системному.
+     */
+    fun family(context: android.content.Context, key: String): android.graphics.Typeface? = families.getOrPut(key) {
+        if (key == Store.FONT_SYSTEM) return@getOrPut android.graphics.Typeface.SANS_SERIF
+        val id = when (key) {
+            "manrope" -> R.font.manrope
+            "geologica" -> R.font.geologica
+            Store.FONT_INTER -> R.font.inter
+            Store.FONT_NOTO -> R.font.noto
+            Store.FONT_UBUNTU -> R.font.ubuntu
+            Store.FONT_MONO -> R.font.mono
+            else -> R.font.onest
+        }
+        androidx.core.content.res.ResourcesCompat.getFont(context, id)
+    }
+
+    /**
+     * font — шрифт темы с нужной жирностью. Моноширинные и знак MARVIA не
+     * трогаем: у них своя роль, и «Manrope» в цифрах отклика был бы не
+     * сменой шрифта, а поломкой таблицы.
+     */
     private fun font(v: TextView) {
         val old = v.typeface
         val p = v.paint
-        // Моноширинный узнаём по ширине: у него «i» и «W» одинаковы.
-        if (p.measureText("i") == p.measureText("W")) return
+        // Моноширинный узнаём по ширине: у него «i» и «W» одинаковы. Кроме
+        // строк, которым моноширинный поставила сама тема — у Gruvbox он
+        // шрифт всего экрана, и после смены образа строка обязана вернуться.
+        if (v.getTag(R.id.theme_font) != true && p.measureText("i") == p.measureText("W")) return
         if (v.getTag(R.id.keep_font) == true) return
-        val key = style.font
-        val family = families.getOrPut(key) {
-            val id = when (key) {
-                "manrope" -> R.font.manrope
-                "geologica" -> R.font.geologica
-                else -> R.font.onest
-            }
-            androidx.core.content.res.ResourcesCompat.getFont(v.context, id)
-        } ?: return
+        val family = family(v.context, style.font) ?: return
         val bold = old?.isBold == true
         v.typeface = android.graphics.Typeface.create(family, if (bold) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+        v.setTag(R.id.theme_font, true)
     }
 
     private fun walk(view: View, each: (View) -> Unit) {
@@ -211,8 +236,9 @@ object Paint {
         when {
             tag == BG -> v.background = Backdrop(t)
             tag == SURF -> v.setBackgroundColor(t.surf)
-            // Нижняя панель — средний тон фона, чуть прозрачный, как в макете.
-            tag == NAVBAR -> v.background = rounded(t.surf, 24, dp).apply {
+            // Нижняя панель — средний тон фона, чуть прозрачный, как в макете;
+            // у образов в духе систем — их панель задач.
+            tag == NAVBAR -> v.background = VibeDetails.navbar(style.vibe, t, dp) ?: rounded(t.surf, 24, dp).apply {
                 setStroke(dp.toInt().coerceAtLeast(1), ColorUtils.setAlphaComponent(t.acc, 38))
             }
             tag == LINE -> v.setBackgroundColor(t.line)
@@ -223,16 +249,16 @@ object Paint {
                 if (v is ViewGroup && v !is android.widget.FrameLayout) {
                     val side = (t.pad * dp).toInt()
                     val tall = ((t.pad - 2) * dp).toInt()
-                    // Жёсткая тень «Брутала» лежит внутри вьюхи — содержимому запас.
-                    val hard = (VibeDetails.hardShift(style.vibe) * dp).toInt()
-                    v.setPadding(side, tall, side + hard, tall + hard)
+                    // Синяя полоска заголовка «Windows 98» лежит внутри вьюхи — содержимому запас.
+                    val title = (VibeDetails.cardTop(style.vibe, t) * dp).toInt()
+                    v.setPadding(side, tall + title, side, tall)
                 }
             }
             tag == CARD_PAD -> {
                 skin(v, t, dp)
                 val pad = (t.pad * dp).toInt()
-                val hard = (VibeDetails.hardShift(style.vibe) * dp).toInt()
-                v.setPadding(pad, pad, pad + hard, pad + hard)
+                val title = (VibeDetails.cardTop(style.vibe, t) * dp).toInt()
+                v.setPadding(pad, pad + title, pad, pad)
             }
             tag == "feature" -> {
                 val base = card(t, dp).apply {
@@ -240,28 +266,30 @@ object Paint {
                     orientation = GradientDrawable.Orientation.TL_BR
                     setStroke(dp.toInt().coerceAtLeast(1), ColorUtils.setAlphaComponent(t.acc, 64))
                 }
-                v.background = VibeDetails.card(style.vibe, t, dp, base, feature = true) ?: base
+                v.background = VibeDetails.card(style.vibe, t, dp, feature = true) ?: base
             }
             tag == "node" -> {
                 v.background = rounded(ColorUtils.blendARGB(t.surf, t.acc, .09f), 999, dp)
                 text(v, t.fg, t.dim)
             }
-            tag == FG -> text(v, t.fg, t.dim)
+            tag == FG -> text(v, desk(v) ?: t.fg, t.dim)
             tag == "title" && v is TextView -> v.textSize = if (style.appearanceStyle == AppearanceStyle.SIGNAL) 32f else 26f
-            tag == DIM -> text(v, t.dim, t.dim)
+            tag == DIM -> text(v, desk(v) ?: t.dim, t.dim)
             tag == ACC -> text(v, t.acc, t.dim)
             tag == FAIL -> text(v, t.fail, t.dim)
             tag == BTN -> {
-                v.background = VibeDetails.box(style.vibe, t.acc, t.r, dp) ?: rounded(t.acc, t.r, dp)
-                text(v, t.accFg, t.accFg)
+                val face = VibeDetails.button(style.vibe, t, dp)
+                v.background = face?.bg ?: rounded(t.acc, t.r, dp)
+                text(v, face?.ink ?: t.accFg, face?.ink ?: t.accFg)
             }
             // Квадрат под значком строки: мягкий акцент, как в макете.
             tag == ICON_BOX -> v.background = rounded(t.accSoft, minOf(t.r, 12), dp).apply {
                 setStroke(dp.toInt().coerceAtLeast(1), ColorUtils.setAlphaComponent(t.acc, 36))
             }
             tag == CHIP -> {
-                v.background = VibeDetails.box(style.vibe, t.surf2, minOf(t.r, 10), dp) ?: rounded(t.surf2, minOf(t.r, 10), dp)
-                text(v, t.dim, t.dim)
+                val face = VibeDetails.chip(style.vibe, t, dp)
+                v.background = face?.bg ?: rounded(t.surf2, minOf(t.r, 10), dp)
+                text(v, face?.ink ?: t.dim, face?.ink ?: t.dim)
             }
             tag == TRACK -> v.background = rounded(t.bg, 999, dp)
             tag == FILL -> v.setBackgroundColor(t.acc)
@@ -280,6 +308,27 @@ object Paint {
                 ImageViewCompat.setImageTintList(v, ColorStateList.valueOf(color))
             }
         }
+    }
+
+    /**
+     * desk — цвет строки прямо на рабочем столе образа, а не в его окне;
+     * null — как в карточках. У «Windows 98» окна серые с чёрным текстом,
+     * а стол бирюзовый: подпись на нём чёрным не читается.
+     *
+     * Столом считается только сам фон: ближайшая подложка под строкой —
+     * Backdrop или своё фото. Строка на своей подложке без тега (карточка
+     * ленты образов, лист выбора) белой не становится: белое на сером
+     * было бы хуже чёрного на бирюзе.
+     */
+    private fun desk(v: View): Int? {
+        val ink = VibeDetails.desk(style.vibe).takeIf { it != 0 } ?: return null
+        if (insideCard(v)) return null
+        var current: View? = v
+        while (current != null) {
+            current.background?.let { return if (it is Backdrop || it is BackdropImage) ink else null }
+            current = current.parent as? View
+        }
+        return null
     }
 
     private fun text(v: View, color: Int, hint: Int) {
@@ -315,9 +364,9 @@ object Paint {
      */
     private fun skin(v: View, t: Theme, dp: Float) {
         val base = card(t, dp)
-        v.background = VibeDetails.card(style.vibe, t, dp, base, feature = false) ?: base
+        v.background = VibeDetails.card(style.vibe, t, dp, feature = false) ?: base
         v.elevation = if (t.card == "shadow") 6 * dp else 0f
-        if (VibeDetails.lift(style.vibe, v, dp) || t.card == "shadow") {
+        if (VibeDetails.lift(style.vibe, v, dp, t) || t.card == "shadow") {
             v.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
             v.clipToOutline = false
         }

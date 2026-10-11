@@ -1,5 +1,7 @@
 Ubuntu Font Family. Copyright 2010,2011 Canonical Ltd.
-Вшит в окно на ПК и панель (internal/look/fonts/ubuntu-*.woff2) без изменений.
+Вшит в окно на ПК и панель (internal/look/fonts/ubuntu-*.woff2) и в приложение
+Android (android/app/src/main/res/font/ubuntu_*.ttf — Ubuntu-R.ttf и Ubuntu-B.ttf
+версии 0.83) без изменений.
 
 -------------------------------
 UBUNTU FONT LICENCE Version 1.0

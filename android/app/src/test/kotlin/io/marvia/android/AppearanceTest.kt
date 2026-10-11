@@ -73,15 +73,22 @@ class AppearanceTest {
     }
 
     @Test fun curatedLooksKeepReadableTextAndCanBeShared() {
+        fun readable(fg: Int, bg: Int) = androidx.core.graphics.ColorUtils.calculateContrast(fg, bg) >= 4.5
         for (profile in AppearanceProfiles.all) {
             val choice = Look.normalize(profile.choice)
             assertEquals(choice, Look.decode(Look.encode(choice)))
-            val t = Look.theme(choice)
-            for (surface in listOf(t.bg, t.surf, t.surf2)) {
-                assertTrue("${profile.name}: текст", androidx.core.graphics.ColorUtils.calculateContrast(t.fg, surface) >= 4.5)
-                assertTrue("${profile.name}: подпись", androidx.core.graphics.ColorUtils.calculateContrast(t.dim, surface) >= 4.5)
+            val t = AppearanceProfiles.theme(choice, profile.id)
+            val name = profile.id
+            for (surface in listOf(t.surf, t.surf2)) {
+                assertTrue("$name: текст", readable(t.fg, surface))
+                assertTrue("$name: подпись", readable(t.dim, surface))
             }
-            assertTrue(androidx.core.graphics.ColorUtils.calculateContrast(t.accFg, t.acc) >= 4.5)
+            // Прямо на столе — свой цвет, если он у образа есть: чёрный текст
+            // 98-й на бирюзе не читается, и там он белый.
+            val desk = VibeDetails.desk(profile.id)
+            assertTrue("$name: текст на столе", readable(if (desk != 0) desk else t.fg, t.bg))
+            assertTrue("$name: подпись на столе", readable(if (desk != 0) desk else t.dim, t.bg))
+            assertTrue("$name: кнопка", readable(t.accFg, t.acc))
         }
     }
 
@@ -89,10 +96,10 @@ class AppearanceTest {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()
         val store = Store(context)
-        AppearanceProfiles.apply(store, AppearanceProfiles.all.first { it.id == "chrome" })
-        assertEquals("chrome", AppearanceProfiles.detail(Store(context)))
+        AppearanceProfiles.apply(store, AppearanceProfiles.all.first { it.id == "xp" })
+        assertEquals("xp", AppearanceProfiles.detail(Store(context)))
         store.look = store.look.copy(accent = 0xFF40C8FF.toInt(), btn = "glass")
-        assertEquals("chrome", AppearanceProfiles.detail(Store(context)))
+        assertEquals("xp", AppearanceProfiles.detail(Store(context)))
         store.look = store.look.copy(preset = "paper")
         assertEquals("", AppearanceProfiles.detail(Store(context)))
     }
@@ -101,29 +108,88 @@ class AppearanceTest {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()
         val store = Store(context)
-        val brutal = AppearanceProfiles.all.first { it.id == "brutal" }
-        store.look = brutal.choice
-        store.pattern = brutal.pattern
-        store.appearanceStyle = brutal.style
-        store.font = brutal.font
-        assertEquals("brutal", AppearanceProfiles.detail(Store(context)))
+        val kde = AppearanceProfiles.all.first { it.id == "kde" }
+        store.look = kde.choice
+        store.pattern = kde.pattern
+        store.appearanceStyle = kde.style
+        store.font = kde.font
+        assertEquals("kde", AppearanceProfiles.detail(Store(context)))
     }
 
-    @Test fun brutalCardContentStaysClearOfItsHardShadow() {
+    @Test fun windows98CardContentStaysBelowItsTitleBar() {
         val context = RuntimeEnvironment.getApplication()
         val dp = context.resources.displayMetrics.density
         val card = android.widget.LinearLayout(context).apply { tag = "card" }
         val before = Paint.style
         try {
-            Paint.style = Paint.Style(vibe = "brutal")
-            Paint.apply(card, Look.theme(AppearanceProfiles.all.first { it.id == "brutal" }.choice))
-            assertEquals((VibeDetails.HARD * dp).toInt(), card.paddingRight - card.paddingLeft)
+            val w98 = AppearanceProfiles.all.first { it.id == "w98" }
+            Paint.style = Paint.Style(vibe = "w98")
+            Paint.apply(card, AppearanceProfiles.theme(w98.choice, "w98"))
+            assertEquals((VibeDetails.TITLE * dp).toInt(), card.paddingTop - card.paddingBottom)
             Paint.style = Paint.Style()
             Paint.apply(card, Look.theme(Look.Choice()))
-            assertEquals(card.paddingLeft, card.paddingRight)
+            assertEquals(card.paddingTop, card.paddingBottom)
         } finally {
             Paint.style = before
         }
+    }
+
+    @Test fun aVibeInTheSpiritOfASystemPaintsItsOwnPaletteUntilAnotherPaletteIsChosen() {
+        val context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("veil", 0).edit().clear().commit()
+        val store = Store(context)
+        val win11 = AppearanceProfiles.all.first { it.id == "win11" }
+        AppearanceProfiles.apply(store, win11)
+        val t = AppearanceProfiles.theme(Store(context))
+        assertEquals(0xFF202020.toInt(), t.bg)
+        assertEquals(0xFF2D2D2D.toInt(), t.surf)
+        assertEquals(8, t.r)
+        // Своё скругление в «Форме» — его, а не восьмёрка Windows.
+        store.look = store.look.copy(radius = "pill")
+        assertEquals(Look.radius("pill"), AppearanceProfiles.theme(Store(context)).r)
+        store.look = store.look.copy(preset = "paper")
+        assertEquals(Look.theme(store.look), AppearanceProfiles.theme(Store(context)))
+    }
+
+    @Test fun theWallpaperGivesWayToAChosenLightAndReturnsWithTheEvenOne() {
+        val context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("veil", 0).edit().clear().commit()
+        val store = Store(context)
+        AppearanceProfiles.apply(store, AppearanceProfiles.all.first { it.id == "xp" })
+        assertEquals("hill", AppearanceProfiles.scene(Store(context))?.wall)
+        store.look = store.look.copy(kind = "radial")
+        assertEquals(null, AppearanceProfiles.scene(Store(context)))
+        store.look = store.look.copy(kind = "flat")
+        assertEquals("hill", AppearanceProfiles.scene(Store(context))?.wall)
+        AppearanceProfiles.apply(store, AppearanceProfiles.classic)
+        assertEquals(null, AppearanceProfiles.scene(Store(context)))
+    }
+
+    @Test fun aVibeChosenBeforeTheUpdateMovesToTheClosestNewOne() {
+        val context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("veil", 0).edit().clear().commit()
+        val store = Store(context)
+        // Прежнее «Стекло» на своей палитре — становится macOS целиком.
+        store.look = Look.Choice(preset = "midnight", accent = 0xFF5AA9FF.toInt(), kind = "aurora", radius = "pill")
+        store.font = "manrope"
+        store.vibe = "glass"
+        AppearanceProfiles.migrate(store)
+        val mac = AppearanceProfiles.all.first { it.id == "mac" }
+        assertEquals("mac", Store(context).vibe)
+        assertEquals(Look.normalize(mac.choice), Store(context).look)
+        assertEquals(Store.FONT_INTER, Store(context).font)
+        assertEquals("mac", AppearanceProfiles.detail(Store(context)))
+        // Прежний «Хром», уже снятый другой палитрой, — выбор человека: его не трогаем.
+        val own = Look.Choice(preset = "paper", accent = 0xFF205E47.toInt())
+        store.look = own
+        store.vibe = "chrome"
+        AppearanceProfiles.migrate(store)
+        assertEquals("", Store(context).vibe)
+        assertEquals(Look.normalize(own), Store(context).look)
+        // Новый образ переезд не трогает.
+        AppearanceProfiles.apply(store, mac)
+        AppearanceProfiles.migrate(store)
+        assertEquals("mac", Store(context).vibe)
     }
 
     @Test fun displayPreferencesSurviveRestartWithoutChangingNetworkOptions() {

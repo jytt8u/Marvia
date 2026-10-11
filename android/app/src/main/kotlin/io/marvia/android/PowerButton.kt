@@ -38,9 +38,9 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
         }
 
     /**
-     * Образ, чью деталь носит кнопка: металл «Хрома», живая форма
-     * «Экспрессива», жёсткая тень «Брутала», объём «Пластилина», блик
-     * «Графита». Пусто — кнопка темы без деталей.
+     * Образ, чью деталь носит кнопка: блик «Графита», зелёная «Пуск» XP,
+     * квадратная выпуклая 98-й, плоская заливка Windows 11 и GNOME, рамка
+     * фокуса KDE, рамка плитки у плиточных. Пусто — кнопка темы без деталей.
      */
     var vibe: String = ""
         set(value) {
@@ -50,6 +50,17 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
             ambient()
             invalidate()
         }
+
+    /**
+     * Оболочка, чью кнопку рисуем: та, что у образа, пока кнопку в «Форме»
+     * не сменили. Выбрал человек кольцо вместо зелёной кнопки XP — кольцо и
+     * будет, иначе ручка ничего бы не меняла.
+     */
+    private val shell: String
+        get() = VibeDetails.profile(vibe)?.takeIf { it.palette != null && it.choice.btn == theme.btn }?.shell.orEmpty()
+
+    /** Кнопка «Windows 98» квадратная и без колец вокруг — на ПК кольцо у неё тоже скрыто. */
+    val square: Boolean get() = shell == "w98"
 
     // Ручной выбор другой кнопки или свечения имеет приоритет над точками.
     val dottedPower: Boolean get() = appearanceStyle == AppearanceStyle.SIGNAL && theme.btn == "ring" && theme.glowA == 0.0
@@ -113,9 +124,9 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
 
     /**
      * Фоновое движение образа: доля цикла от 0 до 1. Блик «Графита» проходит
-     * раз в шесть секунд, «Экспрессив» переливается формой за девять — те же
-     * периоды, что у анимаций окна на ПК. Остальным образам оно не нужно, и
-     * кнопка в покое не перерисовывается вовсе.
+     * раз в шесть секунд — тот же период, что у анимации окна на ПК.
+     * Остальным образам оно не нужно, и кнопка в покое не перерисовывается
+     * вовсе.
      */
     private var phase = 0f
     private var drift: ValueAnimator? = null
@@ -139,11 +150,11 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
     private var discShader: Shader? = null
     private var innerShader: Shader? = null
     private var rimShader: Shader? = null
-    private var metalShader: Shader? = null
-    private var puffShader: Shader? = null
     private var sheenShader: Shader? = null
+    private var xpIdleShader: Shader? = null
+    private var xpOnShader: Shader? = null
+    private var tileShader: Shader? = null
     private val sheenMatrix = Matrix()
-    private val blob = android.graphics.Path()
     private val spinMatrix = Matrix()
 
     /** Шейдер дуги кэшируется по цвету и длине: меняются только на переходе. */
@@ -193,7 +204,7 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
 
     private fun ambient() {
         drift?.cancel(); drift = null
-        val period = when (vibe) { "graphite" -> 6000L; "expressive" -> 9000L; else -> 0L }
+        val period = if (vibe == "graphite") 6000L else 0L
         if (period == 0L || dottedPower || !animationsAllowed()) { phase = 0f; return }
         drift = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = period
@@ -203,8 +214,8 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
                 phase = it.animatedValue as Float
                 // Блик идёт последние сорок процентов цикла; в остальное время
                 // кнопку не трогаем — один кадр, чтобы стереть ушедший блик.
-                val sheen = vibe == "graphite" && phase >= SHEEN_FROM
-                if (vibe != "graphite" || sheen || sheenShown) invalidate()
+                val sheen = phase >= SHEEN_FROM
+                if (sheen || sheenShown) invalidate()
                 sheenShown = sheen
             }
             start()
@@ -268,32 +279,11 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
 
         // Тень под диском: макет кладёт её вниз на 24px с размытием 48. На
         // светлой теме — вполсилы: чёрная тень на светлом фоне читалась грязью.
-        // У «Пластилина» тень розовая и гуще: макет кладёт её цветом образа.
-        val shade = when {
-            vibe == "clay" -> 0x8CBE5A8C.toInt()
-            theme.dark -> 0x73000000
-            else -> 0x30000000
-        }
+        val shade = if (theme.dark) 0x73000000 else 0x30000000
         shadowShader = RadialGradient(
             cx, cy + radius * .28f, radius * 1.35f,
             intArrayOf(shade, 0x00000000), floatArrayOf(0.55f, 1f), Shader.TileMode.CLAMP,
         )
-
-        // Металл «Хрома»: конический градиент от 210° по CSS. У Android ноль
-        // смотрит вправо, у CSS — вверх, отсюда поворот на 120°.
-        metalShader = if (vibe != "chrome") null else SweepGradient(cx, cy,
-            intArrayOf(0xFFF4F7FB.toInt(), 0xFF8A95A3.toInt(), 0xFFE9EEF4.toInt(), 0xFF6B7480.toInt(), 0xFFF4F7FB.toInt()), null,
-        ).apply { setLocalMatrix(Matrix().apply { setRotate(120f, cx, cy) }) }
-        // Внутренняя тень снизу у металла и объём «Пластилина»: свет сверху
-        // слева, тень снизу справа. Размытия по маске на старых телефонах в
-        // аппаратной отрисовке нет, поэтому объём — градиентом поверх диска.
-        puffShader = when (vibe) {
-            "chrome" -> LinearGradient(cx, cy - radius, cx, cy + radius,
-                intArrayOf(0x00000000, 0x00000000, 0x40000000), floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP)
-            "clay" -> LinearGradient(cx - radius, cy - radius, cx + radius, cy + radius,
-                intArrayOf(ColorUtils.setAlphaComponent(white, 150), 0x00FFFFFF, 0x00000000, 0x24000000), floatArrayOf(0f, .45f, .62f, 1f), Shader.TileMode.CLAMP)
-            else -> null
-        }
         // Блик «Графита» — полоса под 115°, как linear-gradient на ПК; едет
         // матрицей, шейдер один.
         sheenShader = if (vibe != "graphite") null else LinearGradient(0f, 0f, SHEEN_DX * radius * 2.4f, SHEEN_DY * radius * 2.4f,
@@ -315,6 +305,16 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
             cx + radius * .4f, cy + radius, radius * 1.4f,
             intArrayOf(ColorUtils.setAlphaComponent(theme.acc, 80), ColorUtils.setAlphaComponent(theme.acc, 0)), null, Shader.TileMode.CLAMP,
         )
+
+        // XP: светлая кнопка с голубым отливом сверху вниз и зелёная «Пуск» с
+        // бликом слева сверху. Центр и радиус — как у radial-gradient(circle
+        // at 35% 25%) на ПК: от точки блика до дальнего угла квадрата кнопки.
+        xpIdleShader = LinearGradient(cx, cy - radius, cx, cy + radius, 0xFFF4F7FC.toInt(), 0xFFC9D6EE.toInt(), Shader.TileMode.CLAMP)
+        xpOnShader = RadialGradient(cx - radius * .3f, cy - radius * .5f, radius * 1.985f,
+            intArrayOf(0xFF8EE07A.toInt(), 0xFF3C9D2B.toInt(), 0xFF23731A.toInt()), floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP)
+        // Плитка: подключённая кнопка — выпуклый диск второго тона, как на ПК.
+        tileShader = RadialGradient(cx - radius * .24f, cy - radius * .4f, radius * 1.87f,
+            intArrayOf(theme.surf2, theme.surf, theme.surf), floatArrayOf(0f, .6f, 1f), Shader.TileMode.CLAMP)
 
         // Световой кант по верхнему краю: диск освещён, а не вырезан.
         rimShader = LinearGradient(
@@ -342,24 +342,17 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
             drawDottedButton(canvas)
             return
         }
+        val shell = shell
+        if (shell == "w98") {
+            drawSquareButton(canvas)
+            return
+        }
         val dp = resources.displayMetrics.density
         val on = state == State.ON
         val bare = theme.btn == "bare"
-        val brutal = vibe == "brutal"
-        val expressive = vibe == "expressive"
-        // «Брутал» не сжимается, а вдавливается в свою тень: кнопка едет на
-        // 4dp, тень остаётся на месте — как translate(4px, 4px) на ПК.
-        val scale = if (isPressed && !brutal) .965f else 1f
+        val scale = if (isPressed) .965f else 1f
         canvas.save()
-        if (brutal) {
-            brush.style = Paint.Style.FILL
-            brush.shader = null
-            brush.color = INK
-            canvas.drawCircle(cx + 6 * dp, cy + 6 * dp, radius + 2.5f * dp, brush)
-            if (isPressed) canvas.translate(4 * dp, 4 * dp)
-        }
         canvas.scale(scale, scale, cx, cy)
-        if (expressive) blobPath()
 
         // Текущий вид — между прежним и целевым; на подключении начало живёт.
         val target = if (state == State.CONNECTING) to.copy(start = 90f + turn) else to
@@ -387,60 +380,88 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
         // а шейдер берёт альфу из её цвета, и сплошная кнопка выходила блёклой.
         brush.color = 0xFFFFFFFF.toInt()
 
-        if (!bare && !brutal) {
+        if (!bare) {
             brush.shader = shadowShader
             canvas.drawCircle(cx, cy + radius * .28f, radius * 1.35f, brush)
             brush.shader = null
         }
 
         val solid = theme.btn == "solid"
-        val metal = metalShader
-        when {
-            metal != null -> {
-                brush.color = 0xFFFFFFFF.toInt()
-                brush.shader = metal
-                canvas.drawCircle(cx, cy, radius, brush)
-                brush.shader = null
-            }
-            // Плоская заливка без блика: у необрутализма объёма нет.
-            brutal -> {
-                brush.color = theme.acc
-                canvas.drawCircle(cx, cy, radius, brush)
-            }
-            expressive -> {
-                brush.color = 0xFFFFFFFF.toInt()
-                brush.shader = discShader
-                canvas.drawPath(blob, brush)
-                brush.shader = null
+        // Плоские системы — без объёмного блика: Fluent и Adwaita рисуют
+        // кнопку ровной заливкой.
+        val flat = shell == "win11" || shell == "gnome"
+        when (shell) {
+            "xp" -> drawXpDisc(canvas, lit)
+            "win11" -> disc(canvas, theme.acc)
+            // GNOME: в покое кнопка серая, как обычная кнопка Adwaita; подключено — акцентом.
+            "gnome" -> disc(canvas, ColorUtils.blendARGB(ColorUtils.blendARGB(theme.surf, theme.fg, .07f), theme.acc, lit))
+            AppearanceProfiles.TILE -> {
+                discFor(canvas, solid, lit)
+                if (lit > 0.01f) {
+                    brush.shader = tileShader
+                    brush.alpha = (255 * lit).toInt()
+                    canvas.drawCircle(cx, cy, radius, brush)
+                    brush.alpha = 255
+                    brush.shader = null
+                }
             }
             else -> discFor(canvas, solid, lit)
-        }
-        puffShader?.let {
-            brush.color = 0xFFFFFFFF.toInt()
-            brush.shader = it
-            canvas.drawCircle(cx, cy, radius, brush)
-            brush.shader = null
         }
         sheenShader?.let { drawSheen(canvas, it) }
 
         // Тонкий обод по краю диска: линия, а подключено — акцент вполсилы.
         brush.style = Paint.Style.STROKE
-        brush.strokeWidth = if (bare) 1.5f * dp else 1 * dp
-        brush.color = when {
-            bare -> theme.acc
-            else -> ColorUtils.blendARGB(
-                ColorUtils.setAlphaComponent(theme.fg, 20),
-                ColorUtils.setAlphaComponent(theme.acc, if (theme.btn == "glass") 115 else 56),
-                lit,
-            )
-        }
-        when {
-            brutal -> { brush.strokeWidth = 2.5f * dp; brush.color = INK; canvas.drawCircle(cx, cy, radius + 1.25f * dp, brush) }
-            expressive -> canvas.drawPath(blob, brush)
-            else -> canvas.drawCircle(cx, cy, radius, brush)
+        when (shell) {
+            // XP: белая кромка внутри и тонкая синяя (зелёная у подключённой) снаружи.
+            "xp" -> {
+                brush.strokeWidth = 2 * dp
+                brush.color = ColorUtils.blendARGB(0xFFFFFFFF.toInt(), 0x8CFFFFFF.toInt(), lit)
+                canvas.drawCircle(cx, cy, radius - dp, brush)
+                brush.strokeWidth = dp
+                brush.color = ColorUtils.blendARGB(XP_EDGE, XP_GREEN_EDGE, lit)
+                canvas.drawCircle(cx, cy, radius + dp / 2, brush)
+            }
+            // Breeze: подключено — рамка фокуса и голубой ореол вокруг.
+            "kde" -> {
+                brush.strokeWidth = lerp(1f, 2f, lit) * dp
+                brush.color = ColorUtils.blendARGB(theme.line, theme.acc, lit)
+                canvas.drawCircle(cx, cy, radius - brush.strokeWidth / 2, brush)
+                if (lit > 0.01f) {
+                    brush.strokeWidth = 4 * dp
+                    brush.color = ColorUtils.setAlphaComponent(theme.acc, (64 * lit).toInt())
+                    canvas.drawCircle(cx, cy, radius + 2 * dp, brush)
+                }
+            }
+            // Плитка: подключено — зазор цветом фона и рамка акцентом, как у активного окна.
+            AppearanceProfiles.TILE -> {
+                brush.strokeWidth = dp
+                brush.color = ColorUtils.setAlphaComponent(theme.fg, 20)
+                canvas.drawCircle(cx, cy, radius, brush)
+                if (lit > 0.01f) {
+                    brush.strokeWidth = 3 * dp
+                    brush.color = ColorUtils.setAlphaComponent(theme.bg, (255 * lit).toInt())
+                    canvas.drawCircle(cx, cy, radius + 1.5f * dp, brush)
+                    brush.strokeWidth = 2 * dp
+                    brush.color = ColorUtils.setAlphaComponent(theme.acc, (255 * lit).toInt())
+                    canvas.drawCircle(cx, cy, radius + 4 * dp, brush)
+                }
+            }
+            else -> {
+                brush.strokeWidth = if (bare) 1.5f * dp else 1 * dp
+                brush.color = when {
+                    bare -> theme.acc
+                    else -> ColorUtils.blendARGB(
+                        ColorUtils.setAlphaComponent(theme.fg, 20),
+                        ColorUtils.setAlphaComponent(theme.acc, if (theme.btn == "glass") 115 else 56),
+                        lit,
+                    )
+                }
+                canvas.drawCircle(cx, cy, radius, brush)
+            }
         }
 
-        if (!bare && !brutal && !expressive) {
+        if (!bare && !flat && shell != "xp") {
+            brush.strokeWidth = 1 * dp
             brush.shader = rimShader
             canvas.drawArc(cx - radius + dp, cy - radius + dp, cx + radius - dp, cy + radius - dp, 190f, 150f, false, brush)
             brush.shader = null
@@ -475,18 +496,86 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
 
         // Знак питания: линия и разомкнутое кольцо, как в значке макета.
         brush.color = when {
-            metal != null -> INK_METAL
+            // XP: синий значок на светлой кнопке, белый на зелёной.
+            shell == "xp" -> ColorUtils.blendARGB(XP_ICON, 0xFFFFFFFF.toInt(), lit)
+            shell == "gnome" -> ColorUtils.blendARGB(if (state == State.FAILED) theme.fail else ColorUtils.blendARGB(theme.fg, theme.acc, .25f), theme.accFg, lit)
             solid -> theme.accFg
             on -> if (theme.dark) ColorUtils.blendARGB(theme.fg, theme.acc, 0.35f) else theme.acc
             state == State.FAILED -> theme.fail
             else -> ColorUtils.blendARGB(theme.fg, theme.acc, .25f)
         }
         brush.strokeWidth = 2.6f * dp
+        drawIcon(canvas, dp)
+        canvas.restore()
+    }
+
+    private fun drawIcon(canvas: Canvas, dp: Float) {
         val r = radius * 0.235f
         canvas.drawArc(iconBox, -55f, 290f, false, brush)
         canvas.drawLine(cx, cy - r - 3 * dp, cx, cy - r * 0.15f, brush)
+    }
+
+    private fun disc(canvas: Canvas, color: Int) {
+        brush.style = Paint.Style.FILL
+        brush.color = color
+        canvas.drawCircle(cx, cy, radius, brush)
+    }
+
+    /**
+     * drawXpDisc — кнопка XP: в покое светлая с голубым отливом, подключено —
+     * та самая зелёная «Пуск» с бликом слева сверху. Между ними — плавно.
+     */
+    private fun drawXpDisc(canvas: Canvas, lit: Float) {
+        brush.style = Paint.Style.FILL
+        brush.color = 0xFFFFFFFF.toInt()
+        brush.shader = xpIdleShader
+        canvas.drawCircle(cx, cy, radius, brush)
+        if (lit > 0.01f) {
+            brush.shader = xpOnShader
+            brush.alpha = (255 * lit).toInt()
+            canvas.drawCircle(cx, cy, radius, brush)
+            brush.alpha = 255
+        }
+        brush.shader = null
+    }
+
+    /**
+     * drawSquareButton — кнопка Windows 98: квадратная, серая, выпуклая, с
+     * жёсткой тенью без размытия; нажатая вдавливается фаской, а не тенью.
+     * Дуги нет, как на ПК: состояние скажут надпись и цвет значка.
+     */
+    private fun drawSquareButton(canvas: Canvas) {
+        val dp = resources.displayMetrics.density
+        val half = radius * .85f
+        val left = (cx - half).toInt()
+        val top = (cy - half).toInt()
+        val side = (2 * half).toInt()
+        brush.shader = null
+        brush.style = Paint.Style.FILL
+        canvas.save()
+        if (isPressed) {
+            canvas.translate(dp, dp)
+        } else {
+            brush.color = 0x59000000
+            canvas.drawRect(left + 6 * dp, top + 6 * dp, left + side + 6 * dp, top + side + 6 * dp, brush)
+        }
+        val face = if (isPressed) sunken else raised
+        face.setBounds(left, top, left + side, top + side)
+        face.draw(canvas)
+        brush.style = Paint.Style.STROKE
+        brush.strokeCap = Paint.Cap.ROUND
+        brush.strokeWidth = 2.6f * dp
+        brush.color = when (state) {
+            State.ON -> theme.acc
+            State.FAILED -> theme.fail
+            else -> theme.fg
+        }
+        drawIcon(canvas, dp)
         canvas.restore()
     }
+
+    private val raised by lazy { VibeDetails.Bevel(VibeDetails.SILVER, resources.displayMetrics.density, raised = true, title = false) }
+    private val sunken by lazy { VibeDetails.Bevel(VibeDetails.SILVER, resources.displayMetrics.density, raised = false, title = false) }
 
     private fun drawDottedButton(canvas: Canvas) {
         val dp = resources.displayMetrics.density
@@ -577,25 +666,6 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
         }
     }
 
-    /**
-     * blobPath — форма «Экспрессива»: круг, по которому идут две медленные
-     * волны в разные стороны. Обе целые по циклу, поэтому конец девяти
-     * секунд совпадает с началом и форма не дёргается на стыке.
-     */
-    private fun blobPath() {
-        blob.reset()
-        val turn = phase * 2 * Math.PI
-        val steps = 96
-        for (i in 0..steps) {
-            val a = i * 2 * Math.PI / steps
-            val k = 1 + .05 * kotlin.math.sin(2 * a + turn) + .035 * kotlin.math.sin(3 * a - turn)
-            val x = cx + (kotlin.math.cos(a) * radius * k).toFloat()
-            val y = cy + (kotlin.math.sin(a) * radius * k).toFloat()
-            if (i == 0) blob.moveTo(x, y) else blob.lineTo(x, y)
-        }
-        blob.close()
-    }
-
     /** Блик «Графита»: из-за левого края за правый с разгоном и торможением, как ease-in-out. */
     private fun drawSheen(canvas: Canvas, shader: Shader) {
         if (phase < SHEEN_FROM) return
@@ -614,7 +684,8 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
 
     override fun performClick(): Boolean {
         performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-        if (animationsAllowed() && theme.btn != "bare" && !dottedPower) {
+        // У квадратной кнопки 98-й волны нет: она вдавливается фаской, как на ПК.
+        if (animationsAllowed() && theme.btn != "bare" && !dottedPower && !square) {
             pulser?.cancel()
             pulser = ValueAnimator.ofFloat(0.05f, 1f).apply {
                 duration = 480
@@ -638,8 +709,10 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
             val angle = Math.toRadians(i * 360.0 / 64 - 90)
             kotlin.math.cos(angle).toFloat() to kotlin.math.sin(angle).toFloat()
         }
-        const val INK = 0xFF111111.toInt()
-        const val INK_METAL = 0xFF1B1F24.toInt()
+        /** Кромка, зелёная кромка и значок кнопки XP — цвета системы, как в CSS на ПК. */
+        const val XP_EDGE = 0xFF7F9DB9.toInt()
+        const val XP_GREEN_EDGE = 0xFF1C5A12.toInt()
+        const val XP_ICON = 0xFF1C5AD8.toInt()
         /** С какой доли цикла начинается блик «Графита»: на ПК 0–60 % он ждёт за краем. */
         const val SHEEN_FROM = .6f
         /** Направление полосы блика — 115° по CSS, от «вверх» по часовой. */

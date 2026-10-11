@@ -153,7 +153,9 @@ class MainActivity : AppCompatActivity() {
         // диалоги и системные виджеты берут цвета оттуда, и светлый диалог
         // над «Полночью» выглядел бы дырой в экране.
         store = Store(this)
-        theme = Look.theme(store.look)
+        // Прежний образ после обновления — на ближайший новый, до первой покраски.
+        AppearanceProfiles.migrate(store)
+        theme = AppearanceProfiles.theme(store)
         AppCompatDelegate.setDefaultNightMode(nightModeFor(theme))
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -283,17 +285,20 @@ class MainActivity : AppCompatActivity() {
      * следующего запуска.
      */
     private fun repaint() {
-        theme = Look.theme(store.look)
+        theme = AppearanceProfiles.theme(store)
 
         val night = nightModeFor(theme)
         if (AppCompatDelegate.getDefaultNightMode() != night) {
             AppCompatDelegate.setDefaultNightMode(night)
         }
 
+        // Обои образа — как своё фото: строки прямо на них получают тень,
+        // иначе пёстрый холм XP съедал бы подписи.
+        val scene = AppearanceProfiles.scene(store)
         Paint.style = Paint.Style(
-            pattern = store.pattern, font = store.font, photo = store.hasBackdrop(),
+            pattern = store.pattern, font = store.font, photo = store.hasBackdrop() || scene != null,
             motion = !store.reduceMotion, haptics = store.hapticFeedback,
-            appearanceStyle = store.appearanceStyle, vibe = AppearanceProfiles.detail(store),
+            appearanceStyle = store.appearanceStyle, vibe = AppearanceProfiles.detail(store), scene = scene,
         )
         ConnectionAppearance.apply(ui.connectScreen, store.appearanceStyle, theme)
         ui.connectScreen.powerAction.motionEnabled = !store.reduceMotion
@@ -309,8 +314,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         Paint.apply(ui.root, theme)
-        // Зерно и виньетка «Плёнки» — поверх всего, как на ПК; у прочих образов ничего.
-        ui.root.foreground = if (Paint.style.vibe == "film") VibeDetails.Veil() else null
         applyBackdrop()
         paintLogo()
         paintNav()

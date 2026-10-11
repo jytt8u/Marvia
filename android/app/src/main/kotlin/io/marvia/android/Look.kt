@@ -126,13 +126,7 @@ object Look {
         val dark = lum(bg) < 0.5
         val tint = if (choice.tint != 0) choice.tint else acc
 
-        // Свет: освещённая сторона подкрашена оттенком, тёмная — уведена в
-        // чёрный на глубину тени. Ровный фон — без света: поверхности тогда
-        // считаются от самого фона, как в пресете.
-        val flat = choice.kind == "flat"
-        val lit = if (flat) bg else mix(bg, tint, if (dark) 0.30 else 0.16)
-        val shade = if (flat) bg else mix(bg, BLACK, if (dark) choice.depth else choice.depth * 0.22)
-        val mid = if (flat) bg else mix(lit, shade, 0.5)
+        val (lit, mid, shade) = light(bg, tint, choice.kind, choice.depth)
 
         val surf = if (dark) mix(mid, WHITE, 0.06) else mix(mid, WHITE, 0.55)
         val surf2 = if (dark) mix(mid, WHITE, 0.13) else mix(mid, BLACK, 0.07)
@@ -165,6 +159,21 @@ object Look {
             pad = d.pad,
             gap = d.gap,
         )
+    }
+
+    /**
+     * light — свет фона: освещённая сторона, середина и тень. Освещённая
+     * подкрашена оттенком, тёмная уведена в чёрный на глубину тени. Ровный
+     * фон — без света: поверхности тогда считаются от самого фона, как в
+     * пресете. Отдельно от theme, потому что образ в духе системы светит от
+     * своей палитры, а не от пресета под ней.
+     */
+    fun light(bg: Int, tint: Int, kind: String, depth: Double): IntArray {
+        if (kind == "flat") return intArrayOf(bg, bg, bg)
+        val dark = lum(bg) < 0.5
+        val lit = mix(bg, tint, if (dark) 0.30 else 0.16)
+        val shade = mix(bg, BLACK, if (dark) depth else depth * 0.22)
+        return intArrayOf(lit, mix(lit, shade, 0.5), shade)
     }
 
     // ---------------------------------------------------------- код темы

@@ -312,6 +312,11 @@
     <string name="font_onest">Onest</string>
     <string name="font_manrope">Manrope</string>
     <string name="font_geologica">Geologica</string>
+    <string name="font_inter">Inter</string>
+    <string name="font_noto">Noto Sans</string>
+    <string name="font_ubuntu">Ubuntu</string>
+    <string name="font_mono">Моно</string>
+    <string name="font_system">Системный</string>
     <string name="theme_profiles_caps">Мои темы</string>
     <string name="theme_profiles_hint">пустой слот запоминает текущий вид</string>
     <string name="theme_code_caps">КОД ТЕМЫ · МОЖНО ПЕРЕДАТЬ ДРУГУ</string>

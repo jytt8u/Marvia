@@ -2,6 +2,9 @@ Copyright 2021 The Onest Project Authors (https://github.com/googlefonts/onest)
 Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
 Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
 
+Inter и Noto Sans в app/src/main/res/font — начертания из internal/look/fonts:
+латиница и кириллица собраны в один TTF на обычное и жирное начертание.
+
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
 https://scripts.sil.org/OFL

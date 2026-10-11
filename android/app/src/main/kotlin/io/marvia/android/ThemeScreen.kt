@@ -19,7 +19,6 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.isVisible
 import io.marvia.android.databinding.ItemNodeBinding
@@ -80,7 +79,7 @@ class ThemeScreen(
     init {
         ui.customizeTheme.setOnClickListener {
             ui.editorDetails.isVisible = !ui.editorDetails.isVisible
-            paint(Look.theme(store.look))
+            paint(AppearanceProfiles.theme(store))
             ui.themeScroll.post {
                 val target = if (ui.editorDetails.isVisible) ui.customizeTheme.top else ui.previewCard.top
                 val y = (target - 12 * dp).toInt().coerceAtLeast(0)
@@ -99,7 +98,7 @@ class ThemeScreen(
             list[slot] = Look.encode(store.look)
             store.profiles = list
             store.saveProfileStyle(slot)
-            paint(Look.theme(store.look))
+            paint(AppearanceProfiles.theme(store))
         }
         ui.themeRandom.setOnClickListener { choose(random(), AppearanceStyle.CLASSIC) }
         ui.themeCode.setOnClickListener {
@@ -117,10 +116,10 @@ class ThemeScreen(
         }
         dragPreview(ui.depthSeek, preview = { progress ->
             val choice = store.look.copy(depth = (progress + 8) / 100.0)
-            val t = Look.theme(choice)
+            val t = themeOf(choice)
             paintDepthNote(choice.depth)
             stage?.background = photoBackdrop(t) ?: Backdrop(t)
-            ui.lamp.background = Backdrop(Look.theme(choice.copy(kind = if (choice.kind == "flat") "linear" else choice.kind)), Store.PATTERN_NONE)
+            ui.lamp.background = Backdrop(themeOf(choice.copy(kind = if (choice.kind == "flat") "linear" else choice.kind)), Store.PATTERN_NONE, scene = null)
         }, commit = { progress ->
             val depth = (progress + 8) / 100.0
             if (store.look.depth != depth) choose(store.look.copy(depth = depth))
@@ -134,7 +133,7 @@ class ThemeScreen(
         }
         dragPreview(ui.bgDimSeek, preview = { progress ->
             ui.bgDimNote.text = "$progress%"
-            stage?.background = photoBackdrop(Look.theme(store.look), progress)
+            stage?.background = photoBackdrop(AppearanceProfiles.theme(store), progress)
         }, commit = { progress ->
             if (store.backdropDim != progress) {
                 store.backdropDim = progress
@@ -302,6 +301,13 @@ class ThemeScreen(
             start()
         }
     }
+
+    /**
+     * themeOf — тема для превью выбора внутри образа: с его палитрой, как
+     * будет после нажатия. Свет образа в духе системы идёт от его фона, а не
+     * от пресета, и превью света без палитры показывало бы чужой цвет.
+     */
+    private fun themeOf(choice: Look.Choice): Theme = AppearanceProfiles.theme(choice, AppearanceProfiles.detail(store))
 
     private fun choose(next: Look.Choice, style: AppearanceStyle = store.appearanceStyle) {
         store.look = Look.normalize(next)
@@ -487,8 +493,9 @@ class ThemeScreen(
             val connect = s.findViewById<View>(R.id.connectRoot)
             ConnectionAppearance.apply(ScreenConnectBinding.bind(connect), store.appearanceStyle, t)
         }
-        Paint.apply(s, t)
+        // Фон — до покраски: строки прямо на нём Paint красит как на столе образа.
         s.background = photoBackdrop(t) ?: Backdrop(t)
+        Paint.apply(s, t)
         ui.previewFrame.foreground = GradientDrawable().apply { cornerRadius = 18 * dp; setColor(0); setStroke((1 * dp).toInt(), t.line) }
         ui.previewFrame.elevation = 8 * dp
         fillStage(s, t)
@@ -542,7 +549,7 @@ class ThemeScreen(
 
     /** buildStage надувает экран предпросмотра: тот же XML, что у настоящего. */
     private fun openPreview() {
-        val t = Look.theme(store.look)
+        val t = AppearanceProfiles.theme(store)
         val dialog = android.app.Dialog(host, R.style.Theme_Veil)
         val column = LinearLayout(host).apply {
             orientation = LinearLayout.VERTICAL
@@ -749,7 +756,7 @@ class ThemeScreen(
                 setOnClickListener { performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); choose(Look.ofLook(lk), AppearanceStyle.CLASSIC) }
             }
             val canvas = FrameLayout(host).apply {
-                background = Backdrop(preview, Store.PATTERN_NONE)
+                background = Backdrop(preview, Store.PATTERN_NONE, scene = null)
                 outlineProvider = rounded(minOf(t.r + 6, 24) * dp)
                 clipToOutline = true
                 foreground = GradientDrawable().apply {
@@ -849,7 +856,7 @@ class ThemeScreen(
         // Лампа: экран, залитый настоящим фоном; нажатие в угол переносит свет.
         // Ровный фон света не показывает — лампа рисует мягкий, чтобы было видно, куда нажимать.
         val litKind = if (choice.kind == "flat") "linear" else choice.kind
-        ui.lamp.background = Backdrop(Look.theme(choice.copy(kind = litKind)), Store.PATTERN_NONE)
+        ui.lamp.background = Backdrop(themeOf(choice.copy(kind = litKind)), Store.PATTERN_NONE, scene = null)
         ui.lamp.outlineProvider = rounded(t.r * dp)
         ui.lamp.clipToOutline = true
         ui.lamp.foreground = GradientDrawable().apply {
@@ -905,7 +912,7 @@ class ThemeScreen(
                 setOnClickListener { choose(choice.copy(kind = kind)) }
             }
             val canvas = View(host).apply {
-                background = Backdrop(Look.theme(choice.copy(kind = kind, dir = if (choice.dir == "c" && kind != "radial") "nw" else choice.dir)), Store.PATTERN_NONE)
+                background = Backdrop(themeOf(choice.copy(kind = kind, dir = if (choice.dir == "c" && kind != "radial") "nw" else choice.dir)), Store.PATTERN_NONE, scene = null)
                 outlineProvider = rounded(maxOf(t.r - 6, 4) * dp)
                 clipToOutline = true
             }
@@ -994,7 +1001,7 @@ class ThemeScreen(
     private class PatternSample(t: Theme, key: String, dp: Float) : android.graphics.drawable.LayerDrawable(
         arrayOf(
             android.graphics.drawable.ColorDrawable(t.surf2),
-            Backdrop(t.copy(kind = "flat", bg = 0), key, ink = 70),
+            Backdrop(t.copy(kind = "flat", bg = 0), key, ink = 70, scene = null),
         ),
     )
 
@@ -1056,7 +1063,7 @@ class ThemeScreen(
     /** editFrame открывает выбор кадра для своего фона. */
     fun editFrame() {
         val bmp = store.backdropBitmap() ?: return
-        val t = Look.theme(store.look)
+        val t = AppearanceProfiles.theme(store)
         val a = store.backdropDim.coerceIn(0, 95) * 255 / 100
         val veil = (a shl 24) or (t.bg and 0x00FFFFFF)
         BackdropEditor(host, bmp, store.backdropFit, t, veil, store.backdropFrame) {
@@ -1159,16 +1166,28 @@ class ThemeScreen(
         )
     }
 
+    /**
+     * paintFonts — шрифты по три в ряд, при крупном тексте по два: с шрифтами
+     * образов их восемь, и в одну строку имена не помещались. Последний ряд
+     * добит пустыми местами, чтобы чипы были одной ширины. Каждое имя набрано
+     * своим шрифтом.
+     */
     private fun paintFonts(t: Theme) {
-        val row = ui.fontRow
-        row.removeAllViews()
-        for ((i, key) in Store.FONTS.withIndex()) {
-            val on = store.font == key
-            val c = chip(t, named("font_", key), on) { store.font = key; onChanged() }
-            val family = ResourcesCompat.getFont(host, when (key) { "manrope" -> R.font.manrope; "geologica" -> R.font.geologica; else -> R.font.onest })
-            c.typeface = android.graphics.Typeface.create(family, android.graphics.Typeface.BOLD)
-            c.setTag(R.id.keep_font, true)
-            row.addView(c, LinearLayout.LayoutParams(0, WRAP, 1f).apply { if (i > 0) marginStart = (8 * dp).toInt() })
+        val box = ui.fontRow
+        box.removeAllViews()
+        box.orientation = LinearLayout.VERTICAL
+        val per = if (host.resources.configuration.fontScale > 1.5f) 2 else 3
+        for ((r, keys) in Store.FONTS.chunked(per).withIndex()) {
+            val row = LinearLayout(host)
+            for (i in 0 until per) {
+                val key = keys.getOrNull(i)
+                val cell = if (key == null) View(host) else chip(t, named("font_", key), store.font == key) { store.font = key; onChanged() }.apply {
+                    typeface = android.graphics.Typeface.create(Paint.family(host, key), android.graphics.Typeface.BOLD)
+                    setTag(R.id.keep_font, true)
+                }
+                row.addView(cell, LinearLayout.LayoutParams(0, WRAP, 1f).apply { if (i > 0) marginStart = (8 * dp).toInt() })
+            }
+            box.addView(row, LinearLayout.LayoutParams(MATCH, WRAP).apply { if (r > 0) topMargin = (8 * dp).toInt() })
         }
     }
 

@@ -11,8 +11,8 @@ import android.widget.TextView
 
 /**
  * Лента образов в два ряда, листается вбок — как в окне на компьютере. Образов
- * двенадцать, в одну строку они уходили бы далеко за край, а две строки
- * показывают сразу восемь и намекают, что дальше есть ещё.
+ * пятнадцать, в одну строку они уходили бы далеко за край, а две строки
+ * показывают сразу четыре и намекают, что дальше есть ещё.
  */
 class AppearancePicker(
     private val context: Context,
@@ -73,10 +73,12 @@ class AppearancePicker(
                 if (index % 2 > 0) topMargin = px(10)
                 setGravity(Gravity.FILL)
             })
-            Paint.apply(card, t)
+            // Подложка — до покраски: по ней Paint видит, что подпись лежит
+            // на карточке, а не на столе образа.
             card.background = Paint.rounded(t.surf, t.r, dp).apply {
                 setStroke(px(if (active) 2 else 1).coerceAtLeast(1), if (active) t.acc else t.line)
             }
+            Paint.apply(card, t)
         }
     }
 

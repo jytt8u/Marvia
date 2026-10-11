@@ -1,154 +1,320 @@
 package io.marvia.android
 
 import android.content.Context
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.LinearGradient
-import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RadialGradient
 import android.graphics.RectF
+import android.graphics.Region
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.view.View
-import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.ColorUtils
 
 /**
- * Миниатюра образа — как обои в выборе темы: фон образа во всю карточку, его
- * кнопка, надпись «Подключено» его шрифтом и маленькая карточка с цифрой и
- * графиком. Серые полоски «вместо интерфейса» выглядели заготовкой, а не
- * будущим экраном. Цифра — пример, не текущее подключение.
+ * Миниатюра образа — кусочек стола, как на ПК: обои образа и маленькое окно
+ * в его оболочке — с его кнопками окна, боковой панелью, кнопкой
+ * подключения и надписью «Подключено» его шрифтом. Так видно не палитру, а
+ * то, как будет выглядеть приложение. Размеры — из CSS миниатюры на ПК
+ * (.vibe-art и .mw в app.html) в её пикселях, растянутых на свою высоту.
+ *
+ * Рисуется один раз в растр и берётся из кэша: лента пересобирается на
+ * каждое нажатие, а обои с размытием и тень окна на каждый кадр прокрутки
+ * стоили бы плавности.
  */
 class AppearancePreview(context: Context, private val profile: AppearanceProfiles.Profile) : View(context) {
-    private val theme = Look.theme(Look.normalize(profile.choice))
-    private val brush = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val rect = RectF()
-    private val spark = Path()
+    private val theme = AppearanceProfiles.theme(profile.choice, profile.id)
     private val status = context.getString(R.string.status_on)
-    private val face: Typeface? = when (profile.font) {
-        "manrope" -> ResourcesCompat.getFont(context, R.font.manrope)
-        "geologica" -> ResourcesCompat.getFont(context, R.font.geologica)
-        else -> ResourcesCompat.getFont(context, R.font.onest)
-    }
-    private val mono: Typeface? = ResourcesCompat.getFont(context, R.font.mono)
+
+    /** Надпись — шрифтом надписи образа: моноширинным у табло и у плиточных, как sfont на ПК. */
+    private val mono = profile.style == AppearanceStyle.SIGNAL || profile.shell == AppearanceProfiles.TILE
+    private val face: Typeface? = Paint.family(context, if (mono) Store.FONT_MONO else profile.font)
+    private val caps = profile.style == AppearanceStyle.SIGNAL
 
     override fun onDraw(canvas: Canvas) {
-        val w = width.toFloat()
-        val h = height.toFloat()
-        val dp = resources.displayMetrics.density
-        val p = profile.preview
-        val t = theme
+        val bmp = Wallpaper.cached("mini:${profile.id}:$status", width, height) { draw(it, width.toFloat(), height.toFloat()) } ?: return
+        canvas.drawBitmap(bmp, 0f, 0f, null)
+    }
 
-        // Фон и пятна света.
-        brush.shader = LinearGradient(0f, 0f, 0f, h, p.top, p.bottom, Shader.TileMode.CLAMP)
-        canvas.drawRect(0f, 0f, w, h, brush)
-        fun blob(color: Int, x: Float, y: Float, r: Float) {
-            if (color == 0) return
-            brush.shader = RadialGradient(x, y, r, color, ColorUtils.setAlphaComponent(color, 0), Shader.TileMode.CLAMP)
-            canvas.drawRect(0f, 0f, w, h, brush)
-        }
-        blob(p.blobA, w * .22f, h * .3f, w * .55f)
-        blob(p.blobB, w * .82f, h * .72f, w * .5f)
-        brush.shader = null
+    private fun brush() = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
 
-        // Узор образа — тонко, чтобы угадывался характер.
-        brush.color = ColorUtils.setAlphaComponent(t.fg, if (t.dark) 38 else 46)
-        val step = 9 * dp
-        when (profile.pattern) {
-            Store.PATTERN_DOTS -> { var y = step / 2; while (y < h) { var x = step / 2; while (x < w) { canvas.drawCircle(x, y, .9f * dp, brush); x += step }; y += step } }
-            "grid" -> { brush.strokeWidth = .7f * dp; var x = 0f; while (x < w) { canvas.drawLine(x, 0f, x, h, brush); x += step * 1.5f }; var y = 0f; while (y < h) { canvas.drawLine(0f, y, w, y, brush); y += step * 1.5f } }
-            "lines" -> { var y = 0f; while (y < h) { canvas.drawRect(0f, y, w, y + .6f * dp, brush); y += 3.5f * dp } }
-            "rings" -> { brush.style = Paint.Style.STROKE; brush.strokeWidth = .8f * dp; for (i in 1..4) canvas.drawCircle(w * .8f, h * .3f, i * 14 * dp, brush); brush.style = Paint.Style.FILL }
-        }
+    private fun draw(c: Canvas, w: Float, h: Float) {
+        // Пиксель миниатюры на ПК: там она высотой 128.
+        val u = h / 128f
+        val scene = profile.scene
+        if (scene != null) Wallpaper.draw(c, scene.wall, w, h) else art(c, w, h, u)
+        window(c, w, h, u)
+    }
 
-        // Кнопка образа.
-        val r = minOf(h * .22f, w * .14f)
-        val cx = 14 * dp + r
-        val cy = 14 * dp + r
-        when {
-            profile.style == AppearanceStyle.SIGNAL -> {
-                brush.color = t.surf; canvas.drawCircle(cx, cy, r, brush)
-                for (i in 0..23) {
-                    val a = Math.toRadians(i * 15.0 - 90)
-                    brush.color = if (i < 6) t.acc else ColorUtils.setAlphaComponent(t.fg, 70)
-                    canvas.drawCircle(cx + kotlin.math.cos(a).toFloat() * r * 1.22f, cy + kotlin.math.sin(a).toFloat() * r * 1.22f, 1.2f * dp, brush)
-                }
+    /** art — фон наших трёх, у которых обоев нет: свет «Графита» и точки табло, как art на ПК. */
+    private fun art(c: Canvas, w: Float, h: Float, u: Float) {
+        val p = brush()
+        val (step, dot) = when (profile.id) {
+            "dot" -> {
+                c.drawColor(0xFF000000.toInt())
+                7f to 0x4DFFFFFF
             }
-            profile.id == "chrome" -> {
-                // Прозрачность кисти действует и на градиент — сначала делаем её полной.
-                brush.color = 0xFFFFFFFF.toInt()
-                brush.shader = android.graphics.SweepGradient(cx, cy,
-                    intArrayOf(0xFFF4F7FB.toInt(), 0xFF8A95A3.toInt(), 0xFFE9EEF4.toInt(), 0xFF6B7480.toInt(), 0xFFF4F7FB.toInt()), null)
-                canvas.drawCircle(cx, cy, r, brush); brush.shader = null
-            }
-            t.btn == "solid" -> {
-                brush.color = t.acc; canvas.drawCircle(cx, cy, r, brush)
-                brush.shader = RadialGradient(cx - r * .3f, cy - r * .4f, r, ColorUtils.setAlphaComponent(-1, 90), 0, Shader.TileMode.CLAMP)
-                canvas.drawCircle(cx, cy, r, brush); brush.shader = null
-            }
-            t.btn == "glass" -> {
-                brush.color = ColorUtils.setAlphaComponent(-1, 40); canvas.drawCircle(cx, cy, r, brush)
-                brush.style = Paint.Style.STROKE; brush.strokeWidth = dp; brush.color = ColorUtils.setAlphaComponent(-1, 110)
-                canvas.drawCircle(cx, cy, r, brush); brush.style = Paint.Style.FILL
+            "paper" -> {
+                c.drawColor(0xFFF6F3EC.toInt())
+                7f to 0x3D14120E
             }
             else -> {
-                brush.color = ColorUtils.setAlphaComponent(t.surf, 220); canvas.drawCircle(cx, cy, r, brush)
-                brush.style = Paint.Style.STROKE; brush.strokeWidth = 2 * dp; brush.color = t.acc
-                canvas.drawCircle(cx, cy, r, brush); brush.style = Paint.Style.FILL
+                // radial-gradient(120% 90% at 20% 0%) — эллипс в долях ширины и высоты.
+                p.shader = RadialGradient(0f, 0f, 1f, intArrayOf(0xFF4A4F55.toInt(), 0xFF16181B.toInt(), 0xFF0B0C0E.toInt()), floatArrayOf(0f, .6f, 1f), Shader.TileMode.CLAMP).apply {
+                    setLocalMatrix(android.graphics.Matrix().apply { setScale(w * 1.2f, h * .9f); postTranslate(w * .2f, 0f) })
+                }
+                c.drawRect(0f, 0f, w, h, p)
+                p.shader = null
+                11f to 0x29C3CCD6
             }
         }
-        if (profile.id == "brutal") {
-            brush.style = Paint.Style.STROKE; brush.strokeWidth = 2 * dp; brush.color = 0xFF111111.toInt()
-            canvas.drawCircle(cx, cy, r, brush); brush.style = Paint.Style.FILL
+        p.color = dot
+        val s = step * u
+        var y = s / 2
+        while (y < h) {
+            var x = s / 2
+            while (x < w) { c.drawCircle(x, y, 1.3f * u, p); x += s }
+            y += s
         }
-        // Значок питания.
-        val iconColor = when {
-            profile.id == "chrome" -> 0xFF1B1F24.toInt()
-            t.btn == "solid" && profile.style != AppearanceStyle.SIGNAL -> t.accFg
-            else -> t.acc
-        }
-        brush.style = Paint.Style.STROKE; brush.strokeWidth = 1.8f * dp; brush.strokeCap = Paint.Cap.ROUND; brush.color = iconColor
-        rect.set(cx - r * .32f, cy - r * .28f, cx + r * .32f, cy + r * .36f)
-        canvas.drawArc(rect, -60f, 300f, false, brush)
-        canvas.drawLine(cx, cy - r * .42f, cx, cy, brush)
-        brush.style = Paint.Style.FILL
+    }
 
-        // Надпись шрифтом образа.
-        brush.typeface = if (profile.style == AppearanceStyle.SIGNAL) mono else face
-        brush.isFakeBoldText = profile.style != AppearanceStyle.SIGNAL
-        brush.color = if (profile.id == "terminal") t.acc else t.fg
-        var size = 11 * dp
-        val label = if (profile.style == AppearanceStyle.SIGNAL) status.uppercase() else status
-        val maxText = w * .55f - 14 * dp
-        brush.textSize = size
-        while (brush.measureText(label) > maxText && size > 6 * dp) { size -= .5f * dp; brush.textSize = size }
-        canvas.drawText(label, 14 * dp, h - 14 * dp, brush)
-        brush.isFakeBoldText = false
+    private fun window(c: Canvas, w: Float, h: Float, u: Float) {
+        val t = theme
+        val shell = profile.shell
+        val tile = shell == AppearanceProfiles.TILE
+        val box = if (tile) RectF(w * .06f, h * .10f, w * .94f, h * .92f) else RectF(w * .14f, h * .16f, w * .86f, h * .88f)
+        val r = when (shell) { "mac", "gnome", "ubuntu" -> 9f; "win11" -> 7f; "w98", "xp" -> 0f; else -> 6f } * u
+        val p = brush()
 
-        // Карточка с цифрой и графиком.
-        val cw = w * .38f
-        rect.set(w - cw - 10 * dp, 12 * dp, w - 10 * dp, h - 12 * dp)
-        val cr = (t.r * .5f * dp).coerceAtMost(14 * dp)
-        brush.color = when (profile.id) {
-            "glass", "aurora" -> ColorUtils.setAlphaComponent(-1, 34)
-            "expressive" -> ColorUtils.blendARGB(0xFFFFFFFF.toInt(), t.acc, .14f)
-            else -> t.surf
+        // Очертание окна: у XP скруглён только верх.
+        val outline = Path().apply {
+            if (shell == "xp") addRoundRect(box, floatArrayOf(6 * u, 6 * u, 6 * u, 6 * u, 0f, 0f, 0f, 0f), Path.Direction.CW)
+            else addRoundRect(box, r, r, Path.Direction.CW)
         }
-        canvas.drawRoundRect(rect, cr, cr, brush)
-        brush.style = Paint.Style.STROKE; brush.strokeWidth = if (profile.id == "brutal") 2 * dp else dp
-        brush.color = if (profile.id == "brutal") 0xFF111111.toInt() else ColorUtils.setAlphaComponent(t.line, 180)
-        canvas.drawRoundRect(rect, cr, cr, brush); brush.style = Paint.Style.FILL
-        brush.typeface = mono; brush.textSize = 13 * dp; brush.isFakeBoldText = true; brush.color = t.fg
-        canvas.drawText("48,0", rect.left + 7 * dp, rect.top + 22 * dp, brush)
-        brush.isFakeBoldText = false
-        spark.reset()
-        val pts = floatArrayOf(.85f, .75f, .8f, .55f, .62f, .4f, .48f, .2f, .26f, .1f)
-        pts.forEachIndexed { i, v ->
-            val x = rect.left + 6 * dp + (rect.width() - 12 * dp) * i / (pts.size - 1)
-            val y = rect.bottom - 6 * dp - (rect.height() * .38f) * (1 - v)
-            if (i == 0) spark.moveTo(x, y) else spark.lineTo(x, y)
+
+        // Тень окна: 0 10px 24px -10px и волосяная обводка, как на ПК. Тень
+        // CSS под самим окном не рисуется — и здесь она вырезана, иначе
+        // проступала бы сквозь стекло macOS. У плиток окна нет — есть сами
+        // плитки; у 98-й тень жёсткая.
+        if (!tile) {
+            c.save()
+            if (android.os.Build.VERSION.SDK_INT >= 26) c.clipOutPath(outline) else @Suppress("DEPRECATION") c.clipPath(outline, Region.Op.DIFFERENCE)
+            if (shell == "w98") {
+                p.color = 0x4D000000
+                c.drawRect(box.left + 4 * u, box.top + 4 * u, box.right + 4 * u, box.bottom + 4 * u, p)
+            } else {
+                // Размытие 24px — сигма 12; BlurMaskFilter ждёт радиус.
+                p.color = 0x8C000000.toInt()
+                p.maskFilter = BlurMaskFilter((12 * u - .5f) / .57735f, BlurMaskFilter.Blur.NORMAL)
+                c.drawRoundRect(box.left + 10 * u, box.top + 20 * u, box.right - 10 * u, box.bottom, r, r, p)
+                p.maskFilter = null
+                p.color = 0x2E000000
+                c.drawRoundRect(box.left - u, box.top - u, box.right + u, box.bottom + u, r + u, r + u, p)
+            }
+            c.restore()
         }
-        brush.style = Paint.Style.STROKE; brush.strokeWidth = 1.6f * dp; brush.strokeJoin = Paint.Join.ROUND; brush.color = t.acc
-        canvas.drawPath(spark, brush); brush.style = Paint.Style.FILL
+
+        // Окно; всё, что внутри, обрезано по нему, как overflow: hidden.
+        c.save()
+        if (!tile) {
+            p.color = when (shell) {
+                "mac" -> ColorUtils.setAlphaComponent(t.bg, 209)
+                "win11" -> ColorUtils.setAlphaComponent(t.bg, 230)
+                "w98" -> VibeDetails.SILVER
+                else -> t.bg
+            }
+            c.drawPath(outline, p)
+            c.clipPath(outline)
+        }
+        if (shell == "w98") VibeDetails.Bevel(VibeDetails.SILVER, u, raised = true, title = false).apply {
+            setBounds(box.left.toInt(), box.top.toInt(), box.right.toInt(), box.bottom.toInt())
+        }.draw(c)
+        // У 98-й содержимое отступает от фаски на 2px.
+        val inner = if (shell == "w98") RectF(box.left + 2 * u, box.top + 2 * u, box.right - 2 * u, box.bottom - 2 * u) else RectF(box)
+        val gap = if (tile) 3 * u else 0f
+        val bar = RectF(inner.left, inner.top, inner.right, inner.top + (if (shell == "xp") 15f else 14f) * u)
+        val body = RectF(inner.left, bar.bottom + gap, inner.right, inner.bottom)
+        titleBar(c, bar, u)
+
+        // Боковая панель и главная часть.
+        val side = RectF(body.left, body.top, body.left + inner.width() * .26f, body.bottom)
+        val main = RectF(side.right + gap, body.top, body.right, body.bottom)
+        when (shell) {
+            "mac" -> {
+                p.color = ColorUtils.setAlphaComponent(t.fg, 31)
+                c.drawRoundRect(side.left + 4 * u, side.top, side.right, side.bottom - 4 * u, 6 * u, 6 * u, p)
+            }
+            "xp" -> {
+                p.shader = LinearGradient(0f, side.top, 0f, side.bottom, 0xFF7BA2E7.toInt(), 0xFF6375D6.toInt(), Shader.TileMode.CLAMP)
+                c.drawRect(side, p)
+                p.shader = null
+            }
+            "w98" -> {
+                p.color = VibeDetails.SILVER
+                c.drawRect(side, p)
+                p.color = 0xFF808080.toInt()
+                c.drawRect(side.right - u, side.top, side.right, side.bottom, p)
+            }
+            AppearanceProfiles.TILE -> {
+                plate(c, side, t, u, t.line, u)
+                plate(c, main, t, u, t.acc, 1.5f * u)
+            }
+            else -> {
+                p.color = ColorUtils.setAlphaComponent(t.fg, 13)
+                c.drawRect(side, p)
+            }
+        }
+        button(c, main, u)
+        c.restore()
+    }
+
+    /** plate — плитка: фон окна на просвет и рамка внутри, серая у остальных и цветная у активной. */
+    private fun plate(c: Canvas, box: RectF, t: Theme, u: Float, line: Int, width: Float) {
+        val p = brush()
+        p.color = ColorUtils.setAlphaComponent(t.bg, 217)
+        c.drawRoundRect(box, 4 * u, 4 * u, p)
+        p.style = android.graphics.Paint.Style.STROKE
+        p.strokeWidth = width
+        p.color = line
+        val half = width / 2
+        c.drawRoundRect(box.left + half, box.top + half, box.right - half, box.bottom - half, 4 * u - half, 4 * u - half, p)
+    }
+
+    /** titleBar — полоска заголовка с кнопками окна той системы, чей образ. */
+    private fun titleBar(c: Canvas, bar: RectF, u: Float) {
+        val t = theme
+        val p = brush()
+        when (profile.shell) {
+            "xp" -> {
+                p.shader = LinearGradient(0f, bar.top, 0f, bar.bottom, intArrayOf(0xFF3D95FF.toInt(), 0xFF0053EE.toInt(), 0xFF003DD7.toInt()), floatArrayOf(0f, .4f, 1f), Shader.TileMode.CLAMP)
+                c.drawRect(bar, p)
+                p.shader = null
+            }
+            "w98" -> {
+                p.shader = LinearGradient(bar.left, 0f, bar.right, 0f, VibeDetails.NAVY, 0xFF1084D0.toInt(), Shader.TileMode.CLAMP)
+                c.drawRect(bar, p)
+                p.shader = null
+            }
+            AppearanceProfiles.TILE -> {
+                p.color = ColorUtils.setAlphaComponent(t.bg, 217)
+                c.drawRoundRect(bar, 4 * u, 4 * u, p)
+            }
+        }
+        // Три кнопки окна: справа, а у macOS — светофор слева.
+        val cy = bar.centerY()
+        val mac = profile.shell == "mac"
+        val (bw, bh) = when (profile.shell) {
+            "mac" -> 5f to 5f
+            "xp" -> 8f to 8f
+            "w98" -> 7f to 6f
+            "gnome", "ubuntu", "kde" -> 6f to 6f
+            "win11" -> 6f to 1f
+            else -> 7f to 5f
+        }
+        val step = (bw + 3) * u
+        val start = if (mac) bar.left + 5 * u else bar.right - 5 * u - 3 * bw * u - 6 * u
+        for (i in 0..2) {
+            val left = start + i * step
+            val box = RectF(left, cy - bh * u / 2, left + bw * u, cy + bh * u / 2)
+            val last = i == 2
+            when (profile.shell) {
+                "mac" -> {
+                    p.color = intArrayOf(0xFFFF5F57.toInt(), 0xFFFEBC2E.toInt(), 0xFF28C840.toInt())[i]
+                    c.drawOval(box, p)
+                }
+                "xp" -> {
+                    p.color = if (last) 0xFFE0532F.toInt() else 0xFF2A6CF0.toInt()
+                    c.drawRoundRect(box, 2 * u, 2 * u, p)
+                    p.style = android.graphics.Paint.Style.STROKE
+                    p.strokeWidth = u
+                    p.color = 0xFFFFFFFF.toInt()
+                    c.drawRoundRect(box.left + u / 2, box.top + u / 2, box.right - u / 2, box.bottom - u / 2, 2 * u, 2 * u, p)
+                    p.style = android.graphics.Paint.Style.FILL
+                }
+                "w98" -> {
+                    p.color = VibeDetails.SILVER
+                    c.drawRect(box, p)
+                    p.color = 0xFF0A0A0A.toInt()
+                    c.drawRect(box.left, box.bottom - u, box.right, box.bottom, p)
+                    c.drawRect(box.right - u, box.top, box.right, box.bottom, p)
+                    p.color = 0xFFFFFFFF.toInt()
+                    c.drawRect(box.left, box.top, box.right - u, box.top + u, p)
+                    c.drawRect(box.left, box.top, box.left + u, box.bottom - u, p)
+                }
+                "gnome", "ubuntu", "kde" -> {
+                    p.color = when {
+                        last && profile.shell == "ubuntu" -> 0xFFE95420.toInt()
+                        last && profile.shell == "kde" -> 0xFFDA4453.toInt()
+                        else -> ColorUtils.setAlphaComponent(t.fg, 115)
+                    }
+                    c.drawOval(box, p)
+                }
+                else -> {
+                    p.color = ColorUtils.setAlphaComponent(t.fg, 115)
+                    c.drawRoundRect(box, if (profile.shell == "win11") 0f else u, if (profile.shell == "win11") 0f else u, p)
+                }
+            }
+        }
+    }
+
+    /** button — кнопка подключения и надпись под ней, по центру главной части. */
+    private fun button(c: Canvas, main: RectF, u: Float) {
+        val t = theme
+        val p = brush()
+        val size = 30 * u
+        val text = if (caps) status.uppercase() else status
+        val label = brush().apply {
+            typeface = Typeface.create(face, Typeface.BOLD)
+            color = t.fg
+            textSize = 10 * u
+            letterSpacing = if (caps) .04f else -.01f
+        }
+        // Подгонка, как fitLabel на ПК: широкий шрифт заглавными на другом
+        // языке иначе вылез бы за окно.
+        val room = main.width() - 8 * u
+        while (label.measureText(text) > room && label.textSize > 6 * u) label.textSize -= .5f * u
+        val lineH = label.textSize * 1.1f
+        val total = size + 4 * u + lineH
+        val top = main.centerY() - total / 2
+        val cx = main.centerX()
+        val cy = top + size / 2
+        val icon: Int
+        when (profile.shell) {
+            "xp" -> {
+                p.shader = RadialGradient(cx - size * .15f, cy - size * .25f, size * .99f,
+                    intArrayOf(0xFF8EE07A.toInt(), 0xFF3C9D2B.toInt(), 0xFF23731A.toInt()), floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP)
+                c.drawCircle(cx, cy, size / 2, p)
+                p.shader = null
+                icon = 0xFFFFFFFF.toInt()
+            }
+            "w98" -> {
+                VibeDetails.Bevel(VibeDetails.SILVER, u, raised = true, title = false).apply {
+                    setBounds((cx - size / 2).toInt(), (cy - size / 2).toInt(), (cx + size / 2).toInt(), (cy + size / 2).toInt())
+                }.draw(c)
+                icon = 0xFF000000.toInt()
+            }
+            else -> {
+                p.color = ColorUtils.setAlphaComponent(t.surf, 217)
+                c.drawCircle(cx, cy, size / 2, p)
+                p.style = android.graphics.Paint.Style.STROKE
+                p.strokeWidth = 1.5f * u
+                p.color = t.acc
+                c.drawCircle(cx, cy, size / 2 - .75f * u, p)
+                icon = t.acc
+            }
+        }
+        // Значок питания: кольцо без верхней четверти и черта сверху.
+        p.style = android.graphics.Paint.Style.STROKE
+        p.strokeWidth = 1.8f * u
+        p.strokeCap = android.graphics.Paint.Cap.ROUND
+        p.color = icon
+        val ring = 4.1f * u
+        c.drawArc(cx - ring, cy - ring, cx + ring, cy + ring, -45f, 270f, false, p)
+        // Черта — ::after высотой 6px с верхом на 4px выше внутреннего края кольца.
+        c.drawLine(cx, cy - 7.2f * u + .9f * u, cx, cy - 1.2f * u - .9f * u, p)
+
+        c.drawText(text, cx - label.measureText(text) / 2, top + size + 4 * u + label.textSize * .9f, label)
     }
 }

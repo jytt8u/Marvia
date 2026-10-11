@@ -28,7 +28,7 @@ object ConnectionAppearance {
             height = px(if (signal) 22 else 0)
             weight = if (signal) 0f else 1f
         }
-        ui.halo.isVisible = !ui.powerAction.dottedPower
+        ui.halo.isVisible = !ui.powerAction.dottedPower && !ui.powerAction.square
     }
 
     fun header(ui: ScreenConnectBinding, style: AppearanceStyle) {

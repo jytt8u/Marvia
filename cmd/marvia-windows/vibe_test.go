@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -111,5 +113,88 @@ func TestEveryVibeWallpaperIsDrawn(t *testing.T) {
 		if !regexp.MustCompile(`\b` + w[1] + `\b`).MatchString(drawers) {
 			t.Errorf("обои %q названы, но не нарисованы", w[1])
 		}
+	}
+}
+
+// Размытие на обоях не срезается прямоугольником. Область фильтра по
+// умолчанию — рамка фигур плюс 10%, без толщины обводки и хвоста размытия, и
+// всё за ней браузер обрезает ровно: у сияния arctic так появлялись прямые
+// края поперёк неба. Поэтому область у каждого фильтра указана явно: в
+// координатах листа — на весь лист, от рамки фигур — шире, чем по умолчанию.
+// Обои строит скрипт, поэтому рисуем их им же через node, если он есть.
+func TestWallpaperBlurIsNotCutToARectangle(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("нет node — нарисовать обои нечем")
+	}
+	raw, err := os.ReadFile("ui/app.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := strings.ReplaceAll(string(raw), "\r\n", "\n")
+	start := strings.Index(page, "const WALLS = (() => {")
+	if start < 0 {
+		t.Fatal("в странице нет рисовальщиков обоев")
+	}
+	end := start + strings.Index(page[start:], "\n})();") + len("\n})();")
+	vibes := strings.Index(page, "const VIBES = {")
+	var names []string
+	for _, w := range regexp.MustCompile(`wall: "([a-zA-Z]+)"`).FindAllStringSubmatch(page[vibes:vibes+strings.Index(page[vibes:], "\n};")], -1) {
+		names = append(names, w[1])
+	}
+	list, _ := json.Marshal(names)
+	script := page[start:end] + `
+const out = {};
+for (const n of ` + string(list) + `) { const u = WALLS.url(n); out[n] = decodeURIComponent(u.slice(u.indexOf(",") + 1, -2)); }
+process.stdout.write(JSON.stringify(out));
+`
+	file := filepath.Join(t.TempDir(), "walls.js")
+	if err := os.WriteFile(file, []byte(script), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command(node, file).Output()
+	if err != nil {
+		t.Fatalf("обои не рисуются: %v", err)
+	}
+	var walls map[string]string
+	if err := json.Unmarshal(out, &walls); err != nil {
+		t.Fatal(err)
+	}
+
+	num := func(s string) float64 {
+		v, err := strconv.ParseFloat(strings.TrimSuffix(s, "%"), 64)
+		if err != nil {
+			return 0
+		}
+		if strings.HasSuffix(s, "%") {
+			v /= 100
+		}
+		return v
+	}
+	attr := regexp.MustCompile(`([a-zA-Z]+)="([^"]*)"`)
+	filters := 0
+	for name, svg := range walls {
+		for _, tag := range regexp.MustCompile(`<filter\b[^>]*>`).FindAllString(svg, -1) {
+			filters++
+			a := map[string]string{}
+			for _, m := range attr.FindAllStringSubmatch(tag, -1) {
+				a[m[1]] = m[2]
+			}
+			if a["x"] == "" || a["y"] == "" || a["width"] == "" || a["height"] == "" {
+				t.Errorf("обои %q: у размытия нет своей области, и браузер срежет его по рамке фигур: %s", name, tag)
+				continue
+			}
+			x, y, w, h := num(a["x"]), num(a["y"]), num(a["width"]), num(a["height"])
+			if a["filterUnits"] == "userSpaceOnUse" {
+				if x > 0 || y > 0 || x+w < 1600 || y+h < 1000 {
+					t.Errorf("обои %q: область размытия не покрывает лист 1600×1000: %s", name, tag)
+				}
+			} else if x >= -0.1 || y >= -0.1 || x+w <= 1.1 || y+h <= 1.1 {
+				t.Errorf("обои %q: область размытия не шире той, что по умолчанию: %s", name, tag)
+			}
+		}
+	}
+	if filters < 3 {
+		t.Fatalf("размытий на обоях подозрительно мало: %d", filters)
 	}
 }

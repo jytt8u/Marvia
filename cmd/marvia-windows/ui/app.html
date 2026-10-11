@@ -823,8 +823,6 @@
     transition: scale 1.6s var(--ease), filter 1.6s var(--ease), translate .6s var(--ease); }
   body[data-wall="1"] #wall { display: block; }
   body.custom-bg #wall { display: none; }
-  body[data-state="connecting"] #wall { scale: 1.02; }
-  body[data-state="connected"] #wall { scale: 1.045; filter: saturate(1.2) brightness(1.06); }
   body[data-motion="lively"][data-wall="1"] #wall { animation: wall-drift 40s ease-in-out infinite alternate; }
   @keyframes wall-drift { to { background-position: calc(50% + 40px) calc(50% - 16px); } }
   @media (prefers-reduced-motion: reduce) { #wall { transition: none; animation: none !important; } }
@@ -835,6 +833,10 @@
      тоже тянут: это всё ещё наше окно. */
   .win { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
   body[data-frame="1"] .app { padding: 18px; }
+  /* Развёрнутое окно — просто окно во весь экран: рамка стола вокруг него
+     выглядела режимом показа, из которого не выйти. */
+  body[data-frame="1"][data-max="1"] .app { padding: 0; }
+  body[data-frame="1"][data-max="1"] .win { border-radius: 0; border: 0; box-shadow: none; }
   body[data-frame="1"] .win { overflow: hidden; border-radius: var(--winR, 10px); background: var(--wallVeil);
     box-shadow: 0 26px 60px -24px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.22); }
   /* Орбита с точками вокруг кнопки — наша деталь; в системных образах её нет. */
@@ -910,11 +912,12 @@
   body[data-shell="mac"] .power svg { color: var(--fg); }
   body[data-shell="mac"] .power[data-state="connected"] { background: color-mix(in srgb, var(--acc) 38%, transparent); }
   body[data-shell="mac"] .power[data-state="connected"] svg { color: #fff; }
-  /* Блик идёт за курсором: один и тот же свет на всех стёклах окна. */
+  /* Блик — неподвижный свет сверху. Пятно, бегавшее за курсором, читалось
+     как сбой отрисовки, а не как стекло. */
   body[data-shell="mac"] aside::after, body[data-shell="mac"] .card::after, body[data-shell="mac"] .kpi::after,
   body[data-shell="mac"] .node::after, body[data-shell="mac"] .power::after {
     content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-    background: radial-gradient(320px circle at var(--mx, -999px) var(--my, -999px), rgba(255,255,255,.14), transparent 70%) fixed; }
+    background: linear-gradient(180deg, rgba(255,255,255,.10), transparent 38%); }
   body[data-shell="mac"] .primary, body[data-shell="mac"] .chip, body[data-shell="mac"] .pillb { border-radius: 999px; }
 
   /* Windows XP: синий глянцевый заголовок, панель задач слева, зелёная
@@ -1995,7 +1998,7 @@ const T = {
       gruvbox: ["Gruvbox", "Тёплый ретро-терминал на закате"],
     },
     vibeGroups: { all: "Все", marvia: "Наши", windows: "Windows", mac: "macOS", linux: "Linux" },
-    win: { min: "Свернуть", max: "Развернуть", restore: "Восстановить", close: "Закрыть" },
+    win: { min: "Свернуть", max: "Развернуть", restore: "Восстановить", close: "Закрыть программу", toTray: "Спрятать в трей — выйти можно из меню значка у часов" },
     themeBase: "Основа", themePickAccent: "Свой акцент — любой цвет", themePickTint: "Свой оттенок света",
     fineColors: "Цвета", finePattern: "Узор фона", fineShape: "Форма", fineType: "Шрифт и знак",
     fineResetAll: "Вернуть настройки образа",
@@ -2248,7 +2251,7 @@ const T = {
       gruvbox: ["Gruvbox", "A warm retro terminal at sunset"],
     },
     vibeGroups: { all: "All", marvia: "Ours", windows: "Windows", mac: "macOS", linux: "Linux" },
-    win: { min: "Minimise", max: "Maximise", restore: "Restore", close: "Close" },
+    win: { min: "Minimise", max: "Maximise", restore: "Restore", close: "Quit the program", toTray: "Hide to the tray — quit from the icon's menu by the clock" },
     themeBase: "Base", themePickAccent: "Your own accent — any colour", themePickTint: "Your own light tint",
     fineColors: "Colours", finePattern: "Background pattern", fineShape: "Shape", fineType: "Type and mark",
     fineResetAll: "Restore the vibe's settings",
@@ -2576,11 +2579,14 @@ on("w-hide", "click", () => api("POST", "api/window", { mode: "hide" }).catch(()
 // должно начаться, пока кнопка мыши ещё нажата. В браузере, где окна нет,
 // кнопки молчат, а не падают.
 const winAct = (a) => (window.marviaWindow ? window.marviaWindow(a) : Promise.resolve(false));
+// Что сделает крестик — по настройке «Программа → Крестик»; узнаём у программы.
+var closeQuitsNow = false;
 window.marviaMax = (on) => { document.body.dataset.max = on ? "1" : ""; paintWinLabels(); };
 function paintWinLabels() {
   const d = L(), max = document.body.dataset.max === "1";
   for (const b of document.querySelectorAll("[data-win]")) {
-    const label = d.win[b.dataset.win === "max" && max ? "restore" : b.dataset.win];
+    const key = b.dataset.win === "max" && max ? "restore" : b.dataset.win === "close" && !closeQuitsNow ? "toTray" : b.dataset.win;
+    const label = d.win[key];
     b.setAttribute("aria-label", label);
     b.title = label;
   }
@@ -2610,24 +2616,6 @@ for (const b of document.querySelectorAll("[data-win]")) b.addEventListener("cli
   bar.addEventListener("dblclick", (e) => { if (!e.target.closest("button, input, a")) winAct("max"); });
   $("grip-top").addEventListener("mousedown", (e) => { if (e.button === 0) { e.preventDefault(); winAct("top"); } });
   winAct("state").then((m) => window.marviaMax(m)).catch(() => {});
-}
-// Обои отвечают на руку: слой чуть смещается навстречу курсору, а блик на
-// стёклах идёт за ним. Не чаще кадра и только когда движение не выключено.
-{
-  const wall = $("wall"), root = document.documentElement;
-  let raf = 0, mx = 0, my = 0;
-  addEventListener("mousemove", (e) => {
-    mx = e.clientX; my = e.clientY;
-    if (raf) return;
-    raf = requestAnimationFrame(() => {
-      raf = 0;
-      root.style.setProperty("--mx", mx + "px");
-      root.style.setProperty("--my", my + "px");
-      if (motion() === "off" || document.body.dataset.wall !== "1") { wall.style.translate = ""; return; }
-      const dx = (mx / innerWidth - 0.5) * -18, dy = (my / innerHeight - 0.5) * -12;
-      wall.style.translate = dx.toFixed(1) + "px " + dy.toFixed(1) + "px";
-    });
-  });
 }
 
 /* ------------------------------------------------------------------ тема */
@@ -3514,6 +3502,8 @@ async function paintClose() {
   try {
     const c = await api("GET", "api/close");
     for (const b of $("close-pick").querySelectorAll("[data-quit]")) b.setAttribute("aria-pressed", String(b.dataset.quit === String(!!c.quit)));
+    closeQuitsNow = !!c.quit;
+    paintWinLabels();
   } catch (_) { /* покажем при следующем заходе */ }
 }
 for (const b of $("close-pick").querySelectorAll("[data-quit]")) {

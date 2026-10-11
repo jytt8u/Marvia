@@ -47,9 +47,13 @@ type Status struct {
 	Node    string `json:"node"`
 	Address string `json:"address"`
 	PingMS  int64  `json:"ping_ms"`
-	Up      int64  `json:"up"`
-	Down    int64  `json:"down"`
-	Reason  string `json:"reason,omitempty"`
+	// Transport — чем идём до ноды: tls, reality, ws или quic. Пусто без
+	// туннеля. Окно показывает его в обзоре — «как именно я подключён» —
+	// вопрос, на который раньше отвечал только журнал.
+	Transport string `json:"transport,omitempty"`
+	Up        int64  `json:"up"`
+	Down      int64  `json:"down"`
+	Reason    string `json:"reason,omitempty"`
 
 	// Подписка: до какого числа и сколько трафика осталось. Пустые значения
 	// означают, что продавец не поставил ни срока, ни квоты, — врать про
@@ -104,6 +108,7 @@ type Controller struct {
 	connectCtx    context.Context
 	state         State
 	node          client.Node
+	mtuInUse      uint32
 	ping          time.Duration
 	reason        string
 
@@ -231,6 +236,7 @@ func (c *Controller) Status() Status {
 		State:      c.state,
 		Node:       c.node.Title(),
 		Address:    c.node.Address,
+		Transport:  transportOf(c.node),
 		PingMS:     pingMS,
 		Up:         max(0, c.up.Load()-c.baseUp),
 		Down:       max(0, c.down.Load()-c.baseDown),
@@ -251,6 +257,18 @@ func (c *Controller) Status() Status {
 		ProxyEnv:   c.proxy.FromEnv,
 		Seller:     sellerView(c.subscriptionLocked(), c.reminded, time.Now()),
 	}
+}
+
+// transportOf — способ связи с нодой для обзора. QUIC у ноды с TLS — первый
+// выбор дозвона; при закрытом UDP он сам уходит на TCP, и это видно в журнале.
+func transportOf(n client.Node) string {
+	if n.Address == "" {
+		return ""
+	}
+	if n.QUIC && n.Transport() == client.TransportTLS {
+		return "quic"
+	}
+	return string(n.Transport())
 }
 
 // OpenUpdate открывает ссылку на новую версию в браузере.
@@ -535,6 +553,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	// запасной, для поддержки и отладки.
 	c.mu.Lock()
 	dns := c.settings.resolver(c.dns)
+	mtu := c.settings.mtu(c.mtu)
 	c.mu.Unlock()
 	dnsAddr, err := dnsAddress(dns)
 	if err != nil {
@@ -545,7 +564,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	c.log.add("%s", say("logAdapter"))
 	adapter, err := wintun.Open(wintun.Config{
 		Name:    adapterName,
-		MTU:     c.mtu,
+		MTU:     mtu,
 		Address: address,
 		DNS:     dnsAddr,
 	})
@@ -567,7 +586,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	}
 	bridge, err := tunbridge.Start(tunbridge.Config{
 		Endpoint: adapter.Endpoint(),
-		MTU:      c.mtu,
+		MTU:      mtu,
 		Dialer:   tunbridge.Split(tunnel, localNetwork, c.around),
 		DNS:      dns,
 		Names:    names,
@@ -591,6 +610,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	c.dialer, c.adapter, c.bridge = dialer, adapter, bridge
 	c.node, c.ping = node, ping
 	c.dnsInUse = dnsAddr.String()
+	c.mtuInUse = mtu
 	c.dnsSecureInUse = boolPtr(names != nil)
 	c.fragmentInUse = &set.Fragment
 	c.ipv6InUse = boolPtr(!set.IPv6Off)
@@ -657,6 +677,7 @@ func (c *Controller) Disconnect() {
 	c.reason = ""
 	c.node = client.Node{}
 	c.dnsInUse = ""
+	c.mtuInUse = 0
 	c.dnsSecureInUse = nil
 	c.fragmentInUse = nil
 	c.ipv6InUse = nil

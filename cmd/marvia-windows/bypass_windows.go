@@ -141,6 +141,9 @@ func (c *Controller) Settings() SettingsView {
 		IPv6:           !c.settings.IPv6Off,
 		IPv6InUse:      c.ipv6InUse,
 		Reports:        !c.settings.ReportsOff,
+		MTU:            c.settings.MTU,
+		MTUDefault:     c.mtu,
+		MTUInUse:       c.mtuInUse,
 	}
 }
 
@@ -173,6 +176,13 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	}
 	if p.DNSSecure != nil {
 		next.DNSPlain = !*p.DNSSecure
+	}
+	if p.MTU != nil {
+		if err := checkMTU(*p.MTU); err != nil {
+			c.mu.Unlock()
+			return c.Settings(), errors.New(say(err.Error()))
+		}
+		next.MTU = *p.MTU
 	}
 	if p.DNS != nil {
 		want := strings.TrimSpace(*p.DNS)

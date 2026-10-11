@@ -31,6 +31,8 @@ type trafficSnapshot struct {
 	// туннель не поднимался: пропуск в графике читался бы как «этого дня не
 	// было», а он был, просто без расхода.
 	Week []trafficDayTotal `json:"week"`
+	// Month — то же за тридцать суток: столько книга и хранит.
+	Month []trafficDayTotal `json:"month"`
 }
 
 // trafficDayTotal — итог одних суток для недельного графика.
@@ -163,15 +165,18 @@ func (s *trafficStats) snapshot(now time.Time) trafficSnapshot {
 	if d, ok := byDay[now.Format("2006-01-02")]; ok {
 		day = d
 	}
-	week := make([]trafficDayTotal, 0, weekDays)
-	for i := weekDays - 1; i >= 0; i-- {
-		name := now.AddDate(0, 0, -i).Format("2006-01-02")
-		d := byDay[name]
-		week = append(week, trafficDayTotal{Day: name, Up: d.Up, Down: d.Down})
+	days := func(n int) []trafficDayTotal {
+		out := make([]trafficDayTotal, 0, n)
+		for i := n - 1; i >= 0; i-- {
+			name := now.AddDate(0, 0, -i).Format("2006-01-02")
+			d := byDay[name]
+			out = append(out, trafficDayTotal{Day: name, Up: d.Up, Down: d.Down})
+		}
+		return out
 	}
 	return trafficSnapshot{TodayUp: day.Up, TodayDown: day.Down, Hours: day.Hours,
 		RateUp: s.rateUp, RateDown: s.rateDown, PeakUp: s.peakUp, PeakDown: s.peakDown,
-		Week: week}
+		Week: days(weekDays), Month: days(trafficKeepDays)}
 }
 
 func (s *trafficStats) resetRates(now time.Time, up, down int64) {

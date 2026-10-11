@@ -116,3 +116,30 @@ func TestOldOneDayFileStillReads(t *testing.T) {
 		t.Errorf("после чистки: %+v", fixed.days)
 	}
 }
+
+// Окно показывает месяц: тридцать суток по порядку, сегодняшние последние,
+// с нулями там, где туннеля не было, — те же дни, что и в неделе.
+func TestMonthShowsThirtyDaysEndingTodayAndAgreesWithWeek(t *testing.T) {
+	start := time.Date(2026, 9, 1, 12, 0, 0, 0, time.Local)
+	var stats trafficStats
+	var down int64
+	for _, day := range []int{0, 12, 29} {
+		at := start.AddDate(0, 0, day)
+		stats.sample(at, 0, down)
+		down += 1000
+		stats.sample(at.Add(5*time.Second), 0, down)
+	}
+	now := start.AddDate(0, 0, 29)
+	snap := stats.snapshot(now)
+	if len(snap.Month) != trafficKeepDays || snap.Month[0].Day != "2026-09-01" || snap.Month[29].Day != "2026-09-30" {
+		t.Fatalf("месяц: %d суток, с %s по %s", len(snap.Month), snap.Month[0].Day, snap.Month[len(snap.Month)-1].Day)
+	}
+	if snap.Month[12].Down != 1000 || snap.Month[1].Down != 0 {
+		t.Errorf("сутки месяца: 13-е %d, 2-е %d", snap.Month[12].Down, snap.Month[1].Down)
+	}
+	for i, w := range snap.Week {
+		if snap.Month[len(snap.Month)-len(snap.Week)+i] != w {
+			t.Errorf("неделя и хвост месяца расходятся в %s", w.Day)
+		}
+	}
+}

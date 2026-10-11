@@ -63,11 +63,45 @@ type pcSettings struct {
 	// для ключа Marvia: чужим панелям отчёты не шлются вовсе. Хранится как
 	// «выключено», чтобы умолчание — отправлять, как на телефоне, — было нулём.
 	ReportsOff bool `json:"reports_off,omitempty"`
+	// MTU — размер пакета на адаптере; ноль — как в программе по умолчанию.
+	// Нужен там, где провайдер или чужой туннель снаружи режет крупные
+	// пакеты: сайты открываются наполовину, а меньший MTU это лечит.
+	MTU uint32 `json:"mtu,omitempty"`
+}
+
+// mtuMin и mtuMax — пределы своего MTU. Ниже 1280 IPv6 по стандарту не
+// работает вовсе, выше 1500 — уже не обычная сеть, а то, чего у
+// домашнего провайдера не бывает.
+const (
+	mtuMin = 1280
+	mtuMax = 1500
+)
+
+// checkMTU — ноль (по умолчанию) или число в пределах.
+func checkMTU(v uint32) error {
+	if v != 0 && (v < mtuMin || v > mtuMax) {
+		return errors.New("mtuRange")
+	}
+	return nil
+}
+
+// mtu — действующий размер: свой или программы.
+func (s pcSettings) mtu(def uint32) uint32 {
+	if s.MTU != 0 {
+		return s.MTU
+	}
+	return def
 }
 
 // SettingsView — настройки подключения и правда о них для окна.
 type SettingsView struct {
-	BypassRussian bool `json:"bypass_russian"`
+	// MTU — выбранный (ноль — по умолчанию), MTUDefault — какой это, MTUInUse —
+	// с каким поднят адаптер: размер ставится вместе с ним и меняется со
+	// следующего подключения.
+	MTU           uint32 `json:"mtu"`
+	MTUDefault    uint32 `json:"mtu_default"`
+	MTUInUse      uint32 `json:"mtu_in_use,omitempty"`
+	BypassRussian bool   `json:"bypass_russian"`
 
 	// RuCount — сколько российских подсетей сейчас уводится мимо туннеля;
 	// RuError — почему список не скачался. Оба нужны под переключателем.
@@ -107,6 +141,7 @@ type SettingsView struct {
 
 // SettingsPatch — что окно просит поменять; nil — не трогать.
 type SettingsPatch struct {
+	MTU           *uint32 `json:"mtu"`
 	BypassRussian *bool   `json:"bypass_russian"`
 	LANOutside    *bool   `json:"lan_outside"`
 	DNS           *string `json:"dns"`

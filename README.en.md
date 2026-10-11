@@ -104,7 +104,7 @@ VP1 is not compatible with WireGuard or Xray clients.
 | Client | Server |
 |---|---|
 | Android: Marvia and third-party keys, node selection, usage and VPN settings, name lookups over HTTPS hidden from the node, seller's Renew and Support | Panel and nodes: limits, accounting, plans and two-click renewal, QR code and Telegram text, backups, bot API, migration from Marzban and 3x-ui; support and renew links and an announcement in the subscription for Happ, v2RayTun, Hiddify |
-| Windows: TUN client, Russian sites and home network directly, DNS choice and encrypted name lookups, split TLS hello, several keys, weekly traffic, IPv6 and reports switches, seller's Support and Renew | VP1, VLESS and Trojan; verified node updates |
+| Windows: TUN client, Russian sites and home network directly, DNS choice and encrypted name lookups, split TLS hello, several keys, weekly and monthly traffic, custom MTU, a status and promises overview in settings, IPv6 and reports switches, seller's Support and Renew | VP1, VLESS and Trojan; verified node updates |
 
 Manually selected nodes connect without waiting for measurements of every
 other node. If the selected node is unavailable, the client checks fallbacks.
@@ -189,7 +189,7 @@ client in the panel. [Full guide (Russian)](docs/guide.md) · [Bot API](docs/bot
   Shadowsocks, Vision links, or MySQL and PostgreSQL databases.
 - iOS, importing Clash/sing-box subscriptions in our apps, TUIC, Shadowsocks plugins, and per-device
   revocation when a key is shared.
-- On Windows: apps around the tunnel, a kill switch, monthly statistics and
+- On Windows: apps around the tunnel, a kill switch and
   reading a key from a QR image — for now these exist on the phone only.
 - Encrypted name lookups (DoH) are covered by tests but not yet checked on a
   real phone and PC. They hide names from the node, not site addresses or the

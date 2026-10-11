@@ -127,3 +127,29 @@ func TestNamesAreEncryptedByDefaultExceptPlainChoiceOrOwnAddress(t *testing.T) {
 		t.Fatal("свой адрес выдан за шифрованный")
 	}
 }
+
+// Свой MTU — только в разумных пределах: меньше 1280 IPv6 не работает
+// вовсе, больше 1500 у домашней сети не бывает. Ноль — «как по умолчанию».
+// Выбор переживает перезапуск.
+func TestOwnMTUStaysInSaneBoundsAndSurvivesRestart(t *testing.T) {
+	for _, bad := range []uint32{1, 576, 1279, 1501, 9000} {
+		if checkMTU(bad) == nil {
+			t.Errorf("MTU %d принят", bad)
+		}
+	}
+	for _, good := range []uint32{0, 1280, 1420, 1500} {
+		if err := checkMTU(good); err != nil {
+			t.Errorf("MTU %d отвергнут: %v", good, err)
+		}
+	}
+	if got := (pcSettings{}).mtu(1500); got != 1500 {
+		t.Errorf("без своего MTU взят %d вместо умолчания", got)
+	}
+	dir := t.TempDir()
+	if err := saveSettings(dir, pcSettings{MTU: 1380}); err != nil {
+		t.Fatal(err)
+	}
+	if got := loadSettings(dir).mtu(1500); got != 1380 {
+		t.Errorf("после перезапуска MTU %d, а выбран 1380", got)
+	}
+}

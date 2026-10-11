@@ -1073,6 +1073,42 @@
   body[data-shell="tile"] .power[data-state="connected"] { background: radial-gradient(circle at 38% 30%, var(--surf2), var(--surf) 60%);
     box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--acc), 0 0 40px -6px rgba(var(--accRgb), .6); }
 
+  /* ───── Обзор: живое состояние и обещания ─────
+     Технические значения — моноширинным, как в журнале, но каждое с
+     человеческой строкой под ним: что это значит для вас. Полоска слева —
+     состояние: работает, ждёт подключения, требует внимания. */
+  .ov-sum { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--r);
+    background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine); font-size: 13.5px; font-weight: 600; color: var(--fg); }
+  .ov-sum i { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--line); }
+  .ov-sum[data-st="ok"] i { background: #2fbf7a; box-shadow: 0 0 0 4px rgba(47,191,122,.18); }
+  .ov-sum[data-st="warn"] i { background: var(--warn); box-shadow: 0 0 0 4px rgba(242,160,61,.2); }
+  .ov-sum[data-st="idle"] i { background: var(--dim); }
+  .ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .ov { position: relative; padding: 11px 14px 12px 17px; border-radius: var(--r); min-width: 0; overflow: hidden;
+    background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine); display: flex; flex-direction: column; gap: 3px; }
+  .ov::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--line); }
+  .ov[data-st="ok"]::before { background: #2fbf7a; }
+  .ov[data-st="warn"]::before { background: var(--warn); }
+  .ov[data-st="idle"]::before { background: color-mix(in srgb, var(--dim) 60%, transparent); }
+  .ov .k { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .ov .v { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ov .s { font-size: 11.5px; line-height: 1.4; color: var(--dim); }
+  .set-head .h3 { font-size: 17px; margin-top: 10px; }
+  .promises { display: flex; flex-direction: column; gap: 6px; }
+  .prom { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 2px 14px; align-items: start; padding: 12px 14px; border-radius: var(--r);
+    background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine); }
+  .prom .st { grid-row: span 2; justify-self: start; font-family: var(--mono); font-size: 10.5px; letter-spacing: .03em; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .prom[data-st="ok"] .st { background: rgba(47,191,122,.14); color: color-mix(in srgb, #2fbf7a 80%, var(--fg)); }
+  .prom[data-st="wait"] .st { background: var(--accSoft); color: var(--acc); }
+  .prom[data-st="off"] .st { background: color-mix(in srgb, var(--fg) 8%, transparent); color: var(--dim); }
+  .prom[data-st="no"] .st { background: rgba(242,160,61,.14); color: var(--warn); }
+  .prom b { font-size: 13.5px; font-weight: 600; color: var(--fg); }
+  .prom p { margin: 0; font-size: 12px; line-height: 1.45; color: var(--dim); }
+  /* Строки «в работе: …» под настройками — моноширинным: это значения, а не
+     пояснения, и глазу проще отличить одно от другого. */
+  .rows .sub[id$="-msg"]:not(:empty) { font-family: var(--mono); font-size: 11px; color: var(--acc); }
+  .span-pick .chip { min-height: 26px; padding: 0 10px; font-size: 11.5px; }
+
   /* ───── Миниатюры: обои и маленькое окно образа ───── */
   .vibes { grid-auto-columns: 226px; }
   .vibe-art { position: relative; height: 128px; border-radius: calc(var(--r) + 2px); overflow: hidden; display: block;
@@ -1369,7 +1405,12 @@
               накопительный итог, и подённой истории покупателя она не ведёт.
             -->
             <div class="card daily">
-              <div class="card-head"><b data-t="weekTraffic"></b><span class="mono" id="week-total">—</span></div>
+              <div class="card-head"><b id="span-title"></b><span class="mono" id="week-total">—</span></div>
+              <!-- Неделя или месяц: книга хранит тридцать суток. -->
+              <div class="pick span-pick" id="span-pick">
+                <button class="chip" type="button" data-span="7" aria-pressed="true"></button>
+                <button class="chip" type="button" data-span="30" aria-pressed="false"></button>
+              </div>
               <div class="daily-bars" id="week-bars" role="img"></div>
               <div class="axis week-axis" id="week-axis"></div>
               <div class="session-extra">
@@ -1523,6 +1564,7 @@
           -->
           <nav class="set-nav" id="set-nav">
             <i class="set-pill" id="set-pill"></i>
+            <button type="button" data-sec="overview"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><span class="set-txt"><b data-t="secOverTitle"></b><small id="ov-nav"></small></span></button>
             <button type="button" data-sec="key"><span class="set-ico"><svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg></span><span class="set-txt"><b data-t="secKeyTitle"></b><small data-t="secKeySub"></small></span></button>
             <button type="button" data-sec="conn"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="set-txt"><b data-t="secConnTitle"></b><small data-t="secConnSub"></small></span></button>
             <button type="button" data-sec="look"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/></svg></span><span class="set-txt"><b data-t="secLookTitle"></b><small data-t="secLookSub"></small></span></button>
@@ -1532,6 +1574,19 @@
           </nav>
           <div class="set-panes" id="set-panes">
           <div class="col">
+            <!--
+              Обзор: что сейчас на самом деле работает — теми же данными, что
+              у программы, а не пересказом. И честный список обещаний: что
+              уже есть, что включается при подключении, чего на Windows пока
+              нет. «Чего нет» здесь — то же, что в README.
+            -->
+            <div class="group" data-sec="overview">
+              <div class="set-head"><h2 data-t="secOverTitle"></h2><p data-t="secOverDesc"></p></div>
+              <div class="ov-sum" id="ov-sum"><i></i><span id="ov-sum-text"></span></div>
+              <div class="ov-grid" id="ov-grid"></div>
+              <div class="set-head"><h2 class="h3" data-t="promTitle"></h2><p data-t="promDesc"></p></div>
+              <div class="promises" id="promises"></div>
+            </div>
             <div class="group" data-sec="key">
               <div class="set-head"><h2 data-t="secKeyTitle"></h2><p data-t="secKeyDesc"></p></div>
               <div class="card keycard">
@@ -1637,6 +1692,21 @@
                   Резолвер: те же четыре, что на телефоне, и свой адрес. Сами
                   запросы имён идут через туннель при любом выборе.
                 -->
+                <!--
+                  MTU — размер пакета на адаптере. Помогает там, где снаружи
+                  режут крупные пакеты и сайты открываются наполовину.
+                -->
+                <div class="stack">
+                  <div class="grow"><span class="name" data-t="mtuName"></span><span class="sub" data-t="mtuHint"></span><span class="sub" id="mtu-msg"></span></div>
+                  <div class="pick" id="mtu-pick">
+                    <button class="chip" type="button" data-mtu="0" aria-pressed="false"></button>
+                    <button class="chip" type="button" data-mtu="1420" aria-pressed="false">1420</button>
+                    <button class="chip" type="button" data-mtu="1380" aria-pressed="false">1380</button>
+                    <button class="chip" type="button" data-mtu="1280" aria-pressed="false">1280</button>
+                    <input type="text" class="code-in" id="mtu-custom" autocomplete="off" spellcheck="false" inputmode="numeric" maxlength="4">
+                    <button class="chip" id="mtu-save" type="button" data-t="mtuSave"></button>
+                  </div>
+                </div>
                 <div class="stack">
                   <div class="grow"><span class="name" data-t="dnsTitle"></span><span class="sub" data-t="dnsHint"></span><span class="sub" id="dns-msg"></span></div>
                   <div class="pick" id="dns-pick">
@@ -1947,6 +2017,36 @@ const T = {
     },
     settingsLook: "Вид и звук",
     vibeDrag: "← тяните мышью →",
+    secOverTitle: "Обзор",
+    secOverDesc: "Что работает прямо сейчас — теми же данными, что у программы. Ниже — что Marvia обещает и что из этого есть на этом компьютере.",
+    ov: { tunnel: "Туннель", tunnelOff: "трафик идёт напрямую", proto: "Протокол", protoOn: "Noise-сессия внутри транспорта", protoOff: "транспорт выберется при подключении",
+      crypto: "Шифрование", ping: "Отклик ноды", pingOn: "время ответа ноды", pingOff: "замер — при подключении",
+      dns: "Имена (DNS)", dnsSecure: "по HTTPS внутри туннеля: нода не видит имён", dnsPlain: "внутри туннеля, без шифрования имён", dnsOff: "резолвер для туннеля",
+      adapter: "Адаптер", ipv6On: "IPv6 идёт через туннель", ipv6Off: "IPv6 в туннель не пускается",
+      routes: "Маршруты", ruDirect: "Россия · {n} сетей", ruSub: "напрямую, мимо туннеля", allTunnel: "всё через туннель", lanDirect: "домашняя сеть — напрямую", lanTunnel: "домашняя сеть — через туннель",
+      proxy: "Системный прокси", none: "нет", proxyOk: "ничего не перехватывает трафик", proxyWarn: "проверьте: прокси может вести мимо туннеля",
+      rights: "Права", admin: "администратор", noAdmin: "без прав", adminOk: "можно поднять адаптер", adminWarn: "туннель не поднимется — перезапустите от администратора",
+      version: "Версия", updateNo: "новее у продавца нет", updateYes: "у продавца есть {v}",
+      sumOk: "Всё работает", sumIdle: "Туннель выключен — проверки оживут при подключении", sumWarn: "Требует внимания: {n}" },
+    promTitle: "Что обещано и что работает",
+    promDesc: "Честный список: что уже есть, что включается при подключении и чего на Windows пока нет.",
+    promSt: { ok: "работает", wait: "при подключении", off: "выключено", no: "пока нет" },
+    prom: {
+      crypto: ["Своей криптографии нет", "Noise из проверенной библиотеки: X25519, ChaCha20-Poly1305, BLAKE2s. Ничего самодельного."],
+      nodekey: ["Ключ ноды проверяется при каждом подключении", "Рукопожатие Noise IK не сойдётся с подменённой нодой, даже если внешний TLS подделан."],
+      dnsIn: ["Запросы имён идут внутри туннеля", "Резолвер стоит на адаптере туннеля: провайдер не видит, какие сайты вы ищете."],
+      doh: ["Имена скрыты и от ноды", "С известным резолвером запросы уходят по HTTPS внутри туннеля. Проверено тестами, на живом компьютере — ещё нет."],
+      failover: ["Переезд с замолчавшей ноды", "Если соединение замёрзло, клиент уезжает на живую ноду примерно за 12 секунд — проверено на стенде."],
+      direct: ["Российские сайты и домашняя сеть — напрямую", "По выбору в «Подключении»: сайты видят ваш обычный адрес, принтер и роутер остаются доступны."],
+      stats: ["Расход за неделю и месяц", "Считает сама программа на этом компьютере; подённая история продавцу не уходит."],
+      killswitch: ["Kill switch", "При обрыве туннеля интернет пока не блокируется — трафик может пойти напрямую. На телефоне это системная настройка Android."],
+      apps: ["Приложения мимо туннеля", "Выбрать программы, которые идут напрямую, на Windows пока нельзя; на телефоне можно."],
+      qr: ["Ключ с картинки QR", "На Windows ключ вставляется ссылкой текстом; QR из галереи и камерой есть на телефоне."],
+    },
+    mtuName: "MTU", mtuHint: "Размер пакета на адаптере. Меньше — если сайты открываются наполовину или зависают на загрузке.",
+    mtuSave: "Применить", mtuAuto: "Авто · {n}", mtuOwn: "своё", mtuNext: "в работе {n} — новое со следующего подключения", mtuBad: "нужно число от 1280 до 1500",
+    inUse: "в работе",
+    monthTraffic: "Трафик за месяц", spanWeek: "7 дней", spanMonth: "30 дней",
     secKeyTitle: "Ключ доступа", secKeySub: "срок, трафик, ключи",
     secKeyDesc: "Ключ от продавца: до какого числа он действует и сколько трафика осталось. Здесь же — запасные ключи.",
     secConnTitle: "Подключение", secConnSub: "что идёт мимо туннеля, DNS",
@@ -2170,6 +2270,36 @@ const T = {
     },
     settingsLook: "Look and sound",
     vibeDrag: "← drag with the mouse →",
+    secOverTitle: "Overview",
+    secOverDesc: "What is working right now, from the same data the program has. Below: what Marvia promises and what of it exists on this computer.",
+    ov: { tunnel: "Tunnel", tunnelOff: "traffic goes direct", proto: "Protocol", protoOn: "Noise session inside the transport", protoOff: "transport is chosen on connect",
+      crypto: "Encryption", ping: "Node response", pingOn: "node response time", pingOff: "measured on connect",
+      dns: "Names (DNS)", dnsSecure: "over HTTPS inside the tunnel: the node can't see names", dnsPlain: "inside the tunnel, names not encrypted", dnsOff: "resolver for the tunnel",
+      adapter: "Adapter", ipv6On: "IPv6 goes through the tunnel", ipv6Off: "IPv6 is kept out of the tunnel",
+      routes: "Routes", ruDirect: "Russia · {n} nets", ruSub: "direct, around the tunnel", allTunnel: "everything through the tunnel", lanDirect: "home network — direct", lanTunnel: "home network — through the tunnel",
+      proxy: "System proxy", none: "none", proxyOk: "nothing intercepts traffic", proxyWarn: "check it: a proxy may route around the tunnel",
+      rights: "Rights", admin: "administrator", noAdmin: "no rights", adminOk: "the adapter can be created", adminWarn: "the tunnel won't start — run as administrator",
+      version: "Version", updateNo: "nothing newer from the seller", updateYes: "the seller has {v}",
+      sumOk: "Everything works", sumIdle: "The tunnel is off — checks come alive on connect", sumWarn: "Needs attention: {n}" },
+    promTitle: "What is promised and what works",
+    promDesc: "An honest list: what already exists, what turns on with the tunnel, and what Windows doesn't have yet.",
+    promSt: { ok: "works", wait: "on connect", off: "turned off", no: "not yet" },
+    prom: {
+      crypto: ["No home-made cryptography", "Noise from a proven library: X25519, ChaCha20-Poly1305, BLAKE2s. Nothing invented here."],
+      nodekey: ["The node's key is checked on every connection", "A Noise IK handshake won't complete with a fake node, even if the outer TLS is forged."],
+      dnsIn: ["Name lookups go inside the tunnel", "The resolver sits on the tunnel adapter: your ISP can't see which sites you look up."],
+      doh: ["Names hidden from the node too", "With a known resolver, lookups go over HTTPS inside the tunnel. Tested, not yet on a live computer."],
+      failover: ["Moving off a silent node", "If the connection freezes, the client moves to a live node in about 12 seconds — tested on a stand."],
+      direct: ["Russian sites and the home network — direct", "Your choice in Connection: sites see your usual address, the printer and router stay reachable."],
+      stats: ["Traffic for the week and month", "Counted by the program on this computer; the daily history never goes to the seller."],
+      killswitch: ["Kill switch", "If the tunnel drops, the internet isn't blocked yet — traffic may go direct. On the phone it's an Android system setting."],
+      apps: ["Apps around the tunnel", "Choosing programs that go direct isn't possible on Windows yet; on the phone it is."],
+      qr: ["Key from a QR image", "On Windows the key is pasted as a link; QR from the gallery and camera is on the phone."],
+    },
+    mtuName: "MTU", mtuHint: "Packet size on the adapter. Lower it if sites load halfway or hang while loading.",
+    mtuSave: "Apply", mtuAuto: "Auto · {n}", mtuOwn: "custom", mtuNext: "{n} in use — the new one from the next connection", mtuBad: "a number from 1280 to 1500 is needed",
+    inUse: "in use",
+    monthTraffic: "Traffic this month", spanWeek: "7 days", spanMonth: "30 days",
     secKeyTitle: "Access key", secKeySub: "expiry, traffic, keys",
     secKeyDesc: "The key from your provider: until when it works and how much traffic is left. Spare keys live here too.",
     secConnTitle: "Connection", secConnSub: "what bypasses the tunnel, DNS",
@@ -3099,6 +3229,8 @@ function paintSpark(svg, key, value, live) {
 
 function render(s) {
   const d = L();
+  lastStatus = s;
+  if (openTab === "settings") paintOverview();
   if (window.vibeState) window.vibeState(s.state);
   document.body.dataset.state = s.state;
   $("status").textContent = d.state[s.state] || s.state;
@@ -3190,7 +3322,7 @@ function render(s) {
   $("average-up").textContent = seconds ? mbit((s.up || 0) / seconds) : "—";
   paintDaily($("day-bars"), traffic.hours);
   paintDaily($("w-day-bars"), traffic.hours);
-  paintWeek(traffic.week);
+  paintWeek(traffic);
 
 
   // Виджет — тот же экран в другой шкуре: кнопка, состояние, сессия и
@@ -3236,10 +3368,29 @@ function paintDaily(box, hours) {
 // paintWeek — семь суток столбиками, от старых к сегодняшним. Дни программа
 // присылает уже с нулями там, где туннеля не было, — пропуск читался бы как
 // «этого дня не было».
-function paintWeek(week) {
-  const days = (week || []).map((w) => ({ day: w.day, total: Math.max(0, (w.up || 0) + (w.down || 0)) }));
+// Неделя или месяц — выбор запоминается на этом компьютере.
+var trafficSpan = 7;
+try { trafficSpan = localStorage.getItem("marvia-traffic-span") === "30" ? 30 : 7; } catch (_) { /* неделя */ }
+var lastTraffic = null;
+for (const b of document.querySelectorAll("#span-pick [data-span]")) {
+  b.addEventListener("click", () => {
+    trafficSpan = Number(b.dataset.span);
+    try { localStorage.setItem("marvia-traffic-span", String(trafficSpan)); } catch (_) { /* не запомнится */ }
+    if (lastTraffic) paintWeek(lastTraffic);
+  });
+}
+function paintWeek(traffic) {
+  lastTraffic = traffic;
+  const d = L(), month = trafficSpan === 30;
+  $("span-title").textContent = month ? d.monthTraffic : d.weekTraffic;
+  for (const b of document.querySelectorAll("#span-pick [data-span]")) {
+    b.setAttribute("aria-pressed", String(Number(b.dataset.span) === trafficSpan));
+    b.textContent = b.dataset.span === "30" ? d.spanMonth : d.spanWeek;
+  }
+  const week = (month ? traffic.month : traffic.week) || [];
+  const days = week.map((w) => ({ day: w.day, total: Math.max(0, (w.up || 0) + (w.down || 0)) }));
   const box = $("week-bars");
-  const signature = lang + ":" + days.map((w) => w.day + "=" + w.total).join(",");
+  const signature = lang + ":" + trafficSpan + ":" + days.map((w) => w.day + "=" + w.total).join(",");
   if (box.dataset.values === signature) return;
   box.dataset.values = signature;
   const highest = Math.max(1, ...days.map((w) => w.total));
@@ -3257,16 +3408,19 @@ function paintWeek(week) {
     bar.toggleAttribute("data-current", i === days.length - 1);
     return bar;
   }));
-  $("week-axis").replaceChildren(...days.map((w) => {
+  // У месяца подписан каждый пятый день числом: тридцать названий дней
+  // недели в узкой карточке слились бы в кашу.
+  $("week-axis").replaceChildren(...days.map((w, i) => {
     const s = document.createElement("span");
-    s.textContent = label(w.day);
+    s.textContent = !month ? label(w.day) : (days.length - 1 - i) % 5 === 0 ? String(Number(w.day.slice(8))) : "";
     return s;
   }));
   const total = days.reduce((a, w) => a + w.total, 0);
   $("week-total").textContent = days.length ? bytes(total) : "—";
   $("week-average").textContent = days.length ? bytes(total / days.length) : "—";
   const peak = days.reduce((a, w) => (w.total > a.total ? w : a), { total: 0 });
-  $("week-peak").textContent = peak.total ? label(peak.day) + " · " + bytes(peak.total) : "—";
+  const peakName = month ? Number(peak.day && peak.day.slice(8)) + "." + (peak.day && peak.day.slice(5, 7)) : label(peak.day);
+  $("week-peak").textContent = peak.total ? peakName + " · " + bytes(peak.total) : "—";
 }
 
 // paintKeyCard — заголовок карточки ключа: метка и хост из ссылки.
@@ -3479,8 +3633,80 @@ async function loadConn() {
   try {
     conn = await api("GET", "api/settings");
     paintConn();
+    paintMTU();
+    paintOverview();
   } catch (_) { /* покажем при следующем заходе */ }
 }
+// ── обзор ──
+//
+// Плитки — из тех же данных, что у программы: состояние туннеля и настройки
+// подключения. Ни одна не рисует того, чего программа не знает: нет
+// туннеля — плитка ждёт, а не показывает прошлое.
+var lastStatus = null;
+var TRANSPORTS = { tls: "TLS", reality: "REALITY", ws: "WebSocket", quic: "QUIC" };
+// Обещания и их состояние. «no» — того, что README честно называет
+// отсутствующим на Windows; тест сверяет этот список с README.
+var PROMISES = [
+  ["crypto", () => "ok"],
+  ["nodekey", () => "ok"],
+  ["dnsIn", (s) => (s && s.state === "connected" ? "ok" : "wait")],
+  ["doh", (s, c) => (c && c.dns_secure_in_use ? "ok" : c && c.dns_secure && c.dns_secure_now ? "wait" : "off")],
+  ["failover", () => "ok"],
+  ["direct", (s, c) => (c && (c.bypass_russian || c.lan_outside) ? "ok" : "off")],
+  ["stats", () => "ok"],
+  ["killswitch", () => "no"],
+  ["apps", () => "no"],
+  ["qr", () => "no"],
+];
+function ovTile(k, v, sub, st) {
+  const t = el("div", "ov");
+  t.dataset.st = st;
+  t.append(el("span", "k", k), el("span", "v", v), el("span", "s", sub));
+  return t;
+}
+function paintOverview() {
+  const grid = $("ov-grid");
+  if (!grid || !PROMISES) return;
+  const d = L(), o = d.ov, s = lastStatus, c = conn;
+  const on = s && s.state === "connected";
+  const tiles = [];
+  if (s) {
+    const dur = on && s.since ? Math.max(0, Math.floor(Date.now() / 1000) - s.since) : 0;
+    const hms = String(Math.floor(dur / 3600)).padStart(2, "0") + ":" + String(Math.floor(dur / 60) % 60).padStart(2, "0") + ":" + String(dur % 60).padStart(2, "0");
+    tiles.push(ovTile(o.tunnel, d.state[s.state] || s.state, on ? (s.node || "—") + " · " + hms : o.tunnelOff, on ? "ok" : s.state === "failed" || s.state === "stalled" ? "warn" : "idle"));
+    tiles.push(ovTile(o.proto, "VP1" + (on && s.transport ? " · " + (TRANSPORTS[s.transport] || s.transport) : ""), on && s.transport ? o.protoOn : o.protoOff, on ? "ok" : "idle"));
+    tiles.push(ovTile(o.crypto, "Noise IK", "X25519 · ChaCha20-Poly1305 · BLAKE2s", on ? "ok" : "idle"));
+    tiles.push(ovTile(o.ping, on && s.ping_ms ? s.ping_ms + d.ms : "—", on ? o.pingOn : o.pingOff, !on ? "idle" : s.ping_ms > 300 ? "warn" : "ok"));
+  }
+  if (c) {
+    const secure = c.dns_secure_in_use === true;
+    tiles.push(ovTile(o.dns, c.dns_in_use || c.dns || "—", on ? (secure ? o.dnsSecure : o.dnsPlain) : o.dnsOff, on ? (secure ? "ok" : "idle") : "idle"));
+    const mtu = c.mtu_in_use || c.mtu || c.mtu_default;
+    tiles.push(ovTile(o.adapter, "Wintun · MTU " + mtu, (c.ipv6 ? o.ipv6On : o.ipv6Off), on ? "ok" : "idle"));
+    tiles.push(ovTile(o.routes, c.bypass_russian ? o.ruDirect.replace("{n}", c.ru_count || 0) : o.allTunnel, (c.bypass_russian ? o.ruSub + " · " : "") + (c.lan_outside ? o.lanDirect : o.lanTunnel), c.ru_error ? "warn" : on ? "ok" : "idle"));
+  }
+  if (s) {
+    tiles.push(ovTile(o.proxy, s.proxy ? s.proxy : o.none, s.proxy ? o.proxyWarn : o.proxyOk, s.proxy ? "warn" : "ok"));
+    tiles.push(ovTile(o.rights, s.elevated ? o.admin : o.noAdmin, s.elevated ? o.adminOk : o.adminWarn, s.elevated ? "ok" : "warn"));
+    tiles.push(ovTile(o.version, s.version || "—", s.update ? o.updateYes.replace("{v}", s.update) : o.updateNo, s.update ? "warn" : "ok"));
+  }
+  grid.replaceChildren(...tiles);
+  const warns = tiles.filter((t) => t.dataset.st === "warn").length;
+  const sum = $("ov-sum");
+  sum.dataset.st = warns ? "warn" : on ? "ok" : "idle";
+  const text = warns ? o.sumWarn.replace("{n}", warns) : on ? o.sumOk : o.sumIdle;
+  $("ov-sum-text").textContent = text;
+  $("ov-nav").textContent = text;
+  const box = $("promises");
+  box.replaceChildren(...PROMISES.map(([id, st]) => {
+    const state = st(s, c);
+    const row = el("div", "prom");
+    row.dataset.st = state;
+    row.append(el("span", "st", d.promSt[state]), el("b", "", d.prom[id][0]), el("p", "", d.prom[id][1]));
+    return row;
+  }));
+}
+
 // changeConn отправляет одну правку и рисует то, что ответила программа.
 // Кнопку держим нажатой до ответа: включение обхода качает список и может
 // занять секунды, а второе нажатие посреди них отменило бы первое.
@@ -3490,6 +3716,8 @@ async function changeConn(button, patch, msg) {
   try {
     conn = await api("POST", "api/settings", patch);
     paintConn();
+    paintMTU();
+    paintOverview();
   } catch (err) {
     $(msg).textContent = err.message;
   } finally {
@@ -3510,6 +3738,33 @@ for (const b of document.querySelectorAll("#dns-pick [data-dns]")) {
 // «интернет не работает».
 on("dns-save", "click", () => changeConn($("dns-save"), { dns: $("dns-custom").value.trim() }, "dns-msg"));
 on("dns-custom", "keydown", (e) => { if (e.key === "Enter") $("dns-save").click(); });
+for (const b of document.querySelectorAll("#mtu-pick [data-mtu]")) {
+  b.addEventListener("click", () => changeConn(b, { mtu: Number(b.dataset.mtu) }, "mtu-msg"));
+}
+// Своё число проверяет и программа; здесь — только чтобы буквы не ушли
+// пустым запросом, который ничего бы не поменял.
+on("mtu-save", "click", () => {
+  const raw = $("mtu-custom").value.trim(), v = raw === "" ? 0 : parseInt(raw, 10);
+  if (!Number.isInteger(v) || String(v) !== (raw || "0")) { $("mtu-msg").textContent = L().mtuBad; return; }
+  changeConn($("mtu-save"), { mtu: v }, "mtu-msg");
+});
+on("mtu-custom", "keydown", (e) => { if (e.key === "Enter") $("mtu-save").click(); });
+function paintMTU() {
+  if (!conn) return;
+  const d = L();
+  const chosen = conn.mtu || 0, effective = chosen || conn.mtu_default;
+  let known = false;
+  for (const b of document.querySelectorAll("#mtu-pick [data-mtu]")) {
+    const on = Number(b.dataset.mtu) === chosen;
+    known = known || on;
+    b.setAttribute("aria-pressed", String(on));
+    if (b.dataset.mtu === "0") b.textContent = d.mtuAuto.replace("{n}", conn.mtu_default);
+  }
+  $("mtu-custom").placeholder = d.mtuOwn;
+  if (!known && document.activeElement !== $("mtu-custom")) $("mtu-custom").value = String(chosen);
+  $("mtu-msg").textContent = conn.mtu_in_use && conn.mtu_in_use !== effective ? d.mtuNext.replace("{n}", conn.mtu_in_use)
+    : conn.mtu_in_use ? d.inUse + ": " + conn.mtu_in_use : "";
+}
 loadConn();
 
 // Ключи рисуем сами, текстом: имя ключа вписывает человек или продавец в
@@ -4967,7 +5222,7 @@ for (const b of document.querySelectorAll("#set-nav button[data-sec]")) b.addEve
 {
   let saved = null;
   try { saved = localStorage.getItem(SEC_KEY); } catch (_) { /* с начала */ }
-  if (!document.querySelector(".set-panes .group.on")) openSec(saved || "key");
+  if (!document.querySelector(".set-panes .group.on")) openSec(saved || "overview");
 }
 // Подложку надо переставить, когда вкладка впервые становится видимой:
 // пока она скрыта, у кнопок нет размеров.

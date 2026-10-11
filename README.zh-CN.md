@@ -171,7 +171,7 @@ sudo sh install-panel.sh --domain panel.example.com --email you@example.com --po
   Vision 链接以及 MySQL 和 PostgreSQL 数据库不会迁移。
 - iOS、在我们的应用中导入 Clash/sing-box 订阅、TUIC、Shadowsocks 插件，以及共享密钥时
   单独撤销设备。
-- Windows 上的按应用分流、kill switch、月度统计和从二维码图片读取密钥：
+- Windows 上的按应用分流、kill switch 和从二维码图片读取密钥：
   目前只有手机端具备。
 - 加密域名查询（DoH）已有测试覆盖，但尚未在真实手机和电脑上验证。它向节点
   隐藏域名，但不隐藏网站地址和 TLS 握手中的域名（SNI）：节点仍能看到这些。

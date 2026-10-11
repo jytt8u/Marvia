@@ -814,11 +814,39 @@
   body[data-max="1"] .wbtn .grest { display: block; }
 
   /* Обои образа — свои, нарисованные кодом; поверх — слюда у Windows 11. */
-  #wall { position: fixed; inset: -140px; z-index: 0; pointer-events: none; display: none;
-    background: var(--wallImg) center / cover no-repeat; filter: blur(70px) saturate(1.35); }
-  #wall::after { content: ""; position: absolute; inset: 0; background: var(--wallVeil, transparent); }
-  body[data-shell="win11"] #wall { display: block; }
+  /* Обои — отдельным слоем: он чуть плывёт за курсором и оживает при
+     подключении, а стекло и слюда над ним это видят. Свой фон человека их
+     заменяет. Движение — свойствами translate и scale, чтобы курсор и
+     состояние не перебивали друг друга. */
+  #wall { position: fixed; inset: -24px; z-index: 0; pointer-events: none; display: none;
+    background: var(--wallImg) center / cover no-repeat;
+    transition: scale 1.6s var(--ease), filter 1.6s var(--ease), translate .6s var(--ease); }
+  body[data-wall="1"] #wall { display: block; }
   body.custom-bg #wall { display: none; }
+  body[data-state="connecting"] #wall { scale: 1.02; }
+  body[data-state="connected"] #wall { scale: 1.045; filter: saturate(1.2) brightness(1.06); }
+  body[data-motion="lively"][data-wall="1"] #wall { animation: wall-drift 40s ease-in-out infinite alternate; }
+  @keyframes wall-drift { to { background-position: calc(50% + 40px) calc(50% - 16px); } }
+  @media (prefers-reduced-motion: reduce) { #wall { transition: none; animation: none !important; } }
+
+  /* Окно на столе — как в миниатюре: обои рамкой вокруг, внутри окно
+     системы со своей тенью и скруглением. Без этого обои просто лежали
+     под плашками и ни с чем не были связаны. За пустое место стола окно
+     тоже тянут: это всё ещё наше окно. */
+  .win { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  body[data-frame="1"] .app { padding: 18px; }
+  body[data-frame="1"] .win { overflow: hidden; border-radius: var(--winR, 10px); background: var(--wallVeil);
+    box-shadow: 0 26px 60px -24px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.22); }
+  /* Орбита с точками вокруг кнопки — наша деталь; в системных образах её нет. */
+  body:not([data-shell="marvia"]) .ring > svg.halo { display: none; }
+
+  body[data-shell="win11"] .win { --winR: 8px; -webkit-backdrop-filter: blur(60px) saturate(1.5); backdrop-filter: blur(60px) saturate(1.5);
+    box-shadow: 0 26px 60px -24px rgba(0,0,0,.6), 0 0 0 1px color-mix(in srgb, var(--fg) 14%, transparent); }
+  body[data-shell="mac"] .win { --winR: 16px; box-shadow: 0 30px 70px -24px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.14), inset 0 1px 0 rgba(255,255,255,.18); }
+  body[data-shell="xp"] .win { --winR: 8px 8px 0 0; border: 3px solid #0a5ee8; border-top: 0; }
+  body[data-shell="w98"] .win { --winR: 0; padding: 3px; box-shadow: var(--bevel), 0 18px 40px -18px rgba(0,0,0,.5); }
+  body[data-shell="gnome"] .win, body[data-shell="ubuntu"] .win { --winR: 12px; }
+  body[data-shell="kde"] .win { --winR: 6px; }
 
   /* ───── Образы в духе систем ─────
      Каждый узнаётся по тому, по чему узнают саму систему: слюда и полоска
@@ -857,15 +885,36 @@
   body[data-shell="mac"] .wbtn:hover { filter: brightness(.94); }
   body[data-shell="mac"] .wbtn svg { width: 6px; height: 6px; stroke-width: 1.6; opacity: 0; transition: opacity .12s; }
   body[data-shell="mac"] .wctl:hover svg { opacity: 1; }
-  body[data-shell="mac"] aside { margin: 0 0 12px 12px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
-    background: color-mix(in srgb, var(--bg) 42%, transparent); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 12px 40px -18px rgba(0,0,0,.5); }
-  body[data-shell="mac"] .tab { border-radius: 10px; min-height: 34px; font-weight: 500; }
-  body[data-shell="mac"] .tab[aria-selected="true"] { background: color-mix(in srgb, var(--fg) 12%, transparent); font-weight: 600; }
+  body[data-shell="mac"] .top { padding-right: 10px; }
+  /* Жидкое стекло: почти прозрачная плита, под ней обои плывут через фильтр
+     преломления, по кромке — свет сверху и тень снизу. Матовая серая плашка
+     поверх обоев выглядела наклейкой: стекло обязано показывать то, что
+     под ним. */
+  body[data-shell="mac"] aside, body[data-shell="mac"] .card, body[data-shell="mac"] .kpi, body[data-shell="mac"] .node,
+  body[data-shell="mac"] .sub-card, body[data-shell="mac"] .set-nav, body[data-shell="mac"] .set-panes .rows > div, body[data-shell="mac"] .power {
+    position: relative; border: 1px solid rgba(255,255,255,.16);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.32), inset 0 -1px 0 rgba(0,0,0,.18), 0 18px 40px -22px rgba(0,0,0,.6); }
+  body[data-shell="mac"] aside { margin: 0 0 12px 12px; border-radius: 20px; background: color-mix(in srgb, var(--surf) 20%, transparent);
+    -webkit-backdrop-filter: blur(5px) url(#lg) saturate(1.9) brightness(1.04); backdrop-filter: blur(5px) url(#lg) saturate(1.9) brightness(1.04); }
   body[data-shell="mac"] .card, body[data-shell="mac"] .kpi, body[data-shell="mac"] .node, body[data-shell="mac"] .sub-card,
   body[data-shell="mac"] .set-nav, body[data-shell="mac"] .set-panes .rows > div {
-    background: color-mix(in srgb, var(--surf) 70%, transparent); border: 1px solid color-mix(in srgb, var(--fg) 9%, transparent);
-    -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6); box-shadow: 0 10px 30px -20px rgba(0,0,0,.6); }
+    background: color-mix(in srgb, var(--surf) 46%, transparent);
+    -webkit-backdrop-filter: blur(12px) url(#lg) saturate(1.8); backdrop-filter: blur(12px) url(#lg) saturate(1.8); }
+  body[data-shell="mac"] .card.feature { background: color-mix(in srgb, var(--surf) 54%, transparent); }
+  body[data-shell="mac"] .tab { border-radius: 10px; min-height: 34px; font-weight: 500; }
+  body[data-shell="mac"] .tab[aria-selected="true"] { background: color-mix(in srgb, var(--fg) 14%, transparent); font-weight: 600; }
+  /* Кнопка — линза: обои под ней видны и плывут сильнее всего. */
+  body[data-shell="mac"] .power { background: color-mix(in srgb, var(--surf) 16%, transparent);
+    -webkit-backdrop-filter: blur(2px) url(#lg) saturate(2) brightness(1.08); backdrop-filter: blur(2px) url(#lg) saturate(2) brightness(1.08);
+    box-shadow: inset 0 2px 1px rgba(255,255,255,.45), inset 0 -14px 30px rgba(255,255,255,.07), 0 0 0 1px rgba(255,255,255,.18), 0 26px 50px -20px rgba(0,0,0,.6); }
+  body[data-shell="mac"] .power svg { color: var(--fg); }
+  body[data-shell="mac"] .power[data-state="connected"] { background: color-mix(in srgb, var(--acc) 38%, transparent); }
+  body[data-shell="mac"] .power[data-state="connected"] svg { color: #fff; }
+  /* Блик идёт за курсором: один и тот же свет на всех стёклах окна. */
+  body[data-shell="mac"] aside::after, body[data-shell="mac"] .card::after, body[data-shell="mac"] .kpi::after,
+  body[data-shell="mac"] .node::after, body[data-shell="mac"] .power::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(320px circle at var(--mx, -999px) var(--my, -999px), rgba(255,255,255,.14), transparent 70%) fixed; }
   body[data-shell="mac"] .primary, body[data-shell="mac"] .chip, body[data-shell="mac"] .pillb { border-radius: 999px; }
 
   /* Windows XP: синий глянцевый заголовок, панель задач слева, зелёная
@@ -930,9 +979,6 @@
     border: 0; border-radius: 0; box-shadow: var(--bevel); padding-top: calc(var(--pad) + 18px);
     background: linear-gradient(90deg, #000080, #1084d0) top / 100% 18px no-repeat, #c0c0c0; }
   body[data-shell="w98"] .side .kpi, body[data-shell="w98"] .set-nav { padding-top: calc(var(--pad) + 14px); background-size: 100% 14px, auto; }
-  body[data-shell="w98"] .head .title, body[data-shell="w98"] .head .sub, body[data-shell="w98"] .status,
-  body[data-shell="w98"] .detail { color: #fff; }
-  body[data-shell="w98"] .set-head h2, body[data-shell="w98"] .set-head p { color: #fff; }
   body[data-shell="w98"] .node { border-radius: 0; background: #c0c0c0; border: 0; box-shadow: var(--bevel); }
   body[data-shell="w98"] .primary, body[data-shell="w98"] .chip, body[data-shell="w98"] .pillb { border-radius: 0; border: 0; background: #c0c0c0;
     color: #000; font-weight: 400; box-shadow: var(--bevel); }
@@ -1000,7 +1046,8 @@
   /* Плиточные — Hyprland, Nord, Gruvbox: окно делится на плитки с зазорами,
      у активной (содержимое) — цветная рамка, у остальных — серая. Сверху —
      бар из капсул, как waybar. */
-  body[data-shell="tile"] .app { padding: 8px; gap: 8px; }
+  body[data-shell="tile"] .app { padding: 8px; }
+  body[data-shell="tile"] .win { gap: 8px; }
   body[data-shell="tile"] .body { gap: 8px; }
   body[data-shell="tile"] .top, body[data-shell="tile"] aside, body[data-shell="tile"] main {
     position: relative; border: 0; border-radius: var(--r); background: color-mix(in srgb, var(--bg) 72%, transparent);
@@ -1103,6 +1150,15 @@
 <div id="bg-layer" hidden></div>
 <div id="bg-veil" hidden></div>
 <div id="wall" aria-hidden="true"></div>
+<!-- Преломление «жидкого стекла»: обои под панелью плывут, как под толстым
+     стеклом. Только для macOS-образов — фильтр не бесплатный. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="lg" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.006 0.009" numOctaves="2" seed="7" result="n"/>
+    <feGaussianBlur in="n" stdDeviation="4" result="m"/>
+    <feDisplacementMap in="SourceGraphic" in2="m" scale="70" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
 <canvas id="field" aria-hidden="true"></canvas>
 <!-- Заставка: знак из точек, слово, затем интерфейс. Видна сразу, до кода:
      иначе мелькнул бы интерфейс, а потом заставка поверх него. -->
@@ -1111,7 +1167,8 @@
   <span class="logo"></span>
   <span class="wordmark">MARVIA</span>
 </div>
-<div class="app">
+<div class="app" id="desk">
+<div class="win">
 
   <header class="top" id="titlebar">
     <i class="grip-top" id="grip-top" aria-hidden="true"></i>
@@ -1650,6 +1707,7 @@
       </section>
     </main>
   </div>
+</div>
 </div>
 
 <section class="welcome" id="welcome" aria-labelledby="welcome-title" hidden>
@@ -2407,6 +2465,10 @@ for (const b of document.querySelectorAll("[data-win]")) b.addEventListener("cli
     if (e.button !== 0 || e.target.closest("button, input, a, #grip-top")) return;
     pending = { x: e.screenX, y: e.screenY };
   });
+  $("desk").addEventListener("mousedown", (e) => {
+    if (e.button === 0 && e.target === e.currentTarget) pending = { x: e.screenX, y: e.screenY };
+  });
+  $("desk").addEventListener("dblclick", (e) => { if (e.target === e.currentTarget) winAct("max"); });
   addEventListener("mousemove", (e) => {
     if (!pending) return;
     if (!(e.buttons & 1)) { pending = null; return; }
@@ -2418,6 +2480,24 @@ for (const b of document.querySelectorAll("[data-win]")) b.addEventListener("cli
   bar.addEventListener("dblclick", (e) => { if (!e.target.closest("button, input, a")) winAct("max"); });
   $("grip-top").addEventListener("mousedown", (e) => { if (e.button === 0) { e.preventDefault(); winAct("top"); } });
   winAct("state").then((m) => window.marviaMax(m)).catch(() => {});
+}
+// Обои отвечают на руку: слой чуть смещается навстречу курсору, а блик на
+// стёклах идёт за ним. Не чаще кадра и только когда движение не выключено.
+{
+  const wall = $("wall"), root = document.documentElement;
+  let raf = 0, mx = 0, my = 0;
+  addEventListener("mousemove", (e) => {
+    mx = e.clientX; my = e.clientY;
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      root.style.setProperty("--mx", mx + "px");
+      root.style.setProperty("--my", my + "px");
+      if (motion() === "off" || document.body.dataset.wall !== "1") { wall.style.translate = ""; return; }
+      const dx = (mx / innerWidth - 0.5) * -18, dy = (my / innerHeight - 0.5) * -12;
+      wall.style.translate = dx.toFixed(1) + "px " + dy.toFixed(1) + "px";
+    });
+  });
 }
 
 /* ------------------------------------------------------------------ тема */
@@ -3638,14 +3718,14 @@ const VIBES = {
     look: { preset: "slate", acc: "#60cdff", kind: "flat", radius: "soft", density: "normal", btn: "solid", glow: "none", card: "outline", tint: null },
     o: { bg: "#202020", surf: "#2d2d2d", fg: "#ffffff", dim: "#c8c8c8", line: "#3d3d3d", r: 8, pattern: "none",
       font: "segoe", sfont: "system", nums: "text", caps: false, statusSize: 30 },
-    veil: "linear-gradient(rgba(32,32,32,.74),rgba(32,32,32,.74))",
+    veil: "rgba(32,32,32,.70)",
   },
   win11l: {
     group: "windows", shell: "win11", wall: "bloomLight",
     look: { preset: "daylight", acc: "#005fb8", kind: "flat", radius: "soft", density: "normal", btn: "solid", glow: "none", card: "outline", tint: null },
     o: { bg: "#f3f3f3", surf: "#fbfbfb", fg: "#1b1b1b", dim: "#5d5d5d", line: "#e2e2e2", r: 8, pattern: "none",
       font: "segoe", sfont: "system", nums: "text", caps: false, statusSize: 30 },
-    veil: "linear-gradient(rgba(243,243,243,.70),rgba(243,243,243,.70))",
+    veil: "rgba(243,243,243,.72)",
   },
   // Windows XP: бежевые окна, синяя панель задач, Tahoma и холм под небом.
   xp: {
@@ -3653,7 +3733,7 @@ const VIBES = {
     look: { preset: "daylight", acc: "#316ac5", kind: "flat", radius: "sharp", density: "normal", btn: "solid", glow: "none", card: "outline", tint: null },
     o: { bg: "#ece9d8", surf: "#ffffff", fg: "#0b1530", dim: "#4a5162", line: "#a5b6d6", r: 4, pattern: "none",
       font: "tahoma", sfont: "tahoma", nums: "text", caps: false, statusSize: 28 },
-    veil: "linear-gradient(rgba(236,233,216,.30),rgba(236,233,216,.62) 55%,rgba(236,233,216,.30))",
+    veil: "#ece9d8",
   },
   // Windows 98: бирюзовый стол и серые выпуклые окна. Обоев у неё не было —
   // был цвет стола, он и есть обои.
@@ -3662,6 +3742,7 @@ const VIBES = {
     look: { preset: "daylight", acc: "#000080", kind: "flat", radius: "sharp", density: "compact", btn: "solid", glow: "none", card: "outline", tint: null },
     o: { bg: "#008080", surf: "#c0c0c0", fg: "#000000", dim: "#3a3a3a", line: "#808080", r: 0, pattern: "none",
       font: "mssans", sfont: "mssans", nums: "text", caps: false, statusSize: 26 },
+    veil: "#c0c0c0",
   },
   // macOS: светофор, жидкое стекло, Inter вместо SF — системный шрифт Apple
   // на Windows не встраивается.
@@ -3670,14 +3751,14 @@ const VIBES = {
     look: { preset: "midnight", acc: "#0a84ff", kind: "flat", radius: "round", density: "roomy", btn: "glass", glow: "soft", card: "flat", tint: null },
     o: { bg: "#1c1c1e", surf: "#2c2c2e", fg: "#f5f5f7", dim: "#aeaeb2", line: "#3a3a3c", r: 16, pattern: "none",
       font: "inter", sfont: "inter", nums: "text", caps: false, statusSize: 32 },
-    veil: "linear-gradient(rgba(10,10,20,.30),rgba(10,10,20,.48))",
+    veil: "linear-gradient(rgba(14,14,28,.20),rgba(14,14,28,.34))",
   },
   macl: {
     group: "mac", shell: "mac", wall: "wavesLight",
     look: { preset: "daylight", acc: "#007aff", kind: "flat", radius: "round", density: "roomy", btn: "glass", glow: "none", card: "flat", tint: null },
     o: { bg: "#f5f5f7", surf: "#ffffff", fg: "#1d1d1f", dim: "#5e5e63", line: "#d2d2d7", r: 16, pattern: "none",
       font: "inter", sfont: "inter", nums: "text", caps: false, statusSize: 32 },
-    veil: "linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,.40))",
+    veil: "linear-gradient(rgba(255,255,255,.16),rgba(255,255,255,.30))",
   },
   // Ubuntu: Yaru — баклажан, оранжевый, свой шрифт.
   ubuntu: {
@@ -3685,7 +3766,7 @@ const VIBES = {
     look: { preset: "ember", acc: "#e95420", kind: "flat", radius: "soft", density: "normal", btn: "solid", glow: "soft", card: "outline", tint: null },
     o: { bg: "#2c2c2c", surf: "#373737", fg: "#ffffff", dim: "#c6c4c1", line: "#4a4a4a", r: 10, pattern: "none",
       font: "ubuntu", sfont: "ubuntu", nums: "text", caps: false, statusSize: 32 },
-    veil: "linear-gradient(rgba(28,22,26,.50),rgba(28,22,26,.70))",
+    veil: "rgba(44,44,44,.97)",
   },
   // GNOME: Adwaita светлая — карточки-списки, синий, Inter (на нём и
   // построен нынешний Adwaita Sans).
@@ -3694,7 +3775,7 @@ const VIBES = {
     look: { preset: "daylight", acc: "#3584e4", kind: "flat", radius: "soft", density: "roomy", btn: "solid", glow: "none", card: "flat", tint: null },
     o: { bg: "#fafafb", surf: "#ffffff", fg: "#2e2e32", dim: "#5e5e66", line: "#e1e1e4", r: 12, pattern: "none",
       font: "inter", sfont: "inter", nums: "text", caps: false, statusSize: 30 },
-    veil: "linear-gradient(rgba(250,250,251,.66),rgba(250,250,251,.80))",
+    veil: "rgba(250,250,251,.98)",
   },
   // KDE Plasma: Breeze тёмная — голубой фокус, острые грани, Noto Sans.
   kde: {
@@ -3702,7 +3783,7 @@ const VIBES = {
     look: { preset: "ice", acc: "#3daee9", kind: "flat", radius: "sharp", density: "normal", btn: "ring", glow: "soft", card: "outline", tint: null },
     o: { bg: "#202326", surf: "#292c30", fg: "#fcfcfc", dim: "#a7aeb6", line: "#3f454c", r: 5, pattern: "none",
       font: "noto", sfont: "noto", nums: "text", caps: false, statusSize: 30 },
-    veil: "linear-gradient(rgba(20,22,24,.45),rgba(20,22,24,.62))",
+    veil: "rgba(32,35,38,.97)",
   },
   // Hyprland с Catppuccin Mocha — то, чем сейчас забит r/unixporn: плитки
   // с зазорами, цветная рамка активного окна, моно в баре.
@@ -3732,6 +3813,8 @@ const VIBES = {
 // не должны молча превращаться в Графит.
 const VIBE_RENAMED = { glass: "mac", expressive: "gnome", chrome: "graphite", brutal: "w98", clay: "macl",
   film: "gruvbox", aurora: "hypr", terminal: "gruvbox", day: "win11l" };
+// Оболочки, где программа — окно на столе с обоями вокруг, как в миниатюре.
+const FRAMED = ["win11", "mac", "xp", "w98", "gnome", "ubuntu", "kde"];
 const VIBE_GROUPS = ["all", "marvia", "windows", "mac", "linux"];
 
 // ── обои ──
@@ -4032,7 +4115,7 @@ function overrideCss(t) {
   if (wall) {
     // Обои — под всем окном, пелена образа держит читаемость. Слюде Windows 11
     // нужна та же картинка размытой — отдельным слоем.
-    out.push("--bgcss:" + (V.veil ? V.veil + "," : "") + wall + " center / cover no-repeat," + (o.bg || t.bg),
+    out.push("--bgcss:" + wall + " center / cover no-repeat," + (o.bg || t.bg),
       "--wallImg:" + wall, "--wallVeil:" + (V.veil || "transparent"));
   } else if (o.bg && !backdropURL) {
     out.push("--bgcss:radial-gradient(130% 100% at top left," + Look.mix(o.bg, "#ffffff", 0.07) + " 0%," + o.bg + " 48%," + Look.mix(o.bg, "#000000", 0.45) + " 100%)");
@@ -4079,6 +4162,8 @@ function paintOverrides() {
 function applyVibe() {
   document.body.dataset.vibe = vibe.id;
   document.body.dataset.shell = VIBES[vibe.id].shell || "marvia";
+  document.body.dataset.frame = FRAMED.includes(document.body.dataset.shell) ? "1" : "";
+  document.body.dataset.wall = VIBES[vibe.id].wall ? "1" : "";
   document.body.dataset.motion = motion();
   document.body.dataset.logo = eff("logo");
   document.body.dataset.caps = String(eff("caps"));

@@ -1679,6 +1679,15 @@
                   <div class="grow"><span class="name" data-t="lanOutside"></span><span class="sub" data-t="lanOutsideHint"></span><span class="sub" id="lan-msg"></span></div>
                   <button class="chip" id="lan" type="button" aria-pressed="false"></button>
                 </div>
+                <!--
+                  Kill switch — фильтр Windows (WFP) поверх туннеля: пока туннель
+                  включён, мимо него не идёт ничего. Стоит рядом с домашней
+                  сетью: она — единственное, что он пропускает по выбору.
+                -->
+                <div>
+                  <div class="grow"><span class="name" data-t="killSwitch"></span><span class="sub" data-t="killSwitchHint"></span><span class="sub" id="kill-switch-msg"></span></div>
+                  <button class="chip" id="kill-switch" type="button" aria-pressed="false"></button>
+                </div>
                 <div>
                   <div class="grow"><span class="name" data-t="ipv6"></span><span class="sub" data-t="ipv6Hint"></span><span class="sub" id="ipv6-msg"></span></div>
                   <button class="chip" id="ipv6" type="button" aria-pressed="false"></button>
@@ -1967,6 +1976,11 @@ const T = {
     fragment: "Дробить приветствие",
     fragmentHint: "Если провайдер режет по имени сайта: имя ноды в TLS-приветствии не лежит целиком ни в одном пакете. Без нужды не включай — это лишние пакеты и своя примета.",
     fragmentNext: "Применится при следующем подключении",
+    killSwitch: "Kill switch",
+    killSwitchHint: "Если туннель упадёт не по вашей воле, интернет закроется, а не пойдёт напрямую, — до возвращения туннеля или «Отключить». Закрыта и своя подсеть, если домашняя сеть не выведена мимо туннеля. Если Marvia закроется аварийно, фильтр снимется вместе с ней.",
+    killSwitchOn: "Стоит: мимо туннеля закрыто всё, кроме самого Marvia",
+    killSwitchWait: "Встанет вместе с туннелем",
+    killSwitchFailed: (e) => "Не встал, туннель работает без него: " + e,
     lanOutside: "Домашняя сеть мимо туннеля",
     lanOutsideHint: "Принтер, сетевой диск или камера — частные адреса 10.x, 172.16–31.x и 192.168.x идут напрямую. Свою подсеть Windows и так ведёт мимо туннеля — это для соседних. В чужом Wi-Fi домашняя сеть чужая: включай осознанно.",
     pages: {
@@ -2042,7 +2056,7 @@ const T = {
       failover: ["Переезд с замолчавшей ноды", "Если соединение замёрзло, клиент уезжает на живую ноду примерно за 12 секунд — проверено на стенде."],
       direct: ["Российские сайты и домашняя сеть — напрямую", "По выбору в «Подключении»: сайты видят ваш обычный адрес, принтер и роутер остаются доступны."],
       stats: ["Расход за неделю и месяц", "Считает сама программа на этом компьютере; подённая история продавцу не уходит."],
-      killswitch: ["Kill switch", "При обрыве туннеля интернет пока не блокируется — трафик может пойти напрямую. На телефоне это системная настройка Android."],
+      killswitch: ["Kill switch", "По выбору в «Подключении»: если туннель упал, интернет закрыт, а не идёт напрямую, до возвращения туннеля или «Отключить». Проверено тестами, на живом компьютере — ещё нет."],
       apps: ["Приложения мимо туннеля", "Выбрать программы, которые идут напрямую, на Windows пока нельзя; на телефоне можно."],
       qr: ["Ключ с картинки QR", "На Windows ключ вставляется ссылкой текстом; QR из галереи и камерой есть на телефоне."],
     },
@@ -2053,7 +2067,7 @@ const T = {
     secKeyTitle: "Ключ доступа", secKeySub: "срок, трафик, ключи",
     secKeyDesc: "Ключ от продавца: до какого числа он действует и сколько трафика осталось. Здесь же — запасные ключи.",
     secConnTitle: "Подключение", secConnSub: "что идёт мимо туннеля, DNS",
-    secConnDesc: "Что идёт мимо туннеля и как: российские сайты, домашняя сеть, IPv6, дробление приветствия, DNS.",
+    secConnDesc: "Что идёт мимо туннеля и как: российские сайты, домашняя сеть, kill switch, IPv6, дробление приветствия, DNS.",
     secLookTitle: "Вид и звук", secLookSub: "заставка, фон, отклик",
     secLookDesc: "То, что делает окно живым. Образ и цвета — во вкладке «Тема».",
     secAppTitle: "Программа", secAppSub: "автозапуск, трей, язык",
@@ -2220,6 +2234,11 @@ const T = {
     fragment: "Split the TLS hello",
     fragmentHint: "If your provider blocks by site name: the node's name in the TLS hello never sits whole in one packet. Leave it off otherwise — it means extra packets and a trait of its own.",
     fragmentNext: "Applies on the next connection",
+    killSwitch: "Kill switch",
+    killSwitchHint: "If the tunnel drops without you asking, the internet closes instead of going direct — until the tunnel is back or you press Disconnect. Your own subnet closes too unless the home network goes around the tunnel. If Marvia crashes, the filter goes away with it.",
+    killSwitchOn: "Active: everything outside the tunnel is closed except Marvia itself",
+    killSwitchWait: "Starts together with the tunnel",
+    killSwitchFailed: (e) => "Did not start, the tunnel runs without it: " + e,
     lanOutside: "Home network around the tunnel",
     lanOutsideHint: "Printer, network drive or camera — private addresses 10.x, 172.16–31.x and 192.168.x go directly. Windows already keeps your own subnet outside the tunnel — this is for the neighbouring ones. On someone else's Wi-Fi the home network is theirs: turn it on deliberately.",
     pages: {
@@ -2295,7 +2314,7 @@ const T = {
       failover: ["Moving off a silent node", "If the connection freezes, the client moves to a live node in about 12 seconds — tested on a stand."],
       direct: ["Russian sites and the home network — direct", "Your choice in Connection: sites see your usual address, the printer and router stay reachable."],
       stats: ["Traffic for the week and month", "Counted by the program on this computer; the daily history never goes to the seller."],
-      killswitch: ["Kill switch", "If the tunnel drops, the internet isn't blocked yet — traffic may go direct. On the phone it's an Android system setting."],
+      killswitch: ["Kill switch", "Your choice in Connection: if the tunnel drops, the internet is closed instead of going direct, until the tunnel is back or you press Disconnect. Tested, not yet on a live computer."],
       apps: ["Apps around the tunnel", "Choosing programs that go direct isn't possible on Windows yet; on the phone it is."],
       qr: ["Key from a QR image", "On Windows the key is pasted as a link; QR from the gallery and camera is on the phone."],
     },
@@ -2306,7 +2325,7 @@ const T = {
     secKeyTitle: "Access key", secKeySub: "expiry, traffic, keys",
     secKeyDesc: "The key from your provider: until when it works and how much traffic is left. Spare keys live here too.",
     secConnTitle: "Connection", secConnSub: "what bypasses the tunnel, DNS",
-    secConnDesc: "What goes around the tunnel and how: Russian sites, home network, IPv6, hello splitting, DNS.",
+    secConnDesc: "What goes around the tunnel and how: Russian sites, home network, kill switch, IPv6, hello splitting, DNS.",
     secLookTitle: "Look and sound", secLookSub: "splash, background, response",
     secLookDesc: "What makes the window feel alive. Vibe and colours are on the Theme tab.",
     secAppTitle: "App", secAppSub: "autostart, tray, language",
@@ -3582,6 +3601,16 @@ function paintConn() {
   lan.textContent = conn.lan_outside ? d.toggleOn : d.toggleOff;
   lan.setAttribute("aria-pressed", String(!!conn.lan_outside));
 
+  // Под kill switch — стоит ли он сейчас на самом деле: включённый тумблер
+  // без фильтра хуже выключенного, человек думает, что защищён.
+  const ks = $("kill-switch");
+  ks.textContent = conn.kill_switch ? d.toggleOn : d.toggleOff;
+  ks.setAttribute("aria-pressed", String(!!conn.kill_switch));
+  $("kill-switch-msg").textContent = !conn.kill_switch ? ""
+    : conn.kill_switch_error ? d.killSwitchFailed(conn.kill_switch_error)
+    : conn.kill_switch_in_use ? d.killSwitchOn
+    : d.killSwitchWait;
+
   const rep = $("reports");
   rep.textContent = conn.reports ? d.reportsOn : d.reportsOff;
   rep.setAttribute("aria-pressed", String(!!conn.reports));
@@ -3644,7 +3673,7 @@ var PROMISES = [
   ["failover", () => "ok"],
   ["direct", (s, c) => (c && (c.bypass_russian || c.lan_outside) ? "ok" : "off")],
   ["stats", () => "ok"],
-  ["killswitch", () => "no"],
+  ["killswitch", (s, c) => (c && c.kill_switch && c.kill_switch_in_use !== false ? "ok" : "off")],
   ["apps", () => "no"],
   ["qr", () => "no"],
 ];
@@ -3716,6 +3745,7 @@ async function changeConn(button, patch, msg) {
 }
 on("bypass-ru", "click", () => changeConn($("bypass-ru"), { bypass_russian: !conn.bypass_russian }, "bypass-ru-msg"));
 on("lan", "click", () => changeConn($("lan"), { lan_outside: !conn.lan_outside }, "lan-msg"));
+on("kill-switch", "click", () => changeConn($("kill-switch"), { kill_switch: !conn.kill_switch }, "kill-switch-msg"));
 on("reports", "click", () => changeConn($("reports"), { reports: !conn.reports }, "reports-msg"));
 on("ipv6", "click", () => changeConn($("ipv6"), { ipv6: !conn.ipv6 }, "ipv6-msg"));
 on("fragment", "click", () => changeConn($("fragment"), { fragment: !conn.fragment }, "fragment-msg"));
@@ -5234,7 +5264,7 @@ document.querySelector('.tab[data-tab="settings"]').addEventListener("click", ()
 // Переключатели вместо кнопок «Включено / Выключено»: состояние видно
 // формой, а не надписью. Надпись остаётся внутри — для экранного диктора.
 // Нажатие на саму строку тоже переключает: в узкую кнопку не надо целиться.
-const SWITCHES = ["vibe-splash", "vibe-sound", "vibe-fx", "vibe-click", "bypass-ru", "lan", "ipv6", "fragment", "reports", "dns-secure", "autostart"];
+const SWITCHES = ["vibe-splash", "vibe-sound", "vibe-fx", "vibe-click", "bypass-ru", "lan", "kill-switch", "ipv6", "fragment", "reports", "dns-secure", "autostart"];
 for (const id of SWITCHES) {
   const b = $(id);
   if (!b) continue;

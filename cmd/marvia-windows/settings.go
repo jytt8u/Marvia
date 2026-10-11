@@ -63,6 +63,12 @@ type pcSettings struct {
 	// для ключа Marvia: чужим панелям отчёты не шлются вовсе. Хранится как
 	// «выключено», чтобы умолчание — отправлять, как на телефоне, — было нулём.
 	ReportsOff bool `json:"reports_off,omitempty"`
+	// KillSwitch — пока туннель включён, мимо него не идёт ничего, даже если
+	// он лёг: см. internal/killswitch. Выключен по умолчанию: закрытый
+	// интернет при замолчавшей ноде — то, что человек должен выбрать сам и
+	// знать, что выбрал, иначе это выглядит как поломка.
+	KillSwitch bool `json:"kill_switch,omitempty"`
+
 	// MTU — размер пакета на адаптере; ноль — как в программе по умолчанию.
 	// Нужен там, где провайдер или чужой туннель снаружи режет крупные
 	// пакеты: сайты открываются наполовину, а меньший MTU это лечит.
@@ -137,6 +143,12 @@ type SettingsView struct {
 
 	// Reports — отправлять ли замеры нод панели продавца.
 	Reports bool `json:"reports"`
+
+	// KillSwitch — выбранное; KillSwitchInUse — стоит ли фильтр у поднятого
+	// туннеля (nil — туннеля нет); KillSwitchError — почему не встал.
+	KillSwitch      bool   `json:"kill_switch"`
+	KillSwitchInUse *bool  `json:"kill_switch_in_use,omitempty"`
+	KillSwitchError string `json:"kill_switch_error,omitempty"`
 }
 
 // SettingsPatch — что окно просит поменять; nil — не трогать.
@@ -149,6 +161,7 @@ type SettingsPatch struct {
 	Fragment      *bool   `json:"fragment"`
 	IPv6          *bool   `json:"ipv6"`
 	Reports       *bool   `json:"reports"`
+	KillSwitch    *bool   `json:"kill_switch"`
 }
 
 // settingsFile — где лежат настройки подключения.

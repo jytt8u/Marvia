@@ -17,6 +17,7 @@ import (
 
 	"github.com/jytt8u/marvia/internal/client"
 	"github.com/jytt8u/marvia/internal/foreign"
+	"github.com/jytt8u/marvia/internal/killswitch"
 	"github.com/jytt8u/marvia/internal/routes"
 	"github.com/jytt8u/marvia/internal/securedns"
 	"github.com/jytt8u/marvia/internal/tunbridge"
@@ -123,6 +124,12 @@ type Controller struct {
 	adapter *wintun.Adapter
 	bridge  *tunbridge.Bridge
 	cancel  context.CancelFunc
+
+	// guard — фильтр kill switch, пока туннель поднят и он включён; nil —
+	// выключен или не встал. guardErr — почему не встал: окно говорит это
+	// под переключателем, а не показывает включённый тумблер без защиты.
+	guard    *killswitch.Guard
+	guardErr string
 
 	up, down         atomic.Int64
 	baseUp, baseDown int64
@@ -554,6 +561,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	c.mu.Lock()
 	dns := c.settings.resolver(c.dns)
 	mtu := c.settings.mtu(c.mtu)
+	kill := c.settings.KillSwitch
 	c.mu.Unlock()
 	dnsAddr, err := dnsAddress(dns)
 	if err != nil {
@@ -598,6 +606,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 		_ = dialer.Close()
 		return fmt.Errorf("%s: %w", say("bridge"), err)
 	}
+	guard, guardErr := c.raiseGuard(adapter.LUID(), kill)
 
 	c.mu.Lock()
 	if c.connectCtx != ctx || ctx.Err() != nil {
@@ -605,9 +614,11 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 		_ = bridge.Close()
 		_ = adapter.Close()
 		_ = dialer.Close()
+		_ = guard.Close()
 		return context.Canceled
 	}
 	c.dialer, c.adapter, c.bridge = dialer, adapter, bridge
+	c.guard, c.guardErr = guard, guardErr
 	c.node, c.ping = node, ping
 	c.dnsInUse = dnsAddr.String()
 	c.mtuInUse = mtu
@@ -666,13 +677,14 @@ func (c *Controller) Disconnect() {
 	c.tunnelMu.Lock()
 	defer c.tunnelMu.Unlock()
 	c.mu.Lock()
-	bridge, adapter, dialer := c.bridge, c.adapter, c.dialer
+	bridge, adapter, dialer, guard := c.bridge, c.adapter, c.dialer, c.guard
 	if dialer != nil {
 		// Подписка за сессию могла обновиться: кнопки продавца остаются от
 		// последней, а не от той, что была при подключении.
 		c.known = dialer.Subscription()
 	}
 	c.bridge, c.adapter, c.dialer = nil, nil, nil
+	c.guard, c.guardErr = nil, ""
 	c.state = StateIdle
 	c.reason = ""
 	c.node = client.Node{}
@@ -697,6 +709,14 @@ func (c *Controller) Disconnect() {
 	}
 	if dialer != nil {
 		_ = dialer.Close()
+	}
+	// Фильтр — последним: пока снимаются маршруты и адаптер, трафику уже
+	// некуда идти, кроме как напрямую, и запрет держит его до конца уборки.
+	if guard != nil {
+		if err := guard.Close(); err != nil {
+			c.log.add("%s", sayf("logCleanup", err))
+		}
+		c.log.add("%s", say("logKillOff"))
 	}
 	c.traffic.flush(time.Now(), c.up.Load(), c.down.Load())
 	if bridge != nil || adapter != nil {

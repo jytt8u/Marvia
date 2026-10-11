@@ -126,24 +126,31 @@ func (c *Controller) setRuErr(reason string) {
 func (c *Controller) Settings() SettingsView {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	var killInUse *bool
+	if c.adapter != nil {
+		killInUse = boolPtr(c.guard != nil)
+	}
 	return SettingsView{
-		BypassRussian:  c.settings.BypassRussian,
-		RuCount:        c.bypass.Load().Len(),
-		RuError:        c.ruErr,
-		LANOutside:     c.settings.LANOutside,
-		DNS:            dnsHost(c.settings.resolver(c.dns)),
-		DNSInUse:       c.dnsInUse,
-		DNSSecure:      !c.settings.DNSPlain,
-		DNSSecureNow:   c.settings.encrypted(c.settings.resolver(c.dns)),
-		DNSSecureInUse: c.dnsSecureInUse,
-		Fragment:       c.settings.Fragment,
-		FragmentInUse:  c.fragmentInUse,
-		IPv6:           !c.settings.IPv6Off,
-		IPv6InUse:      c.ipv6InUse,
-		Reports:        !c.settings.ReportsOff,
-		MTU:            c.settings.MTU,
-		MTUDefault:     c.mtu,
-		MTUInUse:       c.mtuInUse,
+		BypassRussian:   c.settings.BypassRussian,
+		RuCount:         c.bypass.Load().Len(),
+		RuError:         c.ruErr,
+		LANOutside:      c.settings.LANOutside,
+		DNS:             dnsHost(c.settings.resolver(c.dns)),
+		DNSInUse:        c.dnsInUse,
+		DNSSecure:       !c.settings.DNSPlain,
+		DNSSecureNow:    c.settings.encrypted(c.settings.resolver(c.dns)),
+		DNSSecureInUse:  c.dnsSecureInUse,
+		Fragment:        c.settings.Fragment,
+		FragmentInUse:   c.fragmentInUse,
+		IPv6:            !c.settings.IPv6Off,
+		IPv6InUse:       c.ipv6InUse,
+		Reports:         !c.settings.ReportsOff,
+		MTU:             c.settings.MTU,
+		MTUDefault:      c.mtu,
+		MTUInUse:        c.mtuInUse,
+		KillSwitch:      c.settings.KillSwitch,
+		KillSwitchInUse: killInUse,
+		KillSwitchError: c.guardErr,
 	}
 }
 
@@ -173,6 +180,9 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	}
 	if p.Reports != nil {
 		next.ReportsOff = !*p.Reports
+	}
+	if p.KillSwitch != nil {
+		next.KillSwitch = *p.KillSwitch
 	}
 	if p.DNSSecure != nil {
 		next.DNSPlain = !*p.DNSSecure
@@ -204,6 +214,13 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	c.settings = next
 	c.mu.Unlock()
 	c.lan.Store(next.LANOutside)
+
+	// Kill switch и домашняя сеть в его правилах действуют сразу: ждать
+	// переподключения ради запрета, который человек только что включил,
+	// значило бы оставить его без защиты, думая, что она есть.
+	if p.KillSwitch != nil || p.LANOutside != nil {
+		c.reguard()
+	}
 
 	if p.BypassRussian != nil {
 		if !next.BypassRussian {

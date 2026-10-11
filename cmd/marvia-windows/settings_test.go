@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/jytt8u/marvia/internal/killswitch"
 )
 
 // Настройки переживают перезапуск, а испорченный файл даёт умолчания, а не
@@ -15,7 +17,7 @@ func TestSettingsSurviveRestartAndBrokenFileGivesDefaults(t *testing.T) {
 	if got := loadSettings(dir); got != (pcSettings{}) {
 		t.Fatalf("без файла: %+v", got)
 	}
-	want := pcSettings{BypassRussian: true, LANOutside: true, DNS: "9.9.9.9", DNSPlain: true, Fragment: true, IPv6Off: true, ReportsOff: true}
+	want := pcSettings{BypassRussian: true, LANOutside: true, DNS: "9.9.9.9", DNSPlain: true, Fragment: true, IPv6Off: true, ReportsOff: true, KillSwitch: true}
 	if err := saveSettings(dir, want); err != nil {
 		t.Fatal(err)
 	}
@@ -64,6 +66,24 @@ func TestHomeNetworkIsPrivateAddressesOnly(t *testing.T) {
 	for _, s := range []string{"8.8.8.8", "172.32.0.1", "100.64.0.1", "127.0.0.1", "77.88.55.242", "2a00::1"} {
 		if homeNetwork(netip.MustParseAddr(s)) {
 			t.Errorf("%s считается домашней сетью", s)
+		}
+	}
+}
+
+// Что мост ведёт мимо туннеля как домашнюю сеть, kill switch тоже пропускает:
+// иначе «домашняя сеть мимо туннеля» с ним молча переставала бы работать.
+func TestKillSwitchLetsThroughTheWholeHomeNetwork(t *testing.T) {
+	for _, s := range []string{"10.0.0.0", "10.255.255.255", "172.16.0.0", "172.31.255.255", "192.168.0.0", "192.168.255.255", "fc00::", "fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"} {
+		ip := netip.MustParseAddr(s)
+		if !homeNetwork(ip) {
+			t.Fatalf("%s уже не домашняя сеть — тест устарел", s)
+		}
+		covered := false
+		for _, p := range killswitch.HomePrefixes {
+			covered = covered || p.Contains(ip)
+		}
+		if !covered {
+			t.Errorf("мост ведёт %s мимо туннеля, а kill switch его закроет", s)
 		}
 	}
 }

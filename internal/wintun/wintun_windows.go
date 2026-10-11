@@ -127,6 +127,10 @@ func (a *Adapter) claimTraffic() error {
 	return nil
 }
 
+// LUID — номер адаптера в системе. Нужен фильтру kill switch: «через туннель»
+// для него — это «через этот интерфейс».
+func (a *Adapter) LUID() uint64 { return uint64(a.luid) }
+
 // Endpoint отдаёт интерфейс в том виде, в каком его ждёт мост.
 func (a *Adapter) Endpoint() stack.LinkEndpoint { return a.dev }
 

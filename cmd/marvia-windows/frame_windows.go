@@ -50,9 +50,10 @@ const (
 // окно не выполняет.
 var windowActions = []string{"drag", "top", "min", "max", "close", "state"}
 
+// ncCalcSizeParams — начало NCCALCSIZE_PARAMS: три прямоугольника. Указатель на
+// WINDOWPOS после них нам не нужен, а читаем мы только первый прямоугольник.
 type ncCalcSizeParams struct {
 	rgrc [3]rect
-	pos  uintptr
 }
 
 func (s *shell) zoomed() bool {

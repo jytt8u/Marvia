@@ -1,0 +1,5 @@
+0.13.0-alpha.9 — test release.
+Twelve looks, the same as in the Windows app, each with its own detail: metal, glass, hard shadows, film grain.
+An "Add key" button on the home screen until you have access; download and upload speed with a live graph.
+Settings are grouped; measurement modes, "Less motion" and haptic feedback.
+The VP1 wire format is unchanged.

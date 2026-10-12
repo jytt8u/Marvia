@@ -109,6 +109,13 @@ func serve(w http.ResponseWriter, name string, ok func(string) bool, dir, mime s
 	_, _ = w.Write(raw)
 }
 
+// Mark — знак Marvia в PNG. Нужен страницам, которым внешние картинки
+// запрещены, — страница покупателя встраивает его в себя.
+func Mark() []byte {
+	raw, _ := files.ReadFile("assets/marvia-mark.png")
+	return raw
+}
+
 // FontName проверяет, что это имя одного из наших шрифтов, а не путь.
 func FontName(name string) bool { return plainName(name, ".woff2") }
 

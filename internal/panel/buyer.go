@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"html/template"
+	"math"
 	"mime"
 	"net/http"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jytt8u/marvia/internal/look"
 	"github.com/jytt8u/marvia/internal/seller"
 	"golang.org/x/text/language"
 	"rsc.io/qr"
@@ -79,6 +81,10 @@ type buyerText struct {
 	NoExpiry, ValidUntil, ExpiredOn, Unlimited, Remaining, Used, Unit                   string
 	Connect, Instructions, Link, QR, Downloads, Download, NoApps, NativeKey             string
 	Renew, Support, Announcement, Private                                               string
+	// AddSub — второй шаг подключения; Days — слово после числа дней:
+	// одно, несколько, много (в английском второе и третье совпадают).
+	AddSub string
+	Days   [3]string
 }
 
 var buyerRussian = buyerText{
@@ -92,7 +98,8 @@ var buyerRussian = buyerText{
 	Link:         "Ссылка подписки", QR: "QR-код ссылки подписки", Downloads: "Нужно приложение?",
 	Download: "Скачать для %s", NoApps: "Продавец пока не выложил приложения. Попросите у него файл для вашей системы.",
 	NativeKey: "Для подключения через VP1 в Marvia используйте личный ключ marvia:// из сообщения продавца. Ссылка подписки его не заменяет.",
-	Renew:     "Продлить", Support: "Поддержка", Announcement: "Объявление продавца",
+	AddSub:    "Добавьте подписку", Days: [3]string{"день", "дня", "дней"},
+	Renew: "Продлить", Support: "Поддержка", Announcement: "Объявление продавца",
 	Private: "Эта ссылка даёт доступ к подписке. Не публикуйте её и QR-код.",
 }
 
@@ -107,7 +114,8 @@ var buyerEnglish = buyerText{
 	Link:         "Subscription URL", QR: "Subscription URL QR code", Downloads: "Need an app?",
 	Download: "Download for %s", NoApps: "The seller has not uploaded any apps yet. Ask them for a file for your system.",
 	NativeKey: "To connect using VP1 in Marvia, use the personal marvia:// key from your seller's message. The subscription URL does not replace it.",
-	Renew:     "Renew", Support: "Support", Announcement: "Seller announcement",
+	AddSub:    "Add the subscription", Days: [3]string{"day left", "days left", "days left"},
+	Renew: "Renew", Support: "Support", Announcement: "Seller announcement",
 	Private: "This URL grants access to your subscription. Keep it and the QR code private.",
 }
 
@@ -116,8 +124,15 @@ type buyerApp struct {
 }
 
 type buyerView struct {
-	Text                           buyerText
-	Nonce, Label, Status, Term     string
+	Text                       buyerText
+	Nonce, Label, Status, Term string
+	// State — цвет состояния: ok, warn (кончается) или off (не работает).
+	// DaysLeft и DaysWord — крупное число до конца срока; пусто без срока.
+	// TrafficLeft — сколько процентов квоты осталось, для полосы.
+	State, DaysLeft, DaysWord      string
+	HasLimit                       bool
+	TrafficLeft                    int
+	Mark                           template.URL
 	Traffic, Used, SubscriptionURL string
 	Attention                      bool
 	Seller                         buyerSeller
@@ -174,6 +189,8 @@ func (a *API) buyerPage(w http.ResponseWriter, r *http.Request, user User) {
 	}
 	// PNG создаём сами; чужой текст никогда не становится доверенной разметкой.
 	view.QR = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
+	// Знак — тем же способом: внешние картинки странице запрещены.
+	view.Mark = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(look.Mark()))
 	view.Nonce, err = newNonce()
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "не удалось подготовить страницу подписки")
@@ -208,6 +225,18 @@ func buyerDetails(user User, text buyerText, now time.Time) buyerView {
 		view.Status = text.Exhausted
 	}
 	view.Attention = !user.Enabled || expired || exhausted
+	view.State = "ok"
+	if view.Attention {
+		view.State = "off"
+	}
+	if user.ExpiresAt != nil && !expired {
+		days := int(math.Ceil(user.ExpiresAt.Sub(now).Hours() / 24))
+		view.DaysLeft = strconv.Itoa(days)
+		view.DaysWord = text.Days[pluralIndex(days)]
+		if days <= 3 && view.State == "ok" {
+			view.State = "warn"
+		}
+	}
 	if user.ExpiresAt != nil {
 		format := "02.01.2006, 15:04 UTC"
 		if text.Language == "en" {
@@ -222,9 +251,26 @@ func buyerDetails(user User, text buyerText, now time.Time) buyerView {
 	if user.TrafficLimit > 0 {
 		remaining := max(int64(0), user.TrafficLimit-user.Used)
 		view.Traffic = fmt.Sprintf(text.Remaining, buyerBytes(remaining, text), buyerBytes(user.TrafficLimit, text))
+		view.HasLimit = true
+		view.TrafficLeft = int(remaining * 100 / user.TrafficLimit)
+		if view.TrafficLeft < 10 && view.State == "ok" {
+			view.State = "warn"
+		}
 	}
 	view.Used = fmt.Sprintf(text.Used, buyerBytes(user.Used, text))
 	return view
+}
+
+// pluralIndex — форма слова по числу: 1 день, 2 дня, 5 дней; 11–14 — «дней».
+func pluralIndex(n int) int {
+	n %= 100
+	switch {
+	case n%10 == 1 && n != 11:
+		return 0
+	case n%10 >= 2 && n%10 <= 4 && (n < 12 || n > 14):
+		return 1
+	}
+	return 2
 }
 
 func buyerBytes(n int64, text buyerText) string {

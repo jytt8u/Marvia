@@ -1112,6 +1112,29 @@
   .rows .sub[id$="-msg"]:not(:empty) { font-family: var(--mono); font-size: 11px; color: var(--acc); }
   .span-pick .chip { min-height: 26px; padding: 0 10px; font-size: 11.5px; }
 
+  /* ───── Прозрачная: настоящий рабочий стол сквозь окно ─────
+     Когда Acrylic принят, страница не красит ничего, кроме панелей:
+     размытые обои и окна под программой и есть фон. Панели — полупрозрачные,
+     чтобы читались, но не закрывали стол. Без Acrylic — обычный вид с
+     нарисованными обоями и пеленой. */
+  :root:has(body[data-glass="1"]), body[data-glass="1"] { background: transparent !important; }
+  body[data-glass="1"] #wall, body[data-glass="1"] #field { display: none; }
+  body[data-shell="clear"] .top, body[data-shell="clear"] aside { background: transparent; border: 0; }
+  body[data-shell="clear"] main { border-radius: 10px 0 0 0; background: color-mix(in srgb, var(--bg) 26%, transparent);
+    border: 1px solid color-mix(in srgb, var(--fg) 8%, transparent); border-right: 0; border-bottom: 0; }
+  body[data-shell="clear"] .card, body[data-shell="clear"] .kpi, body[data-shell="clear"] .node, body[data-shell="clear"] .sub-card,
+  body[data-shell="clear"] .set-nav, body[data-shell="clear"] .set-panes .rows > div {
+    background: color-mix(in srgb, var(--surf) 58%, transparent); border: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06); }
+  body[data-shell="clear"] .tab { border-radius: 6px; font-weight: 500; }
+  body[data-shell="clear"] .tab[aria-selected="true"] { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+  body[data-shell="clear"] .status, body[data-shell="clear"] .head .title { text-shadow: 0 1px 12px rgba(0,0,0,.45); }
+  body[data-shell="clear"] .power { background: color-mix(in srgb, var(--surf) 40%, transparent); box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 0 0 1px rgba(255,255,255,.12), 0 20px 50px -20px rgba(0,0,0,.6); }
+  body[data-shell="clear"] .power[data-state="connected"] { background: color-mix(in srgb, var(--acc) 45%, transparent); }
+  .vibe-art[data-shell="clear"] .mw { --vwr: 8px; background: rgba(28,28,28,.42); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.18), 0 10px 24px -10px rgba(0,0,0,.55); }
+  .vibe-art[data-shell="clear"] .mw-side { background: transparent; }
+
   /* ───── Миниатюры: обои и маленькое окно образа ───── */
   .vibes { grid-auto-columns: 226px; }
   .vibe-art { position: relative; height: 128px; border-radius: calc(var(--r) + 2px); overflow: hidden; display: block;
@@ -1998,6 +2021,7 @@ const T = {
       graphite: ["Графит", "Наш серый: спокойно и без лишнего"],
       dot: ["Точка", "Чёрное табло, точечные цифры, красный"],
       paper: ["Бумага", "Светлое табло в точку, чернила и красный"],
+      clear: ["Прозрачная", "Сквозь окно видно ваш рабочий стол — Windows 11"],
       win11: ["Windows 11", "Слюда над обоями, скругления и синий акцент"],
       win11l: ["Windows 11 светлая", "Светлая слюда и цветок на обоях"],
       xp: ["Windows XP", "Синий заголовок, зелёная кнопка, холм под небом"],
@@ -2256,6 +2280,7 @@ const T = {
       graphite: ["Graphite", "Our grey: calm and uncluttered"],
       dot: ["Dot", "Black board, dot-matrix digits, red"],
       paper: ["Paper", "Light dotted board, ink and red"],
+      clear: ["Clear", "Your desktop shows through the window — Windows 11"],
       win11: ["Windows 11", "Mica over the wallpaper, rounded corners, blue accent"],
       win11l: ["Windows 11 light", "Light Mica and a bloom on the wallpaper"],
       xp: ["Windows XP", "Blue title bar, green button, a hill under the sky"],
@@ -2681,6 +2706,8 @@ function paintBackdrop() {
   const layer = $("bg-layer"), veil = $("bg-veil");
   const on = !!backdropURL;
   document.body.classList.toggle("custom-bg", on);
+  // Свой фон закрывает рабочий стол — прозрачность тогда не нужна.
+  if (vibe) paintGlass();
   layer.hidden = !on;
   veil.hidden = !on;
   if (!on) { layer.replaceChildren(); return; }
@@ -3986,6 +4013,16 @@ const VIBES = {
     o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26, r: 10, psize: 120 },
     art: "radial-gradient(rgba(20,18,14,.24) 1.1px,transparent 1.7px) 0 0/7px 7px,#f6f3ec",
   },
+  // Прозрачная: сквозь окно видно рабочий стол — Acrylic Windows 11 под
+  // прозрачной страницей. Где Acrylic нет (Windows 10, ранние сборки 11),
+  // тот же вид с нарисованными обоями.
+  clear: {
+    group: "windows", shell: "clear", wall: "bloom",
+    look: { preset: "slate", acc: "#60cdff", kind: "flat", radius: "soft", density: "normal", btn: "glass", glow: "soft", card: "flat", tint: null },
+    o: { bg: "#1c1c1c", surf: "#2b2b2b", fg: "#ffffff", dim: "#d0d0d0", line: "#3d3d3d", r: 10, pattern: "none",
+      font: "segoe", sfont: "system", nums: "text", caps: false, statusSize: 32 },
+    veil: "rgba(24,24,24,.55)",
+  },
   // Windows 11: слюда поверх обоев, Segoe UI Variable, скругление 8, синий
   // акцент из палитры Fluent (светлый вариант — для тёмной темы).
   win11: {
@@ -4090,6 +4127,20 @@ const VIBE_RENAMED = { glass: "mac", expressive: "gnome", chrome: "graphite", br
   film: "gruvbox", aurora: "hypr", terminal: "gruvbox", day: "win11l" };
 // Оболочки, где программа — окно на столе с обоями вокруг, как в миниатюре.
 const FRAMED = ["win11", "mac", "xp", "w98", "gnome", "ubuntu", "kde"];
+// Прозрачное окно: просим у Windows Acrylic и становимся прозрачными, только
+// если он принят. Просим один раз на смену образа, а не на каждую отрисовку.
+var glassWanted = null;
+function paintGlass() {
+  const want = VIBES[vibe.id].shell === "clear" && !backdropURL;
+  if (want === glassWanted) return;
+  glassWanted = want;
+  if (!want) {
+    document.body.dataset.glass = "";
+    if (window.marviaWindow) window.marviaWindow("solid").catch(() => {});
+    return;
+  }
+  winAct("glass").then((ok) => { if (glassWanted) document.body.dataset.glass = ok ? "1" : ""; }).catch(() => {});
+}
 const VIBE_GROUPS = ["all", "marvia", "windows", "mac", "linux"];
 
 // ── обои ──
@@ -4447,6 +4498,7 @@ function applyVibe() {
   document.body.dataset.shell = VIBES[vibe.id].shell || "marvia";
   document.body.dataset.frame = FRAMED.includes(document.body.dataset.shell) ? "1" : "";
   document.body.dataset.wall = VIBES[vibe.id].wall ? "1" : "";
+  paintGlass();
   document.body.dataset.motion = motion();
   document.body.dataset.logo = eff("logo");
   document.body.dataset.caps = String(eff("caps"));

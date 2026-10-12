@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"syscall"
 	"time"
 	"unsafe"
@@ -73,6 +74,8 @@ type shell struct {
 	icons   [2]uintptr
 	caption captionTheme
 	loaded  bool
+	// glass — включён ли Acrylic: тогда окно не закрашивает свой фон.
+	glass bool
 }
 
 // showWindow открывает окно программы и держит её до выхода из меню трея.
@@ -86,6 +89,9 @@ type shell struct {
 // Браузер не заменяет трей: у оконного приложения нет консоли для Ctrl+C.
 // hidden — начать в трее, без окна: так программа стартует вместе с Windows.
 func showWindow(url string, ctl *Controller, log *journal, hidden bool, onWindow *func(windowRequest)) error {
+	// Страница без фона по умолчанию: обычные образы красят себя сами, а
+	// прозрачному нужно, чтобы под ней был Acrylic окна, а не белый лист движка.
+	_ = os.Setenv("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00000000")
 	w := createWebView(webview2.WebViewOptions{
 		Debug:     false,
 		AutoFocus: true,
@@ -211,6 +217,12 @@ func (s *shell) subclass() {
 					s.hide()
 				}
 				return 0
+			}
+		case wmEraseBkgnd:
+			// Под прозрачной страницей фон окна не закрашиваем: закрашенный
+			// закрыл бы Acrylic сплошным цветом.
+			if s.glass {
+				return 1
 			}
 		case wmActivate:
 			if s.widget && wp&0xffff == waInactive {

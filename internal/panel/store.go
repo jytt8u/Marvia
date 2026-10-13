@@ -178,23 +178,8 @@ CREATE TABLE IF NOT EXISTS plans (
     max_ips       INTEGER NOT NULL DEFAULT 0,
     speed_limit   INTEGER NOT NULL DEFAULT 0,
     note          TEXT    NOT NULL DEFAULT '',
-    price         INTEGER NOT NULL DEFAULT 0,
-    currency      TEXT    NOT NULL DEFAULT '',
     created_at    TEXT    NOT NULL
 );
-
--- Книга продаж: день, тариф, цена — без покупателя, см. sales.go.
-CREATE TABLE IF NOT EXISTS sales (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    day       TEXT    NOT NULL,
-    kind      TEXT    NOT NULL,
-    plan_id   INTEGER REFERENCES plans(id) ON DELETE SET NULL,
-    plan_name TEXT    NOT NULL,
-    price     INTEGER NOT NULL DEFAULT 0,
-    currency  TEXT    NOT NULL DEFAULT ''
-);
-
-CREATE INDEX IF NOT EXISTS sales_day ON sales(day);
 
 CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -411,10 +396,6 @@ func migrate(db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS sub_aliases (kind TEXT NOT NULL, key TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, secret TEXT NOT NULL DEFAULT '', not_before TEXT, PRIMARY KEY (kind, key))`,
 		`ALTER TABLE users ADD COLUMN last_seen TEXT`,
 		`ALTER TABLE idempotency ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`,
-		`ALTER TABLE plans ADD COLUMN price INTEGER NOT NULL DEFAULT 0`,
-		`ALTER TABLE plans ADD COLUMN currency TEXT NOT NULL DEFAULT ''`,
-		`CREATE TABLE IF NOT EXISTS sales (id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL, kind TEXT NOT NULL, plan_id INTEGER REFERENCES plans(id) ON DELETE SET NULL, plan_name TEXT NOT NULL, price INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT '')`,
-		`CREATE INDEX IF NOT EXISTS sales_day ON sales(day)`,
 	}
 
 	for _, step := range steps {
@@ -584,8 +565,7 @@ func (s *Store) CreateUser(ctx context.Context, p CreateUserParams) (User, []Iss
 	}
 
 	now := time.Now().UTC()
-	plan, err := s.applyPlan(ctx, &p, now)
-	if err != nil {
+	if err := s.applyPlan(ctx, &p, now); err != nil {
 		return User{}, nil, err
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -636,11 +616,6 @@ func (s *Store) CreateUser(ctx context.Context, p CreateUserParams) (User, []Iss
 	// при перезапуске панели сразу после выдачи доступа.
 	if err := queueUserWebhookTx(ctx, tx, id, EventUserCreate); err != nil {
 		return User{}, nil, err
-	}
-	if plan != nil {
-		if err := recordSale(ctx, tx, SaleNew, *plan, now); err != nil {
-			return User{}, nil, err
-		}
 	}
 	if err := tx.Commit(); err != nil {
 		return User{}, nil, err

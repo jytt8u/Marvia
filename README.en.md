@@ -103,7 +103,7 @@ VP1 is not compatible with WireGuard or Xray clients.
 
 | Client | Server |
 |---|---|
-| Android: Marvia and third-party keys, node selection, usage and VPN settings, name lookups over HTTPS hidden from the node, seller's Renew and Support | Panel and nodes: limits, accounting, priced plans, monthly revenue and “running out soon” on the overview, two-click renewal, QR code and Telegram text, backups, bot API, migration from Marzban and 3x-ui; support and renew links and an announcement in the subscription for Happ, v2RayTun, Hiddify |
+| Android: Marvia and third-party keys, node selection, usage and VPN settings, name lookups over HTTPS hidden from the node, seller's Renew and Support | Panel and nodes: limits, accounting, plans and two-click renewal, an overview of who runs out soon and traffic by node, QR code and Telegram text, backups, bot API, migration from Marzban and 3x-ui; support and renew links and an announcement in the subscription for Happ, v2RayTun, Hiddify |
 | Windows: TUN client, Russian sites and home network directly, DNS choice and encrypted name lookups, split TLS hello, several keys, weekly and monthly traffic, custom MTU, a status and promises overview in settings, IPv6 and reports switches, seller's Support and Renew | VP1, VLESS and Trojan; verified node updates |
 
 Manually selected nodes connect without waiting for measurements of every

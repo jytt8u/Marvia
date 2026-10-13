@@ -1362,11 +1362,6 @@ func (a *API) stats(w http.ResponseWriter, r *http.Request) {
 	for _, d := range byDay {
 		total += d.Up + d.Down
 	}
-	sales, err := a.store.Sales(r.Context(), days)
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
 
 	ok(w, map[string]any{
 		"days": days,
@@ -1379,8 +1374,6 @@ func (a *API) stats(w http.ResponseWriter, r *http.Request) {
 		"by_day":  emptyIfNil(byDay),
 		"by_node": emptyIfNil(byNode),
 		"total":   total,
-		// Выручка по ценам тарифов, см. sales.go.
-		"sales": sales,
 	})
 }
 

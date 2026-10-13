@@ -433,69 +433,116 @@
           </div>
         </sc-if>
 
+        <!--
+          Главная отвечает на три вопроса продавца, по важности: сколько
+          принесли продажи, кого сейчас продлевать и выдерживают ли ноды.
+          Деньги — по ценам тарифов (см. sales.go): панель их не принимает,
+          но каждая оплата кончается продажей или продлением по тарифу.
+        -->
         <sc-if value="{{ isDash }}">
           <div style="display: flex; flex-direction: column; gap: var(--gap, 12px); flex: 1; min-height: 0;">
-            <div style="display: flex; gap: var(--gap, 12px);">
+            <div style="display: flex; gap: var(--gap, 12px); flex-wrap: wrap;">
               <sc-for list="{{ kpis }}" as="k">
                 <div style="{{ k.style }}">
                   <div style="font-size: 13px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: var(--fg, #eaf5ee); margin-top: 8px; letter-spacing: -.01em;">{{ k.value }}</div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: var(--fg, #eaf5ee); margin-top: 8px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ k.value }}</div>
                   <div style="{{ k.deltaStyle }}">{{ k.delta }}</div>
                 </div>
               </sc-for>
             </div>
-            <div style="display: flex; gap: var(--gap, 12px); height: 210px;">
+            <div style="display: flex; gap: var(--gap, 12px); height: 230px; flex: none;">
               <div style="flex: 1.6; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--featureBg, var(--surf, #0c1a11)); border: 1px solid var(--featureLine, var(--cardLine, var(--line))); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.traffic }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim, #6c8a76);">{{ totalTraffic }}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                  <div style="display: flex; gap: 6px;" role="group" aria-label="{{ d18.dash.chart }}">
+                    <sc-for list="{{ chartTabs }}" as="c">
+                      <div style="{{ c.style }}" role="button" tabindex="0" aria-pressed="{{ c.pressed }}" onClick="{{ c.onClick }}">{{ c.label }}</div>
+                    </sc-for>
+                  </div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim, #6c8a76); white-space: nowrap;">{{ chartTotal }}</div>
                 </div>
-                <div style="flex: 1; display: flex; align-items: flex-end; gap: 4px; padding-top: 10px;">
-                  <sc-for list="{{ lolli }}" as="l">
+                <div style="flex: 1; display: flex; align-items: flex-end; gap: 4px; padding-top: 10px; min-height: 0;">
+                  <sc-for list="{{ chartBars }}" as="l">
                     <div style="{{ l.colStyle }}" title="{{ l.title }}">
                       <div style="{{ l.dotStyle }}"></div>
                       <div style="{{ l.stemStyle }}"></div>
                     </div>
                   </sc-for>
+                  <sc-if value="{{ chartEmpty }}">
+                    <div style="align-self: center; margin: auto; max-width: 420px; text-align: center; font-size: 12px; line-height: 1.5; color: var(--dim);">{{ chartEmpty }}</div>
+                  </sc-if>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .12em; color: var(--dim, #6c8a76);"><span>{{ firstDay }}</span><span>{{ lastDay }}</span></div>
               </div>
               <div style="flex: 1; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf, #0c1a11)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
-                <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.nodes }}</div>
-                <sc-for list="{{ nodes }}" as="n">
-                  <div style="{{ n.rowStyle }}">
-                    <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
-                      <div style="{{ n.dotStyle }}"></div>
-                      <div style="font-size: 13px; color: var(--fg, #eaf5ee); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ n.name }}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                  <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.nodes }}</div>
+                  <div style="{{ linkStyle }}" onClick="{{ goNodes }}">{{ d18.dash.allNodes }}</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto; min-height: 0;">
+                  <sc-for list="{{ nodes }}" as="n">
+                    <div style="display: flex; flex-direction: column; gap: 6px;" onClick="{{ n.onClick }}">
+                      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                          <div style="{{ n.dotStyle }}" title="{{ n.state }}"></div>
+                          <div style="font-size: 13px; color: var(--fg, #eaf5ee); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ n.name }}</div>
+                        </div>
+                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim, #6c8a76); flex: none;">{{ n.load }} · {{ n.share }}</div>
+                      </div>
+                      <div style="{{ n.track }}"><div style="{{ n.fill }}"></div></div>
                     </div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim, #6c8a76); flex: none;">{{ n.load }}</div>
-                  </div>
-                </sc-for>
+                  </sc-for>
+                </div>
                 <sc-if value="{{ noNodes }}">
                   <div style="{{ emptyStyle }}">{{ d18.dash.noNodes }}</div>
                 </sc-if>
               </div>
             </div>
-            <div style="flex: 1; min-height: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf, #0c1a11)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.clients }}</div>
-                <div style="{{ allClients }}" onClick="{{ goClients }}">{{ allClientsLabel }}</div>
-              </div>
-              <div style="{{ dashHead }}">
-                <div>{{ d18.col.client }}</div><div>{{ d18.col.key }}</div><div>{{ d18.col.until }}</div><div>{{ d18.col.traffic }}</div><div>{{ d18.col.status }}</div>
-              </div>
-              <sc-for list="{{ clients }}" as="c">
-                <div style="{{ c.rowStyle }}" onClick="{{ c.onClick }}">
-                  <div style="font-size: 13px; color: var(--fg, #eaf5ee); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.name }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim, #6c8a76);">{{ c.key }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim, #6c8a76);">{{ c.until }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--fg, #eaf5ee);">{{ c.traffic }}</div>
-                  <div style="{{ c.badgeStyle }}">{{ c.status }}</div>
+            <div style="display: flex; gap: var(--gap, 12px); flex: 1; min-height: 220px;">
+              <div style="flex: 1.6; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf, #0c1a11)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px;">
+                  <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                    <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.soon }}</div>
+                    <div style="font-size: 12px; color: var(--dim);">{{ soonNote }}</div>
+                  </div>
+                  <div style="{{ linkStyle }}" onClick="{{ goSoon }}">{{ soonAll }}</div>
                 </div>
-              </sc-for>
-              <sc-if value="{{ noClients }}">
-                <div style="{{ emptyStyle }}">{{ d18.dash.noClients }}</div>
-              </sc-if>
+                <div style="display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0;">
+                  <sc-for list="{{ soon }}" as="c">
+                    <div style="{{ c.rowStyle }}" onClick="{{ c.onClick }}">
+                      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                        <div style="font-size: 13px; color: var(--fg, #eaf5ee); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.name }}</div>
+                        <div style="font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.plan }}</div>
+                      </div>
+                      <div style="{{ c.whenStyle }}">{{ c.when }}</div>
+                      <div style="{{ renewStyle }}" role="button" tabindex="0" onClick="{{ c.onRenew }}">{{ c.renew }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ noSoon }}">
+                  <div style="{{ emptyStyle }}">{{ noSoon }}</div>
+                </sc-if>
+              </div>
+              <div style="flex: 1; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf, #0c1a11)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 12px; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                  <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.byPlan }}</div>
+                  <sc-if value="{{ canPlans }}">
+                    <div style="{{ linkStyle }}" onClick="{{ goPlans }}">{{ d18.cta.plans }} →</div>
+                  </sc-if>
+                </div>
+                <sc-for list="{{ planRows }}" as="p">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px;">
+                      <span style="color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.name }}</span>
+                      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--fg); flex: none;">{{ p.sum }}</span>
+                    </div>
+                    <div style="{{ p.track }}"><div style="{{ p.fill }}"></div></div>
+                    <div style="font-size: 11px; color: var(--dim);">{{ p.count }}</div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ noPlanRows }}">
+                  <div style="{{ emptyStyle }}">{{ noPlanRows }}</div>
+                </sc-if>
+              </div>
             </div>
           </div>
         </sc-if>
@@ -1577,6 +1624,7 @@ function planLine(plan) {
     plan.traffic_limit ? bytes(plan.traffic_limit) : d.plan.noTraffic,
     plan.max_ips ? d.plan.devices(plan.max_ips) : d.plan.noDevices,
     plan.speed_limit ? Math.round(plan.speed_limit / 125000) + d.user.mbit : "",
+    plan.price ? moneyText(plan.price, plan.currency) : "",
     plan.note || "",
   ].filter(Boolean).join(" · ");
 }
@@ -1615,7 +1663,10 @@ function plansSheet() {
 
 function planSheet(plan) {
   const d = L();
-  const p = plan || { name: "", days: 30, traffic_limit: 50 * 1024 ** 3, max_ips: 2, speed_limit: 0, note: "" };
+  // Валюта нового тарифа — та же, что у прежних: продавец торгует в одной.
+  const known = state.plans.find((x) => x.currency);
+  const p = plan || { name: "", days: 30, traffic_limit: 50 * 1024 ** 3, max_ips: 2, speed_limit: 0, note: "",
+    price: 0, currency: known ? known.currency : (state.lang === "en" ? "$" : "₽") };
   const save = () => act(async () => {
     const body = {
       name: val("pl-name"),
@@ -1624,6 +1675,8 @@ function planSheet(plan) {
       max_ips: num("pl-ips"),
       speed_limit: Math.round(num("pl-speed") * 125000),
       note: val("pl-note"),
+      price: Math.round(num("pl-price")),
+      currency: val("pl-cur"),
     };
     if (plan) await api("/api/v1/plans/" + plan.id, "PATCH", body);
     else await api("/api/v1/plans", "POST", body);
@@ -1648,6 +1701,8 @@ function planSheet(plan) {
     field(d.user.newGB[0], "pl-gb", "number", Math.round(p.traffic_limit / 1024 ** 3 * 10) / 10, d.user.newGB[1]),
     field(d.user.newIPs[0], "pl-ips", "number", p.max_ips, d.user.newIPs[1]),
     field(d.user.newSpeed[0], "pl-speed", "number", Math.round(p.speed_limit / 125000), d.user.newSpeed[1]),
+    field(d.plan.price[0], "pl-price", "number", p.price || 0, d.plan.price[1]),
+    field(d.plan.currency[0], "pl-cur", "text", p.currency || "", d.plan.currency[1]),
     field(d.plan.note[0], "pl-note", "text", p.note || "", d.plan.note[1]),
   ], buttons);
 }
@@ -1732,6 +1787,22 @@ function renewSheet(user) {
     })),
     btn(d.act.cancel, "", closeSheet),
   ]);
+}
+
+// quickRenew — «Продлить» с главной. С тарифами — тот же лист, что из
+// карточки: тариф решает, сколько записать в выручку, и выбрать его стоит
+// одним взглядом, а не угадать за продавца. Без тарифов — +30 дней, как в
+// карточке, но с вопросом: кнопка стоит в списке, и промахнуться легко.
+function quickRenew(user) {
+  if (state.plans.length) { renewSheet(user); return; }
+  const d = L();
+  act(async () => {
+    const [title, text, word] = d.dash.askExtend(user.label || "#" + user.id);
+    if (!await ask(title, text, word)) return;
+    await api("/api/v1/users/" + user.id, "PATCH", { extend_by: "30d", enabled: true });
+    toast(d.user.extended);
+    await loadAll();
+  });
 }
 
 // qrImage — QR-код ссылки картинкой. Рисует панель: ссылку с доступом не
@@ -2317,7 +2388,7 @@ const TEXTS = {
       stats: (traffic) => "Трафик за 30 дней · " + traffic,
     },
 
-    cta: { clients: "+ Клиент", nodes: "+ Нода", keys: "+ Ключ", plans: "Тарифы" },
+    cta: { dash: "+ Выдать доступ", clients: "+ Клиент", nodes: "+ Нода", keys: "+ Ключ", plans: "Тарифы" },
     search: "Поиск по имени или номеру у бота",
     wh: {
       title: "Вебхуки для бота",
@@ -2369,6 +2440,9 @@ const TEXTS = {
     },
 
     kpi: {
+      revenue: "Выручка за 30 дней", noPrices: "цены тарифов не заданы", noSales: "продаж по тарифам не было",
+      vsPrev: (p) => (p > 0 ? "+" : "") + p + "% к прошлым 30 дням", firstMonth: (n) => n + " " + pluralRU(n, "продажа", "продажи", "продаж") + " · сравнить пока не с чем",
+      alsoIn: "и ещё",
       activeKeys: "Активные ключи", traffic30: "Трафик за 30 дней", nodesLive: "Ноды на связи",
       expiring: "Истекают", total: "Всего", active: "Активных", keysCount: "Ключей",
       trafficTotal: "Трафик", nodesWithTraffic: "Нод с трафиком", perDay: "В сутки",
@@ -2379,10 +2453,26 @@ const TEXTS = {
     },
 
     dash: {
-      traffic: "Трафик · 30 дней", nodes: "Ноды", clients: "Клиенты",
+      traffic: "Трафик · 30 дней", nodes: "Расход по нодам · 30 дней", clients: "Клиенты",
       noNodes: "Ни одной ноды. Заведи первую — панель отдаст установщик.",
       noClients: "Ни одного клиента. Заведи первого кнопкой «+ Клиент» в разделе «Клиенты» — или через бота.",
       allClients: (n) => "Все " + n + " " + pluralRU(n, "клиент", "клиента", "клиентов") + " →",
+      chart: "Что показать на графике", money: "Деньги", trafficTab: "Трафик",
+      allNodes: "Все ноды →",
+      soon: "Скоро кончается срок",
+      soonNote: (n, sum) => n + " " + pluralRU(n, "человек", "человека", "человек") + " — неделя до срока или после"
+        + (sum ? " · продлят все — " + sum : ""),
+      noSoon: "В ближайшую неделю ни у кого не кончается срок.",
+      inDays: (n) => n === 0 ? "сегодня" : n === 1 ? "завтра" : "через " + n + " " + pluralRU(n, "день", "дня", "дней"),
+      agoDays: (n) => "истёк " + (n === 0 ? "сегодня" : n === 1 ? "вчера" : n + " " + pluralRU(n, "день", "дня", "дней") + " назад"),
+      ownTerms: "свои срок и лимиты", renew: "Продлить", extend: "+30 дней",
+      askExtend: (name) => ["Продлить на 30 дней?", name + " получит ещё 30 дней к сроку.", "Продлить"],
+      byPlan: "Продажи по тарифам · 30 дней",
+      sold: (n) => n + " " + pluralRU(n, "продажа", "продажи", "продаж") + ", включая продления",
+      noPrices: "Задайте цены в тарифах — и здесь появится выручка. Деньги принимает бот или вы; панель считает по цене тарифа каждую продажу и продление.",
+      noSales: "За 30 дней продаж по тарифам не было.",
+      noMoneyDays: "Продаж по тарифам за 30 дней не было.",
+      noTrafficDays: "Трафика за 30 дней ещё нет.",
     },
 
     col: {
@@ -2579,7 +2669,9 @@ const TEXTS = {
       empty: "Тарифов пока нет. Заведи «Месяц» и «Год» — и продавать станет проще, чем вписывать дни и гигабайты каждому.",
       add: "+ Тариф", save: "Сохранить", saved: "Тариф сохранён",
       name: ["Название", "Его видишь ты и бот, например «Месяц»"],
-      note: ["Пометка", "Цена или что угодно для себя — панель её не считает"],
+      note: ["Пометка", "Что угодно для себя, например «со скидкой»"],
+      price: ["Цена", "В целых единицах; 0 — без цены. По ней главная считает выручку"],
+      currency: ["Валюта", "Знак, как пишете вы: ₽, $, USDT"],
       askRemove: (name) => ["Удалить тариф «" + name + "»?",
         "Купившие по нему останутся со своим сроком и лимитами — пропадёт только пометка тарифа."],
       days: (n) => n + " " + pluralRU(n, "день", "дня", "дней"),
@@ -2724,7 +2816,7 @@ const TEXTS = {
       stats: (traffic) => "Traffic over 30 days · " + traffic,
     },
 
-    cta: { clients: "+ Client", nodes: "+ Node", keys: "+ Key", plans: "Plans" },
+    cta: { dash: "+ Give access", clients: "+ Client", nodes: "+ Node", keys: "+ Key", plans: "Plans" },
     search: "Search by name or bot id",
     wh: {
       title: "Webhooks for the bot",
@@ -2776,6 +2868,9 @@ const TEXTS = {
     },
 
     kpi: {
+      revenue: "Revenue, 30 days", noPrices: "plan prices not set", noSales: "no plan sales yet",
+      vsPrev: (p) => (p > 0 ? "+" : "") + p + "% vs previous 30 days", firstMonth: (n) => n + (n === 1 ? " sale" : " sales") + " · nothing to compare with yet",
+      alsoIn: "plus",
       activeKeys: "Active keys", traffic30: "Traffic, 30 days", nodesLive: "Nodes online",
       expiring: "Expiring", total: "Total", active: "Active", keysCount: "Keys",
       trafficTotal: "Traffic", nodesWithTraffic: "Nodes with traffic", perDay: "Per day",
@@ -2786,10 +2881,26 @@ const TEXTS = {
     },
 
     dash: {
-      traffic: "Traffic · 30 days", nodes: "Nodes", clients: "Clients",
+      traffic: "Traffic · 30 days", nodes: "Traffic by node · 30 days", clients: "Clients",
       noNodes: "No nodes yet. Add the first one — the panel hands you the installer.",
       noClients: "No clients yet. Add the first one with “+ Client” in Clients — or through the bot.",
       allClients: (n) => "All " + n + (n === 1 ? " client" : " clients") + " →",
+      chart: "What the chart shows", money: "Money", trafficTab: "Traffic",
+      allNodes: "All nodes →",
+      soon: "Running out soon",
+      soonNote: (n, sum) => n + (n === 1 ? " person" : " people") + " within a week of their end date"
+        + (sum ? " · if all renew — " + sum : ""),
+      noSoon: "Nobody runs out within the next week.",
+      inDays: (n) => n === 0 ? "today" : n === 1 ? "tomorrow" : "in " + n + " days",
+      agoDays: (n) => "ended " + (n === 0 ? "today" : n === 1 ? "yesterday" : n + " days ago"),
+      ownTerms: "own term and limits", renew: "Renew", extend: "+30 days",
+      askExtend: (name) => ["Add 30 days?", name + " gets 30 more days.", "Renew"],
+      byPlan: "Sales by plan · 30 days",
+      sold: (n) => n + (n === 1 ? " sale" : " sales") + " incl. renewals",
+      noPrices: "Set prices on your plans and revenue shows up here. The bot or you take the money; the panel counts every sale and renewal at the plan's price.",
+      noSales: "No plan sales in the last 30 days.",
+      noMoneyDays: "No plan sales in the last 30 days.",
+      noTrafficDays: "No traffic in the last 30 days yet.",
     },
 
     col: {
@@ -2986,7 +3097,9 @@ const TEXTS = {
       empty: "No plans yet. Add “Month” and “Year” — selling gets easier than typing days and gigabytes for everyone.",
       add: "+ Plan", save: "Save", saved: "Plan saved",
       name: ["Name", "You and the bot see it, e.g. “Month”"],
-      note: ["Note", "Price or anything for yourself — the panel does not use it"],
+      note: ["Note", "Anything for yourself, e.g. “discounted”"],
+      price: ["Price", "Whole units; 0 means no price. The overview counts revenue by it"],
+      currency: ["Currency", "The sign as you write it: $, €, USDT"],
       askRemove: (name) => ["Delete the plan “" + name + "”?",
         "People who bought it keep their term and limits — only the plan mark goes away."],
       days: (n) => n + (n === 1 ? " day" : " days"),
@@ -3161,6 +3274,14 @@ function bytes(n) {
 // Своей раскладки не изобретаем: 09.10.2026 и 10/09/2026 — это один и тот же
 // день, и человек, привыкший к своей записи, читает чужую с ошибкой ровно там,
 // где ошибиться дороже всего — в сроке подписки.
+// moneyText — сумма с валютой так, как её пишут: «12 300 ₽», «$40».
+// Разряды — по языку интерфейса, как и даты.
+function moneyText(sum, cur) {
+  const n = Number(sum || 0).toLocaleString(L().lang);
+  if (!cur) return n;
+  return /^[$€£¥]$/.test(cur) ? cur + n : n + " " + cur;
+}
+
 function shortDate(iso) {
   if (!iso) return L().time.forever;
   const d = new Date(iso);
@@ -3259,6 +3380,7 @@ function setState(patch) {
 // CTA — какая кнопка стоит в углу раздела. Разделы без действия остаются без
 // кнопки: пустой угол честнее нажимаемой заглушки.
 const CTA = {
+  dash: () => newUserSheet(),
   clients: () => newUserSheet(),
   nodes: () => newNodeSheet(),
   keys: () => newKeySheet(),
@@ -3464,9 +3586,31 @@ function renderVals() {
   const num = (v) => (state.known ? String(v) : "—");
   const size = (v) => (state.known ? bytes(v) : "—");
 
+  // ── деньги ───────────────────────────────────────────────────────────────
+  // Выручка по ценам тарифов, см. sales.go. Главная валюта — та, в которой
+  // больше всего продано; остальные — припиской: сложить рубли с долларами
+  // нельзя, а спрятать — нечестно.
+  const sales = (state.stats && state.stats.sales) || {};
+  const money = sales.money || [];
+  const main = money[0] || null;
+  const plans = state.plans || [];
+  const priced = plans.some((p) => p.price > 0);
+  const cur = main ? main.currency : ((plans.find((p) => p.price > 0) || {}).currency || "");
+  let revenue = "—", revenueNote = d18.err.unknown, revenueGood = false;
+  if (state.known && main) {
+    revenue = moneyText(main.sum, main.currency);
+    revenueNote = main.prev ? d18.kpi.vsPrev(Math.round(((main.sum - main.prev) / main.prev) * 100)) : d18.kpi.firstMonth(main.sales);
+    revenueGood = main.sum > 0 && main.sum >= main.prev;
+    const rest = money.slice(1).filter((m) => m.sum).map((m) => moneyText(m.sum, m.currency));
+    if (rest.length) revenueNote += " · " + d18.kpi.alsoIn + " " + rest.join(", ");
+  } else if (state.known) {
+    revenue = priced ? moneyText(0, cur) : "—";
+    revenueNote = priced ? d18.kpi.noSales : d18.kpi.noPrices;
+  }
+
   const kpis = [
+    [d18.kpi.revenue, revenue, revenueNote, revenueGood],
     [d18.kpi.activeKeys, num(activeUsers), state.known ? d18.kpi.allTotal(users.length) : d18.err.unknown, true],
-    [d18.kpi.traffic30, size(total), d18.kpi.byAllNodes, true],
     // При нуле нод «все отвечают» — формально верно и совершенно бесполезно:
     // отвечать некому, и продавать пока нечего.
     [d18.kpi.nodesLive, state.known ? liveNodes + " / " + nodes.length : "—",
@@ -3476,37 +3620,118 @@ function renderVals() {
       state.known && nodes.length > 0 && liveNodes === nodes.length],
     [d18.kpi.expiring, num(expiring), d18.kpi.inSevenDays, expiring === 0],
   ].map(([label, value, delta, good]) => ({
-    label, value, delta, style: card,
+    label, value, delta, style: card + ";min-width:180px",
     deltaStyle: "font-size:12px;margin-top:6px;color:" + (good ? t.acc : t.dim),
   }));
 
   const peak = byDay.reduce((m, x) => Math.max(m, x.up + x.down), 0) || 1;
-  const lolli = byDay.map((x) => {
-    const sum = x.up + x.down;
-    const h = Math.max(4, Math.round((sum / peak) * 100));
+  // ── график: деньги или трафик ────────────────────────────────────────────
+  // Сначала деньги, если они есть: выручку смотрят каждый день, а трафик —
+  // когда что-то не так. Дни — все тридцать подряд, с нулями: пропущенный
+  // день без продаж — тоже ответ, и сжимать ось ради него нельзя.
+  const chart = state.dashChart || (main && main.sum ? "money" : "traffic");
+  const days30 = [];
+  for (let i = 29; i >= 0; i--) days30.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10));
+  const moneyByDay = new Map();
+  for (const x of sales.by_day || []) if (x.currency === cur) moneyByDay.set(x.day, x.sum);
+  const trafficByDay = new Map(byDay.map((x) => [x.day, x.up + x.down]));
+  const series = days30.map((day) => [day, (chart === "money" ? moneyByDay : trafficByDay).get(day) || 0]);
+  const seriesPeak = series.reduce((m, [, v]) => Math.max(m, v), 0);
+  const chartBars = !seriesPeak ? [] : series.map(([day, v]) => {
+    const h = Math.max(4, Math.round((v / seriesPeak) * 100));
     const top = h > 88;
     return {
-      title: dayLabel(x.day) + " · " + bytes(sum),
+      title: dayLabel(day) + " · " + (chart === "money" ? moneyText(v, cur) : bytes(v)),
       colStyle: "flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:" + h + "%",
       dotStyle: "width:" + (top ? 8 : 6) + "px;height:" + (top ? 8 : 6) + "px;border-radius:50%;flex:none;background:"
-        + (sum === 0 ? "transparent" : top ? t.acc : t.fg) + ";border:1px solid " + (sum === 0 ? t.line : top ? t.acc : t.fg),
+        + (v === 0 ? "transparent" : top ? t.acc : t.fg) + ";border:1px solid " + (v === 0 ? t.line : top ? t.acc : t.fg),
       stemStyle: "width:1px;flex:1;background:" + t.line,
     };
   });
+  const chartTabs = [["money", d18.dash.money], ["traffic", d18.dash.trafficTab]].map(([k, label]) => ({
+    label, pressed: String(chart === k),
+    onClick: () => setState({ dashChart: k }),
+    style: "padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;"
+      + (chart === k ? "background:" + t.acc + ";color:" + t.accFg : "background:" + t.surf2 + ";color:" + t.dim),
+  }));
+  const chartTotal = !state.known ? "" : chart === "money" ? (main ? moneyText(main.sum, main.currency) : "") : bytes(total);
+  const chartEmpty = state.known && !seriesPeak
+    ? (chart === "money" ? (priced ? d18.dash.noMoneyDays : d18.dash.noPrices) : d18.dash.noTrafficDays) : "";
 
-  const dashNodes = nodes.slice(0, 5).map((n) => {
-    const alive = nodeAlive(n);
+  // ── расход по нодам ──────────────────────────────────────────────────────
+  // По node_id, а не по имени: у облачных образов имена сплошь одинаковые
+  // (см. «ноды» ниже). Сначала те, что везут больше: перегруз видно сверху.
+  const dashTraffic = new Map();
+  for (const x of byNode) dashTraffic.set(x.node_id, (x.up || 0) + (x.down || 0));
+  const dashPeak = Math.max(1, ...dashTraffic.values());
+  const dashNodes = nodes.slice()
+    .sort((a, b) => (dashTraffic.get(b.id) || 0) - (dashTraffic.get(a.id) || 0))
+    .slice(0, 6).map((n) => {
+      const alive = nodeAlive(n);
+      const v = dashTraffic.get(n.id) || 0;
+      return {
+        name: n.name || n.address,
+        load: bytes(v),
+        share: total ? Math.round((v / total) * 100) + "%" : "0%",
+        state: alive ? d18.nodesPage.online : n.enabled ? d18.nodesPage.silent : d18.nodesPage.off,
+        onClick: () => nodeSheet(n),
+        dotStyle: "width:8px;height:8px;border-radius:50%;flex:none;background:" + (alive ? t.acc : t.warn),
+        track: "height:5px;border-radius:3px;background:" + t.surf2 + ";overflow:hidden",
+        fill: "width:" + Math.round((v / dashPeak) * 100) + "%;height:100%;border-radius:3px;background:" + (alive ? t.acc : t.warn),
+      };
+    });
+
+  // ── скоро кончается срок ─────────────────────────────────────────────────
+  // Неделя до срока и неделя после: первым — напомнить, вторых — вернуть.
+  // Кто ушёл больше недели назад, тот уже не продление, а новая продажа.
+  // Сверху — у кого срок ближе всего, ушедшие — следом, свежие первыми.
+  const now = Date.now();
+  const soonAllList = users.filter((u) => {
+    if (!u.enabled || !u.expires_at) return false;
+    const ms = new Date(u.expires_at).getTime() - now;
+    return ms > -7 * 86400000 && ms < 7 * 86400000;
+  }).sort((a, b) => {
+    const ma = new Date(a.expires_at).getTime() - now, mb = new Date(b.expires_at).getTime() - now;
+    if ((ma >= 0) !== (mb >= 0)) return ma >= 0 ? -1 : 1;
+    return Math.abs(ma) - Math.abs(mb);
+  });
+  const planOf = new Map(plans.map((p) => [p.id, p]));
+  // «Продлят все — столько»: по ценам их тарифов, только в главной валюте.
+  let soonSum = 0;
+  for (const u of soonAllList) {
+    const p = planOf.get(u.plan_id);
+    if (p && p.price > 0 && p.currency === cur) soonSum += p.price;
+  }
+  const soon = soonAllList.slice(0, 8).map((u) => {
+    const ms = new Date(u.expires_at).getTime() - now;
+    const p = planOf.get(u.plan_id);
     return {
-      name: n.name || n.address,
-      load: alive ? sinceLabel(n.last_seen) : n.enabled ? d18.nodesPage.silentShort : d18.nodesPage.offShort,
-      rowStyle: "display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:" + t.r + "px;background:" + t.surf2,
-      dotStyle: "width:8px;height:8px;border-radius:50%;flex:none;background:" + (alive ? t.acc : t.warn),
+      name: u.label || ("#" + u.id),
+      plan: p ? p.name + (p.price ? " · " + moneyText(p.price, p.currency) : "") : d18.dash.ownTerms,
+      when: ms >= 0 ? d18.dash.inDays(Math.floor(ms / 86400000)) : d18.dash.agoDays(Math.floor(-ms / 86400000)),
+      whenStyle: "font-size:12px;white-space:nowrap;color:" + (ms < 0 ? t.warn : ms < 2 * 86400000 ? t.fg : t.dim),
+      renew: plans.length ? d18.dash.renew : d18.dash.extend,
+      onClick: () => userSheet(u),
+      // Кнопка внутри строки: без stopPropagation нажатие открыло бы ещё и
+      // карточку покупателя поверх листа продления.
+      onRenew: (e) => { e.stopPropagation(); quickRenew(u); },
+      rowStyle: "display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:9px 12px;border-radius:"
+        + t.r + "px;background:" + t.surf2,
     };
   });
 
-  const clientRow = "2fr 1.2fr 1fr 1fr 0.9fr";
-  const dashHead = "display:grid;grid-template-columns:" + clientRow
-    + ";gap:12px;padding:0 12px;font-size:12px;color:" + t.dim;
+  // ── продажи по тарифам ───────────────────────────────────────────────────
+  const byPlanList = sales.by_plan || [];
+  const planPeak = byPlanList.reduce((m, p) => Math.max(m, p.sum), 0);
+  const countPeak = byPlanList.reduce((m, p) => Math.max(m, p.count), 0) || 1;
+  const planRows = byPlanList.slice(0, 5).map((p) => ({
+    name: p.name,
+    sum: p.sum ? moneyText(p.sum, p.currency) : "—",
+    count: d18.dash.sold(p.count),
+    track: "height:5px;border-radius:3px;background:" + t.surf2 + ";overflow:hidden",
+    fill: "width:" + Math.round((planPeak ? p.sum / planPeak : p.count / countPeak) * 100)
+      + "%;height:100%;border-radius:3px;background:" + t.acc,
+  }));
 
   function clientStatus(u) {
     if (!u.enabled) return [d18.status.off, "dim"];
@@ -3515,23 +3740,6 @@ function renderVals() {
     if (left !== null && left <= 7) return [d18.status.expiring, "warn"];
     return [d18.status.active, "ok"];
   }
-
-  const clients = users.slice(0, 4).map((u) => {
-    const [status, st] = clientStatus(u);
-    return {
-      name: u.label || ("#" + u.id),
-      key: keyShort(u),
-      until: shortDate(u.expires_at),
-      traffic: bytes(u.used),
-      status,
-      onClick: () => userSheet(u),
-      rowStyle: "display:grid;grid-template-columns:" + clientRow
-        + ";gap:12px;align-items:center;padding:11px 12px;border-radius:" + t.r + "px;background:" + t.surf2,
-      badgeStyle: "justify-self:start;padding:4px 9px;border-radius:6px;font-family:JetBrains Mono,monospace;font-size:10px;color:"
-        + (st === "ok" ? t.acc : st === "warn" ? t.warn : t.dim) + ";background:"
-        + (st === "ok" ? t.accSoft : st === "warn" ? "rgba(242,160,61,.13)" : t.surf),
-    };
-  });
 
   // ── таблицы ──────────────────────────────────────────────────────────────
   const TABLES = {
@@ -4094,17 +4302,24 @@ function renderVals() {
     hintBox: "padding:" + d.pad + "px;border-radius:" + t.r + "px;background:" + t.surf
       + ";border:1px solid " + t.line + ";font-size:13px;line-height:1.5;color:" + t.dim,
 
-    kpis, lolli, nodes: dashNodes, clients, dashHead,
-    totalTraffic: bytes(total),
-    firstDay: byDay.length ? dayLabel(byDay[0].day) : "",
-    lastDay: byDay.length ? dayLabel(byDay[byDay.length - 1].day) : "",
+    kpis, chartTabs, chartBars, chartTotal, chartEmpty, nodes: dashNodes,
+    firstDay: dayLabel(days30[0]),
+    lastDay: dayLabel(days30[days30.length - 1]),
+    soon, soonNote: state.known ? d18.dash.soonNote(soonAllList.length, soonSum ? moneyText(soonSum, cur) : "") : "",
+    noSoon: state.known && !soonAllList.length ? d18.dash.noSoon : "",
+    planRows,
+    noPlanRows: state.known && !planRows.length ? (priced ? d18.dash.noSales : d18.dash.noPrices) : "",
+    canPlans: !!state.admin,
+    goPlans: () => plansSheet(),
+    goNodes: () => setState({ page: "nodes" }),
+    linkStyle: "font-size:12px;cursor:pointer;white-space:nowrap;color:" + t.acc,
+    renewStyle: "padding:6px 12px;border-radius:" + t.r + "px;background:" + t.acc + ";color:" + t.accFg
+      + ";font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap",
     // «Ни одной ноды» говорим только когда действительно знаем. Иначе пусто —
     // пусть лучше будет пустое место, чем неверное утверждение.
     noNodes: state.known && nodes.length === 0,
-    noClients: state.known && users.length === 0,
-    allClients: "font-size:12px;cursor:pointer;color:" + t.acc,
-    allClientsLabel: state.known ? d18.dash.allClients(users.length) : "",
-    goClients: () => setState({ page: "clients" }),
+    soonAll: state.known ? d18.dash.allClients(users.length) : "",
+    goSoon: () => setState({ page: "clients" }),
 
     pageKpis, tableCols, tableHead, tableRows,
     noTableRows: state.known && tableRows.length === 0,

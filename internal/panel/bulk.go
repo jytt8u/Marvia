@@ -46,7 +46,10 @@ func (a *API) bulkUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		detail = "массово по тарифу «" + plan.Name + "»"
-		apply = func(id int64) error { _, err := a.store.RenewUser(r.Context(), id, plan.ID); return err }
+		// Массовое продление — обычно компенсация после аварии, а не сотня
+		// оплат разом, поэтому в выручку оно не идёт. Оплаченное продление —
+		// по одному, как его и делает бот.
+		apply = func(id int64) error { _, err := a.store.GiftRenewUser(r.Context(), id, plan.ID); return err }
 	case "extend":
 		d, err := ParseDuration(body.ExtendBy)
 		if err != nil || d <= 0 {

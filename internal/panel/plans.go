@@ -40,9 +40,18 @@ type Plan struct {
 	// SpeedLimit — байт в секунду; 0 — без ограничения.
 	SpeedLimit int64 `json:"speed_limit"`
 
-	// Note — цена или пометка для продавца, например «300 ₽». Панель её не
-	// считает: денег у проекта нет и не будет (см. README).
+	// Note — пометка для продавца, например «со скидкой».
 	Note string `json:"note,omitempty"`
+
+	// Price — цена тарифа в целых единицах валюты, 0 — не задана или
+	// бесплатно. Деньги принимает не панель, а бот или продавец; цена нужна,
+	// чтобы панель могла сказать, сколько принесли продажи (см. sales.go).
+	// Правка цены уже проданного не меняет: в книгу пишется цена на день
+	// продажи.
+	Price int64 `json:"price"`
+
+	// Currency — знак валюты как продавец его пишет: «₽», «$», «USDT».
+	Currency string `json:"currency"`
 
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -55,11 +64,14 @@ type PlanParams struct {
 	MaxIPs       int    `json:"max_ips"`
 	SpeedLimit   int64  `json:"speed_limit"`
 	Note         string `json:"note"`
+	Price        int64  `json:"price"`
+	Currency     string `json:"currency"`
 }
 
 func (p *PlanParams) check() error {
 	p.Name = strings.TrimSpace(p.Name)
 	p.Note = strings.TrimSpace(p.Note)
+	p.Currency = cleanCurrency(p.Currency)
 	switch {
 	case p.Name == "":
 		return errors.New("у тарифа нет названия")
@@ -73,6 +85,12 @@ func (p *PlanParams) check() error {
 		return errors.New("срок тарифа — от 0 (бессрочно) до 3660 дней")
 	case p.TrafficLimit < 0 || p.MaxIPs < 0 || p.SpeedLimit < 0:
 		return errors.New("лимиты тарифа не бывают отрицательными")
+	// Миллиард — с запасом для любой валюты; больше — почти наверняка
+	// лишние нули, и выручка на главной стала бы бессмыслицей.
+	case p.Price < 0 || p.Price > 1_000_000_000:
+		return errors.New("цена тарифа — от 0 до 1 000 000 000")
+	case len([]rune(p.Currency)) > 8:
+		return errors.New("знак валюты длиннее 8 знаков")
 	}
 	return nil
 }
@@ -80,7 +98,7 @@ func (p *PlanParams) check() error {
 // ListPlans — все тарифы, от коротких к длинным: так их и выбирают.
 func (s *Store) ListPlans(ctx context.Context) ([]Plan, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, days, traffic_limit, max_ips, speed_limit, note, created_at
+		SELECT id, name, days, traffic_limit, max_ips, speed_limit, note, price, currency, created_at
 		FROM plans ORDER BY CASE WHEN days = 0 THEN 1 ELSE 0 END, days, traffic_limit, id`)
 	if err != nil {
 		return nil, fmt.Errorf("чтение тарифов: %w", err)
@@ -104,7 +122,7 @@ func scanPlan(row rowScanner) (Plan, error) {
 		p       Plan
 		created string
 	)
-	if err := row.Scan(&p.ID, &p.Name, &p.Days, &p.TrafficLimit, &p.MaxIPs, &p.SpeedLimit, &p.Note, &created); err != nil {
+	if err := row.Scan(&p.ID, &p.Name, &p.Days, &p.TrafficLimit, &p.MaxIPs, &p.SpeedLimit, &p.Note, &p.Price, &p.Currency, &created); err != nil {
 		return Plan{}, err
 	}
 	p.CreatedAt = parse(created)
@@ -122,7 +140,7 @@ type querier interface {
 
 func getPlan(ctx context.Context, q querier, id int64) (Plan, error) {
 	p, err := scanPlan(q.QueryRowContext(ctx, `
-		SELECT id, name, days, traffic_limit, max_ips, speed_limit, note, created_at
+		SELECT id, name, days, traffic_limit, max_ips, speed_limit, note, price, currency, created_at
 		FROM plans WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Plan{}, ErrNoSuchPlan
@@ -136,9 +154,9 @@ func (s *Store) CreatePlan(ctx context.Context, p PlanParams) (Plan, error) {
 		return Plan{}, err
 	}
 	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO plans (name, days, traffic_limit, max_ips, speed_limit, note, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		p.Name, p.Days, p.TrafficLimit, p.MaxIPs, p.SpeedLimit, p.Note, format(time.Now().UTC()))
+		INSERT INTO plans (name, days, traffic_limit, max_ips, speed_limit, note, price, currency, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		p.Name, p.Days, p.TrafficLimit, p.MaxIPs, p.SpeedLimit, p.Note, p.Price, p.Currency, format(time.Now().UTC()))
 	if err != nil {
 		return Plan{}, fmt.Errorf("создание тарифа: %w", err)
 	}
@@ -156,8 +174,8 @@ func (s *Store) UpdatePlan(ctx context.Context, id int64, p PlanParams) (Plan, e
 		return Plan{}, err
 	}
 	res, err := s.db.ExecContext(ctx, `
-		UPDATE plans SET name = ?, days = ?, traffic_limit = ?, max_ips = ?, speed_limit = ?, note = ?
-		WHERE id = ?`, p.Name, p.Days, p.TrafficLimit, p.MaxIPs, p.SpeedLimit, p.Note, id)
+		UPDATE plans SET name = ?, days = ?, traffic_limit = ?, max_ips = ?, speed_limit = ?, note = ?, price = ?, currency = ?
+		WHERE id = ?`, p.Name, p.Days, p.TrafficLimit, p.MaxIPs, p.SpeedLimit, p.Note, p.Price, p.Currency, id)
 	if err != nil {
 		return Plan{}, fmt.Errorf("правка тарифа: %w", err)
 	}
@@ -180,24 +198,26 @@ func (s *Store) DeletePlan(ctx context.Context, id int64) error {
 	return nil
 }
 
-// applyPlan подставляет в параметры нового покупателя срок и лимиты тарифа.
-func (s *Store) applyPlan(ctx context.Context, p *CreateUserParams, now time.Time) error {
+// applyPlan подставляет в параметры нового покупателя срок и лимиты тарифа
+// и возвращает сам тариф — его цена уходит в книгу продаж. Без тарифа —
+// nil: свои значения продажей по тарифу не считаются.
+func (s *Store) applyPlan(ctx context.Context, p *CreateUserParams, now time.Time) (*Plan, error) {
 	if p.PlanID == nil {
-		return nil
+		return nil, nil
 	}
 	if p.ExpiresAt != nil || p.TrafficLimit != 0 || p.MaxIPs != 0 || p.SpeedLimit != 0 {
-		return ErrPlanConflict
+		return nil, ErrPlanConflict
 	}
 	plan, err := s.GetPlan(ctx, *p.PlanID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if plan.Days > 0 {
 		until := now.Add(time.Duration(plan.Days) * 24 * time.Hour)
 		p.ExpiresAt = &Expiry{until}
 	}
 	p.TrafficLimit, p.MaxIPs, p.SpeedLimit = plan.TrafficLimit, plan.MaxIPs, plan.SpeedLimit
-	return nil
+	return &plan, nil
 }
 
 // RenewUser продлевает покупателя по тарифу: это новый оплаченный период.
@@ -206,7 +226,19 @@ func (s *Store) applyPlan(ctx context.Context, p *CreateUserParams, now time.Tim
 // заранее остаток не теряет. Лимиты становятся тарифными, а расход
 // начинается заново: месяц на 50 ГБ означает 50 ГБ на этот месяц, а не
 // остаток прошлого. Бессрочный тариф снимает срок.
+//
+// Продление пишется в книгу продаж по цене тарифа.
 func (s *Store) RenewUser(ctx context.Context, id, planID int64) (User, error) {
+	return s.renewUser(ctx, id, planID, true)
+}
+
+// GiftRenewUser продлевает по тарифу, не записывая продажу: так продлевают
+// всех пострадавших после аварии, и это подарок, а не выручка.
+func (s *Store) GiftRenewUser(ctx context.Context, id, planID int64) (User, error) {
+	return s.renewUser(ctx, id, planID, false)
+}
+
+func (s *Store) renewUser(ctx context.Context, id, planID int64, sale bool) (User, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return User{}, err
@@ -250,6 +282,11 @@ func (s *Store) RenewUser(ctx context.Context, id, planID int64) (User, error) {
 	}
 	if err := queueUserWebhookTx(ctx, tx, id, EventUserRenew); err != nil {
 		return User{}, err
+	}
+	if sale {
+		if err := recordSale(ctx, tx, SaleRenew, plan, time.Now()); err != nil {
+			return User{}, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return User{}, err

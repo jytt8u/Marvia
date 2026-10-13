@@ -21,7 +21,9 @@ import (
 //   - журнал действий — EventsKeepDays, три месяца: спор об оплате случается
 //     в пределах нескольких недель;
 //   - посуточная история расхода — UsageKeepDays: в ней нет людей, только
-//     день, нода и объём, и год с запасом нужен для графиков.
+//     день, нода и объём, и год с запасом нужен для графиков;
+//   - книга продаж — SalesKeepDays, тот же год: день, тариф и цена, без
+//     покупателя (см. sales.go).
 //
 // Чего здесь нет. Накопительный расход (usage), «на связи» (presence) и
 // время последней связи у покупателя не стареют сами: это не журнал, а одна
@@ -52,6 +54,9 @@ func (s *Store) Forget(ctx context.Context) error {
 		errs = append(errs, err)
 	}
 	if err := s.ForgetOldUsage(ctx, UsageKeepDays); err != nil {
+		errs = append(errs, err)
+	}
+	if err := s.ForgetOldSales(ctx, SalesKeepDays); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)

@@ -368,19 +368,6 @@
             <div>{{ n.label }}</div>
           </div>
         </sc-for>
-        <!--
-          Простой режим по умолчанию: четыре раздела, с которыми продают.
-          Ключи ботов, журнал, обновления, статистика и вид — в расширенном.
-          Переключатель внизу меню и запоминается.
-        -->
-        <div style="flex: 1;"></div>
-        <div style="{{ modeStyle }}" data-focus="nav-mode" role="switch" aria-checked="{{ modeOn }}" onClick="{{ doMode }}">
-          <div style="{{ modeKnob }}"></div>
-          <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
-            <div style="font-size: 12px; color: var(--fg);">{{ d18.mode.label }}</div>
-            <div style="font-size: 11px; line-height: 1.35; color: var(--dim);">{{ modeNote }}</div>
-          </div>
-        </div>
       </div>
 
       <div style="flex: 1; min-width: 0; padding: 22px 26px; display: flex; flex-direction: column; gap: 18px; overflow: hidden;">
@@ -1161,9 +1148,6 @@ const state = {
   // Помним между заходами: продавец обычно смотрит одно и то же — кто
   // истекает, — и выбирать это заново каждый раз незачем.
   filter: (() => { try { return localStorage.getItem("marvia-filter") || "all"; } catch (_) { return "all"; } })(),
-  // Расширенный режим — все разделы и тонкие настройки. Выключен, пока его
-  // не включили: панель встречает простой, а профи включает один раз.
-  advanced: (() => { try { return localStorage.getItem("marvia-advanced") === "1"; } catch (_) { return false; } })(),
   rowsPage: 1,
   loading: false,
   error: null,
@@ -2006,7 +1990,7 @@ function nodeSheet(node) {
   }
   // Отпечаток — тонкая настройка: в простом режиме поле не показываем, а
   // сохраняем то, что уже выбрано, — fp.value берётся из списка и без него.
-  if (state.advanced) form.push(el("label", { text: d.node.fp[0] }, fp, el("span", { cls: "note", text: d.node.fp[1] })));
+  form.push(el("label", { text: d.node.fp[0] }, fp, el("span", { cls: "note", text: d.node.fp[1] })));
 
   // Запасные имена прикрытия — только под REALITY: там ноду подтверждает её
   // ключ, а не сертификат, и в SNI годится любое принимаемое имя. При обычном
@@ -2335,7 +2319,6 @@ const TEXTS = {
 
     cta: { clients: "+ Клиент", nodes: "+ Нода", keys: "+ Ключ", plans: "Тарифы" },
     search: "Поиск по имени или номеру у бота",
-    mode: { label: "Расширенный режим", on: "Все разделы и тонкие настройки нод", off: "Включи, чтобы видеть ключи ботов, журнал, обновления, статистику и вид" },
     wh: {
       title: "Вебхуки для бота",
       what: "Панель сама сообщает боту: клиент создан, продлён, истёк, трафик кончается или кончился, нода упала или вернулась. Каждый запрос подписан, повторяется до суток, пока бот не ответит 2xx. Ключей и ссылок покупателей в теле нет.",
@@ -2743,7 +2726,6 @@ const TEXTS = {
 
     cta: { clients: "+ Client", nodes: "+ Node", keys: "+ Key", plans: "Plans" },
     search: "Search by name or bot id",
-    mode: { label: "Advanced mode", on: "Every section and fine node settings", off: "Turn on to see bot keys, the log, updates, statistics and appearance" },
     wh: {
       title: "Webhooks for the bot",
       what: "The panel tells the bot itself: client created, renewed, expired, traffic running low or used up, node down or back. Every request is signed and retried for up to a day until the bot answers 2xx. No buyer keys or links in the body.",
@@ -3249,11 +3231,6 @@ const PAGES = ["dash", "clients", "keys", "nodes", "stats", "alerts", "journal",
 // их не показываем: кнопка, за которой всегда «не положено», — пустое обещание.
 const ADMIN_PAGES = ["keys", "alerts", "journal", "updates"];
 
-// SIMPLE_PAGES — меню простого режима. Человек, который только поставил
-// панель, должен видеть то, с чем продают: обзор, клиентов, ноды и связь с
-// покупателями (она на странице оповещений). Девять разделов с первого входа
-// пугают больше, чем помогают; остальные — в расширенном режиме.
-const SIMPLE_PAGES = ["dash", "clients", "nodes", "alerts"];
 
 // Сколько строк на странице. Полсотни — столько влезает в экран прокруткой и
 // столько человек ещё готов просмотреть глазами, не листая.
@@ -3265,14 +3242,6 @@ function setState(patch) {
   // трое, а он смотрит на четвёртую полусотню.
   if ("page" in patch || "q" in patch || "filter" in patch) state.rowsPage = 1;
   if ("filter" in patch) { try { localStorage.setItem("marvia-filter", patch.filter); } catch (_) { /* приватное окно */ } }
-  // Переход в раздел расширенного режима из простого — например, шагом «С
-  // чего начать» к ключам ботов — включает расширенный режим: иначе человек
-  // оказался бы на странице, которой нет в его меню.
-  if ("page" in patch && !state.advanced && !("advanced" in patch) && !SIMPLE_PAGES.includes(patch.page)) patch.advanced = true;
-  if ("advanced" in patch) {
-    try { localStorage.setItem("marvia-advanced", patch.advanced ? "1" : "0"); } catch (_) { /* приватное окно */ }
-    if (!patch.advanced && !SIMPLE_PAGES.includes(patch.page || state.page)) patch.page = "dash";
-  }
   Object.assign(state, patch);
   if (Look.KEYS.some((k) => k in patch)) saveLook();
   render();
@@ -3475,8 +3444,9 @@ function renderVals() {
     look: d18.sub.look,
   };
 
-  const nav = PAGES.filter((k) => (state.admin !== false || !ADMIN_PAGES.includes(k))
-    && (state.advanced || SIMPLE_PAGES.includes(k))).map((k) => ({
+  // Все разделы видны всегда: прятать половину за переключателем значило
+  // заставлять искать то, что есть.
+  const nav = PAGES.filter((k) => state.admin !== false || !ADMIN_PAGES.includes(k)).map((k) => ({
     k, label: d18.nav[k], current: page === k ? "page" : null,
     onClick: () => setState({ page: k }),
     style: "display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:" + t.r
@@ -4115,13 +4085,6 @@ function renderVals() {
     doBulk: () => bulkSheet(shown),
     bulkStyle: "padding:7px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;"
       + "margin-left:auto;border:1px solid " + t.acc + ";color:" + t.acc,
-    modeOn: String(!!state.advanced),
-    modeNote: state.advanced ? d18.mode.on : d18.mode.off,
-    doMode: () => setState({ advanced: !state.advanced }),
-    modeStyle: "display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:" + t.r
-      + "px;cursor:pointer;border:1px solid " + t.line,
-    modeKnob: "flex:none;width:26px;height:15px;border-radius:999px;box-sizing:border-box;border:2px solid "
-      + (state.advanced ? t.acc : t.dim) + ";background:" + (state.advanced ? t.acc : "transparent"),
     q: state.q,
     doSearch: (e) => setState({ q: e.target.value }),
     searchStyle: "width:100%;padding:10px 12px;border-radius:" + t.r + "px;background:" + t.surf

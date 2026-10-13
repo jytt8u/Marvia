@@ -4,8 +4,6 @@ package main
 
 import (
 	"unsafe"
-
-	"golang.org/x/sys/windows"
 )
 
 // Заголовок окна рисует страница, а не Windows.
@@ -50,7 +48,7 @@ const (
 // windowActions — всё, что умеют кнопки и шапка страницы. Тест сверяет
 // список с разметкой: кнопка без действия здесь была бы обещанием, которое
 // окно не выполняет.
-var windowActions = []string{"drag", "top", "min", "max", "close", "state", "glass", "solid"}
+var windowActions = []string{"drag", "top", "min", "max", "close", "state"}
 
 // ncCalcSizeParams — начало NCCALCSIZE_PARAMS: три прямоугольника. Указатель на
 // WINDOWPOS после них нам не нужен, а читаем мы только первый прямоугольник.
@@ -86,38 +84,6 @@ func (s *shell) calcFrame(hwnd, wp, lp uintptr) uintptr {
 	return r
 }
 
-// Прозрачное окно: позади страницы Windows 11 рисует Acrylic — размытые
-// обои и окна под программой. Страница при этом прозрачная (WebView2 без
-// фона, см. showWindow), а окно — «лист стекла»: рамка DWM растянута на всю
-// клиентскую область, и в непрокрашенных местах видно то, что под ним.
-var procDwmExtendFrameIntoClientArea = windows.NewLazySystemDLL("dwmapi.dll").NewProc("DwmExtendFrameIntoClientArea")
-
-const (
-	dwmwaSystemBackdropType = 38
-	dwmsbtNone              = 1
-	dwmsbtTransientWindow   = 3 // Acrylic
-	wmEraseBkgnd            = 0x0014
-)
-
-// applyBackdrop включает или снимает Acrylic. Возвращает, принят ли он:
-// материал есть только в Windows 11 22H2 и новее, на прочих атрибут не
-// знают, и окно остаётся обычным.
-func (s *shell) applyBackdrop(on bool) bool {
-	kind, margin := int32(dwmsbtNone), int32(0)
-	if on {
-		kind, margin = dwmsbtTransientWindow, -1
-	}
-	r, _, _ := procDwmSetWindowAttribute.Call(s.hwnd, dwmwaSystemBackdropType, uintptr(unsafe.Pointer(&kind)), 4)
-	ok := on && r == 0
-	if on && !ok {
-		margin = 0
-	}
-	margins := [4]int32{margin, margin, margin, margin}
-	_, _, _ = procDwmExtendFrameIntoClientArea.Call(s.hwnd, uintptr(unsafe.Pointer(&margins)))
-	s.glass = ok
-	return ok
-}
-
 // windowAction исполняет просьбу шапки. Возвращает, развёрнуто ли окно
 // после неё: по этому страница меняет значок «развернуть» на «восстановить».
 func (s *shell) windowAction(action string) bool {
@@ -150,13 +116,10 @@ func (s *shell) windowAction(action string) bool {
 	case "close":
 		// Тот же путь, что у крестика системы: в трей или выход — по настройке.
 		_, _, _ = procPostMessageW.Call(s.hwnd, wmClose, 0, 0)
-	case "glass":
-		// Здесь ответ — получилось ли: страница делает себя прозрачной только
-		// тогда, иначе вместо обоев человек увидел бы чёрное окно.
-		return s.applyBackdrop(true)
-	case "solid":
-		s.applyBackdrop(false)
-		return false
+	case "state":
+		// Страница только что загрузилась — ей нужно и место окна на экране:
+		// по нему «Прозрачная» сдвигает обои рабочего стола.
+		s.place()
 	}
 	return s.zoomed()
 }

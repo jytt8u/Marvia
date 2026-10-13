@@ -127,6 +127,7 @@ func serveUI(ctl *Controller, log *journal, onWindow *func(windowRequest)) (stri
 	mux.HandleFunc("POST "+prefix+"/api/keys/use", u.useKey)
 	mux.HandleFunc("POST "+prefix+"/api/keys/remove", u.removeKey)
 	mux.HandleFunc("GET "+prefix+"/api/settings", u.getSettings)
+	mux.HandleFunc("GET "+prefix+"/api/wallpaper", u.wallpaper)
 	mux.HandleFunc("POST "+prefix+"/api/settings", u.setSettings)
 
 	// Шрифты и знак — общие с панелью, из того же пакета. Под тем же

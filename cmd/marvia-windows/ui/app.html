@@ -1113,12 +1113,13 @@
   .span-pick .chip { min-height: 26px; padding: 0 10px; font-size: 11.5px; }
 
   /* ───── Прозрачная: настоящий рабочий стол сквозь окно ─────
-     Когда Acrylic принят, страница не красит ничего, кроме панелей:
-     размытые обои и окна под программой и есть фон. Панели — полупрозрачные,
-     чтобы читались, но не закрывали стол. Без Acrylic — обычный вид с
-     нарисованными обоями и пеленой. */
-  :root:has(body[data-glass="1"]), body[data-glass="1"] { background: transparent !important; }
-  body[data-glass="1"] #wall, body[data-glass="1"] #field { display: none; }
+     Под окном — обои рабочего стола, сдвинутые по месту окна на экране.
+     Панели полупрозрачные: читаются, но стол не закрывают. Без обоев —
+     нарисованный цветок и пелена. */
+  /* Когда обои стола найдены, они — слой #wall под окном, со сдвигом по
+     месту окна на экране; размытие и затемнение — ручками в точной настройке. */
+  body[data-desk="1"] #wall { transition: none; }
+  body[data-desk="1"] #field { display: none; }
   body[data-shell="clear"] .top, body[data-shell="clear"] aside { background: transparent; border: 0; }
   body[data-shell="clear"] main { border-radius: 10px 0 0 0; background: color-mix(in srgb, var(--bg) 26%, transparent);
     border: 1px solid color-mix(in srgb, var(--fg) 8%, transparent); border-right: 0; border-bottom: 0; }
@@ -1134,6 +1135,21 @@
   .vibe-art[data-shell="clear"] .mw { --vwr: 8px; background: rgba(28,28,28,.42); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
     box-shadow: 0 0 0 1px rgba(255,255,255,.18), 0 10px 24px -10px rgba(0,0,0,.55); }
   .vibe-art[data-shell="clear"] .mw-side { background: transparent; }
+
+  /* ───── «Сделайте окно своим» ───── */
+  .own { padding: calc(var(--pad) + 2px); border-radius: calc(var(--r) + 4px); border: 1px solid rgba(var(--accRgb), .35);
+    background: linear-gradient(135deg, rgba(var(--accRgb), .16), rgba(var(--accRgb), .04)), var(--cardBg, var(--surf)); display: flex; flex-direction: column; gap: 12px; }
+  .own-head { display: flex; flex-direction: column; gap: 2px; }
+  .own-head b { font-size: 18px; letter-spacing: -.01em; }
+  .own-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .own-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px; border-radius: var(--r); cursor: pointer; text-align: left;
+    background: var(--surf); border: 1px solid var(--line); color: var(--fg); font: inherit; transition: transform .3s var(--ease), border-color .3s; }
+  .own-tile:hover { border-color: var(--acc); transform: translateY(-2px); }
+  .own-tile b { font-size: 14px; }
+  .own-tile small { font-size: 12px; line-height: 1.4; color: var(--dim); }
+  .own-ico { font-style: normal; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 4px;
+    background: rgba(var(--accRgb), .14); color: var(--acc); font-size: 16px; }
+  @media (max-width: 900px) { .own-row { grid-template-columns: 1fr; } }
 
   /* ───── Миниатюры: обои и маленькое окно образа ───── */
   .vibes { grid-auto-columns: 226px; }
@@ -1480,6 +1496,20 @@
             настройке: она свёрнута, потому что образа хватает почти всем, а
             кому не хватает — тому нужно уже всё, до цвета пипеткой.
           -->
+          <!--
+            «Сделайте окно своим»: три самых сильных способа — свои обои стола
+            под окном, своя картинка или видео, точная настройка, — на виду,
+            а не в глубине. Каждая кнопка делает то, что написано на ней.
+          -->
+          <div class="own" id="own">
+            <div class="own-head"><b data-t="ownTitle"></b><span class="hint" data-t="ownSub"></span></div>
+            <div class="own-row">
+              <button type="button" class="own-tile" id="own-desk"><i class="own-ico">◧</i><b data-t="ownDesk"></b><small data-t="ownDeskSub"></small></button>
+              <button type="button" class="own-tile" id="own-file"><i class="own-ico">▶</i><b data-t="ownFile"></b><small data-t="ownFileSub"></small></button>
+              <button type="button" class="own-tile" id="own-fine"><i class="own-ico">⚙</i><b data-t="ownFine"></b><small data-t="ownFineSub"></small></button>
+            </div>
+          </div>
+
           <div class="card vibes-card">
             <div class="card-head">
               <div><b data-t="vibeTitle"></b> <span class="hint" data-t="vibeHint"></span></div>
@@ -2015,13 +2045,17 @@ const T = {
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
     kSession: "Сессия", kPing: "Отклик ноды", down: "↓ Загрузка", up: "↑ Отдача",
+    ownTitle: "Сделайте окно своим", ownSub: "всё здесь меняется под вас — от обоев до шрифта",
+    ownDesk: "Мои обои под окном", ownDeskSub: "окно покажет ваш рабочий стол",
+    ownFile: "Своя картинка или видео", ownFileSub: "любой файл фоном за всем окном",
+    ownFine: "Точная настройка", ownFineSub: "цвета, шрифты, форма, узор — поле за полем",
     vibeTitle: "Образ", vibeHint: "в духе Windows, macOS и Linux — и наши",
     fineShow: "Открыть точную настройку", fineHide: "Скрыть точную настройку",
     vibes: {
       graphite: ["Графит", "Наш серый: спокойно и без лишнего"],
       dot: ["Точка", "Чёрное табло, точечные цифры, красный"],
       paper: ["Бумага", "Светлое табло в точку, чернила и красный"],
-      clear: ["Прозрачная", "Сквозь окно видно ваш рабочий стол — Windows 11"],
+      clear: ["Прозрачная", "Под окном — ваши обои рабочего стола"],
       win11: ["Windows 11", "Слюда над обоями, скругления и синий акцент"],
       win11l: ["Windows 11 светлая", "Светлая слюда и цветок на обоях"],
       xp: ["Windows XP", "Синий заголовок, зелёная кнопка, холм под небом"],
@@ -2044,7 +2078,7 @@ const T = {
       bg: "Фон", surf: "Карточки", fg: "Текст", dim: "Подписи", line: "Обводка", pcolor: "Цвет узора",
       pattern: "Узор", amount: "Насыщенность", pstep: "Шаг", psize: "Размер элементов", pspeed: "Скорость",
       r: "Скругление", pad: "Отступы внутри", gap: "Зазоры между карточками", glow: "Свечение",
-      blur: "Размытие стекла", calpha: "Непрозрачность карточек",
+      blur: "Размытие стекла", calpha: "Непрозрачность карточек", wblur: "Размытие обоев стола", wdim: "Затемнение обоев стола",
       font: "Шрифт текста", sfont: "Шрифт надписи", nums: "Цифры", statusSize: "Размер надписи",
       caps: "Надпись заглавными", logo: "Знак",
       auto: "из темы", byVibe: "как у образа", px: "пкс", reset: "Вернуть как в образе", yes: "Да", no: "Нет",
@@ -2274,13 +2308,17 @@ const T = {
 
     pingUnknown: "Not measured", setupLabel: "Connection",
     kSession: "Session", kPing: "Node response", down: "↓ Download", up: "↑ Upload",
+    ownTitle: "Make the window yours", ownSub: "everything here bends to you — from wallpaper to typeface",
+    ownDesk: "My wallpaper under the window", ownDeskSub: "the window shows your desktop",
+    ownFile: "Your own image or video", ownFileSub: "any file behind the whole window",
+    ownFine: "Fine-tuning", ownFineSub: "colours, fonts, shape, pattern — field by field",
     vibeTitle: "Vibe", vibeHint: "after Windows, macOS and Linux — plus our own",
     fineShow: "Open fine-tuning", fineHide: "Hide fine-tuning",
     vibes: {
       graphite: ["Graphite", "Our grey: calm and uncluttered"],
       dot: ["Dot", "Black board, dot-matrix digits, red"],
       paper: ["Paper", "Light dotted board, ink and red"],
-      clear: ["Clear", "Your desktop shows through the window — Windows 11"],
+      clear: ["Clear", "Your own desktop wallpaper under the window"],
       win11: ["Windows 11", "Mica over the wallpaper, rounded corners, blue accent"],
       win11l: ["Windows 11 light", "Light Mica and a bloom on the wallpaper"],
       xp: ["Windows XP", "Blue title bar, green button, a hill under the sky"],
@@ -2303,7 +2341,7 @@ const T = {
       bg: "Background", surf: "Cards", fg: "Text", dim: "Captions", line: "Outline", pcolor: "Pattern colour",
       pattern: "Pattern", amount: "Intensity", pstep: "Spacing", psize: "Element size", pspeed: "Speed",
       r: "Corner radius", pad: "Inner padding", gap: "Gap between cards", glow: "Glow",
-      blur: "Glass blur", calpha: "Card opacity",
+      blur: "Glass blur", wblur: "Desktop wallpaper blur", wdim: "Desktop wallpaper dimming", calpha: "Card opacity",
       font: "Text font", sfont: "Status font", nums: "Digits", statusSize: "Status size",
       caps: "Status in capitals", logo: "Mark",
       auto: "from theme", byVibe: "as the vibe", px: "px", reset: "Back to the vibe's value", yes: "Yes", no: "No",
@@ -2781,6 +2819,15 @@ async function loadBackdropFile() {
 }
 
 on("bg-pick", "click", () => $("bg-file").click());
+// «Сделайте окно своим»: обои стола — это образ «Прозрачная»; картинка или
+// видео — тот же выбор файла, что в точной настройке; третья открывает её.
+on("own-desk", "click", () => chooseVibe("clear"));
+on("own-file", "click", () => $("bg-file").click());
+on("own-fine", "click", () => {
+  const page = document.querySelector('.page[data-tab="theme"]');
+  if (!page.classList.contains("fine-open")) $("fine-toggle").click();
+  $("fine-anchor").scrollIntoView({ behavior: motion() === "off" ? "auto" : "smooth", block: "start" });
+});
 on("bg-file", "change", async (e) => {
   const d = L();
   const file = e.target.files && e.target.files[0];
@@ -4127,19 +4174,41 @@ const VIBE_RENAMED = { glass: "mac", expressive: "gnome", chrome: "graphite", br
   film: "gruvbox", aurora: "hypr", terminal: "gruvbox", day: "win11l" };
 // Оболочки, где программа — окно на столе с обоями вокруг, как в миниатюре.
 const FRAMED = ["win11", "mac", "xp", "w98", "gnome", "ubuntu", "kde"];
-// Прозрачное окно: просим у Windows Acrylic и становимся прозрачными, только
-// если он принят. Просим один раз на смену образа, а не на каждую отрисовку.
-var glassWanted = null;
+// «Прозрачная»: под окном — настоящие обои рабочего стола, сдвинутые ровно
+// по месту окна на экране, так что они продолжают стол вокруг окна. Место
+// присылает окно (marviaPlace) при каждом сдвиге; в браузере, где окна нет,
+// берём то, что знает сам браузер. Нет обоев (цвет вместо картинки) —
+// остаётся нарисованный вид.
+var deskImg = null, deskPlace = null;
+window.marviaPlace = (x, y, mw, mh, dpi) => { deskPlace = { x, y, mw, mh, dpr: dpi / 96 }; if (vibe) paintGlass(); };
 function paintGlass() {
-  const want = VIBES[vibe.id].shell === "clear" && !backdropURL;
-  if (want === glassWanted) return;
-  glassWanted = want;
-  if (!want) {
-    document.body.dataset.glass = "";
-    if (window.marviaWindow) window.marviaWindow("solid").catch(() => {});
+  const wall = $("wall");
+  if (VIBES[vibe.id].shell !== "clear" || backdropURL) {
+    if (document.body.dataset.desk) { document.body.dataset.desk = ""; wall.removeAttribute("style"); }
     return;
   }
-  winAct("glass").then((ok) => { if (glassWanted) document.body.dataset.glass = ok ? "1" : ""; }).catch(() => {});
+  if (deskImg === null) {
+    deskImg = undefined;
+    const img = new Image();
+    img.onload = () => { deskImg = img; paintGlass(); };
+    img.onerror = () => { deskImg = false; };
+    img.src = "api/wallpaper";
+    return;
+  }
+  if (!deskImg) return;
+  const dpr = devicePixelRatio || 1;
+  const p = deskPlace || { x: screenX * dpr, y: (screenY + outerHeight - innerHeight) * dpr, mw: screen.width * dpr, mh: screen.height * dpr, dpr };
+  // Как «Заполнение» у Windows: картинка покрывает монитор и стоит по центру.
+  const s = Math.max(p.mw / deskImg.naturalWidth, p.mh / deskImg.naturalHeight);
+  const w = deskImg.naturalWidth * s, h = deskImg.naturalHeight * s;
+  // #wall выступает за окно на 24 пикселя — под размытие краёв.
+  const left = ((p.mw - w) / 2 - p.x) / p.dpr + 24, top = ((p.mh - h) / 2 - p.y) / p.dpr + 24;
+  wall.style.backgroundImage = 'url("api/wallpaper")';
+  wall.style.backgroundSize = (w / p.dpr).toFixed(1) + "px " + (h / p.dpr).toFixed(1) + "px";
+  wall.style.backgroundPosition = left.toFixed(1) + "px " + top.toFixed(1) + "px";
+  wall.style.filter = eff("wblur") > 0 ? "blur(" + eff("wblur") + "px)" : "none";
+  wall.style.setProperty("--wallVeil", "rgba(0,0,0," + (eff("wdim") / 100).toFixed(2) + ")");
+  document.body.dataset.desk = "1";
 }
 const VIBE_GROUPS = ["all", "marvia", "windows", "mac", "linux"];
 
@@ -4311,6 +4380,9 @@ const O_DEFAULTS = {
   font: "onest", sfont: "same", nums: "mono", caps: false, statusSize: 32,
   pattern: "grid", pcolor: null, amount: 60, pstep: 0, psize: 100, pspeed: 100,
   logo: "metal",
+  // Обои рабочего стола в «Прозрачной»: почти без размытия — их видно, —
+  // и чуть темнее, чтобы читались панели.
+  wblur: 2, wdim: 25,
 };
 const O_CHOICES = {
   font: ["onest", "manrope", "unbounded", "mono", "system", "serif", "inter", "noto", "ubuntu", "segoe", "tahoma", "mssans"],
@@ -4321,7 +4393,7 @@ const O_CHOICES = {
 };
 const O_RANGES = {
   r: [0, 32], pad: [8, 28], gap: [4, 24], glow: [0, 100], blur: [0, 32], calpha: [30, 100],
-  statusSize: [20, 46], amount: [0, 100], pstep: [0, 64], psize: [40, 220], pspeed: [0, 300],
+  statusSize: [20, 46], amount: [0, 100], wblur: [0, 40], wdim: [0, 85], pstep: [0, 64], psize: [40, 220], pspeed: [0, 300],
 };
 const O_COLORS = ["bg", "surf", "fg", "dim", "line", "pcolor"];
 const FONTS = {
@@ -5019,7 +5091,7 @@ function paintGroups(d) {
 // с состоянием: перестроенный ползунок вырвался бы из руки посреди движения.
 const FINE = {
   "fine-colors": [["bg", "color"], ["surf", "color"], ["fg", "color"], ["dim", "color"], ["line", "color"]],
-  "fine-pattern": [["pattern", "pills"], ["amount", "range", "%"], ["pstep", "range", "px"], ["psize", "range", "%"], ["pspeed", "range", "%"], ["pcolor", "color"]],
+  "fine-pattern": [["pattern", "pills"], ["amount", "range", "%"], ["pstep", "range", "px"], ["psize", "range", "%"], ["pspeed", "range", "%"], ["pcolor", "color"], ["wblur", "range", "px"], ["wdim", "range", "%"]],
   "fine-shape": [["r", "range", "px"], ["pad", "range", "px"], ["gap", "range", "px"], ["glow", "range", "%"], ["blur", "range", "px"], ["calpha", "range", "%"]],
   "fine-type": [["font", "pills"], ["sfont", "pills"], ["nums", "pills"], ["statusSize", "range", "px"], ["caps", "bool"], ["logo", "pills"]],
 };

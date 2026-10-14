@@ -359,25 +359,55 @@
 
   /* ----------------------------------------------------------- серверы */
 
-  .nodes { display: flex; flex-direction: column; gap: 2px; overflow: auto; min-height: 0; }
-  .row-node {
-    display: grid; grid-template-columns: 22px 1fr 120px 92px; gap: 12px; align-items: center;
-    padding: 10px; min-height: 52px; border: 0; border-radius: min(var(--r), 10px); cursor: pointer; text-align: left;
-    background: transparent; color: var(--fg); font: inherit; transition: background .3s;
+  /* Страны — карточками, а не строками таблицы: страну ищут глазами по
+     крупному коду, а не по мелкой подписи. Автовыбор — отдельной карточкой
+     сверху: это не ещё одна страна, а состояние «решай сам». */
+  /* Зелёный — не акцент: у графита акцент серый, и «быстро» в нём не читалось бы оценкой. */
+  .nodes { --good: #2fb36b; }
+  .nodes { display: flex; flex-direction: column; gap: 12px; overflow: auto; min-height: 0; padding: 2px; }
+  .node-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .nc {
+    display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: var(--r); cursor: pointer; text-align: left;
+    background: var(--surf2, var(--surf)); border: 1px solid var(--line); color: var(--fg); font: inherit;
+    transition: border-color .3s var(--ease), transform .3s var(--ease), background .3s;
   }
-  .row-node:hover { background: rgba(var(--accRgb), .06); }
-  .row-node[data-current] { background: var(--accSoft); }
-  .row-node .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); justify-self: center; }
-  .row-node[data-alive] .dot { background: var(--dim); }
-  .row-node[data-current] .dot { background: var(--acc); box-shadow: 0 0 8px var(--acc); }
-  .row-node .name { font-size: 14px; font-weight: 600; }
-  .row-node[data-chosen] .name::after { content: " ✓"; color: var(--acc); }
-  .row-node .sub { font-size: 12px; color: var(--dim); }
-  .row-node .bar { height: 5px; border-radius: 999px; background: var(--shade); overflow: hidden; }
-  .row-node .bar i { display: block; height: 100%; border-radius: 999px; background: var(--acc); }
-  .row-node .ms { font-family: var(--mono); font-size: 13px; font-weight: 700; text-align: right; white-space: nowrap; color: var(--fg); }
-  .row-node[data-current] .ms { color: var(--acc); }
-  .row-node:not([data-alive]) .name, .row-node:not([data-alive]) .ms { color: var(--dim); }
+  .nc:hover { border-color: color-mix(in srgb, var(--acc) 55%, var(--line)); transform: translateY(-1px); }
+  .nc:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+  .nc[data-chosen] { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc) inset; }
+  .nc[data-current] { background: color-mix(in srgb, var(--acc) 10%, var(--surf2, var(--surf))); }
+  .nc .nc-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .nc .nc-code {
+    flex: none; width: 46px; height: 46px; border-radius: min(var(--r), 12px); display: grid; place-items: center;
+    font-family: var(--mono); font-size: 16px; font-weight: 800; letter-spacing: .04em;
+    background: color-mix(in srgb, var(--acc) 14%, transparent); color: var(--acc);
+  }
+  .nc .nc-code svg { width: 22px; height: 22px; }
+  .nc .titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .nc .name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nc .city { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nc .foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .nc .ping { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 13px; font-weight: 700; }
+  .nc .ping small { font-family: inherit; font-size: 11px; font-weight: 600; color: var(--dim); letter-spacing: .02em; }
+  /* Три палочки сигнала: длину и цвет видно сразу, слово рядом — для тех,
+     кто цвета не различает. */
+  .nc .sig { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; }
+  .nc .sig i { width: 4px; border-radius: 1px; background: var(--line); }
+  .nc .sig i:nth-child(1) { height: 5px; } .nc .sig i:nth-child(2) { height: 9px; } .nc .sig i:nth-child(3) { height: 14px; }
+  .nc[data-q="fast"] .sig i { background: var(--good); }
+  .nc[data-q="mid"] .sig i:nth-child(-n+2) { background: var(--warn); }
+  .nc[data-q="slow"] .sig i:nth-child(1) { background: var(--fail); }
+  .nc[data-q="fast"] .ping { color: var(--good); }
+  .nc[data-q="mid"] .ping { color: var(--warn); }
+  .nc[data-q="slow"] .ping { color: var(--fail); }
+  .nc .marks { display: flex; gap: 6px; flex-wrap: wrap; }
+  .nc .mark { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: color-mix(in srgb, var(--fg) 8%, transparent); color: var(--dim); }
+  .nc .mark.live { background: var(--acc); color: var(--accFg); }
+  .nc .mark.mine { background: transparent; color: var(--acc); box-shadow: 0 0 0 1px var(--acc) inset; }
+  .nc .mark.dead { color: var(--warn); }
+  .nc[data-dead] .name, .nc[data-dead] .nc-code { opacity: .55; }
+  .nc.auto { flex-direction: row; align-items: center; }
+  .nc.auto .nc-head { flex: 1; }
+  .nc.auto .city { white-space: normal; }
 
   /* ---------------------------------------------------------------- тема */
 
@@ -996,24 +1026,35 @@
   body[data-shell="w98"] .rows .switch::after { border-radius: 0; background: #c0c0c0; box-shadow: var(--bevel); }
 
   /* GNOME: заголовок как headerbar, круглые кнопки окна, карточки-списки
-     со скруглением 12 и мягкой тенью вместо обводки. */
-  body[data-shell="gnome"] .top, body[data-shell="ubuntu"] .top { border: 0; background: color-mix(in srgb, var(--bg) 70%, transparent); }
+     со скруглением 12. Как в Adwaita, слои различаются тоном: боковая
+     панель темнее содержимого, карточки светлее фона и обведены. Раньше
+     всё было одним белым, и выбранный раздел терялся. */
+  body[data-shell="gnome"] .top, body[data-shell="ubuntu"] .top { border: 0; background: color-mix(in srgb, var(--bg) 70%, transparent);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--fg) 8%, transparent); }
   body[data-shell="gnome"] .wctl, body[data-shell="ubuntu"] .wctl, body[data-shell="kde"] .wctl { align-self: center; gap: 10px; margin: 0 12px 0 4px; }
   body[data-shell="gnome"] .wbtn, body[data-shell="ubuntu"] .wbtn, body[data-shell="kde"] .wbtn { width: 24px; height: 24px; border-radius: 50%; }
   body[data-shell="gnome"] .wbtn, body[data-shell="ubuntu"] .wbtn { background: color-mix(in srgb, var(--fg) 10%, transparent); }
   body[data-shell="gnome"] .wbtn svg, body[data-shell="ubuntu"] .wbtn svg, body[data-shell="kde"] .wbtn svg { width: 8px; height: 8px; stroke-width: 1.6; }
   body[data-shell="gnome"] .wbtn:hover, body[data-shell="ubuntu"] .wbtn:hover { background: color-mix(in srgb, var(--fg) 16%, transparent); }
   body[data-shell="gnome"] .wbtn.close:hover { background: color-mix(in srgb, var(--fg) 16%, transparent); color: var(--fg); }
-  body[data-shell="gnome"] aside, body[data-shell="ubuntu"] aside { border: 0; background: color-mix(in srgb, var(--bg) 80%, transparent); }
+  body[data-shell="gnome"] aside, body[data-shell="ubuntu"] aside { border: 0; background: color-mix(in srgb, var(--fg) 6%, var(--bg));
+    box-shadow: inset -1px 0 0 color-mix(in srgb, var(--fg) 8%, transparent); }
   body[data-shell="gnome"] .tab, body[data-shell="ubuntu"] .tab { border-radius: 6px; font-weight: 400; }
+  body[data-shell="gnome"] .tab:hover, body[data-shell="ubuntu"] .tab:hover { background: color-mix(in srgb, var(--fg) 6%, transparent); }
   body[data-shell="gnome"] .tab[aria-selected="true"], body[data-shell="ubuntu"] .tab[aria-selected="true"] {
-    background: color-mix(in srgb, var(--fg) 10%, transparent); font-weight: 600; }
+    background: color-mix(in srgb, var(--acc) 16%, transparent); color: var(--fg); font-weight: 600; }
+  body[data-shell="gnome"] .tab[aria-selected="true"] svg { color: var(--acc); }
   body[data-shell="gnome"] .card, body[data-shell="gnome"] .kpi, body[data-shell="gnome"] .node, body[data-shell="gnome"] .sub-card,
   body[data-shell="gnome"] .set-nav, body[data-shell="gnome"] .set-panes .rows > div {
-    background: var(--surf); border: 0; box-shadow: 0 0 0 1px rgba(0,0,6,.03), 0 1px 3px 1px rgba(0,0,6,.07), 0 2px 6px 2px rgba(0,0,6,.03); }
+    background: var(--surf); border: 1px solid color-mix(in srgb, var(--fg) 9%, transparent);
+    box-shadow: 0 1px 2px rgba(0,0,6,.06), 0 2px 8px rgba(0,0,6,.05); }
   body[data-shell="gnome"] .primary, body[data-shell="gnome"] .chip, body[data-shell="gnome"] .pillb { border-radius: 6px; }
   body[data-shell="gnome"] .chip, body[data-shell="gnome"] .pillb { border: 0; background: color-mix(in srgb, var(--fg) 8%, transparent); }
-  body[data-shell="gnome"] .power { background: color-mix(in srgb, var(--fg) 7%, var(--surf)); box-shadow: 0 1px 3px rgba(0,0,6,.12), 0 18px 40px -16px rgba(0,0,6,.25); }
+  /* Кнопка — «suggested action» Adwaita: акцентом и выключенной, иначе
+     белый круг на белом не читается как главное действие экрана. */
+  body[data-shell="gnome"] .power { background: color-mix(in srgb, var(--acc) 12%, var(--surf));
+    border: 1px solid color-mix(in srgb, var(--acc) 35%, transparent); box-shadow: 0 1px 3px rgba(0,0,6,.12), 0 18px 40px -16px rgba(0,0,6,.25); }
+  body[data-shell="gnome"] .power svg { color: var(--acc); }
   body[data-shell="gnome"] .power[data-state="connected"] { background: var(--acc); }
   body[data-shell="gnome"] .power[data-state="connected"] svg { color: var(--accFg); }
 
@@ -2154,7 +2195,8 @@ const T = {
     ruleWatch: "Как следит", ruleWatchV: "по трафику, не по расписанию",
     ruleNow: "Сейчас",
     nodesMeasure: "Перемерить",
-    nodesAuto: "Автовыбор", nodesAutoSub: "самая быстрая прямо сейчас",
+    nodesAuto: "Автовыбор", nodesAutoSub: "самая быстрая прямо сейчас", nodesAutoOn: "включён",
+    nodesQuality: { fast: "быстро", mid: "средне", slow: "медленно" },
     nodesCurrent: "идёт трафик", nodesChosen: "выбрана вами", nodesDead: "не ответила", nodesUnknown: "не мерили",
     nodesMeasuring: "меряю…", nodesSwitching: "переключаю…", nodesNone: "туннель не поднят — список появится после подключения",
 
@@ -2417,7 +2459,8 @@ const T = {
     ruleWatch: "How it watches", ruleWatchV: "by traffic, not by schedule",
     ruleNow: "Now",
     nodesMeasure: "Measure again",
-    nodesAuto: "Automatic", nodesAutoSub: "the fastest one right now",
+    nodesAuto: "Automatic", nodesAutoSub: "the fastest one right now", nodesAutoOn: "on",
+    nodesQuality: { fast: "fast", mid: "fair", slow: "slow" },
     nodesCurrent: "traffic goes here", nodesChosen: "chosen by you", nodesDead: "no answer", nodesUnknown: "not measured",
     nodesMeasuring: "measuring…", nodesSwitching: "switching…", nodesNone: "the tunnel is not up — the list appears after connecting",
 
@@ -3109,79 +3152,161 @@ function paintNodes(list) {
     return;
   }
 
-  const row = (opts) => {
+  // Карточка страны. Код страны — крупно: флаги-эмодзи Windows рисует
+  // двумя буквами, так что буквы честнее и одинаковы на любой машине.
+  const card = (opts) => {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "row-node";
-    if (opts.alive) b.setAttribute("data-alive", "");
+    b.className = "nc" + (opts.auto ? " auto" : "");
     if (opts.current) b.setAttribute("data-current", "");
     if (opts.chosen) b.setAttribute("data-chosen", "");
+    if (opts.dead) b.setAttribute("data-dead", "");
+    if (opts.q) b.dataset.q = opts.q;
 
-    const dot = document.createElement("span");
-    dot.className = "dot";
-
-    const grow = document.createElement("div");
-    grow.className = "grow";
+    const head = document.createElement("div");
+    head.className = "nc-head";
+    const code = document.createElement("span");
+    code.className = "nc-code";
+    if (opts.auto) {
+      code.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>';
+    } else {
+      code.textContent = opts.code || "··";
+    }
+    const titles = document.createElement("div");
+    titles.className = "titles";
     const name = document.createElement("div");
     name.className = "name";
     name.textContent = opts.name;
-    const sub = document.createElement("div");
-    sub.className = "sub";
-    sub.textContent = opts.sub;
-    grow.append(name, sub);
+    const city = document.createElement("div");
+    city.className = "city";
+    city.textContent = opts.city;
+    titles.append(name);
+    if (opts.city) titles.append(city);
+    head.append(code, titles);
+    b.append(head);
 
-    // Полоска качества: замер в миллисекундах на глаз не сравнить, а длина —
-    // сравнивается. Триста миллисекунд и хуже — пусто.
-    const bar = document.createElement("span");
-    bar.className = "bar";
-    const fill = document.createElement("i");
-    fill.style.width = opts.ms > 0 ? Math.max(0, Math.min(100, Math.round((1 - opts.ms / 300) * 100))) + "%" : "0";
-    bar.append(fill);
-
-    const ms = document.createElement("div");
-    ms.className = "ms";
-    ms.textContent = opts.ms > 0 ? opts.ms + d.ms : d.pingUnknown;
-
-    b.append(dot, grow, bar, ms);
+    const marks = document.createElement("div");
+    marks.className = "marks";
+    for (const [text, kind] of opts.marks) {
+      const m = document.createElement("span");
+      m.className = "mark " + kind;
+      m.textContent = text;
+      marks.append(m);
+    }
+    if (opts.auto) {
+      b.append(marks);
+    } else {
+      const foot = document.createElement("div");
+      foot.className = "foot";
+      const ping = document.createElement("span");
+      ping.className = "ping";
+      if (opts.ms > 0) {
+        const sig = document.createElement("span");
+        sig.className = "sig";
+        sig.append(document.createElement("i"), document.createElement("i"), document.createElement("i"));
+        const word = document.createElement("small");
+        word.textContent = d.nodesQuality[opts.q];
+        ping.append(sig, document.createTextNode(opts.ms + d.ms), word);
+      } else {
+        ping.textContent = d.pingUnknown;
+        ping.style.color = "var(--dim)";
+      }
+      foot.append(ping, marks);
+      b.append(foot);
+    }
     b.addEventListener("click", () => chooseNode(opts.id));
     return b;
   };
 
-  // Автовыбор — первой строкой: это состояние по умолчанию, и вернуться к
-  // нему человек должен уметь так же легко, как уйти.
+  // Автовыбор — первым и отдельно: это состояние по умолчанию, и вернуться
+  // к нему человек должен уметь так же легко, как уйти.
   const chosenAny = list.some((n) => n.chosen);
   const fastest = list.filter((n) => n.alive && n.ms > 0).sort((a, b) => a.ms - b.ms)[0];
-  box.append(row({
-    id: 0,
+  box.append(card({
+    id: 0, auto: true,
     name: d.nodesAuto,
-    sub: fastest ? d.nodesAutoSub + " — " + (fastest.country || fastest.name) : d.nodesAutoSub,
-    ms: 0,
-    alive: true,
+    city: fastest ? d.nodesAutoSub + " — " + (fastest.country || fastest.name) : d.nodesAutoSub,
     chosen: !chosenAny,
-    current: false,
+    marks: chosenAny ? [] : [[d.nodesAutoOn, "mine"]],
   }));
 
+  const grid = document.createElement("div");
+  grid.className = "node-grid";
+  box.append(grid);
   for (const n of list) {
-    // Что показываем под именем: сначала то, где трафик, потом выбор.
-    // Это разные вещи: выбранная нода могла замолчать, и ядро уехало на живую.
-    let sub = n.country && n.country !== n.name ? n.name : "";
+    // Страна крупно, город и имя ноды мельче. Продавец пишет «ОАЭ · Дубай»;
+    // нет страны — крупно имя ноды, как есть.
+    const place = n.country || n.name;
+    const code = countryCode(n.country, n.name);
+    // «fi» или «FI» вместо страны — продавец написал код; показываем
+    // название страны на языке окна, его знает сам браузер.
+    let country = place.split("·")[0].trim();
+    if (/^[A-Za-z]{2}$/.test(country) && code) country = regionName(code) || country;
+    const cityPart = place.includes("·") ? place.split("·").slice(1).join("·").trim() : "";
+    const city = [cityPart, n.country && n.name !== n.country ? n.name : ""].filter(Boolean).join(" · ");
+    // Что метить: где трафик, что выбрал человек, кто молчит. Это разные
+    // вещи: выбранная нода могла замолчать, и ядро уехало на живую.
     const marks = [];
-    if (n.current) marks.push(d.nodesCurrent);
-    if (n.setup_ms > 0) marks.push(d.setupLabel + ": " + n.setup_ms + d.ms);
-    if (n.chosen) marks.push(d.nodesChosen);
-    if (!n.alive && !n.current) marks.push(n.ms > 0 ? d.nodesDead : d.nodesUnknown);
-    if (marks.length) sub = sub ? sub + " · " + marks.join(" · ") : marks.join(" · ");
-
-    box.append(row({
+    if (n.current) marks.push([d.nodesCurrent, "live"]);
+    if (n.chosen) marks.push([d.nodesChosen, "mine"]);
+    if (!n.alive && !n.current && n.ms > 0) marks.push([d.nodesDead, "dead"]);
+    // Время подключения — отдельно от отклика: нода может отвечать быстро,
+    // а подключаться долго, и именно это человек замечает при включении.
+    if (n.setup_ms > 0) marks.push([d.setupLabel.toLowerCase() + " " + n.setup_ms + d.ms, ""]);
+    const ms = n.ms > 0 ? n.ms : 0;
+    grid.append(card({
       id: n.id,
-      name: n.country || n.name,
-      sub,
-      ms: n.ms > 0 ? n.ms : 0,
-      alive: n.alive,
+      code,
+      name: country,
+      city,
+      ms,
+      q: ms === 0 ? "" : ms <= 120 ? "fast" : ms <= 300 ? "mid" : "slow",
+      dead: !n.alive && !n.current && n.ms > 0,
       current: n.current,
       chosen: n.chosen,
+      marks,
     }));
   }
+}
+
+// countryCode — две буквы страны из того, что написал продавец: явный код
+// («fi-1», «[FI]», «FI · …»), флаг-эмодзи в имени или название страны и
+// города. Не узнали — пусто, и карточка показывает точки, а не чужую страну.
+// Адрес ноды никуда не отправляем: определять страну сторонним сервисом
+// значило бы раскрыть ему адреса подписки.
+const COUNTRY_WORDS = {
+  fi: ["финлянд", "finland", "хельсинк", "helsinki"], nl: ["нидерланд", "голланд", "netherlands", "амстердам", "amsterdam"],
+  de: ["герман", "germany", "франкфурт", "frankfurt", "берлин", "berlin"], ae: ["оаэ", "эмират", "uae", "emirates", "дубай", "dubai"],
+  us: ["сша", "usa", "united states", "нью-йорк", "new york"], gb: ["британ", "англия", "united kingdom", "london", "лондон"],
+  fr: ["франц", "france", "париж", "paris"], pl: ["польш", "poland", "варшав", "warsaw"], se: ["швец", "sweden", "стокгольм", "stockholm"],
+  ch: ["швейцар", "switzerland", "цюрих", "zurich"], tr: ["турц", "turkey", "türkiye", "стамбул", "istanbul"],
+  kz: ["казах", "kazakhstan", "алматы", "almaty"], jp: ["япон", "japan", "токио", "tokyo"], sg: ["сингапур", "singapore"],
+  ee: ["эстон", "estonia", "таллин", "tallinn"], lv: ["латви", "latvia", "рига", "riga"], lt: ["литв", "lithuania", "вильнюс", "vilnius"],
+  es: ["испан", "spain", "мадрид", "madrid"], it: ["итал", "italy", "милан", "milan"], ca: ["канад", "canada", "торонто", "toronto"],
+  am: ["армен", "armenia", "ереван", "yerevan"], ge: ["грузи", "georgia", "тбилиси", "tbilisi"], rs: ["серби", "serbia", "белград", "belgrade"],
+  at: ["австри", "austria", "вена", "vienna"], cz: ["чехи", "czech", "прага", "prague"], no: ["норвег", "norway", "осло", "oslo"],
+  hk: ["гонконг", "hong kong"], in: ["инди", "india"], kr: ["корея", "korea", "сеул", "seoul"], il: ["израил", "israel"],
+};
+function regionName(code) {
+  try { return new Intl.DisplayNames([lang === "en" ? "en" : "ru"], { type: "region" }).of(code) || ""; } catch (_) { return ""; }
+}
+function countryCode(country, name) {
+  const text = ((country || "") + " " + (name || "")).trim();
+  const flag = [...text].map((c) => c.codePointAt(0)).find((cp, i, all) => cp >= 0x1f1e6 && cp <= 0x1f1ff && all[i + 1] >= 0x1f1e6 && all[i + 1] <= 0x1f1ff);
+  if (flag) {
+    const cps = [...text].map((c) => c.codePointAt(0));
+    const at = cps.indexOf(flag);
+    return String.fromCharCode(65 + cps[at] - 0x1f1e6, 65 + cps[at + 1] - 0x1f1e6);
+  }
+  const bare = /^\s*([A-Za-z]{2})\s*(?:·|$)/.exec(country || "");
+  if (bare && COUNTRY_WORDS[bare[1].toLowerCase()]) return bare[1].toUpperCase();
+  const explicit = /\[([A-Za-z]{2})\]/.exec(text) || /^([A-Z]{2})(?:\s|·|$)/.exec(text.trim()) || /(?:^|\s)([a-z]{2})[-_]\d+/.exec(text);
+  if (explicit && COUNTRY_WORDS[explicit[1].toLowerCase()]) return explicit[1].toUpperCase();
+  const low = text.toLowerCase().replace(/ё/g, "е");
+  for (const [code, words] of Object.entries(COUNTRY_WORDS)) {
+    if (words.some((w) => low.includes(w))) return code.toUpperCase();
+  }
+  return "";
 }
 
 async function loadNodes() {
@@ -4132,9 +4257,9 @@ const VIBES = {
   gnome: {
     group: "linux", shell: "gnome", wall: "blobs",
     look: { preset: "daylight", acc: "#3584e4", kind: "flat", radius: "soft", density: "roomy", btn: "solid", glow: "none", card: "flat", tint: null },
-    o: { bg: "#fafafb", surf: "#ffffff", fg: "#2e2e32", dim: "#5e5e66", line: "#e1e1e4", r: 12, pattern: "none",
+    o: { bg: "#f6f6f7", surf: "#ffffff", fg: "#2e2e32", dim: "#5e5e66", line: "#dcdce0", r: 12, pattern: "none",
       font: "inter", sfont: "inter", nums: "text", caps: false, statusSize: 30 },
-    veil: "rgba(250,250,251,.98)",
+    veil: "rgba(246,246,247,.97)",
   },
   // KDE Plasma: Breeze тёмная — голубой фокус, острые грани, Noto Sans.
   kde: {

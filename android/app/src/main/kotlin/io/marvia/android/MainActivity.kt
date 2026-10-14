@@ -325,7 +325,7 @@ class MainActivity : AppCompatActivity() {
         Paint.style = Paint.Style(
             pattern = store.pattern, font = store.font, photo = store.hasBackdrop(),
             motion = !store.reduceMotion, haptics = store.hapticFeedback,
-            appearanceStyle = store.appearanceStyle, vibe = AppearanceProfiles.detail(store),
+            appearanceStyle = store.appearanceStyle, vibe = AppearanceProfiles.detail(store), home = store.homeView,
         )
         ConnectionAppearance.apply(ui.connectScreen, store.appearanceStyle, theme)
         ui.connectScreen.powerAction.motionEnabled = !store.reduceMotion
@@ -713,7 +713,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun renderHome(state: TunnelState, hasKey: Boolean) {
         val c = ui.connectScreen
-        val layout = HomeLayout.of(Paint.style.vibe, store.appearanceStyle)
+        val layout = HomeLayout.of(store.homeView)
         val on = state as? TunnelState.On
         val place = HomeBlocks.Place(
             title = on?.node ?: lastNode,
@@ -721,10 +721,10 @@ class MainActivity : AppCompatActivity() {
             live = on != null,
             manual = on != null && HomeBlocks.pickedHere(on.chosen, on.node),
         )
-        c.placeCard.isVisible = hasKey && layout != HomeLayout.CONSOLE && layout != HomeLayout.SIGNAL
+        c.placeCard.isVisible = hasKey && layout.cards
         if (c.placeCard.isVisible) HomeBlocks.place(c, place, theme)
         HomeBlocks.plan(c, if (hasKey) homePlan else null, theme, layout)
-        c.nodeLine.isVisible = layout == HomeLayout.SIGNAL && c.nodeLine.text.isNotEmpty()
+        c.nodeLine.isVisible = layout == HomeLayout.MARVIA && c.nodeLine.text.isNotEmpty()
         c.tilesRow.isVisible = store.homeStats && hasKey && layout != HomeLayout.CONSOLE
         c.consoleAction.isVisible = layout == HomeLayout.CONSOLE
         c.readout.isVisible = layout == HomeLayout.CONSOLE && hasKey

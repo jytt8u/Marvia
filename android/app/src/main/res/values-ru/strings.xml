@@ -273,7 +273,7 @@
     <string name="theme_hint_light">свет — на фоне всего экрана</string>
     <string name="theme_hint_bg">узор и свой фон — под всем</string>
     <string name="theme_hint_shape">форма — карточки, кнопка, отступы</string>
-    <string name="theme_hint_more">значок, шрифт и сохранённые виды</string>
+    <string name="theme_hint_more">вид главной, значок, шрифт и сохранённые темы</string>
     <string name="theme_pv_main">Главная</string>
     <string name="theme_pv_settings">Настройки</string>
     <string name="theme_pv_servers">Серверы</string>
@@ -300,6 +300,12 @@
     <string name="theme_radius_caps">СКРУГЛЕНИЯ</string>
     <string name="theme_density_caps">ПЛОТНОСТЬ</string>
     <string name="theme_button_caps">ГЛАВНАЯ КНОПКА</string>
+    <string name="theme_home_caps">ВИД ГЛАВНОЙ</string>
+    <string name="theme_home_hint">тема меняет цвета, вид — расстановку</string>
+    <string name="home_view_marvia">Marvia</string>
+    <string name="home_view_stage">Сцена</string>
+    <string name="home_view_deck">Панель</string>
+    <string name="home_view_console">Консоль</string>
     <string name="theme_glow_caps">СВЕЧЕНИЕ</string>
     <string name="theme_logo_caps">ЗНАЧОК В ШАПКЕ</string>
     <string name="logo_marvia">Marvia</string>

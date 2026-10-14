@@ -29,7 +29,7 @@ object ConnectionAppearance {
             weight = if (signal) 0f else 1f
         }
         ui.halo.isVisible = !ui.powerAction.dottedPower
-        HomeBlocks.arrange(ui, HomeLayout.of(Paint.style.vibe, style))
+        HomeBlocks.arrange(ui, HomeLayout.of(Paint.style.home))
     }
 
     fun header(ui: ScreenConnectBinding, style: AppearanceStyle) {

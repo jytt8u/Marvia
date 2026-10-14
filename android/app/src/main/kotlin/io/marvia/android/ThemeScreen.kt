@@ -384,6 +384,10 @@ class ThemeScreen(
                 paintPills(ui.glowRow, t, LookTable.glows.map { it.key }, choice.glow, ::glowName) { choose(choice.copy(glow = it)) }
             }
             Tab.MORE -> {
+                paintPills(ui.homeRow, t, HomeLayout.entries.map { it.key }, store.homeView, ::homeName) {
+                    store.homeView = it
+                    onChanged()
+                }
                 paintLogos(t)
                 paintFonts(t)
                 paintProfiles(t)
@@ -613,6 +617,14 @@ class ThemeScreen(
                 id<HaloView>(R.id.halo)?.apply { theme = t; lit = true; isVisible = id<PowerButton>(R.id.powerAction)?.dottedPower != true }
                 id<TextView>(R.id.statusText)?.apply { setText(R.string.status_on); setTextColor(if (t.dark) t.fg else t.acc) }
                 id<TextView>(R.id.nodeLine)?.text = host.getString(R.string.theme_preview_country) + " · " + host.getString(R.string.theme_preview_place)
+                // Вид главной в предпросмотре — с теми же блоками, что на настоящей:
+                // иначе «Сцена» и «Marvia» здесь выглядели бы одинаково.
+                val home = HomeLayout.of(store.homeView)
+                val b = ScreenConnectBinding.bind(id<View>(R.id.connectRoot)!!)
+                b.nodeLine.isVisible = home == HomeLayout.MARVIA
+                b.placeCard.isVisible = home.cards
+                if (home.cards) HomeBlocks.place(b, HomeBlocks.Place(b.nodeLine.text.toString() + " · fi-1", 38, live = true, manual = false), t)
+                HomeBlocks.plan(b, HomeBlocks.Plan("Marvia", java.time.Instant.now().plusSeconds(19L * 86400).toString(), 50L shl 30, 32L shl 30, ""), t, home)
                 id<TextView>(R.id.todayTotal)?.text = Format.size(host, 4_509_715_660L)
                 id<HourBars>(R.id.todayBars)?.apply { theme = t; hours = MINI.map { it.toLong() }; current = 19 }
                 id<TextView>(R.id.downValue)?.text = host.getString(R.string.stats_mbps, "48,0")
@@ -802,6 +814,7 @@ class ThemeScreen(
         return if (id == 0) key else host.getString(id)
     }
 
+    private fun homeName(key: String) = named("home_view_", key)
     private fun densityName(key: String) = named("density_", key)
     private fun radiusName(key: String) = named("radius_", key)
     private fun cardName(key: String) = named("card_", key)

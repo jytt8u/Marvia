@@ -64,6 +64,8 @@ object Paint {
         val appearanceStyle: AppearanceStyle = AppearanceStyle.CLASSIC,
         /** Образ, чьи фирменные детали рисуются поверх темы; пусто — без деталей. */
         val vibe: String = "",
+        /** Вид главной — выбор человека, а не следствие темы. */
+        val home: String = HomeLayout.MARVIA.key,
     )
 
     var style = Style()

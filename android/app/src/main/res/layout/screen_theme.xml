@@ -374,6 +374,15 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
+                <!-- Вид главной — отдельно от темы: тема красит, вид расставляет. -->
+                <LinearLayout style="@style/ThemeSection">
+                    <LinearLayout style="@style/ThemeSectionHead">
+                        <TextView style="@style/ThemeK" android:text="@string/theme_home_caps" />
+                        <TextView style="@style/ThemeHint" android:text="@string/theme_home_hint" />
+                    </LinearLayout>
+                    <LinearLayout android:id="@+id/homeRow" style="@style/ThemeRow" />
+                </LinearLayout>
+
                 <LinearLayout style="@style/ThemeSection">
                     <LinearLayout style="@style/ThemeSectionHead">
                         <TextView style="@style/ThemeK" android:text="@string/theme_logo_caps" />

@@ -298,7 +298,7 @@
     <string name="theme_hint_light">light is the background of the whole screen</string>
     <string name="theme_hint_bg">pattern and your own photo go under everything</string>
     <string name="theme_hint_shape">shape is cards, the button and spacing</string>
-    <string name="theme_hint_more">mark, font and saved looks</string>
+    <string name="theme_hint_more">home view, mark, font and saved themes</string>
     <string name="theme_pv_main">Home</string>
     <string name="theme_pv_settings">Settings</string>
     <string name="theme_pv_servers">Servers</string>
@@ -325,6 +325,12 @@
     <string name="theme_radius_caps">CORNERS</string>
     <string name="theme_density_caps">DENSITY</string>
     <string name="theme_button_caps">MAIN BUTTON</string>
+    <string name="theme_home_caps">HOME SCREEN</string>
+    <string name="theme_home_hint">the theme sets colours, the view sets the layout</string>
+    <string name="home_view_marvia">Marvia</string>
+    <string name="home_view_stage">Stage</string>
+    <string name="home_view_deck">Deck</string>
+    <string name="home_view_console">Console</string>
     <string name="theme_glow_caps">GLOW</string>
     <string name="theme_logo_caps">MARK IN THE HEADER</string>
     <string name="logo_marvia">Marvia</string>

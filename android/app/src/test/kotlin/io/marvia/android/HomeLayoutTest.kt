@@ -17,22 +17,38 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [35], qualifiers = "ru")
 class HomeLayoutTest {
-    @Test fun themesDifferInLayoutNotOnlyInColour() {
-        val layouts = AppearanceProfiles.all.map { HomeLayout.of(it.id, it.style) }.toSet()
-        assertEquals("раскладки главной у образов: $layouts", HomeLayout.entries.toSet(), layouts)
+    @Test fun theThemeChangesColoursButNeverTheLayoutAndMarviaIsTheDefault() = withScreen { ui ->
+        assertEquals(HomeLayout.MARVIA, HomeLayout.of(""))
+        assertEquals("незнакомый ключ — главная Marvia", HomeLayout.MARVIA, HomeLayout.of("signal"))
+        for (profile in AppearanceProfiles.all) {
+            Paint.style = Paint.style.copy(vibe = profile.id, appearanceStyle = profile.style)
+            ConnectionAppearance.apply(ui, profile.style, Look.theme(Look.normalize(profile.choice)))
+            assertTrue("образ ${profile.id} спрятал круглую кнопку", ui.stageFrame.isVisible)
+            assertSame("образ ${profile.id} переставил кнопку", ui.stageFrame, ui.powerAction.parent)
+            assertFalse("образ ${profile.id} включил консоль", ui.consoleAction.isVisible)
+        }
+    }
+
+    @Test fun theMarviaHomeHasTheNodeLineAndNoCards() = withScreen { ui ->
+        val plan = HomeBlocks.parsePlan("Phone", """{"until":"2099-01-01T00:00:00Z","limit":1,"left":1}""")!!
+        HomeBlocks.plan(ui, plan, Look.theme(Look.Choice()), HomeLayout.MARVIA)
+        assertFalse("у главной Marvia карточки подписки нет", ui.planCard.isVisible)
+        ui.nodeLine.text = "Финляндия · Хельсинки"
+        arrange(ui, "marvia")
+        assertTrue(ui.nodeLine.isVisible)
     }
 
     @Test fun theConsoleHidesTheRoundButtonOnlyWithAWideOneInItsPlace() = withScreen { ui ->
-        arrange(ui, "terminal")
+        arrange(ui, "console")
         assertFalse(ui.stageFrame.isVisible)
         assertTrue("без круглой кнопки должна остаться другая", ui.consoleAction.isVisible)
     }
 
-    @Test fun theDeckPutsTheButtonBesideTheStatusAndGivesItBackOnThemeChange() = withScreen { ui ->
-        arrange(ui, "expressive")
+    @Test fun theDeckPutsTheButtonBesideTheStatusAndGivesItBackWhenTheViewChanges() = withScreen { ui ->
+        arrange(ui, "deck")
         assertSame(ui.deckSlot, ui.powerAction.parent)
         assertSame(ui.deckLeft, ui.statusBox.parent)
-        arrange(ui, "graphite")
+        arrange(ui, "marvia")
         assertSame(ui.stageFrame, ui.powerAction.parent)
         assertSame(ui.homeColumn, ui.statusBox.parent)
         assertTrue(ui.stageFrame.isVisible)
@@ -62,10 +78,9 @@ class HomeLayoutTest {
         assertFalse("автовыбор — не выбор человека", HomeBlocks.pickedHere("", "Финляндия · Хельсинки · fi-1"))
     }
 
-    private fun arrange(ui: ScreenConnectBinding, vibe: String) {
-        val profile = AppearanceProfiles.all.first { it.id == vibe }
-        Paint.style = Paint.style.copy(vibe = vibe, appearanceStyle = profile.style)
-        ConnectionAppearance.apply(ui, profile.style, Look.theme(Look.normalize(profile.choice)))
+    private fun arrange(ui: ScreenConnectBinding, home: String) {
+        Paint.style = Paint.style.copy(home = home)
+        ConnectionAppearance.apply(ui, AppearanceStyle.CLASSIC, Look.theme(Look.Choice()))
     }
 
     private fun withScreen(test: (ScreenConnectBinding) -> Unit) {

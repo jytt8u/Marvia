@@ -454,6 +454,11 @@ class Store(context: Context) {
         get() = prefs.getBoolean(KEY_HAPTICS, true)
         set(value) { prefs.edit().putBoolean(KEY_HAPTICS, value).apply() }
 
+    /** homeView — вид главной, ключ из HomeLayout; незнакомый читается как главная Marvia. */
+    var homeView: String
+        get() = HomeLayout.of(prefs.getString(KEY_HOME_VIEW, null).orEmpty()).key
+        set(value) { prefs.edit().putString(KEY_HOME_VIEW, HomeLayout.of(value).key).apply() }
+
     var homeStats: Boolean
         get() = prefs.getBoolean(KEY_HOME_STATS, true)
         set(value) { prefs.edit().putBoolean(KEY_HOME_STATS, value).apply() }
@@ -831,6 +836,7 @@ class Store(context: Context) {
         private const val KEY_REDUCE_MOTION = "reduce_motion"
         private const val KEY_HAPTICS = "haptic_feedback"
         private const val KEY_HOME_STATS = "home_stats"
+        private const val KEY_HOME_VIEW = "home_view"
         private const val KEY_FONT = "look_font"
         private const val KEY_LOGO = "look_logo"
         private const val LOGO_FILE = "logo.png"

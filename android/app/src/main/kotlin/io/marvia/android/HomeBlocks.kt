@@ -15,21 +15,20 @@ import io.marvia.android.databinding.ScreenConnectBinding
 import org.json.JSONObject
 
 /**
- * Раскладка главной. Образы отличались только цветом, и главная у всех была
- * одна и та же — кнопка посередине и пустота под ней. Теперь образ решает и
- * композицию: сцена с большой кнопкой, панель со словом состояния слева и
- * плитками, точечное табло или консоль со строками-показаниями.
+ * Раскладка главной. Выбирается отдельно от темы: тема красит, а вид
+ * главной человек берёт сам. Раньше образ решал и композицию, и смена цвета
+ * заодно переставляла кнопку и прятала круг — это раздражало сильнее, чем
+ * радовало разнообразие. По умолчанию — наша главная Marvia: кнопка,
+ * состояние и строка ноды; карточки «где вы» и подписки — у «Сцены».
  */
-enum class HomeLayout {
-    STAGE, DECK, SIGNAL, CONSOLE;
+enum class HomeLayout(val key: String) {
+    MARVIA("marvia"), STAGE("stage"), DECK("deck"), CONSOLE("console");
+
+    /** Карточки «где вы» и подписки — у сцены и панели; у Marvia строка ноды, у консоли строки-показания. */
+    val cards: Boolean get() = this == STAGE || this == DECK
 
     companion object {
-        fun of(vibe: String, style: AppearanceStyle): HomeLayout = when {
-            style == AppearanceStyle.SIGNAL -> SIGNAL
-            vibe == "expressive" || vibe == "clay" || vibe == "day" -> DECK
-            vibe == "terminal" || vibe == "brutal" -> CONSOLE
-            else -> STAGE
-        }
+        fun of(key: String): HomeLayout = entries.firstOrNull { it.key == key } ?: MARVIA
     }
 }
 
@@ -113,7 +112,7 @@ object HomeBlocks {
 
     fun plan(c: ScreenConnectBinding, plan: Plan?, t: Theme, layout: HomeLayout) {
         val ctx = c.root.context
-        c.planCard.isVisible = plan != null && layout != HomeLayout.CONSOLE
+        c.planCard.isVisible = plan != null && layout.cards
         if (plan == null) return
         c.planName.text = plan.name
         val days = if (plan.until.isEmpty()) null else Format.daysLeft(plan.until)
@@ -213,8 +212,8 @@ object HomeBlocks {
         }
         if (console) c.statusText.textSize = 30f
 
-        // Строка ноды — у табло; остальным «где вы» говорит карточка.
-        c.nodeLine.isVisible = layout == HomeLayout.SIGNAL && c.nodeLine.text.isNotEmpty()
+        // Строка ноды — у главной Marvia; остальным «где вы» говорит карточка.
+        c.nodeLine.isVisible = layout == HomeLayout.MARVIA && c.nodeLine.text.isNotEmpty()
         c.readout.isVisible = console
         c.consoleAction.isVisible = console
 

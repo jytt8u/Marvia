@@ -596,4 +596,28 @@
     <string name="seller_channel_desc">Когда подходит срок или кончается трафик</string>
     <string name="trouble_network_changing">сеть изменилась — восстанавливаем соединение</string>
     <string name="trouble_network_offline">нет внешней сети — ждём Wi-Fi или мобильный интернет</string>
+    <!-- Главная: «где вы», подписка и консоль (см. HomeBlocks). -->
+    <string name="home_place_auto">Автовыбор</string>
+    <string name="home_place_auto_sub">самая быстрая нода подписки</string>
+    <string name="home_place_live">трафик идёт здесь</string>
+    <string name="home_place_live_manual">выбрана вами · трафик идёт здесь</string>
+    <string name="home_place_last">в прошлый раз</string>
+    <string name="home_plan_title">Подписка</string>
+    <string name="home_plan_left">осталось %1$s из %2$s</string>
+    <string name="home_plan_unlimited">трафик без ограничения</string>
+    <plurals name="home_days_word">
+        <item quantity="one">день остался</item>
+        <item quantity="few">дня осталось</item>
+        <item quantity="many">дней осталось</item>
+        <item quantity="other">дня осталось</item>
+    </plurals>
+    <string name="home_console_connect">Подключить</string>
+    <string name="home_console_disconnect">Отключить</string>
+    <string name="home_console_cancel">Отменить</string>
+    <string name="home_console_retry">Ещё раз</string>
+    <string name="home_r_node">нода</string>
+    <string name="home_r_term">срок</string>
+    <string name="home_r_quota">трафик</string>
+    <string name="home_r_speed">скорость</string>
+    <string name="home_r_speed_value">↓ %1$s  ↑ %2$s Мбит/с</string>
 </resources>

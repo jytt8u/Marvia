@@ -227,6 +227,38 @@ class MainActivity : AppCompatActivity() {
         // пока человек переключит тумблер ещё раз: раньше единственная попытка
         // была в момент включения, и неудачная оставалась навсегда.
         if (store.bypassRussian && !RuRoutes.ready(this)) refreshRoutes(force = false)
+        if (screen == Screen.CONNECT) loadHomePlan()
+    }
+
+    /** Срок и остаток рабочей подписки для главной; null — ключа нет или подписка не читается. */
+    private var homePlan: HomeBlocks.Plan? = null
+
+    /**
+     * loadHomePlan читает подписку из кэша ядра — того же, что у «Серверов».
+     * Без refresh: обновлять подписку при каждом заходе на главную значило бы
+     * ходить к продавцу на каждое переключение вкладок.
+     */
+    private fun loadHomePlan() {
+        val link = store.accountLink
+        if (link.isBlank()) {
+            homePlan = null
+            render(MarviaState.state.value)
+            return
+        }
+        val name = store.subscriptions.firstOrNull { it.link == link }?.name.orEmpty()
+            .ifEmpty { getString(R.string.home_plan_title) }
+        lifecycleScope.launch {
+            val json = withContext(Dispatchers.IO) {
+                runCatching {
+                    MarviaState.core?.subscription(link, store.cacheDir(), false)
+                        ?: Mobile.subscription(link, store.cacheDir(), false)
+                }.getOrDefault("")
+            }
+            // Пока читали, ключ могли сменить — чужой срок показывать нельзя.
+            if (link != store.accountLink) return@launch
+            homePlan = if (json.isEmpty()) null else HomeBlocks.parsePlan(name, json)
+            render(MarviaState.state.value)
+        }
     }
 
     /**
@@ -421,7 +453,7 @@ class MainActivity : AppCompatActivity() {
             // сверху вниз, а не падает целиком.
             if (next == Screen.CONNECT) {
                 val c = ui.connectScreen
-                listOf(c.nodeLine, c.todayCard, c.tilesRow).forEachIndexed { i, v ->
+                listOf(c.infoRow, c.todayCard, c.tilesRow).forEachIndexed { i, v ->
                     v.alpha = 0f
                     v.translationY = 18 * resources.displayMetrics.density
                     v.animate().alpha(1f).translationY(0f).setStartDelay(60L + 70L * i).setDuration(460)
@@ -444,7 +476,7 @@ class MainActivity : AppCompatActivity() {
             Screen.LANGUAGE -> language.open()
             Screen.PERMS -> perms.open()
             Screen.KEY -> openKey()
-            Screen.CONNECT -> Unit
+            Screen.CONNECT -> loadHomePlan()
             Screen.INSIGHTS -> Unit
         }
 
@@ -497,6 +529,12 @@ class MainActivity : AppCompatActivity() {
             else if (MarviaState.state.value is TunnelState.On) { show(Screen.INSIGHTS); insights.open(InsightsScreen.Mode.SESSIONS) }
         }
         c.todayCard.setOnClickListener { show(Screen.STATS) }
+        c.placeCard.setOnClickListener { show(Screen.SERVERS) }
+        c.planCard.setOnClickListener { show(Screen.SERVERS) }
+        c.planRenew.setOnClickListener { homePlan?.renew?.let { SellerChannel.open(this, it) } }
+        c.consoleAction.setOnClickListener {
+            if (store.accountLink.isBlank()) servers.askWhereFrom() else toggle()
+        }
 
         // Нажатие на знак позволяет свернуть или вернуть подпись бренда.
         c.heroTagline.text = getString(R.string.hero_subtitle)
@@ -653,6 +691,7 @@ class MainActivity : AppCompatActivity() {
         }
         // Пустая строка — это не строка: место под неё занимать незачем.
         c.nodeNote.isVisible = c.nodeNote.text.isNotEmpty()
+        renderHome(state, hasKey)
 
         renderSubscription(state)
 
@@ -664,6 +703,57 @@ class MainActivity : AppCompatActivity() {
             if (screen == Screen.SERVERS) {
                 servers.open()
             }
+        }
+    }
+
+    /**
+     * renderHome — блоки главной под раскладку образа: «где вы», подписка,
+     * строки консоли и её кнопка. Без ключа рассказывать не о чем — остаётся
+     * одна кнопка «Добавить ключ».
+     */
+    private fun renderHome(state: TunnelState, hasKey: Boolean) {
+        val c = ui.connectScreen
+        val layout = HomeLayout.of(Paint.style.vibe, store.appearanceStyle)
+        val on = state as? TunnelState.On
+        val place = HomeBlocks.Place(
+            title = on?.node ?: lastNode,
+            ms = on?.ms ?: 0,
+            live = on != null,
+            manual = on != null && on.chosen.isNotEmpty(),
+        )
+        c.placeCard.isVisible = hasKey && layout != HomeLayout.CONSOLE && layout != HomeLayout.SIGNAL
+        if (c.placeCard.isVisible) HomeBlocks.place(c, place, theme)
+        HomeBlocks.plan(c, if (hasKey) homePlan else null, theme, layout)
+        c.nodeLine.isVisible = layout == HomeLayout.SIGNAL && c.nodeLine.text.isNotEmpty()
+        c.tilesRow.isVisible = store.homeStats && hasKey && layout != HomeLayout.CONSOLE
+        c.consoleAction.isVisible = layout == HomeLayout.CONSOLE
+        c.readout.isVisible = layout == HomeLayout.CONSOLE && hasKey
+        if (layout == HomeLayout.CONSOLE) {
+            c.accessAction.isVisible = false
+            c.consoleAction.text = HomeBlocks.consoleLabel(this, state, hasKey)
+            c.consoleAction.contentDescription = c.consoleAction.text
+            if (hasKey) HomeBlocks.readout(c, consoleRows(place), theme)
+        }
+    }
+
+    /** Строки консоли: нода, срок, трафик по подписке и скорость; «сегодня» — в карточке с часами ниже. */
+    private fun consoleRows(place: HomeBlocks.Place): List<Pair<String, String>> = buildList {
+        add(getString(R.string.home_r_node) to when {
+            place.title.isEmpty() -> getString(R.string.home_place_auto)
+            place.live && place.ms > 0 -> place.title + "  " + getString(R.string.node_ms, place.ms)
+            else -> place.title
+        })
+        homePlan?.let { p ->
+            val days = if (p.until.isEmpty()) null else Format.daysLeft(p.until)
+            add(getString(R.string.home_r_term) to (days?.let { resources.getQuantityString(R.plurals.days_left, it.coerceAtLeast(0), it.coerceAtLeast(0)) }
+                ?: getString(R.string.servers_no_term)))
+            add(getString(R.string.home_r_quota) to (if (p.limit > 0) getString(R.string.home_plan_left, Format.size(this@MainActivity, p.left), Format.size(this@MainActivity, p.limit))
+                else getString(R.string.home_plan_unlimited)))
+        }
+        if (MarviaState.state.value is TunnelState.On) {
+            val last = SessionDetails.snapshot().samples.lastOrNull()
+            fun mbps(b: Double) = String.format(java.util.Locale.getDefault(), "%.1f", b * 8 / 1_000_000)
+            add(getString(R.string.home_r_speed) to getString(R.string.home_r_speed_value, mbps(last?.down ?: 0.0), mbps(last?.up ?: 0.0)))
         }
     }
 

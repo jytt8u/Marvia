@@ -20,7 +20,7 @@ object ConnectionAppearance {
         val largeText = ui.root.resources.configuration.fontScale > 1.5f
         val buttonSize = px(if (largeText) 144 else 208)
         ui.powerAction.updateLayoutParams { width = buttonSize; height = buttonSize }
-        (ui.powerAction.parent as android.view.View).updateLayoutParams { height = px(if (largeText) 164 else 238) }
+        ui.stageFrame.updateLayoutParams { height = px(if (largeText) 164 else 238) }
         ui.todayCard.tag = if (signal) "card" else "card feature"
         ui.todayBars.updateLayoutParams { height = px(if (signal) 44 else 52) }
         ui.statsGap.minimumHeight = px(if (signal) 0 else 18)
@@ -29,6 +29,7 @@ object ConnectionAppearance {
             weight = if (signal) 0f else 1f
         }
         ui.halo.isVisible = !ui.powerAction.dottedPower
+        HomeBlocks.arrange(ui, HomeLayout.of(Paint.style.vibe, style))
     }
 
     fun header(ui: ScreenConnectBinding, style: AppearanceStyle) {

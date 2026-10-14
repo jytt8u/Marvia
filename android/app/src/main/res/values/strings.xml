@@ -621,4 +621,26 @@
     <string name="seller_channel_desc">When access is about to end or traffic runs low</string>
     <string name="trouble_network_changing">network changed — restoring the connection</string>
     <string name="trouble_network_offline">no underlying network — waiting for Wi-Fi or mobile data</string>
+    <!-- Главная: «где вы», подписка и консоль (см. HomeBlocks). -->
+    <string name="home_place_auto">Auto</string>
+    <string name="home_place_auto_sub">the fastest node of your subscription</string>
+    <string name="home_place_live">traffic goes here now</string>
+    <string name="home_place_live_manual">chosen by you · traffic goes here</string>
+    <string name="home_place_last">last time</string>
+    <string name="home_plan_title">Subscription</string>
+    <string name="home_plan_left">%1$s left of %2$s</string>
+    <string name="home_plan_unlimited">traffic without a limit</string>
+    <plurals name="home_days_word">
+        <item quantity="one">day left</item>
+        <item quantity="other">days left</item>
+    </plurals>
+    <string name="home_console_connect">Connect</string>
+    <string name="home_console_disconnect">Disconnect</string>
+    <string name="home_console_cancel">Cancel</string>
+    <string name="home_console_retry">Try again</string>
+    <string name="home_r_node">node</string>
+    <string name="home_r_term">term</string>
+    <string name="home_r_quota">traffic</string>
+    <string name="home_r_speed">speed</string>
+    <string name="home_r_speed_value">↓ %1$s  ↑ %2$s Mbit/s</string>
 </resources>

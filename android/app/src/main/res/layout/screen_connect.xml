@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Главная: состояние подключения, доступ и статистика этого телефона. -->
+<!--
+  Главная: состояние подключения, где вы и сколько осталось по подписке.
+  Раскладку выбирает образ (см. HomeLayout): сцена с большой кнопкой, панель
+  со статусом слева и плитками, точечное табло или консоль. Вьюхи одни на
+  все раскладки — HomeLayout переставляет их, а не рисует вторую главную.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/connectRoot" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
@@ -36,7 +41,7 @@
 
     <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
         android:fillViewport="true" android:clipToPadding="false" android:clipChildren="false">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        <LinearLayout android:id="@+id/homeColumn" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="vertical" android:gravity="center_horizontal" android:paddingHorizontal="16dp"
             android:paddingBottom="16dp" android:clipChildren="false">
 
@@ -44,6 +49,7 @@
                  сцену, под шапку. Ни один родитель их не режет: ровный срез
                  кольца читался как обрезанный экран. -->
             <FrameLayout
+                android:id="@+id/stageFrame"
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/hero_stage_height"
                 android:clipChildren="false">
@@ -62,23 +68,37 @@
                     android:contentDescription="@string/action_connect" />
             </FrameLayout>
 
-            <TextView
-                android:id="@+id/statusText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:gravity="center"
-                android:text="@string/status_off"
-                android:textSize="30sp"
-                android:textStyle="bold"
-                android:letterSpacing="-0.01"
-                android:accessibilityLiveRegion="polite" />
+            <!-- Шапка «панели»: слово состояния слева, кнопка справа. Пустая, пока
+                 раскладка другая: HomeLayout переносит сюда statusBox и кнопку. -->
+            <LinearLayout android:id="@+id/deckRow" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="18dp" android:layout_marginBottom="6dp" android:gravity="center_vertical"
+                android:orientation="horizontal" android:visibility="gone">
+                <FrameLayout android:id="@+id/deckLeft" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+                <FrameLayout android:id="@+id/deckSlot" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:clipChildren="false" />
+            </LinearLayout>
 
-            <TextView android:id="@+id/powerHint" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp" android:gravity="center" android:tag="dim"
-                android:text="@string/power_hint_start" android:textSize="13sp" />
+            <LinearLayout android:id="@+id/statusBox" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:gravity="center_horizontal">
+                <TextView
+                    android:id="@+id/statusText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:gravity="center"
+                    android:text="@string/status_off"
+                    android:textSize="30sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="-0.01"
+                    android:accessibilityLiveRegion="polite" />
 
-            <!-- Нода одной строкой: страна · город · отклик. Нажатие ведёт к выбору. -->
+                <TextView android:id="@+id/powerHint" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp" android:gravity="center" android:tag="dim"
+                    android:text="@string/power_hint_start" android:textSize="13sp" />
+            </LinearLayout>
+
+            <!-- Нода одной строкой: страна · город · отклик. Нажатие ведёт к выбору.
+                 Остаётся у точечного табло; остальные раскладки показывают «где вы» карточкой. -->
             <TextView
                 android:id="@+id/nodeLine"
                 android:layout_width="wrap_content"
@@ -104,13 +124,77 @@
                 android:layout_marginTop="18dp" android:layout_marginBottom="4dp" android:gravity="center"
                 android:text="@string/connect_add_key" android:textSize="15sp" android:textStyle="bold"
                 android:tag="btn" android:clickable="true" android:focusable="true" android:visibility="gone" />
+
+            <!-- Консоль: показания строками вместо карточек и кнопка во всю ширину.
+                 Строки собирает HomeBlocks — из тех же данных, что карточки. -->
+            <LinearLayout android:id="@+id/readout" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="18dp" android:orientation="vertical" android:tag="card" android:visibility="gone" />
+            <TextView android:id="@+id/consoleAction" android:layout_width="match_parent" android:layout_height="56dp"
+                android:layout_marginTop="12dp" android:gravity="center" android:fontFamily="@font/mono"
+                android:letterSpacing="0.12" android:textSize="15sp" android:textStyle="bold" android:tag="btn"
+                android:clickable="true" android:focusable="true" android:visibility="gone" />
+
             <Space android:id="@+id/statsGap" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:minHeight="18dp" />
+
+            <!-- Где вы и что по подписке. На сцене — друг под другом, на панели —
+                 рядом плитками. -->
+            <LinearLayout android:id="@+id/infoRow" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:baselineAligned="false">
+
+                <LinearLayout android:id="@+id/placeCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical" android:tag="card"
+                    android:clickable="true" android:focusable="true" android:visibility="gone">
+                    <!-- Флаг страны, а для автовыбора — значок: смайлик молнии смотрелся
+                         чужим среди строгих значков приложения. -->
+                    <FrameLayout android:id="@+id/placeBadge" android:layout_width="44dp" android:layout_height="44dp" android:tag="icon.box">
+                        <TextView android:id="@+id/placeFlag" android:layout_width="match_parent" android:layout_height="match_parent"
+                            android:gravity="center" android:textSize="22sp" android:importantForAccessibility="no" />
+                        <ImageView android:id="@+id/placeIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center"
+                            android:src="@drawable/ic_bolt" android:tag="icon:acc" android:importantForAccessibility="no" android:visibility="gone" />
+                    </FrameLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:layout_marginStart="12dp" android:orientation="vertical">
+                        <TextView android:id="@+id/placeName" android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:textSize="15sp" android:textStyle="bold" android:tag="fg" android:maxLines="1" android:ellipsize="end" />
+                        <TextView android:id="@+id/placeSub" android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp" android:textSize="12sp" android:tag="dim" android:maxLines="2" android:ellipsize="end" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/placeMs" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" android:fontFamily="@font/mono" android:textSize="13sp" android:textStyle="bold" android:tag="acc" />
+                    <ImageView android:id="@+id/placeChevron" android:layout_width="18dp" android:layout_height="18dp"
+                        android:layout_marginStart="8dp" android:src="@drawable/ic_chevron_right" android:tag="icon:dim" android:importantForAccessibility="no" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/planCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp" android:orientation="vertical" android:tag="card"
+                    android:clickable="true" android:focusable="true" android:visibility="gone">
+                    <TextView android:id="@+id/planName" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:textSize="13sp" android:tag="dim" android:maxLines="1" android:ellipsize="end" />
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp" android:gravity="bottom" android:baselineAligned="true">
+                        <TextView android:id="@+id/planDays" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:fontFamily="@font/mono" android:textSize="30sp" android:textStyle="bold" android:tag="fg" android:includeFontPadding="false" />
+                        <TextView android:id="@+id/planDaysWord" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                            android:layout_marginStart="8dp" android:textSize="13sp" android:tag="dim" android:maxLines="2" />
+                    </LinearLayout>
+                    <FrameLayout android:id="@+id/planTrack" android:layout_width="match_parent" android:layout_height="6dp"
+                        android:layout_marginTop="12dp" android:tag="track">
+                        <View android:id="@+id/planFill" android:layout_width="0dp" android:layout_height="match_parent" android:tag="fill" />
+                    </FrameLayout>
+                    <TextView android:id="@+id/planLeft" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp" android:fontFamily="@font/mono" android:textSize="12sp" android:tag="dim" android:maxLines="2" />
+                    <TextView android:id="@+id/planRenew" android:layout_width="match_parent" android:layout_height="44dp"
+                        android:layout_marginTop="12dp" android:gravity="center" android:text="@string/seller_renew" android:textSize="14sp"
+                        android:textStyle="bold" android:tag="btn" android:clickable="true" android:focusable="true" android:visibility="gone" />
+                </LinearLayout>
+            </LinearLayout>
 
             <!-- Сегодня по часам. -->
             <LinearLayout
                 android:id="@+id/todayCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
                 android:background="@drawable/bg_card"
                 android:orientation="vertical"
                 android:tag="card"

@@ -311,6 +311,33 @@
   .quick .chip[aria-pressed="true"] .dot { background: var(--acc); box-shadow: 0 0 8px rgba(var(--accRgb), .7); }
   .first-key { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 10px; }
 
+  /* «Где вы» и подписка — две карточки рядом под состоянием. */
+  .home-info { width: 100%; max-width: 560px; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--gap); }
+  .hcard { padding: 14px 16px; min-width: 0; text-align: left; color: var(--fg); font: inherit; }
+  .hcard.place { display: flex; flex-direction: row; align-items: center; gap: 12px; cursor: pointer; transition: border-color .3s var(--ease), transform .3s var(--ease); }
+  .hcard.place:hover { border-color: color-mix(in srgb, var(--acc) 55%, var(--line)); transform: translateY(-1px); }
+  .hc-code { flex: none; width: 44px; height: 44px; border-radius: min(var(--r), 12px); display: grid; place-items: center;
+    font-family: var(--mono); font-size: 15px; font-weight: 800; letter-spacing: .04em; background: color-mix(in srgb, var(--acc) 14%, transparent); color: var(--acc); }
+  .hc-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+  .hcard .name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hcard .sub { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hc-q { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .hc-q small { font-size: 11px; color: var(--dim); }
+  .hc-ping { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--dim); }
+  /* Отклик цветом по качеству, как в списке стран: зелёный не акцент —
+     у графита акцент серый. */
+  .hcard.place[data-q="fast"] .hc-ping { color: #2fb36b; }
+  .hcard.place[data-q="mid"] .hc-ping { color: var(--warn); }
+  .hcard.place[data-q="slow"] .hc-ping { color: var(--fail); }
+  .hcard.plan { display: flex; flex-direction: column; gap: 6px; }
+  .hcard.plan .k { font-size: 12px; color: var(--dim); }
+  .hc-days { display: flex; align-items: baseline; gap: 8px; }
+  .hc-days b { font-family: var(--mono); font-size: 26px; line-height: 1; letter-spacing: -.02em; }
+  .hc-days span { font-size: 12px; color: var(--dim); }
+  .hcard.plan[data-soon] .hc-days b { color: var(--warn); }
+  .hcard.plan .track { margin-top: 2px; }
+  .hcard.plan[data-nolimit] .track { display: none; }
+
   .node {
     display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r);
     background: var(--surf); border: 1px solid var(--cardLine); box-shadow: var(--cardShadow); width: 100%; max-width: 460px;
@@ -1406,13 +1433,26 @@
               </div>
             </div>
 
-            <div class="node" id="node-card">
-              <i class="mark"></i>
-              <div>
-                <div class="name" id="node-name"></div>
-                <div class="sub" id="node-addr"></div>
+            <!--
+              Где вы и что по подписке — как на телефоне, под состоянием, а не
+              мелким шрифтом в углу меню: это два вопроса, ради которых окно и
+              открывают. Карточка ноды ведёт к выбору страны.
+            -->
+            <div class="home-info">
+              <button class="card hcard place" id="place-card" type="button">
+                <span class="hc-code" id="place-code">··</span>
+                <span class="hc-text">
+                  <span class="name" id="node-name"></span>
+                  <span class="sub" id="node-addr"></span>
+                </span>
+                <span class="hc-q"><span class="hc-ping" id="node-ping"></span><small id="node-q"></small></span>
+              </button>
+              <div class="card hcard plan" id="plan-card">
+                <div class="k" data-t="planTitle"></div>
+                <div class="hc-days"><b id="plan-days">—</b><span id="plan-word"></span></div>
+                <div class="track"><i id="plan-fill" style="width:0"></i></div>
+                <div class="sub" id="plan-left"></div>
               </div>
-              <div class="ping" id="node-ping"></div>
             </div>
 
             <div class="leak" id="proxy-warn" hidden>
@@ -1478,10 +1518,6 @@
                 <div class="v" id="s-up">0</div>
                 <svg class="spark" id="spark-up" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"><g><path class="area"/><path class="line"/></g></svg>
               </div>
-            </div>
-            <div class="tiles two">
-              <div class="kpi"><div class="k" data-t="kSession"></div><div class="v" id="k-session">—</div></div>
-              <div class="kpi"><div class="k" data-t="kPing"></div><div class="v acc" id="k-ping">—</div></div>
             </div>
             <!--
               Неделя: считает сама программа, как телефон — у панели есть только
@@ -2085,7 +2121,11 @@ const T = {
     },
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
-    kSession: "Сессия", kPing: "Отклик ноды", down: "↓ Загрузка", up: "↑ Отдача",
+    kSession: "Сессия", kPing: "Отклик ноды",
+    planTitle: "Подписка", planNoTerm: "без срока", planUnlimited: "трафик без ограничения",
+    planLeft: (left, all) => "осталось " + left + " из " + all,
+    planDays: (n) => n % 10 === 1 && n % 100 !== 11 ? "день остался"
+      : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? "дня осталось" : "дней осталось", down: "↓ Загрузка", up: "↑ Отдача",
     ownTitle: "Сделайте окно своим", ownSub: "всё здесь меняется под вас — от обоев до шрифта",
     ownDesk: "Мои обои под окном", ownDeskSub: "окно покажет ваш рабочий стол",
     ownFile: "Своя картинка или видео", ownFileSub: "любой файл фоном за всем окном",
@@ -2349,7 +2389,10 @@ const T = {
     },
 
     pingUnknown: "Not measured", setupLabel: "Connection",
-    kSession: "Session", kPing: "Node response", down: "↓ Download", up: "↑ Upload",
+    kSession: "Session", kPing: "Node response",
+    planTitle: "Subscription", planNoTerm: "no end date", planUnlimited: "traffic without a limit",
+    planLeft: (left, all) => left + " left of " + all,
+    planDays: (n) => n === 1 ? "day left" : "days left", down: "↓ Download", up: "↑ Upload",
     ownTitle: "Make the window yours", ownSub: "everything here bends to you — from wallpaper to typeface",
     ownDesk: "My wallpaper under the window", ownDeskSub: "the window shows your desktop",
     ownFile: "Your own image or video", ownFileSub: "any file behind the whole window",
@@ -3488,23 +3531,53 @@ function render(s) {
   $("f-fill").style.width = s.limit_bytes > 0 ? Math.round(100 * Math.max(0, s.left_bytes || 0) / s.limit_bytes) + "%" : "0";
   $("key-note").textContent = up ? "" : d.keyNote;
 
+  // Где вы: крупно страна, ниже город; справа отклик числом и словом, как
+  // в списке стран. Адрес ноды покупателю ничего не говорит — он в подсказке.
+  const place = $("place-card");
+  const pingText = s.ping_ms ? s.ping_ms + d.ms : d.pingUnknown;
   if (s.node) {
-    $("node-name").textContent = s.node;
-    $("node-addr").textContent = s.address;
-    $("node-ping").textContent = s.ping_ms ? s.ping_ms + d.ms : d.pingUnknown;
+    const head = s.node.split("·")[0].trim();
+    const rest = s.node.split("·").slice(1).map((x) => x.trim()).filter(Boolean);
+    $("place-code").textContent = countryCode(s.node, "") || "··";
+    $("node-name").textContent = head;
+    const q = !s.ping_ms ? "" : s.ping_ms <= 120 ? "fast" : s.ping_ms <= 300 ? "mid" : "slow";
+    $("node-addr").textContent = rest.join(" · ") || s.address || "";
+    $("node-q").textContent = q ? d.nodesQuality[q] : "";
+    $("node-ping").textContent = pingText;
+    place.dataset.q = q;
+    place.title = s.address || "";
     $("rule-now").textContent = s.node;
-    $("k-ping").textContent = s.ping_ms ? s.ping_ms + d.ms : d.pingUnknown;
   } else {
+    $("place-code").textContent = "··";
+    place.dataset.q = "";
     $("node-name").textContent = d.noNode;
     $("node-addr").textContent = d.noNodeSub;
     $("node-ping").textContent = "";
+    $("node-q").textContent = "";
     $("rule-now").textContent = "—";
-    $("k-ping").textContent = "—";
   }
 
   // Сессия считается здесь, по моменту подъёма: секунды тикают сами, и
   // программе незачем слать готовую строку раз в секунду.
-  $("k-session").textContent = up && s.since ? clock(Math.max(0, Math.floor(Date.now() / 1000) - s.since)) : "—";
+  const sessionText = up && s.since ? clock(Math.max(0, Math.floor(Date.now() / 1000) - s.since)) : "—";
+
+  // Подписка: дни крупно, полоса остатка. Срок и квоту ядро узнаёт при
+  // дозвоне, поэтому до подключения честно говорим «после подключения».
+  const plan = $("plan-card");
+  // Программа пишет срок по-нашему, «14.11.2026»; на всякий случай
+  // понимаем и «2026-11-14» — молча показать «без срока» было бы враньём.
+  const dm = /^(\d\d)\.(\d\d)\.(\d{4})$/.exec(s.until || "");
+  const di = /^(\d{4})-(\d\d)-(\d\d)/.exec(s.until || "");
+  const end = dm ? new Date(+dm[3], +dm[2] - 1, +dm[1], 23, 59, 59) : di ? new Date(+di[1], +di[2] - 1, +di[3], 23, 59, 59) : null;
+  const days = end ? Math.max(0, Math.floor((end - Date.now()) / 86400000)) : null;
+  const known = !!s.until || s.limit_bytes > 0;
+  $("plan-days").textContent = days !== null ? String(days) : known ? "∞" : "—";
+  $("plan-word").textContent = days !== null ? d.planDays(days) : known ? d.planNoTerm : "";
+  plan.toggleAttribute("data-soon", days !== null && days <= 3);
+  plan.toggleAttribute("data-nolimit", !(s.limit_bytes > 0));
+  $("plan-fill").style.width = s.limit_bytes > 0 ? Math.round(100 * Math.max(0, s.left_bytes || 0) / s.limit_bytes) + "%" : "0";
+  $("plan-left").textContent = s.limit_bytes > 0 ? d.planLeft(bytes(s.left_bytes || 0), bytes(s.limit_bytes))
+    : known ? d.planUnlimited : (s.has_account ? d.subAfter : d.subNoKey);
 
   showProxy(s);
   paintSeller(s.seller);
@@ -3542,14 +3615,14 @@ function render(s) {
   if (up && s.since) wmeta.push(clock(Math.max(0, Math.floor(Date.now() / 1000) - s.since)));
   if (up) wmeta.push($("s-down").textContent);
   $("w-meta").textContent = wmeta.length ? wmeta.join(" · ") : (!s.has_account ? d.wNoKey : $("detail").textContent);
-  $("w-node").textContent = $("node-name").textContent;
+  $("w-node").textContent = s.node || d.noNode;
   $("w-ping").textContent = $("node-ping").textContent;
-  $("w-session").textContent = $("k-session").textContent;
+  $("w-session").textContent = sessionText;
   $("w-down").textContent = $("s-down").textContent;
   $("w-up").textContent = $("s-up").textContent;
   $("w-t-down").textContent = $("t-down").textContent;
   $("w-t-up").textContent = $("t-up").textContent;
-  $("w-kping").textContent = $("k-ping").textContent;
+  $("w-kping").textContent = s.node ? pingText : "—";
   // Точечные цифры — после виджета: он берёт из этих полей обычный текст.
   if (window.paintDotNums) window.paintDotNums();
 }
@@ -3770,6 +3843,8 @@ async function openSeller(link) {
   }
 }
 on("seller-renew", "click", () => openSeller("renew"));
+// Карточка «где вы» — короткий путь к выбору страны.
+on("place-card", "click", () => document.querySelector('.tab[data-tab="nodes"]').click());
 on("seller-support", "click", () => openSeller("support"));
 on("seller-seen", "click", async () => {
   sellerClosed = sellerKey;
@@ -4992,7 +5067,7 @@ function dotSvg(text) {
   }
   return '<svg class="dotnum" viewBox="0 0 ' + Math.max(1, x - 1) + ' 7" aria-hidden="true">' + circles + "</svg>";
 }
-const DOT_TARGETS = ["s-down", "s-up", "k-session", "k-ping", "today-total"];
+const DOT_TARGETS = ["s-down", "s-up", "plan-days", "today-total"];
 function paintDotNums() {
   const on = eff("nums") === "dot";
   for (const id of DOT_TARGETS) {

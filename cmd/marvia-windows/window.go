@@ -73,6 +73,8 @@ type shell struct {
 	icons   [2]uintptr
 	caption captionTheme
 	loaded  bool
+	// through — окно сквозное: под страницей видно то, что за ним.
+	through bool
 }
 
 // showWindow открывает окно программы и держит её до выхода из меню трея.

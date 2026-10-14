@@ -28,7 +28,7 @@ func TestEveryWindowButtonOnThePageHasAnAction(t *testing.T) {
 			t.Errorf("кнопка %q нарисована, а окно её не знает", b[1])
 		}
 	}
-	for _, a := range []string{"drag", "top", "max", "state"} {
+	for _, a := range []string{"drag", "top", "max", "state", "through", "solid"} {
 		if !strings.Contains(page, `winAct("`+a+`")`) {
 			t.Errorf("страница не просит окно о %q — перетаскивание или разворот потерялись", a)
 		}

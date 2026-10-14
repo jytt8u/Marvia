@@ -1188,6 +1188,15 @@
      месту окна на экране; размытие и затемнение — ручками в точной настройке. */
   body[data-desk="1"] #wall { transition: none; }
   body[data-desk="1"] #field { display: none; }
+  /* Затемнение стола — пеленой поверх обоев; размытие её не портит:
+     ровный цвет и размытым остаётся ровным. */
+  body[data-desk="1"] #wall::after { content: ""; position: absolute; inset: 0; background: var(--wallVeil, transparent); }
+  /* Сквозное окно: страница не закрашивает ничего, кроме пелены, —
+     под ней то, что Windows показывает за окном. Узор фона тоже прячем:
+     точки поверх чужих окон выглядят грязью на экране, а не узором. */
+  html[data-through="1"], html[data-through="1"] body { background: transparent; }
+  html[data-through="1"] body::before { display: none; }
+  html[data-through="1"] #wall { background: none; filter: none; }
   body[data-shell="clear"] .top, body[data-shell="clear"] aside { background: transparent; border: 0; }
   body[data-shell="clear"] main { border-radius: 10px 0 0 0; background: color-mix(in srgb, var(--bg) 26%, transparent);
     border: 1px solid color-mix(in srgb, var(--fg) 8%, transparent); border-right: 0; border-bottom: 0; }
@@ -2136,7 +2145,7 @@ const T = {
       graphite: ["Графит", "Наш серый: спокойно и без лишнего"],
       dot: ["Точка", "Чёрное табло, точечные цифры, красный"],
       paper: ["Бумага", "Светлое табло в точку, чернила и красный"],
-      clear: ["Прозрачная", "Под окном — ваши обои рабочего стола"],
+      clear: ["Прозрачная", "Под окном — ваши обои или всё, что за ним"],
       win11: ["Windows 11", "Слюда над обоями, скругления и синий акцент"],
       win11l: ["Windows 11 светлая", "Светлая слюда и цветок на обоях"],
       xp: ["Windows XP", "Синий заголовок, зелёная кнопка, холм под небом"],
@@ -2159,7 +2168,7 @@ const T = {
       bg: "Фон", surf: "Карточки", fg: "Текст", dim: "Подписи", line: "Обводка", pcolor: "Цвет узора",
       pattern: "Узор", amount: "Насыщенность", pstep: "Шаг", psize: "Размер элементов", pspeed: "Скорость",
       r: "Скругление", pad: "Отступы внутри", gap: "Зазоры между карточками", glow: "Свечение",
-      blur: "Размытие стекла", calpha: "Непрозрачность карточек", wblur: "Размытие обоев стола", wdim: "Затемнение обоев стола",
+      blur: "Размытие стекла", calpha: "Непрозрачность карточек", wblur: "Размытие обоев стола", wdim: "Затемнение стола", desk: "Под окном",
       font: "Шрифт текста", sfont: "Шрифт надписи", nums: "Цифры", statusSize: "Размер надписи",
       caps: "Надпись заглавными", logo: "Знак",
       auto: "из темы", byVibe: "как у образа", px: "пкс", reset: "Вернуть как в образе", yes: "Да", no: "Нет",
@@ -2169,6 +2178,7 @@ const T = {
         nums: { mono: "Моно", text: "Как текст", status: "Как надпись", dot: "Точки" },
         pattern: { none: "Нет", grid: "Сетка", matrix: "Матрица", tiles: "Плитки", stripes: "Полосы", mesh: "Сияние", scan: "Развёртка" },
         logo: { metal: "Металл", tint: "Цвет акцента" },
+        desk: { wall: "Обои", through: "Всё, что позади" },
       },
     },
     settingsLook: "Вид и звук",
@@ -2403,7 +2413,7 @@ const T = {
       graphite: ["Graphite", "Our grey: calm and uncluttered"],
       dot: ["Dot", "Black board, dot-matrix digits, red"],
       paper: ["Paper", "Light dotted board, ink and red"],
-      clear: ["Clear", "Your own desktop wallpaper under the window"],
+      clear: ["Clear", "Your wallpaper or whatever is behind the window"],
       win11: ["Windows 11", "Mica over the wallpaper, rounded corners, blue accent"],
       win11l: ["Windows 11 light", "Light Mica and a bloom on the wallpaper"],
       xp: ["Windows XP", "Blue title bar, green button, a hill under the sky"],
@@ -2426,7 +2436,7 @@ const T = {
       bg: "Background", surf: "Cards", fg: "Text", dim: "Captions", line: "Outline", pcolor: "Pattern colour",
       pattern: "Pattern", amount: "Intensity", pstep: "Spacing", psize: "Element size", pspeed: "Speed",
       r: "Corner radius", pad: "Inner padding", gap: "Gap between cards", glow: "Glow",
-      blur: "Glass blur", wblur: "Desktop wallpaper blur", wdim: "Desktop wallpaper dimming", calpha: "Card opacity",
+      blur: "Glass blur", wblur: "Desktop wallpaper blur", wdim: "Desktop dimming", desk: "Under the window", calpha: "Card opacity",
       font: "Text font", sfont: "Status font", nums: "Digits", statusSize: "Status size",
       caps: "Status in capitals", logo: "Mark",
       auto: "from theme", byVibe: "as the vibe", px: "px", reset: "Back to the vibe's value", yes: "Yes", no: "No",
@@ -2436,6 +2446,7 @@ const T = {
         nums: { mono: "Mono", text: "As text", status: "As status", dot: "Dots" },
         pattern: { none: "None", grid: "Grid", matrix: "Matrix", tiles: "Tiles", stripes: "Stripes", mesh: "Glow", scan: "Scanlines" },
         logo: { metal: "Metal", tint: "Accent colour" },
+        desk: { wall: "Wallpaper", through: "Whatever is behind" },
       },
     },
     settingsLook: "Look and sound",
@@ -2711,6 +2722,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
 window.marviaView = ({mode, tab}) => {
   widgetMode = mode === "widget";
   document.body.classList.toggle("as-widget", widgetMode);
+  if (vibe) paintGlass();
   if (["home", "nodes", "theme", "settings"].includes(tab)) {
     document.querySelector('.tab[data-tab="' + tab + '"]').click();
   }
@@ -4260,9 +4272,9 @@ const VIBES = {
     o: { pattern: "matrix", font: "onest", sfont: "mono", nums: "dot", caps: true, statusSize: 26, r: 10, psize: 120 },
     art: "radial-gradient(rgba(20,18,14,.24) 1.1px,transparent 1.7px) 0 0/7px 7px,#f6f3ec",
   },
-  // Прозрачная: сквозь окно видно рабочий стол — Acrylic Windows 11 под
-  // прозрачной страницей. Где Acrylic нет (Windows 10, ранние сборки 11),
-  // тот же вид с нарисованными обоями.
+  // Прозрачная: под окном рабочий стол — либо обои, сдвинутые по месту окна
+  // и размытые (по умолчанию), либо по-настоящему то, что за окном: значки,
+  // другие окна, но без размытия. Без обоев — нарисованный цветок.
   clear: {
     group: "windows", shell: "clear", wall: "bloom",
     look: { preset: "slate", acc: "#60cdff", kind: "flat", radius: "soft", density: "normal", btn: "glass", glow: "soft", card: "flat", tint: null },
@@ -4381,10 +4393,29 @@ const FRAMED = ["win11", "mac", "xp", "w98", "gnome", "ubuntu", "kde"];
 // остаётся нарисованный вид.
 var deskImg = null, deskPlace = null;
 window.marviaPlace = (x, y, mw, mh, dpi) => { deskPlace = { x, y, mw, mh, dpr: dpi / 96 }; if (vibe) paintGlass(); };
+// askThrough — сквозное окно просит сама страница: только она знает образ,
+// свой фон человека и вид виджета. Окну говорим лишь о перемене; первая
+// просьба уходит всегда — страница могла перезагрузиться в сквозном окне.
+var askedThrough = null;
+function askThrough(want) {
+  document.documentElement.dataset.through = want ? "1" : "";
+  if (want === askedThrough) return;
+  askedThrough = want;
+  if (want) winAct("through"); else winAct("solid");
+}
 function paintGlass() {
   const wall = $("wall");
-  if (VIBES[vibe.id].shell !== "clear" || backdropURL) {
+  const clear = VIBES[vibe.id].shell === "clear" && !backdropURL;
+  // Виджет — плашка поверх чужих окон: без фона он не читается.
+  askThrough(clear && !widgetMode && eff("desk") === "through");
+  if (!clear) {
     if (document.body.dataset.desk) { document.body.dataset.desk = ""; wall.removeAttribute("style"); }
+    return;
+  }
+  if (askedThrough) {
+    wall.removeAttribute("style");
+    wall.style.setProperty("--wallVeil", "rgba(0,0,0," + (eff("wdim") / 100).toFixed(2) + ")");
+    document.body.dataset.desk = "1";
     return;
   }
   if (deskImg === null) {
@@ -4583,6 +4614,8 @@ const O_DEFAULTS = {
   // Обои рабочего стола в «Прозрачной»: почти без размытия — их видно, —
   // и чуть темнее, чтобы читались панели.
   wblur: 2, wdim: 25,
+  // Что под окном в «Прозрачной»: картинка обоев или сквозное окно.
+  desk: "wall",
 };
 const O_CHOICES = {
   font: ["onest", "manrope", "unbounded", "mono", "system", "serif", "inter", "noto", "ubuntu", "segoe", "tahoma", "mssans"],
@@ -4590,6 +4623,7 @@ const O_CHOICES = {
   nums: ["mono", "text", "status", "dot"],
   pattern: ["none", "grid", "matrix", "tiles", "stripes", "mesh", "scan"],
   logo: ["metal", "tint"],
+  desk: ["wall", "through"],
 };
 const O_RANGES = {
   r: [0, 32], pad: [8, 28], gap: [4, 24], glow: [0, 100], blur: [0, 32], calpha: [30, 100],
@@ -5291,7 +5325,7 @@ function paintGroups(d) {
 // с состоянием: перестроенный ползунок вырвался бы из руки посреди движения.
 const FINE = {
   "fine-colors": [["bg", "color"], ["surf", "color"], ["fg", "color"], ["dim", "color"], ["line", "color"]],
-  "fine-pattern": [["pattern", "pills"], ["amount", "range", "%"], ["pstep", "range", "px"], ["psize", "range", "%"], ["pspeed", "range", "%"], ["pcolor", "color"], ["wblur", "range", "px"], ["wdim", "range", "%"]],
+  "fine-pattern": [["pattern", "pills"], ["amount", "range", "%"], ["pstep", "range", "px"], ["psize", "range", "%"], ["pspeed", "range", "%"], ["pcolor", "color"], ["desk", "pills"], ["wblur", "range", "px"], ["wdim", "range", "%"]],
   "fine-shape": [["r", "range", "px"], ["pad", "range", "px"], ["gap", "range", "px"], ["glow", "range", "%"], ["blur", "range", "px"], ["calpha", "range", "%"]],
   "fine-type": [["font", "pills"], ["sfont", "pills"], ["nums", "pills"], ["statusSize", "range", "px"], ["caps", "bool"], ["logo", "pills"]],
 };
@@ -5366,9 +5400,15 @@ function buildFine() {
   }
 }
 
+// Ручки рабочего стола имеют смысл только в «Прозрачной», а размытие —
+// только у обоев: сквозь окно CSS размыть не может, и ползунок без
+// действия был бы обещанием, которое окно не выполняет.
+const DESK_FINE = ["desk", "wblur", "wdim"];
 function syncFine() {
   const d = L();
+  const clear = VIBES[vibe.id].shell === "clear";
   for (const [k, c] of Object.entries(fineInputs)) {
+    if (DESK_FINE.includes(k)) c.row.hidden = !clear || (k === "wblur" && eff("desk") === "through");
     const own = has(vibe.o, k);
     c.name.textContent = d.fine[k];
     c.reset.hidden = !own;

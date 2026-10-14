@@ -628,7 +628,9 @@ class ServersScreen(
         val place = row.country.substringAfter('·', "").trim()
         item.nodeNote.text = buildList {
             if (place.isNotEmpty()) add(place)
-            add(row.name)
+            // Без страны имя ноды уже стоит заголовком — второй раз подписью оно
+            // только занимает строку.
+            if (row.group.isNotEmpty()) add(row.name)
             if (row.countryFromExit) add(host.getString(R.string.country_from_exit_ip))
             when {
                 down -> add(host.getString(R.string.node_down))

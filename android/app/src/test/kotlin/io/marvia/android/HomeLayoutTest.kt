@@ -50,6 +50,12 @@ class HomeLayoutTest {
         assertFalse(ui.planRenew.isVisible)
     }
 
+    @Test fun placeCardShowsWhereYouAreLargeAndTheNodeIdSmall() = withScreen { ui ->
+        HomeBlocks.place(ui, HomeBlocks.Place("Финляндия · Хельсинки · fi-1", 26, live = true, manual = false), Look.theme(Look.Choice()))
+        assertEquals("Финляндия · Хельсинки", ui.placeName.text.toString())
+        assertTrue(ui.placeSub.text.toString(), ui.placeSub.text.startsWith("fi-1"))
+    }
+
     private fun arrange(ui: ScreenConnectBinding, vibe: String) {
         val profile = AppearanceProfiles.all.first { it.id == vibe }
         Paint.style = Paint.style.copy(vibe = vibe, appearanceStyle = profile.style)

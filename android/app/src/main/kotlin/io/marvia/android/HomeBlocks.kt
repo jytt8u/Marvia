@@ -80,13 +80,19 @@ object HomeBlocks {
         c.placeFlag.text = flag
         c.placeIcon.isVisible = flag.isEmpty()
         c.placeIcon.setImageResource(if (auto) R.drawable.ic_bolt else R.drawable.ic_globe)
-        c.placeName.text = if (auto) ctx.getString(R.string.home_place_auto) else p.title
-        c.placeSub.text = when {
+        // Ядро называет ноду «страна · город · имя»: крупно — где вы, а
+        // служебное имя вроде «fi-1» — в подпись, иначе оно съедает место
+        // у города и в плитке обрезает его.
+        val parts = p.title.split(" · ")
+        val node = if (parts.size >= 3) parts.last() else ""
+        c.placeName.text = if (auto) ctx.getString(R.string.home_place_auto) else if (node.isEmpty()) p.title else parts.dropLast(1).joinToString(" · ")
+        val status = when {
             auto -> ctx.getString(R.string.home_place_auto_sub)
             p.live && p.manual -> ctx.getString(R.string.home_place_live_manual)
             p.live -> ctx.getString(R.string.home_place_live)
             else -> ctx.getString(R.string.home_place_last)
         }
+        c.placeSub.text = listOf(node, status).filter { it.isNotEmpty() }.joinToString(" · ")
         c.placeMs.isVisible = p.live && p.ms > 0
         c.placeMs.text = ctx.getString(R.string.node_ms, p.ms)
         // Отклик цветом по качеству: число без оценки ничего не говорит
@@ -230,6 +236,7 @@ object HomeBlocks {
         // В плитке на полэкрана стрелка и число отклика не помещаются рядом с
         // названием — плитка и так целиком нажимается.
         c.placeChevron.isVisible = !deck
+        c.placeName.maxLines = if (deck) 2 else 1
         c.placeCard.orientation = if (deck) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
         c.placeCard.gravity = if (deck) Gravity.START or Gravity.CENTER_VERTICAL else Gravity.CENTER_VERTICAL
         (c.placeName.parent as View).updateLayoutParams<LinearLayout.LayoutParams> {

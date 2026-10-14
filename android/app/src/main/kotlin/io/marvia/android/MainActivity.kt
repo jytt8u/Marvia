@@ -719,7 +719,7 @@ class MainActivity : AppCompatActivity() {
             title = on?.node ?: lastNode,
             ms = on?.ms ?: 0,
             live = on != null,
-            manual = on != null && on.chosen.isNotEmpty(),
+            manual = on != null && HomeBlocks.pickedHere(on.chosen, on.node),
         )
         c.placeCard.isVisible = hasKey && layout != HomeLayout.CONSOLE && layout != HomeLayout.SIGNAL
         if (c.placeCard.isVisible) HomeBlocks.place(c, place, theme)
@@ -770,7 +770,9 @@ class MainActivity : AppCompatActivity() {
         // нечего. Строка появляется, только когда есть что сказать: человек
         // выбрал страну сам, или выбрал одну, а ядро уехало на другую.
         state.chosen.isEmpty() -> ""
-        state.chosen == state.node -> getString(R.string.connect_manual)
+        // Карточка «где вы» уже пишет «выбрана вами» — второй раз то же
+        // под состоянием только шумит. Без карточки (консоль, табло) строка нужна.
+        state.chosen == state.node -> if (ui.connectScreen.placeCard.isVisible) "" else getString(R.string.connect_manual)
         else -> getString(R.string.connect_manual_moved, state.chosen)
     }
 

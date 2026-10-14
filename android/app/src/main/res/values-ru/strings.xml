@@ -39,7 +39,7 @@
     <string name="status_failed">Не подключилось</string>
 
     <string name="detail_connecting">Выбираем доступный сервер</string>
-    <string name="detail_no_key">Вставь ключ доступа</string>
+    <string name="detail_no_key">Вставьте ключ доступа</string>
     <string name="detail_node">Нода: %1$s</string>
 
     <!-- Круг на главном экране и есть выключатель, и это стоит сказать словами. -->
@@ -50,8 +50,8 @@
         ядро уехало на живую: показывать в этом случае только выбор значило бы
         врать о том, куда идёт трафик.
     -->
-    <string name="connect_manual">эту страну выбрал ты</string>
-    <string name="connect_manual_moved">ты выбрал %1$s, она замолчала — трафик идёт через эту</string>
+    <string name="connect_manual">эту страну выбрали вы</string>
+    <string name="connect_manual_moved">вы выбрали %1$s, она замолчала — трафик идёт через эту</string>
 
     <!-- Подписка: до какого числа и сколько трафика осталось. -->
     <string name="header_until">до %1$s</string>
@@ -127,7 +127,7 @@
         поэтому спрашиваем.
     -->
     <string name="key_replace_title">Заменить ключ доступа?</string>
-    <string name="key_replace_body">Ссылка пришла из другого приложения. После замены трафик пойдёт через серверы того, кто её выдал. Соглашайся, только если ссылку прислал твой продавец.</string>
+    <string name="key_replace_body">Ссылка пришла из другого приложения. После замены трафик пойдёт через серверы того, кто её выдал. Соглашайтесь, только если ссылку прислал ваш продавец.</string>
     <string name="key_replace_yes">Заменить</string>
     <string name="key_replace_no">Оставить прежний</string>
 
@@ -151,7 +151,7 @@
     <string name="servers_measuring">замер…</string>
     <string name="servers_auto_fastest">сейчас быстрее всего — %1$s</string>
     <string name="servers_auto_idle">самая быстрая нода рабочей подписки</string>
-    <string name="node_picked">выбрал ты</string>
+    <string name="node_picked">ваш выбор</string>
     <string name="node_traffic_now">трафик идёт сейчас</string>
     <plurals name="servers_providers">
         <item quantity="one">%1$d провайдер</item>
@@ -323,7 +323,7 @@
     <string name="theme_note">Оформление сохраняется на этом устройстве.</string>
     <string name="theme_reset">Вернуть серый</string>
     <string name="theme_light">Свет</string>
-    <string name="theme_lamp_hint">нажми, откуда светит</string>
+    <string name="theme_lamp_hint">нажмите, откуда светит</string>
     <string name="theme_light_off">свет выключен, фон ровный</string>
     <string name="dir_nw">сверху слева</string>
     <string name="dir_n">сверху</string>
@@ -435,12 +435,12 @@
         разбирался с каждым таким вручную.
     -->
     <string name="fail_expired">Подписка кончилась. Продли её у продавца — доступ включится сразу</string>
-    <string name="fail_quota">Кончился оплаченный трафик. Напиши продавцу, чтобы добавил</string>
+    <string name="fail_quota">Кончился оплаченный трафик. Напишите продавцу, чтобы добавил</string>
 
-    <string name="fail_account">Ключ доступа не подошёл. Возьми новый у продавца</string>
-    <string name="fail_panel">Не получается получить список серверов. Проверь, есть ли интернет</string>
-    <string name="fail_nodes">Ни один сервер сейчас не отвечает. Попробуй позже или напиши продавцу</string>
-    <string name="fail_system">Телефон не дал создать подключение. Попробуй ещё раз</string>
+    <string name="fail_account">Ключ доступа не подошёл. Возьмите новый у продавца</string>
+    <string name="fail_panel">Не получается получить список серверов. Проверьте, есть ли интернет</string>
+    <string name="fail_nodes">Ни один сервер сейчас не отвечает. Попробуйте позже или напишите продавцу</string>
+    <string name="fail_system">Телефон не дал создать подключение. Попробуйте ещё раз</string>
 
     <string name="notification_channel">Туннель</string>
     <string name="notification_channel_desc">Показывает, работает ли туннель</string>
@@ -512,9 +512,9 @@
     <string name="conn_lan">Домашняя сеть мимо туннеля</string>
     <string name="conn_lan_sub">принтер, телевизор, роутер</string>
     <string name="conn_ipv6">IPv6 через туннель</string>
-    <string name="conn_ipv6_sub">выключи, если сайты путают страну</string>
+    <string name="conn_ipv6_sub">выключите, если сайты путают страну</string>
     <string name="conn_fragment">Дробить приветствие</string>
-    <string name="conn_fragment_sub">если провайдер режет по имени сайта; без нужды не включай</string>
+    <string name="conn_fragment_sub">если провайдер режет по имени сайта; без нужды не включайте</string>
     <string name="dns_custom">Свой адрес…</string>
     <string name="dns_custom_current">Свой · %1$s</string>
     <string name="dns_custom_title">Свой DNS</string>

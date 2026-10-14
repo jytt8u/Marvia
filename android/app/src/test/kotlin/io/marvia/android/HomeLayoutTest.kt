@@ -56,6 +56,12 @@ class HomeLayoutTest {
         assertTrue(ui.placeSub.text.toString(), ui.placeSub.text.startsWith("fi-1"))
     }
 
+    @Test fun aNodeTheCoreMovedToIsNotCalledYourPick() {
+        assertTrue(HomeBlocks.pickedHere("Финляндия · Хельсинки · fi-1", "Финляндия · Хельсинки · fi-1"))
+        assertFalse("выбранная замолчала, трафик идёт через другую", HomeBlocks.pickedHere("ОАЭ · Дубай · ae-1", "Финляндия · Хельсинки · fi-1"))
+        assertFalse("автовыбор — не выбор человека", HomeBlocks.pickedHere("", "Финляндия · Хельсинки · fi-1"))
+    }
+
     private fun arrange(ui: ScreenConnectBinding, vibe: String) {
         val profile = AppearanceProfiles.all.first { it.id == vibe }
         Paint.style = Paint.style.copy(vibe = vibe, appearanceStyle = profile.style)

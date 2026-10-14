@@ -56,6 +56,13 @@ object HomeBlocks {
     /** Где трафик сейчас или шёл в прошлый раз; пустое имя — автовыбор. */
     data class Place(val title: String, val ms: Long, val live: Boolean, val manual: Boolean)
 
+    /**
+     * pickedHere — идёт ли трафик через ту ноду, которую человек выбрал сам.
+     * Если выбранная замолчала и ядро уехало на другую, приписать выбор той
+     * значило бы соврать; об отъезде говорит строка под состоянием.
+     */
+    fun pickedHere(chosen: String, node: String) = chosen.isNotEmpty() && chosen == node
+
     fun parsePlan(name: String, json: String): Plan? {
         val o = try { JSONObject(json) } catch (_: Throwable) { return null }
         return Plan(

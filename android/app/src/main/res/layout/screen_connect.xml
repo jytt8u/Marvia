@@ -182,7 +182,7 @@
                         <View android:id="@+id/planFill" android:layout_width="0dp" android:layout_height="match_parent" android:tag="fill" />
                     </FrameLayout>
                     <TextView android:id="@+id/planLeft" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp" android:fontFamily="@font/mono" android:textSize="12sp" android:tag="dim" android:maxLines="2" />
+                        android:layout_marginTop="8dp" android:textSize="13sp" android:tag="dim" android:maxLines="2" />
                     <TextView android:id="@+id/planRenew" android:layout_width="match_parent" android:layout_height="44dp"
                         android:layout_marginTop="12dp" android:gravity="center" android:text="@string/seller_renew" android:textSize="14sp"
                         android:textStyle="bold" android:tag="btn" android:clickable="true" android:focusable="true" android:visibility="gone" />

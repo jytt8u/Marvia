@@ -54,3 +54,24 @@ test('кнопка обновления не откатывает версию �
   assert.equal(older('v0.13.0', 'v0.12.0'), false);
   assert.equal(older('dev', 'v0.12.0'), false);
 });
+
+test('срок в таблице говорит сколько осталось или прошло', () => {
+  const daysLeftSource = page.match(/function daysLeft\(iso\) \{[\s\S]*?\n\}/);
+  const expiryNoteSource = page.match(/function expiryNote\(iso, enabled, words\) \{[\s\S]*?\n\}/);
+  assert.ok(daysLeftSource, 'не найдена функция подсчёта оставшихся дней');
+  assert.ok(expiryNoteSource, 'не найдена подпись срока для таблицы клиентов');
+
+  const expiryNote = runInNewContext(daysLeftSource[0] + '\n' + expiryNoteSource[0] + '\nexpiryNote;');
+  const calls = [];
+  const d18 = { dash: {
+    inDays: (days) => { calls.push(['in', days]); return `через ${days} дня`; },
+    agoDays: (days) => { calls.push(['ago', days]); return days === 1 ? 'истёк вчера' : `истёк ${days} дня назад`; },
+  } };
+  const now = Date.now();
+
+  assert.equal(expiryNote(new Date(now + 2.5 * 86400000).toISOString(), true, d18), 'через 3 дня');
+  assert.equal(expiryNote(new Date(now - 1.5 * 86400000).toISOString(), true, d18), 'истёк вчера');
+  assert.equal(expiryNote(new Date(now + 20 * 86400000).toISOString(), true, d18), '');
+  assert.equal(expiryNote(new Date(now + 2.5 * 86400000).toISOString(), false, d18), '');
+  assert.deepEqual(calls, [['in', 3], ['ago', 1]]);
+});

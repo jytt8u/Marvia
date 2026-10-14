@@ -217,3 +217,40 @@ func TestBuyerNameFieldSuggestsAPseudonym(t *testing.T) {
 		}
 	}
 }
+
+// В разделе клиентов счётчики уже живут в подзаголовке и фильтрах: ещё один
+// ряд карточек отнимает у списка высоту, но ничего продавцу не сообщает.
+// У ключей такого повтора нет, поэтому их единственная карточка остаётся.
+// Заголовок помещён именно в прокручиваемую область: sticky снаружи неё
+// выглядел бы правильно в исходнике, но уезжал бы вместе со всей страницей.
+func TestClientsTableStartsAtFiltersAndKeepsHeaderVisible(t *testing.T) {
+	raw, err := webFS.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	page := string(raw)
+
+	kpiAt := strings.Index(page, "const KPI = {")
+	kpiEnd := strings.Index(page, "const pageKpis =")
+	if kpiAt < 0 || kpiEnd <= kpiAt {
+		t.Fatalf("не нашёл таблицу показателей: начало=%d конец=%d", kpiAt, kpiEnd)
+	}
+	kpis := page[kpiAt:kpiEnd]
+	if strings.Contains(kpis, "\n    clients: [") {
+		t.Error("раздел клиентов всё ещё формирует повторяющие показатели")
+	}
+	if !strings.Contains(kpis, "\n    keys: [") {
+		t.Error("у раздела ключей пропал его показатель")
+	}
+
+	if !strings.Contains(page, `<sc-if value="{{ hasTableKpis }}">`) {
+		t.Error("место над таблицей остаётся даже когда показателей у раздела нет")
+	}
+	viewportAndHead := regexp.MustCompile(`<div style="\{\{ tableViewport \}\}">\s*<div style="\{\{ tableHead \}\}">`)
+	if !viewportAndHead.MatchString(page) {
+		t.Error("заголовок таблицы находится вне прокручиваемой области")
+	}
+	if !strings.Contains(page, "position:sticky;top:0;z-index:1") {
+		t.Error("заголовок таблицы не закреплён сверху прокручиваемой области")
+	}
+}

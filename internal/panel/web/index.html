@@ -549,22 +549,24 @@
 
         <sc-if value="{{ isTable }}">
           <div style="display: flex; flex-direction: column; gap: var(--gap, 12px); flex: 1; min-height: 0;">
-            <div style="display: flex; gap: var(--gap, 12px);">
-              <sc-for list="{{ pageKpis }}" as="k">
-                <div style="{{ k.style }}">
-                  <div style="font-size: 13px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--fg); margin-top: 7px;">{{ k.value }}</div>
-                  <div style="{{ k.deltaStyle }}">{{ k.delta }}</div>
-                </div>
-              </sc-for>
-            </div>
-            <div style="flex: 1; min-height: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
-              <div style="{{ tableHead }}">
-                <sc-for list="{{ tableCols }}" as="col">
-                  <div>{{ col }}</div>
+            <sc-if value="{{ hasTableKpis }}">
+              <div style="display: flex; gap: var(--gap, 12px);">
+                <sc-for list="{{ pageKpis }}" as="k">
+                  <div style="{{ k.style }}">
+                    <div style="font-size: 13px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--fg); margin-top: 7px;">{{ k.value }}</div>
+                    <div style="{{ k.deltaStyle }}">{{ k.delta }}</div>
+                  </div>
                 </sc-for>
               </div>
-              <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+            </sc-if>
+            <div style="flex: 1; min-height: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
+              <div style="{{ tableViewport }}">
+                <div style="{{ tableHead }}">
+                  <sc-for list="{{ tableCols }}" as="col">
+                    <div>{{ col }}</div>
+                  </sc-for>
+                </div>
                 <sc-for list="{{ tableRows }}" as="row">
                   <div style="{{ row.style }}" onClick="{{ row.onClick }}">
                     <sc-for list="{{ row.cells }}" as="cell">
@@ -3303,6 +3305,16 @@ function daysLeft(iso) {
   return Math.ceil((d.getTime() - Date.now()) / 86400000);
 }
 
+// Относительная подпись нужна только рядом со сроком, который требует
+// внимания. Дальняя дата и так отвечает на вопрос, а отключённого клиента
+// сначала нужно включить — обещать ему продление одной подписью нельзя.
+function expiryNote(iso, enabled, words) {
+  if (!enabled) return "";
+  const left = daysLeft(iso);
+  if (left === null || left > 7) return "";
+  return left < 0 ? words.dash.agoDays(-left) : words.dash.inDays(left);
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    Значения для шаблона
    ──────────────────────────────────────────────────────────────────────── */
@@ -3682,7 +3694,9 @@ function renderVals() {
       grid: "2fr 1.4fr 1.2fr 1fr 1fr 0.9fr",
       rows: shown.map((u) => {
         const [status, st] = clientStatus(u);
-        return [u.label || ("#" + u.id), keyShort(u), shortDate(u.expires_at),
+        const note = expiryNote(u.expires_at, u.enabled, d18);
+        const until = shortDate(u.expires_at) + (note ? " · " + note : "");
+        return [u.label || ("#" + u.id), keyShort(u), until,
           (u.online ? "● " : "") + String(u.max_ips || "—"), bytes(u.used), status, st];
       }),
       empty: users.length === 0 ? d18.table.noClients : (q ? d18.table.noFound : d18.table.noInFilter),
@@ -3705,8 +3719,9 @@ function renderVals() {
 
   const tbl = TABLES[page] || TABLES.clients;
   const tableCols = tbl.cols;
-  const tableHead = "display:grid;grid-template-columns:" + tbl.grid
-    + ";gap:12px;padding:0 12px;font-size:12px;color:" + t.dim;
+  const tableViewport = "flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px";
+  const tableHead = "position:sticky;top:0;z-index:1;flex:none;display:grid;grid-template-columns:" + tbl.grid
+    + ";gap:12px;padding:0 12px 8px;font-size:12px;color:" + t.dim + ";background:var(--cardBg," + t.surf + ")";
   // Постраничность. Рисовать тысячу строк разом браузер умеет, но человек их
   // не читает, а прокрутка перестаёт быть навигацией.
   const totalRows = tbl.rows.length;
@@ -3738,11 +3753,6 @@ function renderVals() {
   // Те же num()/size(), что на обзоре: пока !known — прочерк, а не голый ноль.
   // Карточка с «0» на разделе клиентов читается как «базу потеряли».
   const KPI = {
-    clients: [
-      [d18.kpi.total, num(users.length), d18.kpi.ofAll, true],
-      [d18.kpi.active, num(activeUsers), users.length ? d18.kpi.share(Math.round((activeUsers / users.length) * 100)) : "—", true],
-      [d18.kpi.expiring, num(expiring), d18.kpi.sevenDays, expiring === 0],
-    ],
     keys: [
       [d18.kpi.keysCount, num((state.keys || []).length), d18.kpi.forBots, true],
     ],
@@ -4255,7 +4265,8 @@ function renderVals() {
     soonAll: state.known ? d18.dash.allClients(users.length) : "",
     goSoon: () => setState({ page: "clients" }),
 
-    pageKpis, tableCols, tableHead, tableRows,
+    hasTableKpis: pageKpis.length > 0,
+    pageKpis, tableCols, tableViewport, tableHead, tableRows,
     noTableRows: state.known && tableRows.length === 0,
     emptyTable: tbl.empty,
 

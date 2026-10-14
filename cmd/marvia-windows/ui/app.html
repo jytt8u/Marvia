@@ -436,6 +436,31 @@
   .nc.auto .nc-head { flex: 1; }
   .nc.auto .city { white-space: normal; }
 
+  /* Вид «Marvia»: страны строками — точка, имя, полоска качества, отклик. */
+  .row-node {
+    display: grid; grid-template-columns: 22px 1fr 120px 92px; gap: 12px; align-items: center;
+    padding: 10px; min-height: 52px; border: 0; border-radius: min(var(--r), 10px); cursor: pointer; text-align: left;
+    background: transparent; color: var(--fg); font: inherit; transition: background .3s;
+  }
+  .nodes[data-view="marvia"] { gap: 2px; }
+  .row-node:hover { background: rgba(var(--accRgb), .06); }
+  .row-node[data-current] { background: var(--accSoft); }
+  .row-node .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); justify-self: center; }
+  .row-node[data-alive] .dot { background: var(--dim); }
+  .row-node[data-current] .dot { background: var(--acc); box-shadow: 0 0 8px var(--acc); }
+  .row-node .name { font-size: 14px; font-weight: 600; }
+  .row-node[data-chosen] .name::after { content: " ✓"; color: var(--acc); }
+  .row-node .sub { font-size: 12px; color: var(--dim); }
+  .row-node .bar { height: 5px; border-radius: 999px; background: var(--shade); overflow: hidden; }
+  .row-node .bar i { display: block; height: 100%; border-radius: 999px; background: var(--acc); }
+  .row-node .ms { font-family: var(--mono); font-size: 13px; font-weight: 700; text-align: right; white-space: nowrap; color: var(--fg); }
+  .row-node[data-current] .ms { color: var(--acc); }
+  .row-node:not([data-alive]) .name, .row-node:not([data-alive]) .ms { color: var(--dim); }
+
+  /* По умолчанию — вид «Marvia»; карточки — по выбору на странице темы. */
+  body:not([data-home="cards"]) .home-cards { display: none; }
+  body[data-home="cards"] .home-classic { display: none; }
+
   /* ---------------------------------------------------------------- тема */
 
   .presets { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px; }
@@ -1447,7 +1472,19 @@
               мелким шрифтом в углу меню: это два вопроса, ради которых окно и
               открывают. Карточка ноды ведёт к выбору страны.
             -->
-            <div class="home-info">
+            <!--
+              Вид «Marvia» — капсула ноды под состоянием, как было до карточек.
+              Какой вид показан, решает body[data-home]; данные одни на оба.
+            -->
+            <div class="node home-classic" id="node-card">
+              <i class="mark"></i>
+              <div>
+                <div class="name" id="oc-name"></div>
+                <div class="sub" id="oc-addr"></div>
+              </div>
+              <div class="ping" id="oc-ping"></div>
+            </div>
+            <div class="home-info home-cards">
               <button class="card hcard place" id="place-card" type="button">
                 <span class="hc-code" id="place-code">··</span>
                 <span class="hc-text">
@@ -1528,6 +1565,10 @@
                 <svg class="spark" id="spark-up" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"><g><path class="area"/><path class="line"/></g></svg>
               </div>
             </div>
+            <div class="tiles two home-classic">
+              <div class="kpi"><div class="k" data-t="kSession"></div><div class="v" id="k-session">—</div></div>
+              <div class="kpi"><div class="k" data-t="kPing"></div><div class="v acc" id="k-ping">—</div></div>
+            </div>
             <!--
               Неделя: считает сама программа, как телефон — у панели есть только
               накопительный итог, и подённой истории покупателя она не ведёт.
@@ -1593,6 +1634,17 @@
               <button type="button" class="own-tile" id="own-desk"><i class="own-ico">◧</i><b data-t="ownDesk"></b><small data-t="ownDeskSub"></small></button>
               <button type="button" class="own-tile" id="own-file"><i class="own-ico">▶</i><b data-t="ownFile"></b><small data-t="ownFileSub"></small></button>
               <button type="button" class="own-tile" id="own-fine"><i class="own-ico">⚙</i><b data-t="ownFine"></b><small data-t="ownFineSub"></small></button>
+            </div>
+          </div>
+
+          <!-- Вид окна — отдельно от образа: образ красит, вид расставляет. -->
+          <div class="card view-card">
+            <div class="card-head">
+              <div><b data-t="viewTitle"></b> <span class="hint" data-t="viewHint"></span></div>
+              <div class="pick" id="home-view">
+                <button class="chip" type="button" data-view="marvia" aria-pressed="true" data-t="viewMarvia"></button>
+                <button class="chip" type="button" data-view="cards" aria-pressed="false" data-t="viewCards"></button>
+              </div>
             </div>
           </div>
 
@@ -2131,6 +2183,8 @@ const T = {
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
     kSession: "Сессия", kPing: "Отклик ноды",
+    viewTitle: "Вид окна", viewHint: "образ меняет цвета, вид — главную и список стран",
+    viewMarvia: "Marvia", viewCards: "Карточки",
     planTitle: "Подписка", planNoTerm: "без срока", planUnlimited: "трафик без ограничения",
     planLeft: (left, all) => "осталось " + left + " из " + all,
     planDays: (n) => n % 10 === 1 && n % 100 !== 11 ? "день остался"
@@ -2400,6 +2454,8 @@ const T = {
 
     pingUnknown: "Not measured", setupLabel: "Connection",
     kSession: "Session", kPing: "Node response",
+    viewTitle: "Window layout", viewHint: "the look sets colours, the layout sets home and the country list",
+    viewMarvia: "Marvia", viewCards: "Cards",
     planTitle: "Subscription", planNoTerm: "no end date", planUnlimited: "traffic without a limit",
     planLeft: (left, all) => left + " left of " + all,
     planDays: (n) => n === 1 ? "day left" : "days left", down: "↓ Download", up: "↑ Upload",
@@ -3194,9 +3250,30 @@ async function api(method, path, body) {
 //
 // Текст не вставляем разметкой: имя и страну пишет продавец, и одна кавычка
 // в названии сервера превратилась бы в сломанную страницу, а то и хуже.
+// Вид окна: «marvia» — капсула ноды и страны строками, как было; «cards» —
+// карточки «где вы», подписка и страны сеткой. Свой у каждого окна, как язык.
+const HOME_VIEW_KEY = "marvia-home-view";
+let homeView = "marvia", lastNodes = null;
+try { homeView = localStorage.getItem(HOME_VIEW_KEY) === "cards" ? "cards" : "marvia"; } catch (_) { /* по умолчанию */ }
+function applyHomeView() {
+  document.body.dataset.home = homeView;
+  for (const b of document.querySelectorAll("#home-view [data-view]")) b.setAttribute("aria-pressed", String(b.dataset.view === homeView));
+}
+for (const b of document.querySelectorAll("#home-view [data-view]")) {
+  b.addEventListener("click", () => {
+    homeView = b.dataset.view;
+    try { localStorage.setItem(HOME_VIEW_KEY, homeView); } catch (_) { /* не запомнится */ }
+    applyHomeView();
+    if (lastNodes) paintNodes(lastNodes);
+  });
+}
+applyHomeView();
+
 function paintNodes(list) {
   const box = $("nodes-list");
   box.replaceChildren();
+  lastNodes = list;
+  box.dataset.view = homeView;
 
   const d = L();
   if (!list || list.length === 0) {
@@ -3204,6 +3281,10 @@ function paintNodes(list) {
     empty.className = "hint";
     empty.textContent = d.nodesNone;
     box.append(empty);
+    return;
+  }
+  if (homeView !== "cards") {
+    paintNodeRows(box, list, d);
     return;
   }
 
@@ -3362,6 +3443,84 @@ function countryCode(country, name) {
     if (words.some((w) => low.includes(w))) return code.toUpperCase();
   }
   return "";
+}
+
+// paintNodeRows — страны строками, вид «Marvia»: точка состояния, имя и
+// подпись, полоска качества и отклик.
+function paintNodeRows(box, list, d) {
+  const row = (opts) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "row-node";
+    if (opts.alive) b.setAttribute("data-alive", "");
+    if (opts.current) b.setAttribute("data-current", "");
+    if (opts.chosen) b.setAttribute("data-chosen", "");
+
+    const dot = document.createElement("span");
+    dot.className = "dot";
+
+    const grow = document.createElement("div");
+    grow.className = "grow";
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = opts.name;
+    const sub = document.createElement("div");
+    sub.className = "sub";
+    sub.textContent = opts.sub;
+    grow.append(name, sub);
+
+    // Полоска качества: замер в миллисекундах на глаз не сравнить, а длина —
+    // сравнивается. Триста миллисекунд и хуже — пусто.
+    const bar = document.createElement("span");
+    bar.className = "bar";
+    const fill = document.createElement("i");
+    fill.style.width = opts.ms > 0 ? Math.max(0, Math.min(100, Math.round((1 - opts.ms / 300) * 100))) + "%" : "0";
+    bar.append(fill);
+
+    const ms = document.createElement("div");
+    ms.className = "ms";
+    ms.textContent = opts.ms > 0 ? opts.ms + d.ms : d.pingUnknown;
+
+    b.append(dot, grow, bar, ms);
+    b.addEventListener("click", () => chooseNode(opts.id));
+    return b;
+  };
+
+  // Автовыбор — первой строкой: это состояние по умолчанию, и вернуться к
+  // нему человек должен уметь так же легко, как уйти.
+  const chosenAny = list.some((n) => n.chosen);
+  const fastest = list.filter((n) => n.alive && n.ms > 0).sort((a, b) => a.ms - b.ms)[0];
+  box.append(row({
+    id: 0,
+    name: d.nodesAuto,
+    sub: fastest ? d.nodesAutoSub + " — " + (fastest.country || fastest.name) : d.nodesAutoSub,
+    ms: 0,
+    alive: true,
+    chosen: !chosenAny,
+    current: false,
+  }));
+
+  for (const n of list) {
+    // Что показываем под именем: сначала то, где трафик, потом выбор.
+    // Это разные вещи: выбранная нода могла замолчать, и ядро уехало на живую.
+    let sub = n.country && n.country !== n.name ? n.name : "";
+    const marks = [];
+    if (n.current) marks.push(d.nodesCurrent);
+    if (n.setup_ms > 0) marks.push(d.setupLabel + ": " + n.setup_ms + d.ms);
+    if (n.chosen) marks.push(d.nodesChosen);
+    if (!n.alive && !n.current) marks.push(n.ms > 0 ? d.nodesDead : d.nodesUnknown);
+    if (marks.length) sub = sub ? sub + " · " + marks.join(" · ") : marks.join(" · ");
+
+    box.append(row({
+      id: n.id,
+      name: n.country || n.name,
+      sub,
+      ms: n.ms > 0 ? n.ms : 0,
+      alive: n.alive,
+      current: n.current,
+      chosen: n.chosen,
+    }));
+  }
 }
 
 async function loadNodes() {
@@ -3572,6 +3731,11 @@ function render(s) {
   // Сессия считается здесь, по моменту подъёма: секунды тикают сами, и
   // программе незачем слать готовую строку раз в секунду.
   const sessionText = up && s.since ? clock(Math.max(0, Math.floor(Date.now() / 1000) - s.since)) : "—";
+  $("oc-name").textContent = s.node || d.noNode;
+  $("oc-addr").textContent = s.node ? s.address || "" : d.noNodeSub;
+  $("oc-ping").textContent = s.node ? pingText : "";
+  $("k-session").textContent = sessionText;
+  $("k-ping").textContent = s.node ? pingText : "—";
 
   // Подписка: дни крупно, полоса остатка. Срок и квоту ядро узнаёт при
   // дозвоне, поэтому до подключения честно говорим «после подключения».
@@ -5101,7 +5265,7 @@ function dotSvg(text) {
   }
   return '<svg class="dotnum" viewBox="0 0 ' + Math.max(1, x - 1) + ' 7" aria-hidden="true">' + circles + "</svg>";
 }
-const DOT_TARGETS = ["s-down", "s-up", "plan-days", "today-total"];
+const DOT_TARGETS = ["s-down", "s-up", "plan-days", "k-session", "k-ping", "today-total"];
 function paintDotNums() {
   const on = eff("nums") === "dot";
   for (const id of DOT_TARGETS) {

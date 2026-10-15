@@ -3480,6 +3480,13 @@ function paintNodeRows(box, list, d) {
     const ms = document.createElement("div");
     ms.className = "ms";
     ms.textContent = opts.ms > 0 ? opts.ms + d.ms : d.pingUnknown;
+    // Автовыбор — не нода: мерить у него нечего, и «не измерен» с пустой
+    // полоской читалось бы как поломка. Место остаётся, чтобы колонки не
+    // съезжали.
+    if (opts.id === 0) {
+      bar.style.visibility = "hidden";
+      ms.textContent = "";
+    }
 
     b.append(dot, grow, bar, ms);
     b.addEventListener("click", () => chooseNode(opts.id));

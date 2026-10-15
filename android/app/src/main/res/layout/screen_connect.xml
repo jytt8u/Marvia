@@ -98,7 +98,9 @@
             </LinearLayout>
 
             <!-- Нода одной строкой: страна · город · отклик. Нажатие ведёт к выбору.
-                 Остаётся у точечного табло; остальные раскладки показывают «где вы» карточкой. -->
+                 Это вид Marvia; «Сцена» и «Панель» показывают «где вы» карточкой.
+                 Не больше двух строк: длинное имя ноды на узком экране иначе
+                 растягивает главную и сдвигает расход под нижний край. -->
             <TextView
                 android:id="@+id/nodeLine"
                 android:layout_width="wrap_content"
@@ -110,6 +112,8 @@
                 android:gravity="center"
                 android:minHeight="48dp"
                 android:paddingHorizontal="18dp"
+                android:maxLines="2"
+                android:ellipsize="end"
                 android:fontFamily="@font/mono"
                 android:letterSpacing="0.04"
                 android:tag="node"

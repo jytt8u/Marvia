@@ -372,6 +372,11 @@
   .leak { width: 100%; max-width: 460px; padding: 12px 14px; border-radius: var(--r); background: rgba(242,160,61,.10); border: 1px solid rgba(242,160,61,.45); display: flex; flex-direction: column; gap: 8px; }
   .leak .head { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--warn); font-weight: 600; }
   .leak .head svg { width: 16px; height: 16px; }
+  /* Внутри карточки .head и .title — свои, не заголовок страницы. */
+  .leak .head .title { font-size: 13px; font-weight: 700; line-height: 1.3; }
+  .leak .head { justify-content: flex-start; }
+  .leak .body { display: block; height: auto; font-size: 12px; line-height: 1.45; }
+  .side .leak { max-width: none; }
   .leak .body { font-size: 12px; line-height: 1.5; color: var(--fg); }
   .leak .act { display: flex; align-items: center; gap: 10px; }
   .leak .said { font-size: 12px; color: var(--dim); }
@@ -1501,6 +1506,14 @@
               </div>
             </div>
 
+          </div>
+
+          <div class="side">
+            <!--
+              Чужой системный прокси — первым в правой колонке. Под строкой
+              ноды карточка уходила за нижний край окна, а это ровно тот случай,
+              когда туннель работает, а сайты в браузере не открываются.
+            -->
             <div class="leak" id="proxy-warn" hidden>
               <div class="head">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v5M12 17.5v.01"/><path d="M10.3 3.9 2.4 17.4A2 2 0 0 0 4.1 20.4h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
@@ -1513,9 +1526,6 @@
                 <span class="said" id="proxy-msg"></span>
               </div>
             </div>
-          </div>
-
-          <div class="side">
             <!--
               Канал продавца: напоминание о сроке, объявление и две кнопки.
               Кнопка появляется, только если продавец оставил ссылку: кнопка
@@ -4162,7 +4172,7 @@ function paintOverview() {
     tiles.push(ovTile(o.routes, c.bypass_russian ? o.ruDirect.replace("{n}", c.ru_count || 0) : o.allTunnel, (c.bypass_russian ? o.ruSub + " · " : "") + (c.lan_outside ? o.lanDirect : o.lanTunnel), c.ru_error ? "warn" : on ? "ok" : "idle"));
   }
   if (s) {
-    tiles.push(ovTile(o.proxy, s.proxy ? s.proxy : o.none, s.proxy ? o.proxyWarn : o.proxyOk, s.proxy ? "warn" : "ok"));
+    tiles.push(ovTile(o.proxy, s.proxy ? [s.proxy_owner, s.proxy_server].filter(Boolean).join(" · ") || s.proxy : o.none, s.proxy ? o.proxyWarn : o.proxyOk, s.proxy ? "warn" : "ok"));
     tiles.push(ovTile(o.rights, s.elevated ? o.admin : o.noAdmin, s.elevated ? o.adminOk : o.adminWarn, s.elevated ? "ok" : "warn"));
     tiles.push(ovTile(o.version, s.version || "—", s.update ? o.updateYes.replace("{v}", s.update) : o.updateNo, s.update ? "warn" : "ok"));
   }

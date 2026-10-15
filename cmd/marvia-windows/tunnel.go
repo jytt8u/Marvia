@@ -89,7 +89,10 @@ type Status struct {
 	// конфликт настроек для проверки, не объявляя доказанную утечку.
 	Proxy      string `json:"proxy,omitempty"`
 	ProxyOwner string `json:"proxy_owner,omitempty"`
-	ProxyEnv   bool   `json:"proxy_env,omitempty"`
+	// ProxyServer — адрес отдельно: в обзоре настроек плитка узкая, и
+	// целая фраза из Proxy в ней обрезалась на «В системе прописан …».
+	ProxyServer string `json:"proxy_server,omitempty"`
+	ProxyEnv    bool   `json:"proxy_env,omitempty"`
 
 	// Seller — поддержка, «Продлить», объявление и напоминание о сроке; см.
 	// seller.go. Есть и без туннеля: нужнее всего, когда подключиться нельзя.
@@ -241,29 +244,30 @@ func (c *Controller) Status() Status {
 	}
 
 	return Status{
-		State:      c.state,
-		Node:       c.node.Title(),
-		Address:    c.node.Address,
-		Transport:  transportOf(c.node),
-		PingMS:     pingMS,
-		Up:         max(0, c.up.Load()-c.baseUp),
-		Down:       max(0, c.down.Load()-c.baseDown),
-		Reason:     c.reason,
-		Until:      c.until,
-		LimitBytes: c.limitBytes,
-		LeftBytes:  c.leftBytes,
-		HasAccount: c.account != "",
-		Elevated:   elevated(),
-		Since:      sinceUnix(c.since),
-		History:    c.hist.minutes(time.Now()),
-		Traffic:    c.traffic.snapshot(time.Now()),
-		Version:    version,
-		Update:     c.update.Version,
-		UpdateURL:  c.update.URL,
-		Proxy:      c.proxy.Describe(),
-		ProxyOwner: c.proxy.Owner,
-		ProxyEnv:   c.proxy.FromEnv,
-		Seller:     sellerView(c.subscriptionLocked(), c.reminded, time.Now()),
+		State:       c.state,
+		Node:        c.node.Title(),
+		Address:     c.node.Address,
+		Transport:   transportOf(c.node),
+		PingMS:      pingMS,
+		Up:          max(0, c.up.Load()-c.baseUp),
+		Down:        max(0, c.down.Load()-c.baseDown),
+		Reason:      c.reason,
+		Until:       c.until,
+		LimitBytes:  c.limitBytes,
+		LeftBytes:   c.leftBytes,
+		HasAccount:  c.account != "",
+		Elevated:    elevated(),
+		Since:       sinceUnix(c.since),
+		History:     c.hist.minutes(time.Now()),
+		Traffic:     c.traffic.snapshot(time.Now()),
+		Version:     version,
+		Update:      c.update.Version,
+		UpdateURL:   c.update.URL,
+		Proxy:       c.proxy.Describe(),
+		ProxyOwner:  c.proxy.Owner,
+		ProxyServer: c.proxy.Server,
+		ProxyEnv:    c.proxy.FromEnv,
+		Seller:      sellerView(c.subscriptionLocked(), c.reminded, time.Now()),
 	}
 }
 

@@ -62,6 +62,43 @@ func TestPanelJournalDoesNotKeepVisitorAddresses(t *testing.T) {
 	}
 }
 
+// TestPanelErrorJournalDoesNotKeepSubscriptionToken — если net/http или
+// обёртка сервера напечатает путь запроса, адрес подписки не должен стать
+// строкой журнала доступа.
+func TestPanelErrorJournalDoesNotKeepSubscriptionToken(t *testing.T) {
+	const token = "panel-subscription-secret"
+	var buf syncBuffer
+	was, flags := log.Writer(), log.Flags()
+	log.SetOutput(&buf)
+	log.SetFlags(0)
+	t.Cleanup(func() { log.SetOutput(was); log.SetFlags(flags) })
+
+	server := newServer("", http.NotFoundHandler())
+	server.ErrorLog.Printf("ошибка запроса GET /sub/%s?format=json HTTP/1.1", token)
+
+	if got := buf.String(); strings.Contains(got, token) {
+		t.Fatalf("токен подписки остался в журнале панели: %q", got)
+	}
+}
+
+// TestPanelAddressErrorDoesNotKeepSubscriptionToken — ошибочно переданный в
+// -sub-base полный адрес подписки не должен попасть в журнал запуска.
+func TestPanelAddressErrorDoesNotKeepSubscriptionToken(t *testing.T) {
+	const token = "panel-base-subscription-secret"
+	var buf syncBuffer
+	was, flags := log.Writer(), log.Flags()
+	log.SetOutput(&buf)
+	log.SetFlags(0)
+	t.Cleanup(func() { log.SetOutput(was); log.SetFlags(flags) })
+
+	if got := panelAddresses(options{subBase: "https://panel.invalid/sub/" + token + "%zz"}); len(got) != 0 {
+		t.Fatalf("кривой адрес панели дал IP: %v", got)
+	}
+	if got := buf.String(); strings.Contains(got, token) {
+		t.Fatalf("токен подписки остался в журнале запуска панели: %q", got)
+	}
+}
+
 // syncBuffer — журнал пишет из горутины сервера, а читает тест.
 type syncBuffer struct {
 	mu  sync.Mutex

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/jytt8u/marvia/internal/redact"
 )
 
 // Ошибки, в которых лежит секрет.
@@ -86,5 +88,5 @@ func safeURLCause(err error) error {
 	if strings.Contains(err.Error(), "failed to parse Location header") {
 		return &redactedError{message: "неверный адрес перенаправления подписки", cause: err}
 	}
-	return err
+	return redact.Wrap(err)
 }

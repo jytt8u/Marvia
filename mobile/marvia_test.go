@@ -1,8 +1,10 @@
 package mobile
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"log"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +23,42 @@ func TestNodeResponseSeparatesTunnelPingAndSetup(t *testing.T) {
 		if len(rows) != 1 || rows[0].MS != rtt.Milliseconds() || rows[0].SetupMS != 600 {
 			t.Fatalf("замеры смешаны: %+v", rows)
 		}
+	}
+}
+
+// TestPhoneErrorsDoNotShowAccessSecrets — мост отдаёт текст ошибки приложению,
+// поэтому здесь последняя граница перед экраном и системным журналом Android.
+func TestPhoneErrorsDoNotShowAccessSecrets(t *testing.T) {
+	const secret = "phone-access-secret"
+	links := []string{
+		"marvia://" + secret + "@panel.example/sub/" + secret,
+		"trojan://" + secret + "@node.example:443",
+	}
+	for _, link := range links {
+		if got := fail(FailPanel, errors.New("не доступна "+link)).Error(); strings.Contains(got, secret) {
+			t.Errorf("секрет дошёл до ошибки приложения: %q", got)
+		}
+		tunnel := &Tunnel{}
+		tunnel.note(errors.New("оборвалась " + link))
+		if got := tunnel.LastError(); strings.Contains(got, secret) {
+			t.Errorf("секрет дошёл до последней ошибки туннеля: %q", got)
+		}
+	}
+}
+
+// TestPhoneJournalDoesNotShowAccessSecrets — диагностический callback ядра
+// пишет в системный журнал, который человек прикладывает к обращению.
+func TestPhoneJournalDoesNotShowAccessSecrets(t *testing.T) {
+	const secret = "phone-journal-secret"
+	var buf bytes.Buffer
+	was, flags := log.Writer(), log.Flags()
+	log.SetOutput(&buf)
+	log.SetFlags(0)
+	t.Cleanup(func() { log.SetOutput(was); log.SetFlags(flags) })
+
+	clientLog("подписка не открылась: %s", "https://panel.example/sub/"+secret)
+	if got := buf.String(); strings.Contains(got, secret) {
+		t.Fatalf("токен подписки остался в журнале телефона: %q", got)
 	}
 }
 

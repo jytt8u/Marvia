@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/jytt8u/marvia/internal/redact"
 )
 
 const reportTimeout = 10 * time.Second
@@ -59,7 +61,7 @@ func SendReports(ctx context.Context, subURL string, reports []Report) error {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, subURL+"/report", bytes.NewReader(payload))
 	if err != nil {
-		return err
+		return redact.Wrap(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 

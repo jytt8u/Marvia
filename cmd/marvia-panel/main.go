@@ -394,7 +394,8 @@ func panelAddresses(opts options) []string {
 
 	ips, err := net.LookupIP(host)
 	if err != nil {
-		log.Printf("не выяснил адреса %s, ссылки доступа пойдут без подсказки: %v", host, err)
+		log.Printf("не выяснил адреса %s, ссылки доступа пойдут без подсказки: %s",
+			redact.Secrets(host), redact.Secrets(err.Error()))
 		return nil
 	}
 

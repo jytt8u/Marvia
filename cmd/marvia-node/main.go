@@ -29,6 +29,7 @@ import (
 	"github.com/jytt8u/marvia/internal/envvar"
 	"github.com/jytt8u/marvia/internal/fallback"
 	"github.com/jytt8u/marvia/internal/nodesync"
+	"github.com/jytt8u/marvia/internal/redact"
 	"github.com/jytt8u/marvia/internal/transport"
 	"github.com/jytt8u/marvia/internal/updater"
 	"github.com/jytt8u/marvia/internal/users"
@@ -372,7 +373,7 @@ func preparePanelUsers(ctx context.Context, opts serverOptions) (*users.Registry
 		list = nil
 
 	case err != nil:
-		return nil, "", nil, fmt.Errorf("панель %s: %w", opts.panelURL, err)
+		return nil, "", nil, fmt.Errorf("панель %s: %w", redact.Secrets(opts.panelURL), redact.Wrap(err))
 	}
 
 	registry, err := users.NewRegistry(list)
@@ -402,7 +403,7 @@ func setupPanelUsers(ctx context.Context, opts serverOptions) (*users.Registry, 
 			}
 		},
 		OnError: func(err error) {
-			log.Printf("синхронизация с панелью не удалась, работаем по последнему списку: %v", err)
+			logPanelSyncError(err)
 		},
 		OnDisabled: func() {
 			// Выключили в середине жизни — та же реакция, что и на старте:
@@ -432,6 +433,10 @@ func setupPanelUsers(ctx context.Context, opts serverOptions) (*users.Registry, 
 	})
 
 	return registry, usagePath, nil
+}
+
+func logPanelSyncError(err error) {
+	log.Printf("синхронизация с панелью не удалась, работаем по последнему списку: %s", redact.Secrets(err.Error()))
 }
 
 // nodeHome — каталог ноды: там, где лежит её бинарник. Туда у ноды есть

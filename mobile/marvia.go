@@ -24,6 +24,7 @@ import (
 
 	"github.com/jytt8u/marvia/internal/client"
 	"github.com/jytt8u/marvia/internal/foreign"
+	"github.com/jytt8u/marvia/internal/redact"
 	"github.com/jytt8u/marvia/internal/tunbridge"
 	"github.com/jytt8u/marvia/internal/vp1"
 )
@@ -98,7 +99,11 @@ const (
 
 // fail помечает ошибку видом: первая строка — вид, остальное — подробности.
 func fail(kind string, err error) error {
-	return fmt.Errorf("%s\n%w", kind, err)
+	return fmt.Errorf("%s\n%w", kind, redact.Wrap(err))
+}
+
+func clientLog(format string, args ...any) {
+	log.Print(redact.Secrets(fmt.Sprintf(format, args...)))
 }
 
 // Tunnel — работающее подключение.
@@ -219,7 +224,7 @@ func connectContext(ctx context.Context, accountLink, cacheDir string, prefer in
 		CachePath: accountCachePath(cacheDir, account.SubscriptionURL),
 		Dial:      set.dial(),
 		Prefer:    prefer,
-		Log:       func(format string, args ...any) { log.Printf(format, args...) },
+		Log:       clientLog,
 	}, events)
 
 	// По умолчанию продавец узнаёт и о неудачном дозвоне. Человек может
@@ -262,7 +267,7 @@ func (t *Tunnel) note(err error) {
 		return
 	}
 	t.mu.Lock()
-	t.lastError = err.Error()
+	t.lastError = redact.Secrets(err.Error())
 	t.lastErrAt = time.Now()
 	t.mu.Unlock()
 }

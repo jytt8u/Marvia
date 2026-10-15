@@ -1,6 +1,7 @@
 package client_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -81,5 +82,18 @@ func TestReportCarriesOnlyNodeSuccessAndLatency(t *testing.T) {
 	}
 	if ua := headers.Get("User-Agent"); ua != "" && !strings.HasPrefix(ua, "Go-http-client/") {
 		t.Errorf("отчёт представляется приложением с подробностями: %q", ua)
+	}
+}
+
+// TestReportRequestErrorDoesNotExposeSubscriptionToken — даже кривая ссылка
+// не должна оказаться в тексте ошибки до первого сетевого запроса.
+func TestReportRequestErrorDoesNotExposeSubscriptionToken(t *testing.T) {
+	const token = "report-subscription-secret"
+	err := client.SendReports(context.Background(), "https://panel.example/sub/"+token+"%zz", []client.Report{{NodeID: 1}})
+	if err == nil {
+		t.Fatal("кривая ссылка отчёта принята")
+	}
+	if strings.Contains(err.Error(), token) {
+		t.Fatalf("токен подписки попал в ошибку отправки отчёта: %q", err)
 	}
 }

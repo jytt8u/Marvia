@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jytt8u/marvia/internal/client"
@@ -17,6 +18,28 @@ func TestCancelledAttemptCannotOverwriteLaterConnection(t *testing.T) {
 	c.connect(ctx, "marvia://неверная-ссылка", pcSettings{})
 	if c.state != StateConnected || c.node.ID != 2 {
 		t.Fatalf("отменённая попытка затёрла новое подключение: %s", c.state)
+	}
+}
+
+func TestWindowJournalAndStateDoNotShowAccessSecrets(t *testing.T) {
+	const secret = "windows-access-secret"
+	links := []string{
+		"marvia://" + secret + "@panel.example/sub/" + secret,
+		"vless://" + secret + "@node.example:443",
+	}
+	for _, link := range links {
+		journal := newJournal()
+		journal.add("подключение: %s", link)
+		if got := strings.Join(journal.snapshot(), "\n"); strings.Contains(got, secret) {
+			t.Errorf("секрет остался в журнале окна: %q", got)
+		}
+
+		ctx := context.Background()
+		controller := &Controller{connectCtx: ctx, log: journal}
+		controller.finish(ctx, StateFailed, "подключение: "+link)
+		if strings.Contains(controller.reason, secret) {
+			t.Errorf("секрет остался в ошибке на экране: %q", controller.reason)
+		}
 	}
 }
 

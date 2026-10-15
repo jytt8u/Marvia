@@ -2,6 +2,7 @@ package redact_test
 
 import (
 	"bytes"
+	"errors"
 	"log"
 	"strings"
 	"testing"
@@ -72,5 +73,106 @@ func TestLoggerWritesToTheProcessJournalWithoutAddresses(t *testing.T) {
 	}
 	if !strings.Contains(got, "TLS handshake error") {
 		t.Fatalf("строка не дошла до журнала вовсе: %q", got)
+	}
+}
+
+// TestAccessSecretsNeverSurviveAnError — ссылка может прийти из стандартной
+// библиотеки, Xray или HTTP-сервера целиком. Тот, кто показывает ошибку или
+// пишет её в журнал, не должен угадывать формат каждой из них заново.
+func TestAccessSecretsNeverSurviveAnError(t *testing.T) {
+	cases := []struct {
+		name    string
+		line    string
+		secrets []string
+	}{
+		{
+			name:    "подписка Marvia",
+			line:    `Get "https://panel.example/sub/subscription-secret?format=json": connection refused`,
+			secrets: []string{"subscription-secret"},
+		},
+		{
+			name:    "прежняя HTTPS-подписка",
+			line:    `Get "https://panel.example/legacy-prefix/legacy-subscription-secret": connection refused`,
+			secrets: []string{"legacy-subscription-secret"},
+		},
+		{
+			name:    "ключ Marvia",
+			line:    `parse "marvia://private-key-secret@panel.example/sub/subscription-secret": invalid port`,
+			secrets: []string{"private-key-secret", "subscription-secret"},
+		},
+		{
+			name:    "VLESS",
+			line:    `не подошла vless://uuid-secret@node.example:443?security=tls`,
+			secrets: []string{"uuid-secret"},
+		},
+		{
+			name:    "Trojan",
+			line:    `не подошла trojan://password-secret@node.example:443`,
+			secrets: []string{"password-secret"},
+		},
+		{
+			name:    "пароль со знаком препинания",
+			line:    `не подошла trojan://password-secret!`,
+			secrets: []string{"password-secret", "!"},
+		},
+		{
+			name:    "ссылка без пробела перед схемой",
+			line:    `адресtrojan://joined-password-secret@node.example:443`,
+			secrets: []string{"joined-password-secret"},
+		},
+		{
+			name:    "Shadowsocks",
+			line:    `не подошла ss://method:password-secret@node.example:443`,
+			secrets: []string{"password-secret"},
+		},
+		{
+			name:    "VMess",
+			line:    `не подошла vmess://opaque-uuid-secret`,
+			secrets: []string{"opaque-uuid-secret"},
+		},
+		{
+			name:    "Hysteria2",
+			line:    `не подошла hysteria2://auth-secret@node.example:443?obfs-password=mask-secret`,
+			secrets: []string{"auth-secret", "mask-secret"},
+		},
+		{
+			name:    "WireGuard",
+			line:    `не подошла wireguard://private-secret@node.example:51820?presharedkey=shared-secret`,
+			secrets: []string{"private-secret", "shared-secret"},
+		},
+		{
+			name:    "путь запроса подписки",
+			line:    `GET /sub/subscription-secret/app/android HTTP/1.1`,
+			secrets: []string{"subscription-secret"},
+		},
+		{
+			name:    "прежний путь подписки",
+			line:    `GET /legacy-prefix/subscription-secret HTTP/1.1`,
+			secrets: []string{"subscription-secret"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := redact.Error(errors.New(tc.line))
+			for _, secret := range tc.secrets {
+				if strings.Contains(got, secret) {
+					t.Errorf("секрет %q остался в ошибке: %q", secret, got)
+				}
+			}
+		})
+	}
+}
+
+func TestAWebSocketAddressIsNotMistakenForAShadowsocksLink(t *testing.T) {
+	// «wss://» содержит «ss://». Принять его за ссылку Shadowsocks значило бы
+	// стереть из журнала имя узла WebSocket — ровно то, по чему ищут, куда
+	// не дошло подключение за CDN.
+	got := redact.Secrets("рукопожатие wss://cdn.example.net/assets/app.js не прошло")
+	if !strings.Contains(got, "cdn.example.net") {
+		t.Fatalf("адрес WebSocket пропал: %q", got)
+	}
+	if got := redact.Secrets("ключ ss://YWVzOnBhc3M@host:8388 не подошёл"); strings.Contains(got, "YWVzOnBhc3M") {
+		t.Fatalf("пароль Shadowsocks остался: %q", got)
 	}
 }

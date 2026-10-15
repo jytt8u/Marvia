@@ -97,3 +97,23 @@ func TestParseAccountLinkKeepsSecretsOutOfErrors(t *testing.T) {
 		}
 	}
 }
+
+// TestURLMentionedByTransportDoesNotExposeSubscriptionToken — транспорт или
+// прокси может повторить адрес обычным текстом внутри причины, без второго
+// *url.Error. Очистка внешней ошибки тогда недостаточна.
+func TestURLMentionedByTransportDoesNotExposeSubscriptionToken(t *testing.T) {
+	cause := errors.New("прокси не открыл https://panel.example/sub/" + testToken)
+	err := &url.Error{
+		Op:  "Get",
+		URL: "https://panel.example/sub/" + testToken,
+		Err: cause,
+	}
+
+	got := withoutSecret(err)
+	if strings.Contains(got.Error(), testToken) {
+		t.Fatalf("токен подписки остался во вложенной причине: %q", got)
+	}
+	if !errors.Is(got, cause) {
+		t.Fatal("потеряна исходная причина ошибки")
+	}
+}

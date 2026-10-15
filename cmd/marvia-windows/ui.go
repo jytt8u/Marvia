@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/jytt8u/marvia/internal/look"
+	"github.com/jytt8u/marvia/internal/redact"
 )
 
 //go:embed ui/app.html
@@ -55,7 +56,7 @@ const journalDepth = 200
 func newJournal() *journal { return &journal{} }
 
 func (j *journal) add(format string, args ...any) {
-	line := time.Now().Format("15:04:05") + "  " + fmt.Sprintf(format, args...)
+	line := time.Now().Format("15:04:05") + "  " + redact.Secrets(fmt.Sprintf(format, args...))
 
 	j.mu.Lock()
 	j.lines = append(j.lines, line)

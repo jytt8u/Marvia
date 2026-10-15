@@ -1,4 +1,5 @@
-// Package redact вычищает сетевые адреса из строк, уходящих в журнал.
+// Package redact вычищает сетевые адреса и секреты из строк, уходящих в
+// журнал или человеку на экран.
 //
 // Зачем отдельный пакет. Свои строки журнала панель и нода пишут аккуратно:
 // ни адреса покупателя, ни адреса назначения в них нет. Но часть строк пишем
@@ -22,11 +23,37 @@ import (
 // Placeholder — чем заменяется адрес.
 const Placeholder = "<адрес>"
 
+// SecretPlaceholder — чем заменяется секретная часть ссылки.
+const SecretPlaceholder = "<секрет>"
+
 // candidate — всё, что по набору символов может оказаться адресом: IPv4,
 // IPv6 в квадратных скобках или без, с портом и без. Решает не выражение, а
 // net.ParseIP: регулярное выражение для IPv6 целиком вышло бы и длинным, и
 // неверным, а разбор адреса в стандартной библиотеке уже есть.
 var candidate = regexp.MustCompile(`[0-9A-Fa-f:.\[\]]+`)
+
+// accessLink закрывает ссылку целиком после схемы. У некоторых форматов
+// секрет стоит перед @, у VMess и старого Shadowsocks он занимает всё тело,
+// а у Hysteria2 и WireGuard бывает ещё и в параметрах. Разбирать их здесь по
+// отдельности опаснее: новый вариант ссылки легко оставит пароль снаружи.
+// Граница слова перед схемой — чтобы «wss://» не читался как «ss://» и
+// адрес WebSocket не пропадал из журнала.
+var accessLink = regexp.MustCompile(`(?i)\b(?:marvia|veil-account|vless|trojan|ss|vmess|hysteria2|hy2|wireguard|wg)://[^\s"'<>]+`)
+
+// В обычном HTTPS секретом бывает пользователь перед @, токен подписки в
+// пути и парольный параметр. Путь подписки раньше задавал продавец, поэтому
+// надёжно узнать его по имени нельзя: оставляем только имя панели.
+var (
+	httpLink         = regexp.MustCompile(`(?i)https?://[^\s"'<>]+`)
+	httpUser         = regexp.MustCompile(`(?i)(https?://)[^/@\s"'<>]+@`)
+	subscriptionPath = regexp.MustCompile(`(?i)(/sub/)[^/?#\s"'<>]+`)
+	secretQuery      = regexp.MustCompile(`(?i)([?&](?:token|password|uuid|auth|key|secret|obfs-password|presharedkey)=)[^&#\s"'<>]+`)
+
+	// Прежний путь подписки задавал продавец, поэтому по одному сегменту его
+	// не узнать. В строке HTTP-запроса безопаснее скрыть путь целиком: метод и
+	// причина ошибки для диагностики остаются, токен — нет.
+	requestPath = regexp.MustCompile(`(?i)\b(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)[ \t]+(/[^\s"'<>]*)`)
+)
 
 // Addresses заменяет в строке все IP-адреса (с портом и без) пометкой.
 //
@@ -47,6 +74,51 @@ func Addresses(s string) string {
 	})
 }
 
+// Secrets убирает из текста ключи и пароли ссылок доступа.
+func Secrets(s string) string {
+	s = accessLink.ReplaceAllStringFunc(s, func(link string) string {
+		// Даже последний знак может быть частью пароля. Поэтому закрываем всё
+		// до пробела, а не пытаемся сохранить пунктуацию вокруг ссылки.
+		if i := strings.Index(link, "://"); i >= 0 {
+			return link[:i+3] + SecretPlaceholder
+		}
+		return SecretPlaceholder
+	})
+	s = httpLink.ReplaceAllStringFunc(s, func(link string) string {
+		i := strings.Index(link, "://")
+		if i < 0 {
+			return SecretPlaceholder
+		}
+		prefix, rest := link[:i+3], link[i+3:]
+		boundary := strings.IndexAny(rest, "/?#")
+		authority := rest
+		hasPath := boundary >= 0
+		if hasPath {
+			authority = rest[:boundary]
+		}
+		if at := strings.LastIndexByte(authority, '@'); at >= 0 {
+			authority = SecretPlaceholder + "@" + authority[at+1:]
+		}
+		if authority == "" {
+			authority = SecretPlaceholder
+		}
+		if hasPath {
+			return prefix + authority + "/" + SecretPlaceholder
+		}
+		return prefix + authority
+	})
+	s = httpUser.ReplaceAllString(s, "${1}"+SecretPlaceholder+"@")
+	s = subscriptionPath.ReplaceAllString(s, "${1}"+SecretPlaceholder)
+	s = secretQuery.ReplaceAllString(s, "${1}"+SecretPlaceholder)
+	s = requestPath.ReplaceAllString(s, "${1} <путь>")
+	return s
+}
+
+// Text готовит произвольную строку для журнала сервера.
+func Text(s string) string {
+	return Addresses(Secrets(s))
+}
+
 func isAddress(s string) bool {
 	if !strings.ContainsAny(s, ".:") {
 		return false
@@ -63,8 +135,24 @@ func Error(err error) string {
 	if err == nil {
 		return ""
 	}
-	return Addresses(err.Error())
+	return Text(err.Error())
 }
+
+// Wrap оставляет ошибку в цепочке errors.Is и errors.As, но не даёт её
+// тексту раскрыть ссылку. Адреса здесь сохраняются: в клиентской ошибке они
+// помогают отличить поломку панели от отсутствия сети; серверный журнал
+// дополнительно проходит через Error или Text.
+func Wrap(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &wrappedError{err: err}
+}
+
+type wrappedError struct{ err error }
+
+func (e *wrappedError) Error() string { return Secrets(e.err.Error()) }
+func (e *wrappedError) Unwrap() error { return e.err }
 
 // Logger — журнал для http.Server.ErrorLog и подобных чужих писателей.
 //
@@ -83,7 +171,7 @@ func (writer) Write(p []byte) (int, error) {
 	if line == "" {
 		return len(p), nil
 	}
-	if err := log.Output(2, Addresses(line)); err != nil {
+	if err := log.Output(2, Text(line)); err != nil {
 		return 0, err
 	}
 	return len(p), nil

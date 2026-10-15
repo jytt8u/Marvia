@@ -18,6 +18,7 @@ import (
 	"github.com/jytt8u/marvia/internal/client"
 	"github.com/jytt8u/marvia/internal/foreign"
 	"github.com/jytt8u/marvia/internal/killswitch"
+	"github.com/jytt8u/marvia/internal/redact"
 	"github.com/jytt8u/marvia/internal/routes"
 	"github.com/jytt8u/marvia/internal/securedns"
 	"github.com/jytt8u/marvia/internal/tunbridge"
@@ -904,7 +905,7 @@ func (c *Controller) finish(ctx context.Context, state State, reason string) {
 		return
 	}
 	c.state = state
-	c.reason = reason
+	c.reason = redact.Secrets(reason)
 	if c.cancel != nil {
 		c.cancel()
 	}

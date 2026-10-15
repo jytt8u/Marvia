@@ -132,6 +132,7 @@ Marvia пока уступает по автоматическому месяч�
 > или [установщик Windows](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.11) (`marvia-windows-setup.exe`;
 > [подробнее](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)),
 > добавьте ссылку `marvia://…` в приложении и подключитесь.
+> Не работает — [что делать при какой ошибке](docs/troubleshooting.md).
 
 Android также принимает VLESS, VMess, Trojan, Shadowsocks, Hysteria2 и WireGuard.
 В Google Play приложения пока нет.
@@ -209,6 +210,7 @@ Marvia не продаёт доступ, не принимает
 ## Документы и сборка
 
 [Руководство](docs/guide.md) ·
+[Что делать при ошибках](docs/troubleshooting.md) ·
 [Архитектура](docs/architecture.md) ·
 [Протокол VP1](docs/protocol.md) ·
 [Конфиденциальность](docs/privacy.md) ·

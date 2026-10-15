@@ -450,9 +450,24 @@ class Store(context: Context) {
         get() = prefs.getBoolean(KEY_REDUCE_MOTION, false)
         set(value) { prefs.edit().putBoolean(KEY_REDUCE_MOTION, value).apply() }
 
-    var hapticFeedback: Boolean
-        get() = prefs.getBoolean(KEY_HAPTICS, true)
-        set(value) { prefs.edit().putBoolean(KEY_HAPTICS, value).apply() }
+    /** snakeBest — рекорд в змейке; живёт только на телефоне. */
+    var snakeBest: Int
+        get() = prefs.getInt(KEY_SNAKE_BEST, 0)
+        set(value) { prefs.edit().putInt(KEY_SNAKE_BEST, value).apply() }
+
+    /** customBypass — свои адреса мимо туннеля, как человек их вписал; разбирает CustomRoutes. */
+    var customBypass: String
+        get() = prefs.getString(KEY_CUSTOM_BYPASS, "").orEmpty()
+        set(value) { prefs.edit().putString(KEY_CUSTOM_BYPASS, value.take(20_000)).apply() }
+
+    /**
+     * showSystemApps — показывать ли в списке приложений системные. По
+     * умолчанию нет: камера, звонилка и сервисы производителя занимают
+     * половину списка, а уводить их мимо туннеля почти никому не нужно.
+     */
+    var showSystemApps: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_SYSTEM_APPS, false)
+        set(value) { prefs.edit().putBoolean(KEY_SHOW_SYSTEM_APPS, value).apply() }
 
     /** homeView — вид главной, ключ из HomeLayout; незнакомый читается как главная Marvia. */
     var homeView: String
@@ -834,9 +849,11 @@ class Store(context: Context) {
         private const val KEY_PROFILE_STYLE = "look_profile_style_"
         private const val KEY_PATTERN = "look_pattern"
         private const val KEY_REDUCE_MOTION = "reduce_motion"
-        private const val KEY_HAPTICS = "haptic_feedback"
         private const val KEY_HOME_STATS = "home_stats"
         private const val KEY_HOME_VIEW = "home_view"
+        private const val KEY_CUSTOM_BYPASS = "custom_bypass"
+        private const val KEY_SNAKE_BEST = "snake_best"
+        private const val KEY_SHOW_SYSTEM_APPS = "show_system_apps"
         private const val KEY_FONT = "look_font"
         private const val KEY_LOGO = "look_logo"
         private const val LOGO_FILE = "logo.png"

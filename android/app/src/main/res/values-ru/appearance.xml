@@ -29,8 +29,6 @@
     <string name="appearance_controls">Экран и отклик</string>
     <string name="appearance_motion">Меньше анимаций</string>
     <string name="appearance_motion_sub">Статичные переходы и индикатор подключения</string>
-    <string name="appearance_haptics">Тактильный отклик</string>
-    <string name="appearance_haptics_sub">Короткая вибрация при выборе и подключении</string>
     <string name="appearance_home_stats">Статистика на главной</string>
     <string name="appearance_home_stats_sub">Расход за сегодня, сессия и текущая скорость</string>
     <string name="appearance_monitor">Статистика и батарея</string>

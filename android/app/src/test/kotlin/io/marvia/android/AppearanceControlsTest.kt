@@ -97,15 +97,13 @@ class AppearanceControlsTest {
         var changes = 0
         AppearanceSettings(activity, rows, store, { Look.theme(store.look) }, { changes++ }).render()
         val switches = descendants(rows).filterIsInstance<MaterialSwitch>()
-        assertEquals(3, switches.size)
+        assertEquals(2, switches.size)
         fun click(title: Int) = switches.single { it.contentDescription == activity.getString(title) }.performClick()
         click(R.string.appearance_motion)
-        click(R.string.appearance_haptics)
         click(R.string.appearance_home_stats)
         assertTrue(store.reduceMotion)
-        assertFalse(store.hapticFeedback)
         assertFalse(store.homeStats)
-        assertEquals(3, changes)
+        assertEquals(2, changes)
     }
 
     @Test fun manualButtonSelectionStillWorksInsideNothing() = withActivity { activity ->

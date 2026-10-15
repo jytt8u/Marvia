@@ -297,6 +297,28 @@
                 <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchRussian" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:clickable="false" android:focusable="false" android:tag="switch" />
             </LinearLayout>
 
+            <!-- Свои адреса мимо туннеля: рабочий сервер, роутер, игра. Тот же Android 13. -->
+            <LinearLayout android:id="@+id/rowCustom" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="@drawable/bg_card" android:clickable="true" android:focusable="true" android:gravity="center_vertical" android:tag="card" android:paddingHorizontal="14dp" android:paddingVertical="12dp">
+                <FrameLayout android:layout_width="34dp" android:layout_height="34dp" android:layout_marginEnd="12dp" android:tag="icon.box">
+                    <ImageView android:layout_width="18dp" android:layout_height="18dp" android:layout_gravity="center" android:contentDescription="@null" android:src="@drawable/ic_list" android:tag="icon:acc" />
+                </FrameLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView style="@style/VeilRowTitle" android:text="@string/custom_bypass" android:maxLines="2" />
+                    <TextView android:id="@+id/customSub" style="@style/VeilRowSub" android:layout_marginTop="2dp" android:maxLines="2" android:text="@string/custom_bypass_none" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Блокировку без VPN умеет только сама система: строка ведёт туда. -->
+            <LinearLayout android:id="@+id/rowLockdown" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="@drawable/bg_card" android:clickable="true" android:focusable="true" android:gravity="center_vertical" android:tag="card" android:paddingHorizontal="14dp" android:paddingVertical="12dp">
+                <FrameLayout android:layout_width="34dp" android:layout_height="34dp" android:layout_marginEnd="12dp" android:tag="icon.box">
+                    <ImageView android:layout_width="18dp" android:layout_height="18dp" android:layout_gravity="center" android:contentDescription="@null" android:src="@drawable/ic_nav_tunnel" android:tag="icon:acc" />
+                </FrameLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView style="@style/VeilRowTitle" android:text="@string/lockdown_title" android:maxLines="2" />
+                    <TextView style="@style/VeilRowSub" android:layout_marginTop="2dp" android:maxLines="3" android:text="@string/lockdown_sub" />
+                </LinearLayout>
+            </LinearLayout>
+
             <TextView style="@style/ThemeK" android:layout_marginTop="16dp" android:layout_marginStart="4dp" android:text="@string/more_group_apps" />
 
             <LinearLayout
@@ -339,10 +361,21 @@
                 android:orientation="horizontal"
                 android:paddingBottom="10dp">
 
-                <LinearLayout android:id="@+id/searchBox" android:layout_width="match_parent" android:layout_height="44dp" android:gravity="center_vertical" android:paddingHorizontal="12dp">
+                <LinearLayout android:id="@+id/searchBox" android:layout_width="0dp" android:layout_weight="1" android:layout_height="44dp" android:gravity="center_vertical" android:paddingHorizontal="12dp">
                     <ImageView android:layout_width="16dp" android:layout_height="16dp" android:layout_marginEnd="8dp" android:contentDescription="@null" android:src="@drawable/ic_search" android:tag="icon:dim" />
                     <EditText android:id="@+id/appSearch" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@null" android:hint="@string/apps_search" android:imeOptions="actionSearch" android:importantForAutofill="no" android:inputType="text" android:singleLine="true" android:tag="fg" android:textSize="13sp" />
                 </LinearLayout>
+
+                <!-- Системные приложения скрыты, пока человек не попросит их показать. -->
+                <TextView
+                    android:id="@+id/appsSystem"
+                    style="@style/VeilPill"
+                    android:layout_width="wrap_content"
+                    android:layout_weight="0"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/apps_show_system" />
 
             </LinearLayout>
 

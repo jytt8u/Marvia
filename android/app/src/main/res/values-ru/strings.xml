@@ -532,6 +532,27 @@
     <string name="apps_mode_exclude">Мимо туннеля</string>
     <string name="apps_mode_include">Только эти</string>
     <string name="apps_mode_off">Выключено</string>
+    <string name="snake_title">Змейка</string>
+    <string name="snake_over">Конец: %d</string>
+    <string name="snake_hint">свайп — поворот, касание — старт и пауза</string>
+    <string name="snake_close">Закрыть</string>
+    <string name="snake_score">счёт %1$d · рекорд %2$d</string>
+    <string name="apps_show_system">Системные</string>
+    <string name="custom_bypass">Свои адреса мимо туннеля</string>
+    <string name="custom_bypass_none">адрес, подсеть или сайт — напрямую</string>
+    <plurals name="custom_bypass_count">
+        <item quantity="one">%d правило</item>
+        <item quantity="few">%d правила</item>
+        <item quantity="many">%d правил</item>
+        <item quantity="other">%d правила</item>
+    </plurals>
+    <string name="custom_bypass_hint">192.168.50.10\n10.20.0.0/16\nwork.example.ru</string>
+    <string name="custom_bypass_note">По строке: адрес, подсеть или сайт. Сайт превращается в адреса при подключении — у больших сайтов они меняются, и часть запросов может уйти в туннель. Сети шире /8 не принимаются: это выключило бы VPN целиком.</string>
+    <string name="custom_bypass_save">Сохранить</string>
+    <string name="custom_bypass_bad">Не понял и пропустил: %1$s</string>
+    <string name="lockdown_title">Без VPN — без интернета</string>
+    <string name="lockdown_sub">включается в настройках Android: VPN → Marvia</string>
+    <string name="lockdown_unavailable">Этот телефон не открыл настройки VPN — найдите их в «Подключения» или «Сеть и интернет»</string>
     <string name="apps_note_exclude">Отмеченные идут мимо туннеля, всё остальное — через него.</string>
     <string name="apps_note_include">Через туннель идут только отмеченные, всё остальное — мимо. Ничего не отмечено — идёт всё.</string>
     <string name="apps_note_off">Все приложения идут через туннель. Отметки сохраняются, но не применяются.</string>

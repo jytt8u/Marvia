@@ -324,7 +324,7 @@ class MainActivity : AppCompatActivity() {
 
         Paint.style = Paint.Style(
             pattern = store.pattern, font = store.font, photo = store.hasBackdrop(),
-            motion = !store.reduceMotion, haptics = store.hapticFeedback,
+            motion = !store.reduceMotion,
             appearanceStyle = store.appearanceStyle, vibe = AppearanceProfiles.detail(store), home = store.homeView,
         )
         ConnectionAppearance.apply(ui.connectScreen, store.appearanceStyle, theme)
@@ -549,6 +549,11 @@ class MainActivity : AppCompatActivity() {
             c.heroWord.invalidate()
         }
         c.heroMarkButton.setOnClickListener {
+            // Тридцать нажатий подряд — змейка в цветах темы.
+            if (SnakeGame.tap()) {
+                SnakeGame.show(this, theme, store)
+                return@setOnClickListener
+            }
             c.heroName.animate().cancel()
             val show = !c.heroName.isVisible
             if (store.reduceMotion) {

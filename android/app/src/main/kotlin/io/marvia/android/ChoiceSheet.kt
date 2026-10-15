@@ -53,7 +53,7 @@ object ChoiceSheet {
                 setPadding((14*dp).toInt(), (12*dp).toInt(), (14*dp).toInt(), (12*dp).toInt())
                 background = RippleDrawable(ColorStateList.valueOf(theme.accSoft), Paint.rounded(if(index==selected) theme.surf2 else Color.TRANSPARENT, 14, dp), null)
                 isFocusable = true
-                setOnClickListener { performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); dialog.dismiss(); pick(index) }
+                setOnClickListener { dialog.dismiss(); pick(index) }
             }, LinearLayout.LayoutParams(-1,-2))
         }
         dialog.setContentView(ScrollView(context).apply { addView(box) })

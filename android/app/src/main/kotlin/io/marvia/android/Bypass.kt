@@ -20,8 +20,8 @@ import android.content.pm.PackageManager
  */
 object Bypass {
 
-    /** Приложение, каким его видит человек. */
-    data class Entry(val pkg: String, val label: String)
+    /** Приложение, каким его видит человек; system — поставлено с прошивкой. */
+    data class Entry(val pkg: String, val label: String, val system: Boolean = false)
 
     /**
      * installed перечисляет приложения, которые человек запускает сам.
@@ -38,7 +38,7 @@ object Bypass {
             .asSequence()
             .filter { it.packageName != mine }
             .filter { pm.getLaunchIntentForPackage(it.packageName) != null || it.isUpdatedSystem() }
-            .map { Entry(it.packageName, pm.getApplicationLabel(it).toString()) }
+            .map { Entry(it.packageName, pm.getApplicationLabel(it).toString(), it.flags and ApplicationInfo.FLAG_SYSTEM != 0) }
             .toList()
     }
 

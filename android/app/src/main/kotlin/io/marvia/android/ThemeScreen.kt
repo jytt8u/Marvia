@@ -758,7 +758,7 @@ class ThemeScreen(
                 gravity = Gravity.CENTER_HORIZONTAL
                 isClickable = true
                 isFocusable = true
-                setOnClickListener { performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); choose(Look.ofLook(lk), AppearanceStyle.CLASSIC) }
+                setOnClickListener { choose(Look.ofLook(lk), AppearanceStyle.CLASSIC) }
             }
             val canvas = FrameLayout(host).apply {
                 background = Backdrop(preview, Store.PATTERN_NONE)

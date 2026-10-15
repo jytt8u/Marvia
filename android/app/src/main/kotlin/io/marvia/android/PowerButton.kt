@@ -613,7 +613,6 @@ class PowerButton @JvmOverloads constructor(context: Context, attrs: AttributeSe
     override fun drawableStateChanged() { super.drawableStateChanged(); invalidate() }
 
     override fun performClick(): Boolean {
-        performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
         if (animationsAllowed() && theme.btn != "bare" && !dottedPower) {
             pulser?.cancel()
             pulser = ValueAnimator.ofFloat(0.05f, 1f).apply {

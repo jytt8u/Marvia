@@ -453,7 +453,89 @@ class MoreScreen(
         ui.modeExclude.setOnClickListener { setMode(Store.BYPASS_EXCLUDE) }
         ui.modeInclude.setOnClickListener { setMode(Store.BYPASS_INCLUDE) }
         ui.modeOff.setOnClickListener { setMode(Store.BYPASS_OFF) }
+        ui.appsSystem.setOnClickListener {
+            store.showSystemApps = !store.showSystemApps
+            paintModes()
+            apps.refilter()
+        }
+        ui.rowCustom.setOnClickListener { editCustom() }
+        // Блокировку без VPN и постоянный VPN включает только сама система:
+        // приложению Android этого не доверяет. Ведём человека ровно туда.
+        ui.rowLockdown.setOnClickListener {
+            try {
+                host.startActivity(Intent(AndroidSettings.ACTION_VPN_SETTINGS))
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(host, R.string.lockdown_unavailable, Toast.LENGTH_LONG).show()
+            }
+        }
+        ui.rowCustom.isVisible = RuRoutes.supported()
+        paintCustom()
+    }
 
+    /** paintCustom — подпись строки своих адресов: сколько и какие первые. */
+    private fun paintCustom() {
+        val parsed = CustomRoutes.parse(store.customBypass)
+        val names = parsed.entries.map {
+            when (it) {
+                is CustomRoutes.Entry.Host -> it.name
+                is CustomRoutes.Entry.Net -> if (it.length == (if (it.v6) 128 else 32)) it.address else it.address + "/" + it.length
+            }
+        }
+        ui.customSub.text = if (names.isEmpty()) host.getString(R.string.custom_bypass_none)
+        else host.resources.getQuantityString(R.plurals.custom_bypass_count, names.size, names.size) +
+            " · " + names.take(3).joinToString(", ") + if (names.size > 3) "…" else ""
+    }
+
+    /**
+     * editCustom — поле со своими адресами. Нераспознанные строки не
+     * выбрасываем молча: показываем их, иначе человек решит, что правило
+     * действует.
+     */
+    private fun editCustom() {
+        val t = theme()
+        val dp = host.resources.displayMetrics.density
+        val field = android.widget.EditText(host).apply {
+            setText(store.customBypass)
+            hint = host.getString(R.string.custom_bypass_hint)
+            minLines = 4
+            maxLines = 10
+            gravity = Gravity.TOP or Gravity.START
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            textSize = 14f
+            setTextColor(t.fg)
+            setHintTextColor(t.dim)
+        }
+        val note = TextView(host).apply {
+            setText(R.string.custom_bypass_note)
+            textSize = 12f
+            setTextColor(t.dim)
+            setPadding(0, (8 * dp).toInt(), 0, 0)
+        }
+        val box = LinearLayout(host).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((20 * dp).toInt(), (8 * dp).toInt(), (20 * dp).toInt(), 0)
+            addView(field)
+            addView(note)
+        }
+        ThemedDialogs.builder(host, t)
+            .setTitle(R.string.custom_bypass)
+            .setView(box)
+            .setPositiveButton(R.string.custom_bypass_save) { _, _ ->
+                val parsed = CustomRoutes.parse(field.text.toString())
+                store.customBypass = field.text.toString().trim()
+                paintCustom()
+                if (parsed.bad.isNotEmpty()) {
+                    Toast.makeText(
+                        host,
+                        host.getString(R.string.custom_bypass_bad, parsed.bad.take(3).joinToString(", ")),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+                onRoutesChanged(false)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun setMode(mode: String) {
@@ -477,6 +559,7 @@ class MoreScreen(
         pill(ui.modeExclude, t, mode == Store.BYPASS_EXCLUDE)
         pill(ui.modeInclude, t, mode == Store.BYPASS_INCLUDE)
         pill(ui.modeOff, t, mode == Store.BYPASS_OFF)
+        pill(ui.appsSystem, t, store.showSystemApps)
         ui.modeNote.setText(
             when (mode) {
                 Store.BYPASS_INCLUDE -> R.string.apps_note_include
@@ -540,7 +623,11 @@ class MoreScreen(
 
         fun refilter() {
             val q = query.lowercase()
-            entries = if (q.isEmpty()) all else all.filter { it.label.lowercase().contains(q) || it.pkg.lowercase().contains(q) }
+            // Системные — только по просьбе; выбранные видны всегда, иначе
+            // правило действовало бы на невидимое приложение.
+            val chosen = store.bypassed
+            val visible = if (store.showSystemApps) all else all.filter { !it.system || it.pkg in chosen }
+            entries = if (q.isEmpty()) visible else visible.filter { it.label.lowercase().contains(q) || it.pkg.lowercase().contains(q) }
             notifyDataSetChanged()
         }
 

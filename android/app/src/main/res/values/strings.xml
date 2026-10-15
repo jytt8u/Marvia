@@ -563,6 +563,25 @@
     <string name="apps_mode_exclude">Outside</string>
     <string name="apps_mode_include">Only these</string>
     <string name="apps_mode_off">Off</string>
+    <string name="snake_title">Snake</string>
+    <string name="snake_over">Game over: %d</string>
+    <string name="snake_hint">swipe to turn, tap to start and pause</string>
+    <string name="snake_close">Close</string>
+    <string name="snake_score">score %1$d · best %2$d</string>
+    <string name="apps_show_system">System</string>
+    <string name="custom_bypass">My addresses outside the tunnel</string>
+    <string name="custom_bypass_none">an address, subnet or site — direct</string>
+    <plurals name="custom_bypass_count">
+        <item quantity="one">%d rule</item>
+        <item quantity="other">%d rules</item>
+    </plurals>
+    <string name="custom_bypass_hint">192.168.50.10\n10.20.0.0/16\nwork.example.com</string>
+    <string name="custom_bypass_note">One per line: an address, subnet or site. A site turns into addresses when connecting — big sites change them, so some requests may still go through the tunnel. Networks wider than /8 are refused: they would switch the VPN off entirely.</string>
+    <string name="custom_bypass_save">Save</string>
+    <string name="custom_bypass_bad">Did not understand and skipped: %1$s</string>
+    <string name="lockdown_title">No VPN — no internet</string>
+    <string name="lockdown_sub">switched on in Android settings: VPN → Marvia</string>
+    <string name="lockdown_unavailable">This phone did not open the VPN settings — look under Connections or Network &amp; internet</string>
     <string name="apps_note_exclude">Checked apps go around the tunnel, everything else goes through it.</string>
     <string name="apps_note_include">Only checked apps go through the tunnel, everything else goes around it. Nothing checked means everything goes through.</string>
     <string name="apps_note_off">Every app goes through the tunnel. Your checks are kept but not applied.</string>

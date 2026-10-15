@@ -29,8 +29,6 @@
     <string name="appearance_controls">Display and feedback</string>
     <string name="appearance_motion">Reduce animations</string>
     <string name="appearance_motion_sub">Keep transitions and the connection indicator still</string>
-    <string name="appearance_haptics">Touch feedback</string>
-    <string name="appearance_haptics_sub">A short vibration when choosing or connecting</string>
     <string name="appearance_home_stats">Statistics on home</string>
     <string name="appearance_home_stats_sub">Today’s traffic, session and current speed</string>
     <string name="appearance_monitor">Statistics and battery</string>

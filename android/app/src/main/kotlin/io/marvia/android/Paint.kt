@@ -60,7 +60,6 @@ object Paint {
         val font: String = Store.FONT_ONEST,
         val photo: Boolean = false,
         val motion: Boolean = true,
-        val haptics: Boolean = true,
         val appearanceStyle: AppearanceStyle = AppearanceStyle.CLASSIC,
         /** Образ, чьи фирменные детали рисуются поверх темы; пусто — без деталей. */
         val vibe: String = "",
@@ -129,7 +128,10 @@ object Paint {
     }
 
     private fun paint(v: View, t: Theme) {
-        v.isHapticFeedbackEnabled = style.haptics
+        // Вибрации в Marvia нет совсем — и у системных переключателей тоже:
+        // владелец попросил убрать «отклик в руку», и половинчатая вибрация
+        // на части кнопок раздражала бы сильнее, чем никакой.
+        v.isHapticFeedbackEnabled = false
         if (v.isClickable && inNavbar(v)) {
             // На нижней панели уже есть компактная отметка вкладки. Общая
             // рябь разрасталась на всю ячейку и закрывала соседние значки.

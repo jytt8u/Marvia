@@ -133,12 +133,10 @@ class AppearanceTest {
         val mtu = store.vpnMtu
         val dns = store.dns
         store.reduceMotion = true
-        store.hapticFeedback = false
         store.homeStats = false
         MonitoringProfiles.apply(store, 0)
         val reopened = Store(context)
         assertTrue(reopened.reduceMotion)
-        assertEquals(false, reopened.hapticFeedback)
         assertEquals(false, reopened.homeStats)
         assertEquals(10, reopened.liveRefreshSeconds)
         assertEquals(60, reopened.pingIntervalSeconds)

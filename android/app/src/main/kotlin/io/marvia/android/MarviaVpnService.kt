@@ -246,6 +246,25 @@ class MarviaVpnService : VpnService() {
             }
         }
 
+        // Свои адреса мимо туннеля — то же исключение маршрутов. Имена сайтов
+        // разрешаются здесь, до поднятия туннеля, с пределом в пару секунд:
+        // недоступный DNS не должен держать подключение.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val custom = CustomRoutes.parse(store.customBypass).entries
+            if (custom.isNotEmpty()) {
+                var excluded = 0
+                for (prefix in CustomRoutes.prefixes(custom)) {
+                    try {
+                        builder.excludeRoute(prefix)
+                        excluded++
+                    } catch (t: IllegalArgumentException) {
+                        Log.w(TAG, "свой адрес не принят: " + t.message)
+                    }
+                }
+                Log.i(TAG, "мимо туннеля своих адресов: " + excluded)
+            }
+        }
+
         // Приложения. Три режима, и они исключают друг друга по устройству
         // Android: список «мимо туннеля» и список «только эти» в одном
         // интерфейсе не сочетаются, система бросит исключение.

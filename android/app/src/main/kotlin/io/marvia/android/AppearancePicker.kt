@@ -3,7 +3,6 @@ package io.marvia.android
 import android.content.Context
 import android.graphics.Typeface
 import android.view.Gravity
-import android.view.HapticFeedbackConstants
 import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.LinearLayout
@@ -38,7 +37,6 @@ class AppearancePicker(
                 contentDescription = context.getString(profile.name) + ": " + context.getString(profile.description) +
                     if (active) ". " + context.getString(R.string.appearance_selected) else ""
                 setOnClickListener {
-                    if (store.hapticFeedback) performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     AppearanceProfiles.apply(store, profile)
                     onChanged()
                 }

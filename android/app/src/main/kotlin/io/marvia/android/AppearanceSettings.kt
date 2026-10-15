@@ -22,7 +22,6 @@ class AppearanceSettings(
         heading(R.string.appearance_controls)
         val display = card()
         toggle(display, R.string.appearance_motion, R.string.appearance_motion_sub, store.reduceMotion) { store.reduceMotion = it }
-        toggle(display, R.string.appearance_haptics, R.string.appearance_haptics_sub, store.hapticFeedback) { store.hapticFeedback = it }
         toggle(display, R.string.appearance_home_stats, R.string.appearance_home_stats_sub, store.homeStats) { store.homeStats = it }
         heading(R.string.appearance_monitor)
         val monitor = card()

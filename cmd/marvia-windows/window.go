@@ -41,6 +41,8 @@ const (
 
 	spiGetWorkArea = 0x0030
 
+	wmDpiChanged = 0x02E0
+
 	// Размеры из макета: полное окно 1180×720 и трей-виджет 380×560.
 	fullWidth    = 1180
 	fullHeight   = 720
@@ -216,6 +218,17 @@ func (s *shell) subclass() {
 			}
 		case wmMove:
 			s.place()
+		case wmDpiChanged:
+			// Окно перетащили на монитор с другим масштабом. Windows
+			// присылает готовый прямоугольник под новый масштаб; без него
+			// окно осталось бы прежнего размера в пикселях — на мониторе с
+			// 150 % вдвое мельче соседнего на 100 %.
+			// Указатель — через адрес самого параметра, как в calcFrame: так
+			// vet не принимает его за потерянный сборщиком.
+			r := *(**rect)(unsafe.Pointer(&lp))
+			_, _, _ = procSetWindowPos.Call(hwnd, 0, uintptr(r.Left), uintptr(r.Top),
+				uintptr(r.Right-r.Left), uintptr(r.Bottom-r.Top), swpNoZOrder|swpNoActivate)
+			return 0
 		case wmActivate:
 			if s.widget && wp&0xffff == waInactive {
 				s.hide()
@@ -257,13 +270,31 @@ func (s *shell) showFull(tab string) {
 	_, _, _ = procSetWindowLongPtrW.Call(s.hwnd, gwlStyle, wsOverlappedWindow|wsVisible)
 	var wa rect
 	_, _, _ = procSystemParametersInfo.Call(spiGetWorkArea, 0, uintptr(unsafe.Pointer(&wa)), 0)
-	x := int(wa.Left) + (int(wa.Right-wa.Left)-fullWidth)/2
-	y := int(wa.Top) + (int(wa.Bottom-wa.Top)-fullHeight)/2
-	_, _, _ = procSetWindowPos.Call(s.hwnd, 0, uintptr(x), uintptr(y), fullWidth, fullHeight, swpNoZOrder|swpFrameChanged)
+	dpi, _, _ := procGetDpiForWindow.Call(s.hwnd)
+	x, y, width, height := fullPlacement(wa, int(dpi))
+	_, _, _ = procSetWindowPos.Call(s.hwnd, 0, uintptr(x), uintptr(y), uintptr(width), uintptr(height), swpNoZOrder|swpFrameChanged)
 	s.applyCaption(s.caption)
 	s.navigateView("full", tab)
 	_, _, _ = procShowWindow.Call(s.hwnd, swShow)
 	_, _, _ = procSetForegroundWindow.Call(s.hwnd)
+}
+
+// fullPlacement — где и какого размера встаёт полное окно. Размер макета
+// задан в точках при 100 %, а окно знает масштаб монитора, поэтому
+// пиксели — с поправкой на него: без неё на 150 % окно было бы в полтора
+// раза мельче задуманного. Но и больше рабочей области окно не делаем:
+// 1180×720 при 150 % — это 1770×1080, на ноутбуке 1920×1080 шапка ушла бы
+// за верх экрана, а низ — под панель задач.
+func fullPlacement(wa rect, dpi int) (x, y, width, height int) {
+	if dpi <= 0 {
+		dpi = 96
+	}
+	areaW, areaH := int(wa.Right-wa.Left), int(wa.Bottom-wa.Top)
+	width = min(fullWidth*dpi/96, areaW)
+	height = min(fullHeight*dpi/96, areaH)
+	x = int(wa.Left) + (areaW-width)/2
+	y = int(wa.Top) + (areaH-height)/2
+	return x, y, width, height
 }
 
 // toggleWidget — нажатие на значок: виджет показать или спрятать.
@@ -279,7 +310,7 @@ func (s *shell) toggleWidget() {
 	// остаётся ближайшим к значку в подавляющем числе случаев.
 	var wa rect
 	_, _, _ = procSystemParametersInfo.Call(spiGetWorkArea, 0, uintptr(unsafe.Pointer(&wa)), 0)
-	dpi, _, _ := user32.NewProc("GetDpiForWindow").Call(s.hwnd)
+	dpi, _, _ := procGetDpiForWindow.Call(s.hwnd)
 	if dpi == 0 {
 		dpi = 96
 	}

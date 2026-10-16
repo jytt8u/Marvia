@@ -227,16 +227,13 @@ object Paint {
                 if (v is ViewGroup && v !is android.widget.FrameLayout) {
                     val side = (t.pad * dp).toInt()
                     val tall = ((t.pad - 2) * dp).toInt()
-                    // Жёсткая тень «Брутала» лежит внутри вьюхи — содержимому запас.
-                    val hard = (VibeDetails.hardShift(style.vibe) * dp).toInt()
-                    v.setPadding(side, tall, side + hard, tall + hard)
+                    v.setPadding(side, tall, side, tall)
                 }
             }
             tag == CARD_PAD -> {
                 skin(v, t, dp)
                 val pad = (t.pad * dp).toInt()
-                val hard = (VibeDetails.hardShift(style.vibe) * dp).toInt()
-                v.setPadding(pad, pad, pad + hard, pad + hard)
+                v.setPadding(pad, pad, pad, pad)
             }
             tag == "feature" -> {
                 val base = card(t, dp).apply {
@@ -244,7 +241,7 @@ object Paint {
                     orientation = GradientDrawable.Orientation.TL_BR
                     setStroke(dp.toInt().coerceAtLeast(1), ColorUtils.setAlphaComponent(t.acc, 64))
                 }
-                v.background = VibeDetails.card(style.vibe, t, dp, base, feature = true) ?: base
+                v.background = base
             }
             tag == "node" -> {
                 v.background = rounded(ColorUtils.blendARGB(t.surf, t.acc, .09f), 999, dp)
@@ -256,7 +253,7 @@ object Paint {
             tag == ACC -> text(v, t.acc, t.dim)
             tag == FAIL -> text(v, t.fail, t.dim)
             tag == BTN -> {
-                v.background = VibeDetails.box(style.vibe, t.acc, t.r, dp) ?: rounded(t.acc, t.r, dp)
+                v.background = rounded(t.acc, t.r, dp)
                 text(v, t.accFg, t.accFg)
             }
             // Квадрат под значком строки: мягкий акцент, как в макете.
@@ -264,7 +261,7 @@ object Paint {
                 setStroke(dp.toInt().coerceAtLeast(1), ColorUtils.setAlphaComponent(t.acc, 36))
             }
             tag == CHIP -> {
-                v.background = VibeDetails.box(style.vibe, t.surf2, minOf(t.r, 10), dp) ?: rounded(t.surf2, minOf(t.r, 10), dp)
+                v.background = rounded(t.surf2, minOf(t.r, 10), dp)
                 text(v, t.dim, t.dim)
             }
             tag == TRACK -> v.background = rounded(t.bg, 999, dp)
@@ -318,10 +315,9 @@ object Paint {
      * размытие руками ради карточки — дорого и на глаз не лучше.
      */
     private fun skin(v: View, t: Theme, dp: Float) {
-        val base = card(t, dp)
-        v.background = VibeDetails.card(style.vibe, t, dp, base, feature = false) ?: base
+        v.background = card(t, dp)
         v.elevation = if (t.card == "shadow") 6 * dp else 0f
-        if (VibeDetails.lift(style.vibe, v, dp) || t.card == "shadow") {
+        if (t.card == "shadow") {
             v.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
             v.clipToOutline = false
         }

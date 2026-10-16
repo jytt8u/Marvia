@@ -132,23 +132,6 @@ class AppearanceTest {
         assertEquals("signboard", AppearanceProfiles.detail(Store(context)))
     }
 
-    @Test fun brutalCardContentStaysClearOfItsHardShadow() {
-        val context = RuntimeEnvironment.getApplication()
-        val dp = context.resources.displayMetrics.density
-        val card = android.widget.LinearLayout(context).apply { tag = "card" }
-        val before = Paint.style
-        try {
-            Paint.style = Paint.Style(vibe = "brutal")
-            Paint.apply(card, Look.theme(Look.Choice(preset = "linen", radius = "sharp", card = "outline")))
-            assertEquals((VibeDetails.HARD * dp).toInt(), card.paddingRight - card.paddingLeft)
-            Paint.style = Paint.Style()
-            Paint.apply(card, Look.theme(Look.Choice()))
-            assertEquals(card.paddingLeft, card.paddingRight)
-        } finally {
-            Paint.style = before
-        }
-    }
-
     @Test fun displayPreferencesSurviveRestartWithoutChangingNetworkOptions() {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()

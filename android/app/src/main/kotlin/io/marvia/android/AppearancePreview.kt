@@ -74,21 +74,18 @@ class AppearancePreview(context: Context, private val profile: AppearanceProfile
                     canvas.drawCircle(cx + kotlin.math.cos(a).toFloat() * r * 1.22f, cy + kotlin.math.sin(a).toFloat() * r * 1.22f, 1.2f * dp, brush)
                 }
             }
-            profile.id == "chrome" -> {
-                // Прозрачность кисти действует и на градиент — сначала делаем её полной.
-                brush.color = 0xFFFFFFFF.toInt()
-                brush.shader = android.graphics.SweepGradient(cx, cy,
-                    intArrayOf(0xFFF4F7FB.toInt(), 0xFF8A95A3.toInt(), 0xFFE9EEF4.toInt(), 0xFF6B7480.toInt(), 0xFFF4F7FB.toInt()), null)
-                canvas.drawCircle(cx, cy, r, brush); brush.shader = null
-            }
             t.btn == "solid" -> {
                 brush.color = t.acc; canvas.drawCircle(cx, cy, r, brush)
                 brush.shader = RadialGradient(cx - r * .3f, cy - r * .4f, r, ColorUtils.setAlphaComponent(-1, 90), 0, Shader.TileMode.CLAMP)
                 canvas.drawCircle(cx, cy, r, brush); brush.shader = null
             }
+            // Стекло на светлом фоне — оттенком акцента: белое на белом
+            // в миниатюре «Фарфора» пропадало целиком.
             t.btn == "glass" -> {
-                brush.color = ColorUtils.setAlphaComponent(-1, 40); canvas.drawCircle(cx, cy, r, brush)
-                brush.style = Paint.Style.STROKE; brush.strokeWidth = dp; brush.color = ColorUtils.setAlphaComponent(-1, 110)
+                brush.color = if (t.dark) ColorUtils.setAlphaComponent(-1, 40) else ColorUtils.setAlphaComponent(t.acc, 36)
+                canvas.drawCircle(cx, cy, r, brush)
+                brush.style = Paint.Style.STROKE; brush.strokeWidth = dp
+                brush.color = if (t.dark) ColorUtils.setAlphaComponent(-1, 110) else ColorUtils.setAlphaComponent(t.acc, 120)
                 canvas.drawCircle(cx, cy, r, brush); brush.style = Paint.Style.FILL
             }
             else -> {
@@ -97,13 +94,8 @@ class AppearancePreview(context: Context, private val profile: AppearanceProfile
                 canvas.drawCircle(cx, cy, r, brush); brush.style = Paint.Style.FILL
             }
         }
-        if (profile.id == "brutal") {
-            brush.style = Paint.Style.STROKE; brush.strokeWidth = 2 * dp; brush.color = 0xFF111111.toInt()
-            canvas.drawCircle(cx, cy, r, brush); brush.style = Paint.Style.FILL
-        }
         // Значок питания.
         val iconColor = when {
-            profile.id == "chrome" -> 0xFF1B1F24.toInt()
             t.btn == "solid" && profile.style != AppearanceStyle.SIGNAL -> t.accFg
             else -> t.acc
         }
@@ -116,7 +108,7 @@ class AppearancePreview(context: Context, private val profile: AppearanceProfile
         // Надпись шрифтом образа.
         brush.typeface = if (profile.style == AppearanceStyle.SIGNAL) mono else face
         brush.isFakeBoldText = profile.style != AppearanceStyle.SIGNAL
-        brush.color = if (profile.id == "terminal") t.acc else t.fg
+        brush.color = t.fg
         var size = 11 * dp
         val label = if (profile.style == AppearanceStyle.SIGNAL) status.uppercase() else status
         val maxText = w * .55f - 14 * dp
@@ -129,14 +121,10 @@ class AppearancePreview(context: Context, private val profile: AppearanceProfile
         val cw = w * .38f
         rect.set(w - cw - 10 * dp, 12 * dp, w - 10 * dp, h - 12 * dp)
         val cr = (t.r * .5f * dp).coerceAtMost(14 * dp)
-        brush.color = when (profile.id) {
-            "glass", "aurora" -> ColorUtils.setAlphaComponent(-1, 34)
-            "expressive" -> ColorUtils.blendARGB(0xFFFFFFFF.toInt(), t.acc, .14f)
-            else -> t.surf
-        }
+        brush.color = t.surf
         canvas.drawRoundRect(rect, cr, cr, brush)
-        brush.style = Paint.Style.STROKE; brush.strokeWidth = if (profile.id == "brutal") 2 * dp else dp
-        brush.color = if (profile.id == "brutal") 0xFF111111.toInt() else ColorUtils.setAlphaComponent(t.line, 180)
+        brush.style = Paint.Style.STROKE; brush.strokeWidth = dp
+        brush.color = ColorUtils.setAlphaComponent(t.line, 180)
         canvas.drawRoundRect(rect, cr, cr, brush); brush.style = Paint.Style.FILL
         brush.typeface = mono; brush.textSize = 13 * dp; brush.isFakeBoldText = true; brush.color = t.fg
         canvas.drawText("48,0", rect.left + 7 * dp, rect.top + 22 * dp, brush)

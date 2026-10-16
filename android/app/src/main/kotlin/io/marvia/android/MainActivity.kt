@@ -1,13 +1,8 @@
 package io.marvia.android
 
-import android.Manifest
 import android.content.ClipboardManager
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.content.res.ColorStateList
-import android.graphics.drawable.GradientDrawable
 import android.net.VpnService
-import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.InputMethodManager
@@ -17,21 +12,17 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.doOnLayout
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
-import androidx.core.widget.TextViewCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.core.view.updatePadding
 import androidx.core.view.updateLayoutParams
-import androidx.core.widget.ImageViewCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -344,7 +335,6 @@ class MainActivity : AppCompatActivity() {
         }
         Paint.apply(ui.root, theme)
         // Зерно и виньетка «Плёнки» — поверх всего, как на ПК; у прочих образов ничего.
-        ui.root.foreground = if (Paint.style.vibe == "film") VibeDetails.Veil() else null
         applyBackdrop()
         paintLogo()
         paintNav()
@@ -795,7 +785,6 @@ class MainActivity : AppCompatActivity() {
         val changed = v.text.toString() != getString(text)
         v.setText(text)
         v.setTextColor(color)
-        VibeDetails.status(v, Paint.style.vibe, theme, MarviaState.state.value is TunnelState.On, !store.reduceMotion)
         if (changed && v.isAttachedToWindow && v.isShown && !store.reduceMotion) {
             v.alpha = 0f
             v.translationY = 6 * resources.displayMetrics.density

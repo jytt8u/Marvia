@@ -7,8 +7,10 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jytt8u/marvia/internal/client"
+	"github.com/jytt8u/marvia/internal/wintun"
 )
 
 func TestCancelledAttemptCannotOverwriteLaterConnection(t *testing.T) {
@@ -76,5 +78,26 @@ func TestOldSupervisorCannotChangeANewSession(t *testing.T) {
 	c.recovered(old)
 	if c.state != StateStalled {
 		t.Fatal("старый надзор скрыл потерю связи новой сессии")
+	}
+}
+
+func TestAProxySetAfterConnectingStillReachesTheWindow(t *testing.T) {
+	// Hiddify ставит системный прокси и после нашего подключения; браузер
+	// тогда теряет сайты, и окно обязано об этом сказать, а не молчать до
+	// следующего включения.
+	old := systemProxy
+	t.Cleanup(func() { systemProxy = old })
+	proxy := wintun.Proxy{}
+	systemProxy = func() wintun.Proxy { return proxy }
+
+	c := &Controller{state: StateConnected, node: client.Node{ID: 2}, log: newJournal(), proxyAt: time.Now()}
+	if s := c.Status(); s.Proxy != "" {
+		t.Fatalf("прокси нет, а окно его показывает: %q", s.Proxy)
+	}
+	proxy = wintun.Proxy{Server: "http://127.0.0.1:12334", Owner: "Hiddify"}
+	c.proxyAt = time.Now().Add(-proxyRecheck)
+	s := c.Status()
+	if s.Proxy == "" || s.ProxyOwner != "Hiddify" || s.ProxyServer != "http://127.0.0.1:12334" {
+		t.Fatalf("прокси, поставленный после подключения, не дошёл до окна: %+v", s)
 	}
 }

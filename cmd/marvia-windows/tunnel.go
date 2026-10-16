@@ -138,11 +138,14 @@ type Controller struct {
 	up, down         atomic.Int64
 	baseUp, baseDown int64
 
-	// proxy — что нашлось в системных настройках прокси на момент подключения.
+	// proxy — что нашлось в системных настройках прокси.
 	//
-	// Проверяем при включении, а не на каждый опрос окна: перебор слушающих
-	// сокетов ради надписи, которая меняется раз в неделю, — расточительство.
-	proxy wintun.Proxy
+	// Проверяем при включении и, пока туннель поднят, раз в proxyRecheck: другой
+	// клиент (Hiddify) ставит прокси и после нашего подключения, и тогда
+	// браузер теряет сайты без единого слова от нас. На каждый опрос окна не
+	// проверяем: перебор слушающих сокетов раз в секунду — расточительство.
+	proxy   wintun.Proxy
+	proxyAt time.Time
 
 	dns string
 	mtu uint32
@@ -235,9 +238,19 @@ func (c *Controller) keepHistory() {
 const historyTick = 5 * time.Second
 
 // Status отдаёт снимок состояния для окна.
+// proxyRecheck — как часто перепроверять системный прокси при поднятом туннеле.
+const proxyRecheck = 10 * time.Second
+
+// systemProxy — чтение настроек прокси; подменяется в тестах.
+var systemProxy = wintun.SystemProxy
+
 func (c *Controller) Status() Status {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.state == StateConnected && time.Since(c.proxyAt) >= proxyRecheck {
+		c.proxy = systemProxy()
+		c.proxyAt = time.Now()
+	}
 	pingMS := int64(0)
 	if c.dialer != nil {
 		pingMS = c.dialer.Measurement().PingMS()
@@ -308,7 +321,8 @@ func (c *Controller) DropProxy() error {
 	}
 
 	c.mu.Lock()
-	c.proxy = wintun.SystemProxy()
+	c.proxy = systemProxy()
+	c.proxyAt = time.Now()
 	left := c.proxy
 	c.mu.Unlock()
 
@@ -406,7 +420,8 @@ func (c *Controller) Connect() error {
 	}
 
 	account := c.account
-	c.proxy = wintun.SystemProxy()
+	c.proxy = systemProxy()
+	c.proxyAt = time.Now()
 	c.state = StateConnecting
 	c.reason = ""
 	c.baseUp, c.baseDown = c.up.Load(), c.down.Load()

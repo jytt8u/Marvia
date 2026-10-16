@@ -131,7 +131,10 @@ func CheckLink(raw string) (string, error) {
 	default:
 		return "", errors.New("ссылка должна начинаться с https:// или tg://")
 	}
-	return s, nil
+	// Схема без учёта регистра — «Https://» тоже https, — но клиенты
+	// сравнивают начало строки, и такая ссылка у них молча не открылась бы.
+	// Отдаём схему так, как её привёл разбор: строчными.
+	return u.Scheme + s[len(u.Scheme):], nil
 }
 
 // CheckAnnounce готовит объявление от продавца: чистит так же, как это

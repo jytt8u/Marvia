@@ -3,12 +3,13 @@ package transport
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 )
 
 func freshBudget(now *time.Time) *handshakeBudget {
-	return &handshakeBudget{seen: map[string][]time.Time{}, now: func() time.Time { return *now }}
+	return &handshakeBudget{seen: map[string]handshakeHistory{}, now: func() time.Time { return *now }}
 }
 
 func TestFourthHandshakeToOneNodeWithinAMinuteWaits(t *testing.T) {
@@ -50,6 +51,38 @@ func TestHandshakeThatCannotFitTheDeadlineFailsAtOnce(t *testing.T) {
 	if took := time.Since(start); took > time.Second {
 		t.Fatalf("отказ занял %v — ждал впустую", took)
 	}
+}
+
+func TestHandshakeBudgetForgetsAddressesAfterTheirWindow(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	b := freshBudget(&now)
+	b.reserve("old-node")
+
+	now = now.Add(handshakeWindow)
+	b.reserve("new-node")
+
+	if _, ok := b.seen["old-node"]; ok {
+		t.Fatal("адрес ноды остался в памяти после окончания окна")
+	}
+}
+
+func BenchmarkHandshakeBudgetRetiredAddresses(b *testing.B) {
+	now := time.Unix(1_700_000_000, 0)
+	budget := freshBudget(&now)
+	const hostCount = 2048
+	hosts := make([]string, hostCount)
+	for i := range hosts {
+		hosts[i] = strconv.Itoa(i)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		now = now.Add(handshakeWindow)
+		budget.reserve(hosts[i%len(hosts)])
+	}
+	b.StopTimer()
+	b.ReportMetric(float64(len(budget.seen)), "retained-hosts")
 }
 
 func TestLoopbackIsNotCounted(t *testing.T) {

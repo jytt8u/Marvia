@@ -172,6 +172,7 @@ func (a *Alerts) checkNodes(ctx context.Context, cfg AlertSettings) {
 	}
 
 	now := time.Now().UTC()
+	active := make(map[string]struct{}, len(nodes))
 	for _, n := range nodes {
 		// Выключенную ноду молчащей не считаем: её выключил сам продавец,
 		// и напоминать ему об этом каждый час — верный способ приучить его
@@ -181,6 +182,7 @@ func (a *Alerts) checkNodes(ctx context.Context, cfg AlertSettings) {
 		}
 
 		key := fmt.Sprintf("node-silent-%d", n.ID)
+		active[key] = struct{}{}
 		silent := n.LastSeen == nil || now.Sub(n.LastSeen.UTC()) > silentFor
 
 		switch {
@@ -190,6 +192,22 @@ func (a *Alerts) checkNodes(ctx context.Context, cfg AlertSettings) {
 		case !silent && a.already(key):
 			a.mark(key, false)
 			a.say(ctx, cfg, "Нода «"+n.Name+"» снова на связи.")
+		}
+	}
+	a.forgetMissingNodeAlerts(active)
+}
+
+// forgetMissingNodeAlerts не даёт истории удалённых нод занимать память всю
+// жизнь панели: при следующем включении состояние можно проверить заново.
+func (a *Alerts) forgetMissingNodeAlerts(active map[string]struct{}) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for key := range a.told {
+		if !strings.HasPrefix(key, "node-silent-") {
+			continue
+		}
+		if _, ok := active[key]; !ok {
+			delete(a.told, key)
 		}
 	}
 }

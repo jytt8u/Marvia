@@ -66,7 +66,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go test "./${{ matrix.pkg }}" -run '^$' -fuzz '^${{ matrix.target }}$' -fuzztime=1000000x -parallel=2
+          # Минимизацию каждого нового «интересного» входа ограничиваем: по
+          # умолчанию Go тратит на неё до минуты, и на сотнях таких входов
+          # счётчик стоял на «0/sec» дольше таймаута задачи, хотя сбоя не было.
+          # Найденный сбой сохраняется и без долгой минимизации.
+          go test "./${{ matrix.pkg }}" -run '^$' -fuzz '^${{ matrix.target }}$' -fuzztime=1000000x -fuzzminimizetime=5s -parallel=2
       - name: Сохранить входные данные найденного сбоя
         if: failure()
         uses: actions/upload-artifact@v4

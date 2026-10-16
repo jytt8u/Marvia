@@ -550,6 +550,7 @@
     <string name="custom_bypass_note">По строке: адрес, подсеть или сайт. Сайт превращается в адреса при подключении — у больших сайтов они меняются, и часть запросов может уйти в туннель. Сети шире /8 не принимаются: это выключило бы VPN целиком.</string>
     <string name="custom_bypass_save">Сохранить</string>
     <string name="custom_bypass_bad">Не понял и пропустил: %1$s</string>
+    <string name="custom_bypass_skipped">Принимаются первые %1$d адресов — ещё %2$d не вошли</string>
     <string name="lockdown_title">Без VPN — без интернета</string>
     <string name="lockdown_sub">включается в настройках Android: VPN → Marvia</string>
     <string name="lockdown_unavailable">Этот телефон не открыл настройки VPN — найдите их в «Подключения» или «Сеть и интернет»</string>

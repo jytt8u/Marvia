@@ -40,6 +40,17 @@ class CustomRoutesTest {
         val text = (1..250).joinToString("\n") { "10.0.${it / 250}.${it % 250}" }
         val parsed = CustomRoutes.parse(text)
         assertEquals(CustomRoutes.MAX, parsed.entries.size)
-        assertEquals(50, parsed.bad.size)
+        // Лишние верные строки — не «не понял», а «не вошли».
+        assertEquals(0, parsed.bad.size)
+        assertEquals(50, parsed.skipped)
+    }
+}
+
+class CustomRoutesBracketsTest {
+    @Test fun anIpv6LinkInBracketsIsTakenAsAnAddress() {
+        val parsed = CustomRoutes.parse("https://[2001:db8::1]:443/path\n[2001:db8::2]")
+        assertEquals(emptyList<String>(), parsed.bad)
+        assertEquals(2, parsed.entries.size)
+        assertTrue(parsed.entries.all { it is CustomRoutes.Entry.Net && it.v6 && it.length == 128 })
     }
 }

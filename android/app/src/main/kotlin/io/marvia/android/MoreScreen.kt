@@ -525,13 +525,13 @@ class MoreScreen(
                 val parsed = CustomRoutes.parse(field.text.toString())
                 store.customBypass = field.text.toString().trim()
                 paintCustom()
-                if (parsed.bad.isNotEmpty()) {
-                    Toast.makeText(
-                        host,
-                        host.getString(R.string.custom_bypass_bad, parsed.bad.take(3).joinToString(", ")),
-                        Toast.LENGTH_LONG,
-                    ).show()
-                }
+                // Нераспознанное и не влезшее в предел — разными словами: человеку
+                // важно, исправить строку или просто убрать лишнее.
+                val said = listOfNotNull(
+                    parsed.bad.takeIf { it.isNotEmpty() }?.let { host.getString(R.string.custom_bypass_bad, it.take(3).joinToString(", ")) },
+                    parsed.skipped.takeIf { it > 0 }?.let { host.getString(R.string.custom_bypass_skipped, CustomRoutes.MAX, it) },
+                )
+                if (said.isNotEmpty()) Toast.makeText(host, said.joinToString("\n"), Toast.LENGTH_LONG).show()
                 onRoutesChanged(false)
             }
             .setNegativeButton(android.R.string.cancel, null)

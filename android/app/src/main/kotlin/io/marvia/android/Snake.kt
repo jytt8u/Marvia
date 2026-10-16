@@ -128,9 +128,15 @@ class SnakeView(context: Context, private val theme: Theme, private val store: S
         contentDescription = context.getString(R.string.snake_title)
     }
 
+    // Клетка — по меньшей стороне: поле выше своей ширины, и на повёрнутом
+    // телефоне по одной ширине оно ушло бы за нижний край экрана.
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val w = MeasureSpec.getSize(widthMeasureSpec)
-        setMeasuredDimension(w, w * ROWS / COLS)
+        val screen = (resources.displayMetrics.heightPixels * 0.72f).toInt()
+        val h = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.UNSPECIFIED) screen
+        else minOf(MeasureSpec.getSize(heightMeasureSpec), screen)
+        val cell = minOf(w / COLS, h / ROWS).coerceAtLeast(1)
+        setMeasuredDimension(cell * COLS, cell * ROWS)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -271,7 +277,10 @@ object SnakeGame {
             setPadding((16 * dp).toInt(), (12 * dp).toInt(), (16 * dp).toInt(), (16 * dp).toInt())
             background = Paint.rounded(theme.bg, theme.r + 6, dp)
             addView(head, android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            addView(game, android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10 * dp).toInt() })
+            addView(game, android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = (10 * dp).toInt()
+                gravity = Gravity.CENTER_HORIZONTAL
+            })
         }
         dialog.setContentView(root)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)

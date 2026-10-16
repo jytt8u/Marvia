@@ -1,6 +1,8 @@
 package wintun
 
 import (
+	"net"
+	"os"
 	"strings"
 	"testing"
 )
@@ -41,5 +43,20 @@ func TestALocalProxySaysBrowsersGoThroughThatProgramAndWhatToDo(t *testing.T) {
 	dead := Proxy{Server: "127.0.0.1:12334"}.Describe()
 	if !strings.Contains(dead, "никто не отвечает") || !strings.Contains(dead, "не откроются") {
 		t.Fatalf("мёртвый прокси не назван причиной: %q", dead)
+	}
+}
+
+func TestAProxyListeningOnlyOnIPv6LoopbackIsFound(t *testing.T) {
+	// Прокси на одном [::1] — живой; не найти его владельца значило бы
+	// написать человеку «никто не отвечает», хотя прокси работает.
+	ln, err := net.Listen("tcp6", "[::1]:0")
+	if err != nil {
+		t.Skipf("IPv6 loopback недоступен: %v", err)
+	}
+	defer ln.Close()
+	port := uint16(ln.Addr().(*net.TCPAddr).Port)
+	pid, ok := listenerPID(port)
+	if !ok || pid != uint32(os.Getpid()) {
+		t.Fatalf("слушатель [::1]:%d не найден: pid=%d ok=%v", port, pid, ok)
 	}
 }

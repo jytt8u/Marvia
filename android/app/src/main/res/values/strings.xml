@@ -579,6 +579,7 @@
     <string name="custom_bypass_note">One per line: an address, subnet or site. A site turns into addresses when connecting — big sites change them, so some requests may still go through the tunnel. Networks wider than /8 are refused: they would switch the VPN off entirely.</string>
     <string name="custom_bypass_save">Save</string>
     <string name="custom_bypass_bad">Did not understand and skipped: %1$s</string>
+    <string name="custom_bypass_skipped">Only the first %1$d addresses are used — %2$d more were left out</string>
     <string name="lockdown_title">No VPN — no internet</string>
     <string name="lockdown_sub">switched on in Android settings: VPN → Marvia</string>
     <string name="lockdown_unavailable">This phone did not open the VPN settings — look under Connections or Network &amp; internet</string>

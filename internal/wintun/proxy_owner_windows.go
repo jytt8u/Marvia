@@ -82,8 +82,69 @@ func parseProxyPort(server string) (uint16, bool) {
 	return uint16(port), host == "localhost" || (ip != nil && ip.IsLoopback())
 }
 
-// listenerPID ищет процесс, слушающий этот порт.
+// tcp6Row — строка таблицы IPv6: адрес, область, порт, удалённая сторона,
+// состояние и процесс. Порядок полей задан системой.
+type tcp6Row struct {
+	localAddr   [16]byte
+	localScope  uint32
+	localPort   uint32
+	remoteAddr  [16]byte
+	remoteScope uint32
+	remotePort  uint32
+	state       uint32
+	owningPID   uint32
+}
+
+// listenerPID ищет процесс, слушающий этот порт — в таблице IPv4, а затем
+// IPv6: прокси, слушающий только [::1], иначе выглядел бы мёртвым, и окно
+// назвало бы его причиной, хотя он работает.
 func listenerPID(port uint16) (uint32, bool) {
+	if pid, ok := listenerPID4(port); ok {
+		return pid, true
+	}
+	return listenerPID6(port)
+}
+
+// portOf достаёт порт из поля строки: младшие два байта в сетевом порядке.
+func portOf(field uint32) uint16 {
+	var raw [4]byte
+	binary.LittleEndian.PutUint32(raw[:], field)
+	return binary.BigEndian.Uint16(raw[:2])
+}
+
+// tcpTable читает таблицу слушающих сокетов одного семейства адресов.
+func tcpTable(family uintptr) []byte {
+	var size uint32
+	_, _, _ = getExtendedTCPTable.Call(0, uintptr(unsafe.Pointer(&size)), 0, family, tcpTableOwnerPIDListener, 0)
+	if size == 0 {
+		return nil
+	}
+	buf := make([]byte, size)
+	ret, _, _ := getExtendedTCPTable.Call(uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)), 0, family, tcpTableOwnerPIDListener, 0)
+	if ret != 0 || len(buf) < 4 {
+		return nil
+	}
+	return buf
+}
+
+func listenerPID6(port uint16) (uint32, bool) {
+	buf := tcpTable(windows.AF_INET6)
+	if buf == nil {
+		return 0, false
+	}
+	count := binary.LittleEndian.Uint32(buf)
+	if uintptr(len(buf)-4) < uintptr(count)*unsafe.Sizeof(tcp6Row{}) {
+		return 0, false
+	}
+	for _, row := range unsafe.Slice((*tcp6Row)(unsafe.Pointer(&buf[4])), count) {
+		if portOf(row.localPort) == port {
+			return row.owningPID, true
+		}
+	}
+	return 0, false
+}
+
+func listenerPID4(port uint16) (uint32, bool) {
 	var size uint32
 
 	// Первый вызов только узнаёт размер: таблица меняется между вызовами, и

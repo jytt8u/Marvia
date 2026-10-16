@@ -153,6 +153,8 @@ class MainActivity : AppCompatActivity() {
         // диалоги и системные виджеты берут цвета оттуда, и светлый диалог
         // над «Полночью» выглядел бы дырой в экране.
         store = Store(this)
+        // Прежние образы ушли из выбора: один раз меняем их на ближайшие новые.
+        AppearanceProfiles.migrate(store)
         theme = Look.theme(store.look)
         AppCompatDelegate.setDefaultNightMode(nightModeFor(theme))
         enableEdgeToEdge()

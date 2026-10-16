@@ -12,6 +12,9 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [28])
 class AppearanceTest {
+    private val DOT = Look.Choice(preset = "oled", accent = 0xFFFF3B30.toInt(), kind = "flat", dir = "n", depth = 0.35,
+        radius = "soft", density = "normal", btn = "ring", glow = "none", card = "outline")
+
     @Test fun newInstallationKeepsTheClassicThemeUntilAnotherThemeIsSelected() {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()
@@ -20,14 +23,13 @@ class AppearanceTest {
         assertEquals(AppearanceStyle.CLASSIC, Store(context).appearanceStyle)
     }
 
-    @Test fun onlyTheDotBoardsOptIntoTheDottedInterface() {
+    @Test fun noVibeOptsIntoTheDottedInterface() {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()
         val store = Store(context)
         for (profile in AppearanceProfiles.all) {
             AppearanceProfiles.apply(store, profile)
-            val expected = if (profile.id == "dot" || profile.id == "paper") AppearanceStyle.SIGNAL else AppearanceStyle.CLASSIC
-            assertEquals(expected, Store(context).appearanceStyle)
+            assertEquals(AppearanceStyle.CLASSIC, Store(context).appearanceStyle)
             assertEquals(profile, AppearanceProfiles.selected(Store(context)))
         }
     }
@@ -36,7 +38,8 @@ class AppearanceTest {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()
         val store = Store(context)
-        AppearanceProfiles.apply(store, AppearanceProfiles.all.first { it.style == AppearanceStyle.SIGNAL })
+        store.look = DOT
+        store.appearanceStyle = AppearanceStyle.SIGNAL
         store.look = store.look.copy(accent = 0xFFBBDC78.toInt())
         store.profiles = listOf(Look.encode(store.look), null, null)
         store.saveProfileStyle(0)
@@ -53,9 +56,29 @@ class AppearanceTest {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()
         val store = Store(context)
-        store.look = AppearanceProfiles.all.first { it.style == AppearanceStyle.SIGNAL }.choice
+        store.look = DOT
         assertEquals(AppearanceStyle.CLASSIC, Store(context).appearanceStyle)
         assertEquals(null, AppearanceProfiles.selected(store))
+    }
+
+    @Test fun aRetiredVibeTurnsIntoTheClosestNewOneOnceAndACustomThemeStays() {
+        val context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("veil", 0).edit().clear().commit()
+        val store = Store(context)
+        store.vibe = "terminal"
+        store.look = Look.Choice(preset = "emerald")
+        AppearanceProfiles.migrate(store)
+        assertEquals("brass", Store(context).vibe)
+        assertEquals("brass", Store(context).look.preset)
+        // Своя тема без образа остаётся своей.
+        context.getSharedPreferences("veil", 0).edit().clear().commit()
+        store.look = Look.Choice(preset = "rose")
+        AppearanceProfiles.migrate(store)
+        assertEquals("rose", Store(context).look.preset)
+        // Свежая установка получает образ из коробки.
+        context.getSharedPreferences("veil", 0).edit().clear().commit()
+        AppearanceProfiles.migrate(store)
+        assertEquals(AppearanceProfiles.classic.id, Store(context).vibe)
     }
 
     @Test fun savedAppearanceSurvivesReopeningTheStore() {
@@ -89,10 +112,10 @@ class AppearanceTest {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()
         val store = Store(context)
-        AppearanceProfiles.apply(store, AppearanceProfiles.all.first { it.id == "chrome" })
-        assertEquals("chrome", AppearanceProfiles.detail(Store(context)))
+        AppearanceProfiles.apply(store, AppearanceProfiles.all.first { it.id == "kiln" })
+        assertEquals("kiln", AppearanceProfiles.detail(Store(context)))
         store.look = store.look.copy(accent = 0xFF40C8FF.toInt(), btn = "glass")
-        assertEquals("chrome", AppearanceProfiles.detail(Store(context)))
+        assertEquals("kiln", AppearanceProfiles.detail(Store(context)))
         store.look = store.look.copy(preset = "paper")
         assertEquals("", AppearanceProfiles.detail(Store(context)))
     }
@@ -101,12 +124,12 @@ class AppearanceTest {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()
         val store = Store(context)
-        val brutal = AppearanceProfiles.all.first { it.id == "brutal" }
-        store.look = brutal.choice
-        store.pattern = brutal.pattern
-        store.appearanceStyle = brutal.style
-        store.font = brutal.font
-        assertEquals("brutal", AppearanceProfiles.detail(Store(context)))
+        val board = AppearanceProfiles.all.first { it.id == "signboard" }
+        store.look = board.choice
+        store.pattern = board.pattern
+        store.appearanceStyle = board.style
+        store.font = board.font
+        assertEquals("signboard", AppearanceProfiles.detail(Store(context)))
     }
 
     @Test fun brutalCardContentStaysClearOfItsHardShadow() {
@@ -116,7 +139,7 @@ class AppearanceTest {
         val before = Paint.style
         try {
             Paint.style = Paint.Style(vibe = "brutal")
-            Paint.apply(card, Look.theme(AppearanceProfiles.all.first { it.id == "brutal" }.choice))
+            Paint.apply(card, Look.theme(Look.Choice(preset = "linen", radius = "sharp", card = "outline")))
             assertEquals((VibeDetails.HARD * dp).toInt(), card.paddingRight - card.paddingLeft)
             Paint.style = Paint.Style()
             Paint.apply(card, Look.theme(Look.Choice()))

@@ -129,7 +129,7 @@ class LookTest {
 
     @Test
     fun presetKeysAreUniqueByFirstThreeLetters() {
-        val short = LookTable.presets.map { it.key.take(3) }
+        val short = Look.presets.map { it.key.take(3) }
         assertEquals(short.size, short.toSet().size)
     }
 

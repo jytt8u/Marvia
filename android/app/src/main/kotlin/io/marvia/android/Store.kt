@@ -372,6 +372,9 @@ class Store(context: Context) {
      * «Дневную»: это ближайший пресет, и человек не должен обнаружить, что его
      * выбор молча стёрли обновлением.
      */
+    /** hasLook — выбирал ли человек тему хоть раз: свежая установка получает образ из коробки. */
+    fun hasLook(): Boolean = prefs.contains(KEY_PRESET) || prefs.contains(KEY_THEME)
+
     var look: Look.Choice
         get() {
             val d = Look.DEFAULT

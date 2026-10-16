@@ -76,8 +76,24 @@ object Look {
     /** Вид из коробки — первый из готовых, как в look.js. */
     val DEFAULT: LookTable.Look get() = LookTable.looks[0]
 
+    /**
+     * Палитры телефона: общая таблица и шесть своих — под образы телефона
+     * (Синька, Глина, Промеры, Шкала, Фарфор, Щит). Свои живут только здесь:
+     * окно на ПК и панель их не показывают, поэтому код темы с такой палитрой
+     * открывается только на телефоне. Первые три буквы ключей не совпадают с
+     * общими — на этом держится код темы.
+     */
+    val presets: List<LookTable.Preset> = LookTable.presets + listOf(
+        LookTable.Preset("blueprint", 0xFF0C1523, 0xFFF2F6FF, 0xFF48C8D2),
+        LookTable.Preset("kiln", 0xFF1A1715, 0xFFF8F2EC, 0xFFF1A05D),
+        LookTable.Preset("soundings", 0xFFE7F2F1, 0xFF122B30, 0xFF006A68),
+        LookTable.Preset("brass", 0xFF111416, 0xFFF1F4F2, 0xFFD7B64B),
+        LookTable.Preset("porcelain", 0xFFEDF0F5, 0xFF1B2434, 0xFF3657A5),
+        LookTable.Preset("signboard", 0xFFF6F1D7, 0xFF20241F, 0xFF754A00),
+    )
+
     fun preset(key: String): LookTable.Preset =
-        LookTable.presets.firstOrNull { it.key == key } ?: LookTable.presets.first { it.key == DEFAULT.preset }
+        presets.firstOrNull { it.key == key } ?: presets.first { it.key == DEFAULT.preset }
 
     fun density(key: String): LookTable.Density =
         LookTable.densities.firstOrNull { it.key == key } ?: LookTable.densities.first { it.key == DEFAULT.density }
@@ -90,7 +106,7 @@ object Look {
 
     /** normalize приводит выбор к допустимому — так же, как Look.normalize в look.js. */
     fun normalize(c: Choice): Choice = Choice(
-        preset = if (LookTable.presets.any { it.key == c.preset }) c.preset else DEFAULT.preset,
+        preset = if (presets.any { it.key == c.preset }) c.preset else DEFAULT.preset,
         accent = c.accent,
         kind = if (c.kind in LookTable.kinds) c.kind else DEFAULT.kind,
         dir = if (LookTable.dirs.any { it.key == c.dir }) c.dir else DEFAULT.dir,
@@ -196,7 +212,7 @@ object Look {
         // показать нечем, а цвет и форму из того же кода он принять обязан.
         val p = code.orEmpty().substringBefore("~").trim().uppercase().split("-")
         if (p.size != 8 || p[0] != "MV") return null
-        val preset = LookTable.presets.map { it.key }.find(3, p[1]) ?: return null
+        val preset = presets.map { it.key }.find(3, p[1]) ?: return null
         if (p[3].length < 4) return null
         val kind = LookTable.kinds.find(3, p[3].substring(0, 3)) ?: return null
         val dir = LookTable.dirs.map { it.key }.firstOrNull { it.uppercase() == p[3].substring(3) } ?: return null

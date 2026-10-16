@@ -322,7 +322,7 @@ class ThemeScreen(
         val r = Random.Default
         fun <T> pick(list: List<T>): T = list[r.nextInt(list.size)]
         return Look.Choice(
-            preset = pick(LookTable.presets).key,
+            preset = pick(Look.presets).key,
             accent = pick(listOf(0) + LookTable.accents),
             kind = pick(listOf("linear", "radial", "aurora")),
             dir = pick(LookTable.dirs).key,

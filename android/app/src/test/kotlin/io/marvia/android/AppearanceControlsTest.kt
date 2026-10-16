@@ -21,10 +21,15 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [35])
 class AppearanceControlsTest {
+    // Точечное табло: среди образов его больше нет, но сохранённая тема с ним
+    // остаётся, и экран должен уметь её показать.
+    private val DOT = Look.Choice(preset = "oled", accent = 0xFFFF3B30.toInt(), kind = "flat", dir = "n", depth = 0.35,
+        radius = "soft", density = "normal", btn = "ring", glow = "none", card = "outline")
+
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun aSolidButtonWithGlowIsPaintedInFullColour() {
         val context = org.robolectric.RuntimeEnvironment.getApplication()
-        val clay = AppearanceProfiles.all.first { it.id == "clay" }
+        val clay = AppearanceProfiles.all.first { it.id == "kiln" }
         val button = PowerButton(context).apply {
             motionEnabled = false
             theme = Look.theme(clay.choice)
@@ -49,15 +54,15 @@ class AppearanceControlsTest {
         val picker = AppearancePicker(activity, grid, store) { changes++ }
         picker.render(Look.theme(store.look))
         assertEquals("paper", store.look.preset)
-        // Точечное табло ищем по виду, а не по месту в ленте: порядок образов меняется.
-        val dotted = AppearanceProfiles.all.indexOfFirst { it.style == AppearanceStyle.SIGNAL }
-        grid.getChildAt(dotted).performClick()
-        assertEquals(AppearanceProfiles.all.first { it.style == AppearanceStyle.SIGNAL }.choice, store.look)
-        assertEquals(AppearanceStyle.SIGNAL, store.appearanceStyle)
-        assertEquals(Store.PATTERN_DOTS, store.pattern)
+        // Образ ищем по имени, а не по месту в ленте: порядок образов меняется.
+        val chosen = AppearanceProfiles.all.indexOfFirst { it.id == "blueprint" }
+        grid.getChildAt(chosen).performClick()
+        assertEquals(AppearanceProfiles.all[chosen].choice, store.look)
+        assertEquals(AppearanceStyle.CLASSIC, store.appearanceStyle)
+        assertEquals("grid", store.pattern)
         assertEquals(1, changes)
         picker.render(Look.theme(store.look))
-        assertTrue(grid.getChildAt(dotted).isSelected)
+        assertTrue(grid.getChildAt(chosen).isSelected)
         val width = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         grid.measure(width, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
         grid.layout(0, 0, grid.measuredWidth, grid.measuredHeight)
@@ -74,7 +79,7 @@ class AppearanceControlsTest {
 
     @Test fun switchingBackFromNothingRestoresTheClassicConnectionScreen() = withActivity { activity ->
         val ui = ScreenConnectBinding.inflate(activity.layoutInflater)
-        val theme = Look.theme(AppearanceProfiles.all.first { it.style == AppearanceStyle.SIGNAL }.choice)
+        val theme = Look.theme(DOT)
         ConnectionAppearance.apply(ui, AppearanceStyle.SIGNAL, theme)
         assertEquals(AppearanceStyle.SIGNAL, ui.powerAction.appearanceStyle)
         assertTrue(ui.heroDots.isVisible)
@@ -108,7 +113,7 @@ class AppearanceControlsTest {
 
     @Test fun manualButtonSelectionStillWorksInsideNothing() = withActivity { activity ->
         val ui = ScreenConnectBinding.inflate(activity.layoutInflater)
-        val theme = Look.theme(AppearanceProfiles.all.first { it.style == AppearanceStyle.SIGNAL }.choice)
+        val theme = Look.theme(DOT)
         ConnectionAppearance.apply(ui, AppearanceStyle.SIGNAL, theme)
         assertTrue(ui.powerAction.dottedPower)
         ConnectionAppearance.apply(ui, AppearanceStyle.SIGNAL, theme.copy(btn = "bare"))
@@ -120,7 +125,7 @@ class AppearanceControlsTest {
     @Test fun expandedBrandDoesNotPushTheConnectionBadgeOffScreen() = withActivity { activity ->
         val ui = ScreenConnectBinding.inflate(activity.layoutInflater)
         ui.heroName.isVisible = true
-        ConnectionAppearance.apply(ui, AppearanceStyle.SIGNAL, Look.theme(AppearanceProfiles.all.first { it.style == AppearanceStyle.SIGNAL }.choice))
+        ConnectionAppearance.apply(ui, AppearanceStyle.SIGNAL, Look.theme(DOT))
         assertTrue(ui.heroName.isVisible)
         assertFalse(ui.heroDots.isVisible)
         assertFalse(ui.connectionBadge.isVisible)

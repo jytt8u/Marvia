@@ -1,0 +1,3 @@
+0.13.0-alpha.14 — test release.
+No vibration at all: system switches and long presses are silent too.
+The VP1 wire format is unchanged.

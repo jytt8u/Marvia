@@ -1,0 +1,5 @@
+0.13.0-alpha.13 — test release.
+Six new looks: Instrument Scale, Blueprint, Fired Clay, Soundings, White Porcelain, Signal Board.
+Apps and sites: your own addresses outside the tunnel, a shortcut to the "no VPN, no internet" lock, system apps hidden. No vibration.
+Errors and logs hide tokens and keys. Tap the logo thirty times for a surprise.
+The VP1 wire format is unchanged.

@@ -387,6 +387,7 @@
   .leak .head .title { font-size: 13px; font-weight: 700; line-height: 1.3; }
   .leak .head { justify-content: flex-start; }
   .leak .body { display: block; height: auto; font-size: 12px; line-height: 1.45; }
+  .conflict-list { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; }
   .side .leak { max-width: none; }
   .leak .body { font-size: 12px; line-height: 1.5; color: var(--fg); }
   .leak .act { display: flex; align-items: center; gap: 10px; }
@@ -1538,6 +1539,18 @@
               </div>
             </div>
             <!--
+              Мешающие программы рядом: zapret ломает YouTube внутри туннеля,
+              второй VPN спорит за маршруты. Окно называет их и говорит, что
+              сделать, — иначе виноватым выглядит VPN.
+            -->
+            <div class="leak" id="conflict-warn" hidden>
+              <div class="head">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v5M12 17.5v.01"/><path d="M10.3 3.9 2.4 17.4A2 2 0 0 0 4.1 20.4h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                <span class="title" data-t="conflictTitle"></span>
+              </div>
+              <ul class="body conflict-list" id="conflict-list"></ul>
+            </div>
+            <!--
               Канал продавца: напоминание о сроке, объявление и две кнопки.
               Кнопка появляется, только если продавец оставил ссылку: кнопка
               без адреса — обещание, которого он не давал. Есть и без туннеля:
@@ -2419,6 +2432,7 @@ const T = {
       + "оставить человека вообще без интернета.",
 
     proxyTitle: "Обнаружен системный прокси",
+    conflictTitle: "Мешают другие программы",
     proxyCare: "Если прокси ставили не вы — на рабочем компьютере или под родительским "
       + "контролем — не трогайте его: без него перестанут открываться рабочие ресурсы.",
     proxyOff: "Убрать прокси",
@@ -2691,6 +2705,7 @@ const T = {
       + "a person without internet at all.",
 
     proxyTitle: "A system proxy is configured",
+    conflictTitle: "Other programs get in the way",
     proxyCare: "If you did not set the proxy — on a work computer or under parental "
       + "controls — leave it alone: without it work resources stop opening.",
     proxyOff: "Remove the proxy",
@@ -3230,6 +3245,16 @@ on("update-open", "click", () => api("POST", "api/update/open").catch(() => {}))
   запущенных программах, наша правка до них не дойдёт, и обещать обратное
   нечестно — так и пишем.
 */
+function showConflicts(s) {
+  const list = s.conflicts || [];
+  $("conflict-warn").hidden = list.length === 0;
+  $("conflict-list").replaceChildren(...list.map((text) => {
+    const li = document.createElement("li");
+    li.textContent = text;
+    return li;
+  }));
+}
+
 function showProxy(s) {
   const box = $("proxy-warn");
   const show = s.state === "connected" && !!s.proxy;
@@ -3806,6 +3831,7 @@ function render(s) {
     : known ? d.planUnlimited : (s.has_account ? d.subAfter : d.subNoKey);
 
   showProxy(s);
+  showConflicts(s);
   paintSeller(s.seller);
 
   // Снятия делает ядро: скорость и пик не теряются, пока окно спрятано.

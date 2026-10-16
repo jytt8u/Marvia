@@ -56,6 +56,8 @@ type Status struct {
 	Up        int64  `json:"up"`
 	Down      int64  `json:"down"`
 	Reason    string `json:"reason,omitempty"`
+	// Conflicts — мешающие программы, уже словами на языке окна.
+	Conflicts []string `json:"conflicts,omitempty"`
 
 	// Подписка: до какого числа и сколько трафика осталось. Пустые значения
 	// означают, что продавец не поставил ни срока, ни квоты, — врать про
@@ -152,6 +154,10 @@ type Controller struct {
 	adapterAt   time.Time
 	adapterLost bool
 
+	// conflicts — мешающие программы, найденные при последней проверке.
+	conflicts   []string
+	conflictsAt time.Time
+
 	dns string
 	mtu uint32
 	log *journal
@@ -246,6 +252,13 @@ const historyTick = 5 * time.Second
 // proxyRecheck — как часто перепроверять системный прокси при поднятом туннеле.
 const proxyRecheck = 10 * time.Second
 
+// conflictRecheck — как часто искать мешающие программы. Снимок процессов
+// дешёвый, но раз в секунду окну он не нужен: программы не появляются так часто.
+const conflictRecheck = 15 * time.Second
+
+// processList — список процессов; подменяется в тестах.
+var processList = runningProcesses
+
 // adapterRecheck — как часто проверять, что адаптер туннеля ещё в системе.
 const adapterRecheck = 5 * time.Second
 
@@ -271,6 +284,10 @@ var systemProxy = wintun.SystemProxy
 func (c *Controller) Status() Status {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if time.Since(c.conflictsAt) >= conflictRecheck {
+		c.conflicts = conflictsAmong(processList())
+		c.conflictsAt = time.Now()
+	}
 	if c.state == StateConnected && time.Since(c.proxyAt) >= proxyRecheck {
 		c.proxy = systemProxy()
 		c.proxyAt = time.Now()
@@ -309,6 +326,7 @@ func (c *Controller) Status() Status {
 		Version:     version,
 		Update:      c.update.Version,
 		UpdateURL:   c.update.URL,
+		Conflicts:   conflictTexts(c.conflicts),
 		Proxy:       c.proxy.Describe(),
 		ProxyOwner:  c.proxy.Owner,
 		ProxyServer: c.proxy.Server,

@@ -10,15 +10,15 @@ picks a node by itself and, if it stops responding, looks for a working one.
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [فارسی](README.fa.md)
 
-[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.11/marvia-android.apk)
+[![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.13/marvia-android.apk)
 [Update with Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.marvia.android%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fjytt8u%2Fmarvia%22%2C%22author%22%3A%22jytt8u%22%2C%22name%22%3A%22Marvia%22%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Atrue%2C%5C%22verifyLatestTag%5C%22%3Afalse%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22%5Emarvia-android%5C%5C%5C%5C.apk%24%5C%22%7D%22%7D)
-[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.11)
+[![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.13)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#install-the-panel)
 [![Docs](https://img.shields.io/badge/DOCS-GUIDE-687482?style=for-the-badge&labelColor=30353b)](docs/guide.md)
 
-**Stage: alpha, `0.13.0-alpha.11`.** 1.0 is postponed until it is verified on
+**Stage: alpha, `0.13.0-alpha.13`.** 1.0 is postponed until it is verified on
 real devices and networks — [criteria (Russian)](docs/development-plan.md).
-The latest test build is [v0.13.0-alpha.11](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.11); it is not declared stable.
+The latest test build is [v0.13.0-alpha.13](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.13); it is not declared stable.
 
 [Your VPN from scratch (Russian)](docs/start-from-zero.md) · [Releases](https://github.com/jytt8u/marvia/releases) · [CI](https://github.com/jytt8u/marvia/actions) · [Privacy](docs/privacy.md)
 
@@ -103,7 +103,7 @@ VP1 is not compatible with WireGuard or Xray clients.
 
 | Client | Server |
 |---|---|
-| Android: Marvia and third-party keys, node selection, usage and VPN settings, a choice of home screen, from a single button to country and subscription cards, name lookups over HTTPS hidden from the node, seller's Renew and Support | Panel and nodes: limits, accounting, plans and two-click renewal, an overview of who runs out soon and traffic by node, QR code and Telegram text, backups, bot API, migration from Marzban and 3x-ui; support and renew links and an announcement in the subscription for Happ, v2RayTun, Hiddify |
+| Android: Marvia and third-party keys, node selection, usage and VPN settings, a choice of home screen, from a single button to country and subscription cards, apps and your own addresses outside the tunnel, name lookups over HTTPS hidden from the node, seller's Renew and Support | Panel and nodes: limits, accounting, plans and two-click renewal, an overview of who runs out soon and traffic by node, QR code and Telegram text, backups, bot API, migration from Marzban and 3x-ui; support and renew links and an announcement in the subscription for Happ, v2RayTun, Hiddify |
 | Windows: TUN client, Russian sites and home network directly, DNS choice and encrypted name lookups, split TLS hello, several keys, weekly and monthly traffic, custom MTU, a status and promises overview in settings, IPv6 and reports switches, seller's Support and Renew | VP1, VLESS and Trojan; verified node updates |
 
 Manually selected nodes connect without waiting for measurements of every
@@ -124,8 +124,8 @@ supports the feature comparison; no matched speed ranking is available.
 
 ## Get started
 
-> **Have a key?** Download the [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.11/marvia-android.apk)
-> or the [Windows installer](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.11) (`marvia-windows-setup.exe`;
+> **Have a key?** Download the [Android APK](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.13/marvia-android.apk)
+> or the [Windows installer](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.13) (`marvia-windows-setup.exe`;
 > [details (Russian)](docs/start-from-zero.md#6-выпустить-доступ-себе-и-подключить-клиент)),
 > add a `marvia://…` link in the app, and connect.
 
@@ -137,7 +137,7 @@ releases, and selects `marvia-android.apk`. To add it manually, use
 `https://github.com/jytt8u/marvia`, enable prereleases and set the APK filter
 to `^marvia-android\.apk$`. [Configuration](docs/obtainium.json).
 
-The public alpha.11 is a test release.
+The public alpha.13 is a test release.
 Verification on real devices is not complete. Known limitations are in the
 [changelog (Russian)](CHANGELOG.md).
 

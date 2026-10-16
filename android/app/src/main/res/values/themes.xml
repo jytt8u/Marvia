@@ -15,6 +15,10 @@
         <item name="android:textColorSecondary">@color/veil_muted</item>
         <!-- Шрифт макета, свой, вшитый: системный Roboto не совпал бы ни в одной строке. -->
         <item name="android:textViewStyle">@style/VeilText</item>
+        <!-- Вибрации в Marvia нет нигде: тема гасит её у каждой вьюхи сразу,
+             включая системные переключатели, долгое нажатие и диалоги, а не
+             только у тех, что красит Paint. -->
+        <item name="android:hapticFeedbackEnabled">false</item>
     </style>
 
     <!-- Стиль текста по умолчанию: шрифт макета. Вьюха со своим fontFamily его перекрывает. -->

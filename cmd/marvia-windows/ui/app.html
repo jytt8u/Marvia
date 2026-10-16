@@ -115,6 +115,17 @@
   }
   .brand { display: flex; align-items: center; gap: 10px; }
 
+  /* Змейка: поверх окна, в цветах образа. */
+  .snake { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 70%, transparent); }
+  .snake[hidden] { display: none; }
+  .snake-box { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: calc(var(--r) + 4px);
+    background: var(--surf); border: 1px solid var(--line); box-shadow: 0 30px 80px -30px rgba(0,0,0,.6); }
+  .snake-head { display: flex; align-items: center; gap: 14px; }
+  .snake-head b { font-size: 16px; }
+  .snake-head .mono { flex: 1; color: var(--dim); font-size: 13px; }
+  #snake-board { width: 640px; height: 440px; border-radius: var(--r); background: var(--bg); display: block; }
+  .snake .hint { font-size: 12px; color: var(--dim); text-align: center; }
+
   /*
     Знак — объёмная лента-«M», и красится она темой, оставаясь металлом. Два
     слоя: нижний — сам знак, обесцвеченный в нейтральный металл; верхний —
@@ -2090,6 +2101,22 @@
   </div>
 </div>
 
+<!--
+  Змейка — пасхалка: тридцать щелчков по знаку в шапке. Поле, змея и еда —
+  цветами текущего образа. Рекорд хранится в этом окне и никуда не уходит.
+-->
+<div class="snake" id="snake" hidden>
+  <div class="snake-box" role="dialog" aria-modal="true" aria-labelledby="snake-title">
+    <div class="snake-head">
+      <b id="snake-title" data-t="snakeTitle"></b>
+      <span class="mono" id="snake-score"></span>
+      <button class="chip" type="button" id="snake-close" data-t="snakeClose"></button>
+    </div>
+    <canvas id="snake-board" width="640" height="440"></canvas>
+    <div class="hint" data-t="snakeHint"></div>
+  </div>
+</div>
+
 <script>
 "use strict";
 
@@ -2193,6 +2220,8 @@ const T = {
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
     kSession: "Сессия", kPing: "Отклик ноды",
+    snakeTitle: "Змейка", snakeClose: "Закрыть", snakeHint: "стрелки или WASD — поворот, пробел — старт и пауза, Esc — закрыть",
+    snakeScore: (now, best) => "счёт " + now + " · рекорд " + best, snakeOver: (n) => "Конец: " + n, snakeStart: "пробел — начать",
     viewTitle: "Вид окна", viewHint: "образ меняет цвета, вид — главную и список стран",
     viewMarvia: "Marvia", viewCards: "Карточки",
     planTitle: "Подписка", planNoTerm: "без срока", planUnlimited: "трафик без ограничения",
@@ -2464,6 +2493,8 @@ const T = {
 
     pingUnknown: "Not measured", setupLabel: "Connection",
     kSession: "Session", kPing: "Node response",
+    snakeTitle: "Snake", snakeClose: "Close", snakeHint: "arrows or WASD to turn, space to start and pause, Esc to close",
+    snakeScore: (now, best) => "score " + now + " · best " + best, snakeOver: (n) => "Game over: " + n, snakeStart: "space to start",
     viewTitle: "Window layout", viewHint: "the look sets colours, the layout sets home and the country list",
     viewMarvia: "Marvia", viewCards: "Cards",
     planTitle: "Subscription", planNoTerm: "no end date", planUnlimited: "traffic without a limit",
@@ -2859,7 +2890,9 @@ for (const b of document.querySelectorAll("[data-win]")) b.addEventListener("cli
     winAct("drag");
   });
   addEventListener("mouseup", () => { pending = null; });
-  bar.addEventListener("dblclick", (e) => { if (!e.target.closest("button, input, a")) winAct("max"); });
+  // Знак — для змейки: тридцать быстрых щелчков — это пятнадцать двойных,
+  // и окно разворачивалось бы туда-сюда.
+  bar.addEventListener("dblclick", (e) => { if (!e.target.closest("button, input, a, .brand .logo")) winAct("max"); });
   $("grip-top").addEventListener("mousedown", (e) => { if (e.button === 0) { e.preventDefault(); winAct("top"); } });
   winAct("state").then((m) => window.marviaMax(m)).catch(() => {});
 }
@@ -5822,6 +5855,107 @@ for (const id of SWITCHES) {
 
 window.vibeState = vibeState;
 window.paintDotNums = paintDotNums;
+
+/* ---------------------------------------------------------------- змейка */
+{
+  const COLS = 32, ROWS = 22, TAPS = 30, GAP = 1500, BEST_KEY = "marvia-snake-best";
+  const box = $("snake"), cv = $("snake-board"), ctx = cv.getContext("2d");
+  let taps = 0, last = 0, timer = 0, running = false, over = false;
+  let body = [], dir = [1, 0], queued = null, food = -1, score = 0;
+  let best = 0;
+  try { best = +localStorage.getItem(BEST_KEY) || 0; } catch (_) { /* без рекорда */ }
+
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const showScore = () => { $("snake-score").textContent = L().snakeScore(score, best); };
+
+  function reset() {
+    const y = ROWS >> 1;
+    body = [[4, y], [3, y], [2, y]];
+    dir = [1, 0]; queued = null; score = 0; over = false;
+    placeFood();
+    showScore();
+  }
+  function placeFood() {
+    const free = [];
+    for (let i = 0; i < COLS * ROWS; i++) if (!body.some(([x, y]) => x + y * COLS === i)) free.push(i);
+    food = free.length ? free[Math.floor(Math.random() * free.length)] : -1;
+  }
+  // Стены не убивают — змея выходит с другой стороны, как на телефоне.
+  function step() {
+    if (queued) { dir = queued; queued = null; }
+    const [hx, hy] = body[0];
+    const nx = (hx + dir[0] + COLS) % COLS, ny = (hy + dir[1] + ROWS) % ROWS;
+    const eats = nx + ny * COLS === food;
+    const tail = eats ? null : body[body.length - 1];
+    if (body.some(([x, y]) => x === nx && y === ny && !(tail && x === tail[0] && y === tail[1]))) {
+      over = true; stop();
+      if (score > best) { best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch (_) { /* не запомнится */ } }
+      showScore(); draw(); return;
+    }
+    body.unshift([nx, ny]);
+    if (eats) { score++; placeFood(); showScore(); } else body.pop();
+    draw();
+    timer = setTimeout(step, Math.max(60, 150 - score * 4));
+  }
+  function start() { if (over) reset(); running = true; clearTimeout(timer); timer = setTimeout(step, 120); draw(); }
+  function stop() { running = false; clearTimeout(timer); }
+
+  function draw() {
+    const w = cv.width, h = cv.height, s = w / COLS, r = Math.min(parseFloat(css("--r")) || 8, s * 0.45);
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = css("--line");
+    for (let y = 0; y < ROWS; y++) for (let x = (y & 1); x < COLS; x += 2) {
+      ctx.beginPath(); ctx.arc(x * s + s / 2, y * s + s / 2, s * 0.05, 0, 7); ctx.fill();
+    }
+    if (food >= 0) {
+      ctx.fillStyle = css("--warn");
+      ctx.beginPath(); ctx.arc((food % COLS) * s + s / 2, Math.floor(food / COLS) * s + s / 2, s * 0.32, 0, 7); ctx.fill();
+    }
+    const acc = css("--acc");
+    body.forEach(([x, y], i) => {
+      ctx.globalAlpha = 1 - i / (body.length + 6);
+      ctx.fillStyle = acc;
+      ctx.beginPath(); ctx.roundRect(x * s + s * 0.08, y * s + s * 0.08, s * 0.84, s * 0.84, r * 0.6); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    if (!running) {
+      ctx.fillStyle = css("--fg");
+      ctx.font = "700 26px " + (css("--font") || "sans-serif");
+      ctx.textAlign = "center";
+      ctx.fillText(over ? L().snakeOver(score) : L().snakeTitle, w / 2, h * 0.32);
+      ctx.fillStyle = css("--dim");
+      ctx.font = "14px " + (css("--font") || "sans-serif");
+      ctx.fillText(L().snakeStart, w / 2, h * 0.32 + 28);
+    }
+  }
+
+  function open() { reset(); box.hidden = false; draw(); $("snake-close").focus(); }
+  function close() { stop(); box.hidden = true; }
+
+  document.querySelector("#titlebar .brand .logo").addEventListener("click", () => {
+    const now = Date.now();
+    taps = now - last > GAP ? 1 : taps + 1;
+    last = now;
+    if (taps >= TAPS) { taps = 0; open(); }
+  });
+  $("snake-close").addEventListener("click", close);
+  box.addEventListener("click", (e) => { if (e.target === box) close(); });
+  cv.addEventListener("click", () => (running ? stop() : start()) || draw());
+  const KEYS = { ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1], ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0] };
+  addEventListener("keydown", (e) => {
+    if (box.hidden) return;
+    if (e.code === "Escape") { close(); e.preventDefault(); return; }
+    if (e.code === "Space") { running ? stop() : start(); draw(); e.preventDefault(); return; }
+    const next = KEYS[e.code];
+    if (!next) return;
+    e.preventDefault();
+    // Разворот назад в тот же ход змея не делает — иначе съела бы себя.
+    const base = queued || dir;
+    if (next[0] === -base[0] && next[1] === -base[1]) return;
+    queued = next;
+    if (!running) start();
+  });
+}
 </script>
 </body>
 </html>

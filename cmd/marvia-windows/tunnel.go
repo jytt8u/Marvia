@@ -147,6 +147,11 @@ type Controller struct {
 	proxy   wintun.Proxy
 	proxyAt time.Time
 
+	// adapterAt — когда последний раз проверяли, что адаптер ещё в системе;
+	// adapterLost — что пропажу уже заметили и убираем туннель.
+	adapterAt   time.Time
+	adapterLost bool
+
 	dns string
 	mtu uint32
 	log *journal
@@ -241,6 +246,25 @@ const historyTick = 5 * time.Second
 // proxyRecheck — как часто перепроверять системный прокси при поднятом туннеле.
 const proxyRecheck = 10 * time.Second
 
+// adapterRecheck — как часто проверять, что адаптер туннеля ещё в системе.
+const adapterRecheck = 5 * time.Second
+
+// adapterPresent — проверка адаптера; подменяется в тестах.
+var adapterPresent = func(a *wintun.Adapter) bool { return a.Present() }
+
+// loseAdapter убирает туннель, у которого пропал адаптер, и говорит почему.
+// Пересоздавать сами не пытаемся: та же программа удалила бы его снова, и
+// окно мигало бы «подключено — потеряно» без конца.
+func (c *Controller) loseAdapter() {
+	c.log.add("%s", say("adapterGone"))
+	c.Disconnect()
+	c.mu.Lock()
+	c.state = StateFailed
+	c.reason = say("adapterGone")
+	c.adapterLost = false
+	c.mu.Unlock()
+}
+
 // systemProxy — чтение настроек прокси; подменяется в тестах.
 var systemProxy = wintun.SystemProxy
 
@@ -250,6 +274,15 @@ func (c *Controller) Status() Status {
 	if c.state == StateConnected && time.Since(c.proxyAt) >= proxyRecheck {
 		c.proxy = systemProxy()
 		c.proxyAt = time.Now()
+	}
+	// Адаптер мог исчезнуть: другая программа на Wintun удаляет его, и
+	// трафик идёт мимо туннеля, а окно продолжало бы писать «подключено».
+	if c.state == StateConnected && c.adapter != nil && !c.adapterLost && time.Since(c.adapterAt) >= adapterRecheck {
+		c.adapterAt = time.Now()
+		if !adapterPresent(c.adapter) {
+			c.adapterLost = true
+			go c.loseAdapter()
+		}
 	}
 	pingMS := int64(0)
 	if c.dialer != nil {

@@ -101,3 +101,28 @@ func TestAProxySetAfterConnectingStillReachesTheWindow(t *testing.T) {
 		t.Fatalf("прокси, поставленный после подключения, не дошёл до окна: %+v", s)
 	}
 }
+
+func TestALostAdapterEndsTheConnectionInsteadOfPretendingToBeConnected(t *testing.T) {
+	// Другая программа на Wintun удалила наш адаптер: трафик идёт мимо
+	// туннеля, и окно не должно продолжать писать «подключено».
+	old := adapterPresent
+	t.Cleanup(func() { adapterPresent = old })
+	adapterPresent = func(*wintun.Adapter) bool { return false }
+
+	c := &Controller{state: StateConnected, node: client.Node{ID: 2}, log: newJournal(), adapter: &wintun.Adapter{}, proxyAt: time.Now()}
+	c.Status()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		s := c.Status()
+		if s.State == StateFailed {
+			if s.Reason == "" {
+				t.Fatal("туннель снят без объяснения")
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("пропажа адаптера не замечена: состояние %q", s.State)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}

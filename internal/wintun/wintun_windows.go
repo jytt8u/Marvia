@@ -131,6 +131,15 @@ func (a *Adapter) claimTraffic() error {
 // для него — это «через этот интерфейс».
 func (a *Adapter) LUID() uint64 { return uint64(a.luid) }
 
+// Present сообщает, есть ли ещё адаптер в системе. Его может удалить другая
+// программа на том же драйвере Wintun — например, Hiddify при переустановке
+// драйвера, — и тогда трафик идёт мимо туннеля, хотя мы считаем себя
+// подключёнными.
+func (a *Adapter) Present() bool {
+	_, err := a.luid.Interface()
+	return err == nil
+}
+
 // Endpoint отдаёт интерфейс в том виде, в каком его ждёт мост.
 func (a *Adapter) Endpoint() stack.LinkEndpoint { return a.dev }
 

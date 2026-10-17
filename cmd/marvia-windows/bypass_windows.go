@@ -151,6 +151,7 @@ func (c *Controller) Settings() SettingsView {
 		KillSwitch:      c.settings.KillSwitch,
 		KillSwitchInUse: killInUse,
 		KillSwitchError: c.guardErr,
+		AutoFix:         !c.settings.AutoFixOff,
 	}
 }
 
@@ -183,6 +184,9 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	}
 	if p.KillSwitch != nil {
 		next.KillSwitch = *p.KillSwitch
+	}
+	if p.AutoFix != nil {
+		next.AutoFixOff = !*p.AutoFix
 	}
 	if p.DNSSecure != nil {
 		next.DNSPlain = !*p.DNSSecure

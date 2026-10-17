@@ -34,11 +34,23 @@ type Proxy struct {
 	// AutoConfig — адрес файла автонастройки. Его правила мы не выполняем
 	// и не знаем, какой прокси они выбирают для конкретного запроса.
 	AutoConfig string
+
+	// Listening — на порту прокси кто-то слушает. Для прокси на другой
+	// машине не проверяется и остаётся false.
+	Listening bool
 }
 
 // Found сообщает, нашлось ли что-нибудь.
 func (p Proxy) Found() bool {
 	return p.Server != "" || p.AutoConfig != ""
+}
+
+// Dead — прокси на этой машине, который никто не слушает: его оставила
+// закрытая программа, и браузер через него не открывает ничего. Прокси из
+// переменных окружения сюда не входит — его снимают не в реестре.
+func (p Proxy) Dead() bool {
+	_, local := parseProxyPort(p.Server)
+	return p.Server != "" && local && !p.FromEnv && !p.Listening
 }
 
 // Describe — одна фраза для окна, без технических подробностей.
@@ -79,7 +91,8 @@ const proxyKey = `Software\Microsoft\Windows\CurrentVersion\Internet Settings`
 // первый найденный — иначе окно превратится в перечисление.
 func SystemProxy() Proxy {
 	if server := envProxy(); server != "" {
-		return Proxy{Server: server, Owner: ownerOf(server), FromEnv: true}
+		owner, listening := ownerOf(server)
+		return Proxy{Server: server, Owner: owner, FromEnv: true, Listening: listening}
 	}
 
 	key, err := registry.OpenKey(registry.CURRENT_USER, proxyKey, registry.QUERY_VALUE)
@@ -105,7 +118,7 @@ func SystemProxy() Proxy {
 	}
 
 	found.Server = strings.TrimSpace(server)
-	found.Owner = ownerOf(found.Server)
+	found.Owner, found.Listening = ownerOf(found.Server)
 	return found
 }
 
@@ -125,10 +138,10 @@ func envProxy() string {
 // чужих ярлыках, и лезть туда мы не будем — оттуда их убирает тот, кто
 // поставил.
 //
-// Вызывается исключительно по нажатию человека. Сама программа чужих настроек
-// не трогает: прокси мог быть поставлен осознанно — рабочим, родительским
-// контролем, чем угодно, — и снять его молча значило бы сломать то, чего мы
-// не понимаем.
+// Живой чужой прокси снимается только по нажатию человека: его могли
+// поставить осознанно — рабочим, родительским контролем, чем угодно, — и снять
+// его молча значило бы сломать то, чего мы не понимаем. Сама программа снимает
+// лишь мёртвый (Proxy.Dead): на нём никого нет, и ломать там уже нечего.
 func DisableSystemProxy() error {
 	key, err := registry.OpenKey(registry.CURRENT_USER, proxyKey, registry.SET_VALUE)
 	if err != nil {

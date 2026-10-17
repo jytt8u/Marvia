@@ -40,17 +40,18 @@ type tcpRow struct {
 // Пустая строка — обычный ответ, а не ошибка: прокси может стоять на другой
 // машине, а процесс — принадлежать другому пользователю. Предупреждение и без
 // имени остаётся верным, поэтому здесь мы ничего не ломаем молчанием.
-func ownerOf(server string) string {
+// Второе значение — слушает ли порт хоть кто-то, пусть и безымянный.
+func ownerOf(server string) (string, bool) {
 	port, local := parseProxyPort(server)
 	if !local || port == 0 {
-		return ""
+		return "", false
 	}
 
 	pid, ok := listenerPID(port)
 	if !ok {
-		return ""
+		return "", false
 	}
-	return processName(pid)
+	return processName(pid), true
 }
 
 // parseProxyPort достаёт порт и отвечает, на этой ли машине прокси.

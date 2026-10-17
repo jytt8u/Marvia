@@ -26,8 +26,9 @@ func TestZapretWarpAndASecondVPNAreNamedInTheWindow(t *testing.T) {
 	t.Cleanup(func() { processList = old })
 	processList = func() []string { return []string{"winws.exe"} }
 	c := &Controller{state: StateIdle, node: client.Node{}, log: newJournal(), proxyAt: time.Now()}
+	c.refreshConflicts()
 	s := c.Status()
-	if len(s.Conflicts) != 1 || !strings.Contains(s.Conflicts[0], "zapret") || !strings.Contains(s.Conflicts[0], "Stop-Service zapret") {
+	if len(s.Conflicts) != 1 || !strings.Contains(s.Conflicts[0], "zapret") || !strings.Contains(s.Conflicts[0], "«Починить»") {
 		t.Fatalf("окно не получило понятного сообщения про zapret: %v", s.Conflicts)
 	}
 }

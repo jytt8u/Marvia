@@ -114,6 +114,8 @@ func serveUI(ctl *Controller, log *journal, onWindow *func(windowRequest)) (stri
 	mux.HandleFunc("POST "+prefix+"/api/nodes/measure", u.measureNodes)
 	mux.HandleFunc("POST "+prefix+"/api/nodes/select", u.selectNode)
 	mux.HandleFunc("POST "+prefix+"/api/proxy/off", u.dropProxy)
+	mux.HandleFunc("POST "+prefix+"/api/fix", u.fix)
+	mux.HandleFunc("POST "+prefix+"/api/check", u.recheck)
 	mux.HandleFunc("POST "+prefix+"/api/update/open", u.openUpdate)
 	mux.HandleFunc("POST "+prefix+"/api/seller/open", u.openSeller)
 	mux.HandleFunc("POST "+prefix+"/api/seller/seen", u.seenReminder)
@@ -236,6 +238,25 @@ func (u *ui) selectNode(w http.ResponseWriter, r *http.Request) {
 // dropProxy снимает системный прокси — по нажатию человека, не сам.
 func (u *ui) dropProxy(w http.ResponseWriter, _ *http.Request) {
 	if err := u.ctl.DropProxy(); err != nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, u.ctl.Status())
+}
+
+// fix — «Починить»: что сделано, словами, и состояние после.
+func (u *ui) fix(w http.ResponseWriter, _ *http.Request) {
+	done, err := u.ctl.Fix()
+	if err != nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"done": done, "state": u.ctl.Status()})
+}
+
+// recheck — «Проверить ещё раз».
+func (u *ui) recheck(w http.ResponseWriter, _ *http.Request) {
+	if err := u.ctl.Recheck(); err != nil {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 		return
 	}

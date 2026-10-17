@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -58,6 +59,9 @@ type Status struct {
 	Reason    string `json:"reason,omitempty"`
 	// Conflicts — мешающие программы, уже словами на языке окна.
 	Conflicts []string `json:"conflicts,omitempty"`
+	// Check — что нашла проверка после подключения, словами; пусто — всё
+	// открывается или проверки ещё не было.
+	Check string `json:"check,omitempty"`
 
 	// Подписка: до какого числа и сколько трафика осталось. Пустые значения
 	// означают, что продавец не поставил ни срока, ни квоты, — врать про
@@ -155,8 +159,22 @@ type Controller struct {
 	adapterLost bool
 
 	// conflicts — мешающие программы, найденные при последней проверке.
-	conflicts   []string
-	conflictsAt time.Time
+	// Ищутся в фоне (conflictsBusy): спросить WARP, подключён ли он, — это
+	// запуск его утилиты, и держать ради неё замок окна нельзя.
+	conflicts     []string
+	conflictsAt   time.Time
+	conflictsBusy bool
+
+	// fixer — помехи, остановленные на время подключения; см. autofix.go.
+	fixer *pauser
+
+	// recoveredAt — когда последний раз сами поднимали пропавший адаптер.
+	recoveredAt time.Time
+
+	// check — итог проверки после подключения: пусто — всё хорошо или ещё
+	// не проверяли, иначе ключ сообщения; checkNode — нода, о которой он.
+	check     string
+	checkNode string
 
 	dns string
 	mtu uint32
@@ -224,6 +242,16 @@ func NewController(dns string, mtu uint32, log *journal) *Controller {
 	if path, err := accountPath(); err == nil {
 		c.traffic.load(filepath.Join(filepath.Dir(path), "traffic.json"), time.Now())
 	}
+	pausedPath := ""
+	if dir, err := settingsDir(); err == nil {
+		pausedPath = filepath.Join(dir, "paused.json")
+	}
+	c.fixer = newPauser(pausedPath, func(s string) { c.log.add("%s", s) })
+	// Остатки прошлого запуска: программа упала или компьютер выключили
+	// посреди подключения, и zapret с WARP так и стоят выключенными.
+	if c.fixer.pending() {
+		go c.fixer.restore()
+	}
 	if dir, err := settingsDir(); err == nil {
 		c.settings = loadSettings(dir)
 		c.lan.Store(c.settings.LANOutside)
@@ -265,10 +293,34 @@ const adapterRecheck = 5 * time.Second
 // adapterPresent — проверка адаптера; подменяется в тестах.
 var adapterPresent = func(a *wintun.Adapter) bool { return a.Present() }
 
-// loseAdapter убирает туннель, у которого пропал адаптер, и говорит почему.
-// Пересоздавать сами не пытаемся: та же программа удалила бы его снова, и
-// окно мигало бы «подключено — потеряно» без конца.
+// recoverGap — реже этого пропавший адаптер сами не поднимаем.
+const recoverGap = 2 * time.Minute
+
+// loseAdapter поднимает туннель заново, когда адаптер пропал.
+//
+// Один раз — сами: адаптер чаще всего удаляет программа, которую уже
+// закрыли, и человеку незачем узнавать об этом из ошибки. Пропал снова за
+// пару минут — значит, его удаляет то, что работает сейчас, и подъём по
+// кругу дал бы окно, мигающее «подключено — потеряно» без конца. Тогда
+// отключаемся и говорим почему: трафик в это время шёл бы мимо туннеля.
 func (c *Controller) loseAdapter() {
+	c.mu.Lock()
+	again := !c.settings.AutoFixOff && time.Since(c.recoveredAt) >= recoverGap
+	if again {
+		c.recoveredAt = time.Now()
+	}
+	c.mu.Unlock()
+
+	if again {
+		c.log.add("%s", say("logAdapterLost"))
+		c.teardown()
+		c.mu.Lock()
+		c.adapterLost = false
+		c.mu.Unlock()
+		_ = c.Connect()
+		return
+	}
+
 	c.log.add("%s", say("adapterGone"))
 	c.Disconnect()
 	c.mu.Lock()
@@ -281,16 +333,65 @@ func (c *Controller) loseAdapter() {
 // systemProxy — чтение настроек прокси; подменяется в тестах.
 var systemProxy = wintun.SystemProxy
 
+// disableProxy — снятие системного прокси; подменяется в тестах.
+var disableProxy = wintun.DisableSystemProxy
+
+// dropDeadProxy снимает прокси, который никто не слушает.
+//
+// Чужой прокси сами не трогаем (см. DropProxy), но мёртвый — не чей-то
+// выбор, а мусор: закрытая не той кнопкой программа оставила адрес, на
+// котором больше никого нет, и браузер с ним не открывает ничего. Вернуть
+// его после отключения тоже нельзя — вернули бы поломку. Звать с отпущенным
+// замком: чтение таблицы сокетов — не для окна, ждущего ответа.
+func (c *Controller) dropDeadProxy() bool {
+	p := systemProxy()
+	if !p.Dead() {
+		return false
+	}
+	if err := disableProxy(); err != nil {
+		c.log.add("%s", sayf("logCleanup", err))
+		return false
+	}
+	c.log.add("%s", sayf("logDeadProxy", p.Server))
+	c.mu.Lock()
+	c.proxy = systemProxy()
+	c.proxyAt = time.Now()
+	c.mu.Unlock()
+	return true
+}
+
+// refreshConflicts ищет мешающие программы в фоне.
+//
+// WARP мешает, только когда подключён: его служба работает всегда, пока он
+// установлен, и называть помехой выключенный WARP значило бы гнать человека
+// удалять то, что ничему не мешает.
+func (c *Controller) refreshConflicts() {
+	found := conflictsAmong(processList())
+	if i := slices.Index(found, "conflictWarp"); i >= 0 && !warpConnected() {
+		found = slices.Delete(found, i, i+1)
+	}
+	c.mu.Lock()
+	c.conflicts = found
+	c.conflictsAt = time.Now()
+	c.conflictsBusy = false
+	c.mu.Unlock()
+}
+
 func (c *Controller) Status() Status {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if time.Since(c.conflictsAt) >= conflictRecheck {
-		c.conflicts = conflictsAmong(processList())
-		c.conflictsAt = time.Now()
+	if !c.conflictsBusy && time.Since(c.conflictsAt) >= conflictRecheck {
+		c.conflictsBusy = true
+		go c.refreshConflicts()
 	}
 	if c.state == StateConnected && time.Since(c.proxyAt) >= proxyRecheck {
 		c.proxy = systemProxy()
 		c.proxyAt = time.Now()
+		// Прокси, поставленный уже после подключения и тут же брошенный, —
+		// тот же мусор, что и до него.
+		if c.proxy.Dead() && !c.settings.AutoFixOff {
+			go c.dropDeadProxy()
+		}
 	}
 	// Адаптер мог исчезнуть: другая программа на Wintun удаляет его, и
 	// трафик идёт мимо туннеля, а окно продолжало бы писать «подключено».
@@ -327,6 +428,7 @@ func (c *Controller) Status() Status {
 		Update:      c.update.Version,
 		UpdateURL:   c.update.URL,
 		Conflicts:   conflictTexts(c.conflicts),
+		Check:       c.checkText(),
 		Proxy:       c.proxy.Describe(),
 		ProxyOwner:  c.proxy.Owner,
 		ProxyServer: c.proxy.Server,
@@ -446,7 +548,7 @@ func (c *Controller) AddKey(name, link string) error {
 	// «Сделать рабочим»: держать трафик на прежнем, показывая в окне новый,
 	// значило бы врать, через чьи серверы он идёт.
 	if changed && up {
-		c.Disconnect()
+		c.teardown()
 		return c.Connect()
 	}
 	return nil
@@ -499,6 +601,12 @@ func (c *Controller) Connect() error {
 }
 
 func (c *Controller) connect(ctx context.Context, link string, set pcSettings) {
+	// Помехи убираем до дозвона: служба zapret перехватывает и само
+	// соединение с нодой, если та стоит на адресах его списка.
+	if !set.AutoFixOff {
+		c.fixer.pause()
+		c.dropDeadProxy()
+	}
 	if err := c.raise(ctx, link, set); err != nil {
 		if ctx.Err() != nil {
 			// Человек нажал «отключиться», не дождавшись. Это не ошибка.
@@ -510,6 +618,9 @@ func (c *Controller) connect(ctx context.Context, link string, set pcSettings) {
 		// тот случай, когда нужна свежая ссылка «Продлить».
 		c.rememberSubscription(link)
 		c.finish(ctx, StateFailed, err.Error())
+		// Без туннеля остановленный zapret только отнимает у человека
+		// YouTube: возвращаем всё сразу, а не по кнопке «Отключить».
+		c.fixer.restore()
 	}
 }
 
@@ -709,6 +820,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	c.mu.Unlock()
 
 	c.log.add("%s", sayf("logTunnelUp", node.Name))
+	go c.selfCheck(ctx, dialer)
 
 	return nil
 }
@@ -733,8 +845,16 @@ func (c *Controller) names(resolver string, set pcSettings, tunnel tunbridge.Dia
 	return r, nil
 }
 
-// Disconnect убирает туннель и всё, что под него настраивалось.
+// Disconnect убирает туннель и всё, что под него настраивалось, и
+// возвращает помехи, остановленные на время подключения.
 func (c *Controller) Disconnect() {
+	c.teardown()
+	c.fixer.restore()
+}
+
+// teardown убирает туннель, не возвращая помех: переподключению они снова
+// помешали бы, а запускать zapret на секунду между двумя туннелями незачем.
+func (c *Controller) teardown() {
 	c.disconnectMu.Lock()
 	defer c.disconnectMu.Unlock()
 	c.mu.Lock()
@@ -766,6 +886,7 @@ func (c *Controller) Disconnect() {
 	c.ipv6InUse = nil
 	c.until, c.limitBytes, c.leftBytes = "", 0, 0
 	c.since = time.Time{}
+	c.check, c.checkNode = "", ""
 	c.mu.Unlock()
 
 	// Порядок обратный сборке: сначала перестаём разбирать пакеты, потом
@@ -824,6 +945,7 @@ func (c *Controller) moved(ctx context.Context, node client.Node) {
 	bridge.NodeChanged()
 
 	c.log.add("%s", sayf("logMoved", node.Title()))
+	go c.selfCheck(ctx, c.currentDialer())
 }
 
 // stall — нода замолчала, а переехать не на что.

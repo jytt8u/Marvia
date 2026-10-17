@@ -389,6 +389,7 @@
   .leak .body { display: block; height: auto; font-size: 12px; line-height: 1.45; }
   .conflict-list { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; }
   .side .leak { max-width: none; }
+  .leak.done { background: rgba(70,180,120,.10); border-color: rgba(70,180,120,.45); }
   .leak .body { font-size: 12px; line-height: 1.5; color: var(--fg); }
   .leak .act { display: flex; align-items: center; gap: 10px; }
   .leak .said { font-size: 12px; color: var(--dim); }
@@ -1549,6 +1550,32 @@
                 <span class="title" data-t="conflictTitle"></span>
               </div>
               <ul class="body conflict-list" id="conflict-list"></ul>
+              <div class="act">
+                <button class="chip" id="conflict-fix" type="button" data-t="fixBtn"></button>
+                <span class="said" id="conflict-msg"></span>
+              </div>
+            </div>
+            <!--
+              Проверка после подключения: нода ответила, а сайты не
+              открываются. Без неё окно писало «Подключено» при мёртвом
+              браузере, и виноватой выглядела Marvia.
+            -->
+            <!-- Что сделала «Починить»: карточка с помехой после этого прячется,
+                 и без отчёта человек не узнал бы, что именно поменялось. -->
+            <div class="leak done" id="fix-done" hidden>
+              <div class="body" id="fix-done-text"></div>
+            </div>
+            <div class="leak" id="check-warn" hidden>
+              <div class="head">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v5M12 17.5v.01"/><path d="M10.3 3.9 2.4 17.4A2 2 0 0 0 4.1 20.4h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                <span class="title" data-t="checkTitle"></span>
+              </div>
+              <div class="body" id="check-text"></div>
+              <div class="act">
+                <button class="chip" id="check-fix" type="button" data-t="fixBtn"></button>
+                <button class="chip" id="check-again" type="button" data-t="checkAgain"></button>
+                <span class="said" id="check-msg"></span>
+              </div>
             </div>
             <!--
               Канал продавца: напоминание о сроке, объявление и две кнопки.
@@ -1912,6 +1939,15 @@
                 <div>
                   <div class="grow"><span class="name" data-t="killSwitch"></span><span class="sub" data-t="killSwitchHint"></span><span class="sub" id="kill-switch-msg"></span></div>
                   <button class="chip" id="kill-switch" type="button" aria-pressed="false"></button>
+                </div>
+                <!--
+                  Убирать помехи самим: zapret и WARP — на время подключения,
+                  брошенный прокси — насовсем. Включено по умолчанию: к нам
+                  приходят те, кто сам их не уберёт.
+                -->
+                <div>
+                  <div class="grow"><span class="name" data-t="autoFix"></span><span class="sub" data-t="autoFixHint"></span><span class="sub" id="auto-fix-msg"></span></div>
+                  <button class="chip" id="auto-fix" type="button" aria-pressed="false"></button>
                 </div>
                 <div>
                   <div class="grow"><span class="name" data-t="ipv6"></span><span class="sub" data-t="ipv6Hint"></span><span class="sub" id="ipv6-msg"></span></div>
@@ -2433,6 +2469,15 @@ const T = {
 
     proxyTitle: "Обнаружен системный прокси",
     conflictTitle: "Мешают другие программы",
+    fixBtn: "Починить",
+    fixing: "чиню…",
+    fixDone: "Сделано:",
+    checkTitle: "Сайты не открываются",
+    checkAgain: "Проверить ещё раз",
+    checking: "проверяю…",
+    checkFine: "Теперь открываются.",
+    autoFix: "Убирать помехи сам",
+    autoFixHint: "На время подключения Marvia останавливает zapret, GoodbyeDPI и Cloudflare WARP, а после отключения запускает их снова. Брошенный прокси, на котором никто не отвечает, убирает, а пропавший адаптер поднимает заново. Чужие VPN-клиенты сама не закрывает — это делает кнопка «Починить».",
     proxyCare: "Если прокси ставили не вы — на рабочем компьютере или под родительским "
       + "контролем — не трогайте его: без него перестанут открываться рабочие ресурсы.",
     proxyOff: "Убрать прокси",
@@ -2706,6 +2751,15 @@ const T = {
 
     proxyTitle: "A system proxy is configured",
     conflictTitle: "Other programs get in the way",
+    fixBtn: "Fix",
+    fixing: "fixing…",
+    fixDone: "Done:",
+    checkTitle: "Sites do not open",
+    checkAgain: "Check again",
+    checking: "checking…",
+    checkFine: "They open now.",
+    autoFix: "Clear interference automatically",
+    autoFixHint: "While connected, Marvia pauses zapret, GoodbyeDPI and Cloudflare WARP and starts them again after you disconnect. It removes an abandoned proxy nobody answers on and brings a vanished adapter back. It does not close other VPN clients on its own — the “Fix” button does that.",
     proxyCare: "If you did not set the proxy — on a work computer or under parental "
       + "controls — leave it alone: without it work resources stop opening.",
     proxyOff: "Remove the proxy",
@@ -3245,14 +3299,61 @@ on("update-open", "click", () => api("POST", "api/update/open").catch(() => {}))
   запущенных программах, наша правка до них не дойдёт, и обещать обратное
   нечестно — так и пишем.
 */
+// Помехи важны, только пока есть туннель или он только что не поднялся:
+// zapret без VPN никому не мешает, и пугать им до подключения незачем.
 function showConflicts(s) {
   const list = s.conflicts || [];
-  $("conflict-warn").hidden = list.length === 0;
+  const live = s.state === "connected" || s.state === "stalled" || s.state === "failed";
+  $("conflict-warn").hidden = list.length === 0 || !live;
   $("conflict-list").replaceChildren(...list.map((text) => {
     const li = document.createElement("li");
     li.textContent = text;
     return li;
   }));
+}
+
+function showCheck(s) {
+  $("check-warn").hidden = !s.check;
+  $("check-text").textContent = s.check || "";
+}
+
+let fixedTimer = 0;
+function showFixed(done) {
+  $("fix-done-text").textContent = L().fixDone + " " + done.join("; ");
+  $("fix-done").hidden = false;
+  clearTimeout(fixedTimer);
+  fixedTimer = setTimeout(() => { $("fix-done").hidden = true; }, 15000);
+}
+
+// fixNow — «Починить» с любой карточки: что сделано, пишем рядом с кнопкой.
+async function fixNow(button, said) {
+  button.disabled = true;
+  $(said).textContent = L().fixing;
+  try {
+    const r = await api("POST", "api/fix");
+    $(said).textContent = "";
+    render(r.state);
+    showFixed(r.done);
+  } catch (e) {
+    $(said).textContent = e.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function recheck() {
+  const button = $("check-again");
+  button.disabled = true;
+  $("check-msg").textContent = L().checking;
+  try {
+    const s = await api("POST", "api/check");
+    render(s);
+    $("check-msg").textContent = s.check ? "" : L().checkFine;
+  } catch (e) {
+    $("check-msg").textContent = e.message;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function showProxy(s) {
@@ -3832,6 +3933,7 @@ function render(s) {
 
   showProxy(s);
   showConflicts(s);
+  showCheck(s);
   paintSeller(s.seller);
 
   // Снятия делает ядро: скорость и пик не теряются, пока окно спрятано.
@@ -4059,6 +4161,9 @@ for (const b of $("close-pick").querySelectorAll("[data-quit]")) {
 paintClose();
 
 on("proxy-off", "click", dropProxy);
+on("conflict-fix", "click", () => fixNow($("conflict-fix"), "conflict-msg"));
+on("check-fix", "click", () => fixNow($("check-fix"), "check-msg"));
+on("check-again", "click", recheck);
 
 // Канал продавца. Объявление — только через textContent: его пишет продавец,
 // и разметкой оно стать не должно.
@@ -4136,6 +4241,10 @@ function paintConn() {
     : conn.kill_switch_error ? d.killSwitchFailed(conn.kill_switch_error)
     : conn.kill_switch_in_use ? d.killSwitchOn
     : d.killSwitchWait;
+
+  const af = $("auto-fix");
+  af.textContent = conn.auto_fix ? d.toggleOn : d.toggleOff;
+  af.setAttribute("aria-pressed", String(!!conn.auto_fix));
 
   const rep = $("reports");
   rep.textContent = conn.reports ? d.reportsOn : d.reportsOff;
@@ -4272,6 +4381,7 @@ async function changeConn(button, patch, msg) {
 on("bypass-ru", "click", () => changeConn($("bypass-ru"), { bypass_russian: !conn.bypass_russian }, "bypass-ru-msg"));
 on("lan", "click", () => changeConn($("lan"), { lan_outside: !conn.lan_outside }, "lan-msg"));
 on("kill-switch", "click", () => changeConn($("kill-switch"), { kill_switch: !conn.kill_switch }, "kill-switch-msg"));
+on("auto-fix", "click", () => changeConn($("auto-fix"), { auto_fix: !conn.auto_fix }, "auto-fix-msg"));
 on("reports", "click", () => changeConn($("reports"), { reports: !conn.reports }, "reports-msg"));
 on("ipv6", "click", () => changeConn($("ipv6"), { ipv6: !conn.ipv6 }, "ipv6-msg"));
 on("fragment", "click", () => changeConn($("fragment"), { fragment: !conn.fragment }, "fragment-msg"));
@@ -5868,7 +5978,7 @@ document.querySelector('.tab[data-tab="settings"]').addEventListener("click", ()
 // Переключатели вместо кнопок «Включено / Выключено»: состояние видно
 // формой, а не надписью. Надпись остаётся внутри — для экранного диктора.
 // Нажатие на саму строку тоже переключает: в узкую кнопку не надо целиться.
-const SWITCHES = ["vibe-splash", "vibe-sound", "vibe-fx", "vibe-click", "bypass-ru", "lan", "kill-switch", "ipv6", "fragment", "reports", "dns-secure", "autostart"];
+const SWITCHES = ["vibe-splash", "vibe-sound", "vibe-fx", "vibe-click", "bypass-ru", "lan", "kill-switch", "auto-fix", "ipv6", "fragment", "reports", "dns-secure", "autostart"];
 for (const id of SWITCHES) {
   const b = $(id);
   if (!b) continue;

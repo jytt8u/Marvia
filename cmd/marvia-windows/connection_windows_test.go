@@ -94,7 +94,7 @@ func TestAProxySetAfterConnectingStillReachesTheWindow(t *testing.T) {
 	if s := c.Status(); s.Proxy != "" {
 		t.Fatalf("прокси нет, а окно его показывает: %q", s.Proxy)
 	}
-	proxy = wintun.Proxy{Server: "http://127.0.0.1:12334", Owner: "Hiddify"}
+	proxy = wintun.Proxy{Server: "http://127.0.0.1:12334", Owner: "Hiddify", Listening: true}
 	c.proxyAt = time.Now().Add(-proxyRecheck)
 	s := c.Status()
 	if s.Proxy == "" || s.ProxyOwner != "Hiddify" || s.ProxyServer != "http://127.0.0.1:12334" {
@@ -105,11 +105,13 @@ func TestAProxySetAfterConnectingStillReachesTheWindow(t *testing.T) {
 func TestALostAdapterEndsTheConnectionInsteadOfPretendingToBeConnected(t *testing.T) {
 	// Другая программа на Wintun удалила наш адаптер: трафик идёт мимо
 	// туннеля, и окно не должно продолжать писать «подключено».
+	// Адаптер пропадает второй раз за минуту — значит, его удаляет то, что
+	// работает сейчас, и поднимать его снова по кругу нельзя.
 	old := adapterPresent
 	t.Cleanup(func() { adapterPresent = old })
 	adapterPresent = func(*wintun.Adapter) bool { return false }
 
-	c := &Controller{state: StateConnected, node: client.Node{ID: 2}, log: newJournal(), adapter: &wintun.Adapter{}, proxyAt: time.Now()}
+	c := &Controller{state: StateConnected, node: client.Node{ID: 2}, log: newJournal(), adapter: &wintun.Adapter{}, proxyAt: time.Now(), recoveredAt: time.Now()}
 	c.Status()
 	deadline := time.Now().Add(2 * time.Second)
 	for {

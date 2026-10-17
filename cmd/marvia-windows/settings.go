@@ -69,6 +69,12 @@ type pcSettings struct {
 	// знать, что выбрал, иначе это выглядит как поломка.
 	KillSwitch bool `json:"kill_switch,omitempty"`
 
+	// AutoFixOff — не убирать помехи самим: не останавливать zapret и WARP на
+	// время подключения, не снимать брошенный прокси, не поднимать пропавший
+	// адаптер. Хранится как «выключено», чтобы умолчание — убирать — было
+	// нулём: приходят к нам как раз те, кто сам этого не сделает.
+	AutoFixOff bool `json:"auto_fix_off,omitempty"`
+
 	// MTU — размер пакета на адаптере; ноль — как в программе по умолчанию.
 	// Нужен там, где провайдер или чужой туннель снаружи режет крупные
 	// пакеты: сайты открываются наполовину, а меньший MTU это лечит.
@@ -149,6 +155,9 @@ type SettingsView struct {
 	KillSwitch      bool   `json:"kill_switch"`
 	KillSwitchInUse *bool  `json:"kill_switch_in_use,omitempty"`
 	KillSwitchError string `json:"kill_switch_error,omitempty"`
+
+	// AutoFix — убирать ли помехи самим; см. pcSettings.AutoFixOff.
+	AutoFix bool `json:"auto_fix"`
 }
 
 // SettingsPatch — что окно просит поменять; nil — не трогать.
@@ -162,6 +171,7 @@ type SettingsPatch struct {
 	IPv6          *bool   `json:"ipv6"`
 	Reports       *bool   `json:"reports"`
 	KillSwitch    *bool   `json:"kill_switch"`
+	AutoFix       *bool   `json:"auto_fix"`
 }
 
 // settingsFile — где лежат настройки подключения.

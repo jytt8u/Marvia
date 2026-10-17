@@ -60,3 +60,24 @@ func TestAProxyListeningOnlyOnIPv6LoopbackIsFound(t *testing.T) {
 		t.Fatalf("слушатель [::1]:%d не найден: pid=%d ok=%v", port, pid, ok)
 	}
 }
+
+func TestOnlyAnAbandonedLocalProxyCountsAsDead(t *testing.T) {
+	cases := []struct {
+		p    Proxy
+		dead bool
+	}{
+		{Proxy{Server: "127.0.0.1:12334"}, true},
+		{Proxy{Server: "http://127.0.0.1:12334", Listening: true, Owner: "Hiddify.exe"}, false},
+		// Корпоративный прокси на другой машине мы не проверяем и не трогаем.
+		{Proxy{Server: "proxy.corp.local:3128"}, false},
+		// Переменные окружения из реестра не снять — это не «мусор в реестре».
+		{Proxy{Server: "127.0.0.1:12334", FromEnv: true}, false},
+		{Proxy{AutoConfig: "http://wpad/wpad.dat"}, false},
+		{Proxy{}, false},
+	}
+	for _, c := range cases {
+		if got := c.p.Dead(); got != c.dead {
+			t.Errorf("%+v: мёртвый=%v, ожидалось %v", c.p, got, c.dead)
+		}
+	}
+}

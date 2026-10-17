@@ -1,0 +1,3 @@
+0.13.0-alpha.15 — test release.
+No changes in the phone app: this release is about the PC program.
+The VP1 wire format is unchanged.

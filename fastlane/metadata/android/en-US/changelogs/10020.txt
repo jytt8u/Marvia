@@ -1,0 +1,3 @@
+0.13.0-alpha.16 — test release.
+Grey Graphite is the default look again; the old looks are replaced by eight pictures with glass cards: Summit, Sakura, Champagne, City, Haze, Autumn, Bordeaux, Powder.
+The VP1 wire format is unchanged.

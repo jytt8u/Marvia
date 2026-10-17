@@ -456,13 +456,21 @@
 
   /* Вид «Marvia»: страны строками — точка, имя, полоска качества, отклик. */
   .row-node {
-    display: grid; grid-template-columns: 22px 1fr 120px 92px; gap: 12px; align-items: center;
+    display: grid; grid-template-columns: 28px 1fr 120px 92px; gap: 12px; align-items: center;
     padding: 10px; min-height: 52px; border: 0; border-radius: min(var(--r), 10px); cursor: pointer; text-align: left;
     background: transparent; color: var(--fg); font: inherit; transition: background .3s;
   }
   .nodes[data-view="marvia"] { gap: 2px; }
   .row-node:hover { background: rgba(var(--accRgb), .06); }
   .row-node[data-current] { background: var(--accSoft); }
+  .flag { display: inline-flex; width: 26px; height: 18px; border-radius: 4px; overflow: hidden; flex: none;
+    box-shadow: 0 0 0 1px rgba(128,128,128,.35); justify-self: center; }
+  .flag svg { width: 100%; height: 100%; display: block; }
+  .flag.txt { align-items: center; justify-content: center; background: var(--shade); color: var(--dim);
+    font: 700 10px var(--mono); }
+  .flag.auto { box-shadow: none; color: var(--acc); }
+  .flag.auto svg { width: 18px; height: 18px; margin: auto; }
+  .row-node[data-current] .flag:not(.auto) { box-shadow: 0 0 0 2px var(--acc); }
   .row-node .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); justify-self: center; }
   .row-node[data-alive] .dot { background: var(--dim); }
   .row-node[data-current] .dot { background: var(--acc); box-shadow: 0 0 8px var(--acc); }
@@ -822,13 +830,6 @@
   .pick-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--dim); cursor: pointer; }
   .pick-row input[type="color"] { width: 46px; flex: none; }
 
-  /* Отклик на руку. */
-  .hero .ring { transition: transform .35s var(--ease); transform-style: preserve-3d; will-change: transform; }
-  .tilt { transition: transform .12s linear !important; }
-  .card, .kpi { transform-origin: center; }
-  .press-ring { position: absolute; width: 10px; height: 10px; margin: -5px; border-radius: 50%; pointer-events: none;
-    border: 2px solid var(--acc); animation: press 0.7s var(--ease) forwards; }
-  @keyframes press { to { transform: scale(26); opacity: 0; } }
   .power { overflow: hidden; }
 
   .dotunit { margin-left: .45em; font-size: .62em; font-family: var(--mono); letter-spacing: .04em; color: var(--dim); font-weight: 500; }
@@ -1666,6 +1667,39 @@
             <div class="nodes" id="nodes-list"></div>
           </div>
           <div class="col side">
+            <!--
+              Ключи — здесь, рядом со странами: ключ и есть «чьи это серверы».
+              В настройках их искали и не находили.
+            -->
+            <div class="card keycard">
+              <div class="card-head">
+                <div>
+                  <b id="key-label"></b>
+                  <div class="host" id="key-host"></div>
+                </div>
+                <span class="badge" id="key-state"></span>
+              </div>
+              <div class="facts">
+                <div class="fact"><div class="k" data-t="factTraffic"></div><div class="v" id="f-traffic">—</div></div>
+                <div class="fact"><div class="k" data-t="factUntil"></div><div class="v" id="f-until">—</div></div>
+              </div>
+              <div class="track"><i id="f-fill" style="width:0"></i></div>
+              <span class="hint" id="key-note"></span>
+              <p class="lead" data-t="keyLead"></p>
+              <textarea id="account" rows="3" spellcheck="false" placeholder="marvia://…  vless://…  https://…"></textarea>
+              <div class="row">
+                <input type="text" class="code-in" id="key-name" autocomplete="off" spellcheck="false" maxlength="40" style="width: 200px;">
+                <button class="primary" id="save" data-t="keySave"></button>
+                <span id="save-msg" class="hint"></span>
+              </div>
+              <!--
+                Сохранённые ключи: доступ бывает у двух продавцов сразу.
+                Рабочий один; смена переподнимает туннель.
+              -->
+              <div class="k" data-t="keysTitle"></div>
+              <div class="keys" id="keys-list"></div>
+              <p class="hint" data-t="keyHint"></p>
+            </div>
             <div class="card">
               <b data-t="nodesAutoTitle"></b>
               <p class="lead" data-t="nodesLead"></p>
@@ -1821,7 +1855,6 @@
           <nav class="set-nav" id="set-nav">
             <i class="set-pill" id="set-pill"></i>
             <button type="button" data-sec="overview"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><span class="set-txt"><b data-t="secOverTitle"></b><small id="ov-nav"></small></span></button>
-            <button type="button" data-sec="key"><span class="set-ico"><svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg></span><span class="set-txt"><b data-t="secKeyTitle"></b><small data-t="secKeySub"></small></span></button>
             <button type="button" data-sec="conn"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="set-txt"><b data-t="secConnTitle"></b><small data-t="secConnSub"></small></span></button>
             <button type="button" data-sec="look"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/></svg></span><span class="set-txt"><b data-t="secLookTitle"></b><small data-t="secLookSub"></small></span></button>
             <button type="button" data-sec="app"><span class="set-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg></span><span class="set-txt"><b data-t="secAppTitle"></b><small data-t="secAppSub"></small></span></button>
@@ -1842,38 +1875,6 @@
               <div class="ov-grid" id="ov-grid"></div>
               <div class="set-head"><h2 class="h3" data-t="promTitle"></h2><p data-t="promDesc"></p></div>
               <div class="promises" id="promises"></div>
-            </div>
-            <div class="group" data-sec="key">
-              <div class="set-head"><h2 data-t="secKeyTitle"></h2><p data-t="secKeyDesc"></p></div>
-              <div class="card keycard">
-                <div class="card-head">
-                  <div>
-                    <b id="key-label"></b>
-                    <div class="host" id="key-host"></div>
-                  </div>
-                  <span class="badge" id="key-state"></span>
-                </div>
-                <div class="facts">
-                  <div class="fact"><div class="k" data-t="factTraffic"></div><div class="v" id="f-traffic">—</div></div>
-                  <div class="fact"><div class="k" data-t="factUntil"></div><div class="v" id="f-until">—</div></div>
-                </div>
-                <div class="track"><i id="f-fill" style="width:0"></i></div>
-                <span class="hint" id="key-note"></span>
-                <p class="lead" data-t="keyLead"></p>
-                <textarea id="account" rows="3" spellcheck="false" placeholder="marvia://…  vless://…  https://…"></textarea>
-                <div class="row">
-                  <input type="text" class="code-in" id="key-name" autocomplete="off" spellcheck="false" maxlength="40" style="width: 200px;">
-                  <button class="primary" id="save" data-t="keySave"></button>
-                  <span id="save-msg" class="hint"></span>
-                </div>
-                <!--
-                  Сохранённые ключи: доступ бывает у двух продавцов сразу.
-                  Рабочий один; смена переподнимает туннель.
-                -->
-                <div class="k" data-t="keysTitle"></div>
-                <div class="keys" id="keys-list"></div>
-                <p class="hint" data-t="keyHint"></p>
-              </div>
             </div>
 
             <div class="group" data-sec="log">
@@ -1911,14 +1912,6 @@
                 <div>
                   <div class="grow"><span class="name" data-t="soundName"></span><span class="sub" data-t="soundHint"></span></div>
                   <button class="chip" id="vibe-sound" type="button" aria-pressed="false"></button>
-                </div>
-                <div>
-                  <div class="grow"><span class="name" data-t="fxName"></span><span class="sub" data-t="fxHint"></span></div>
-                  <button class="chip" id="vibe-fx" type="button" aria-pressed="true"></button>
-                </div>
-                <div>
-                  <div class="grow"><span class="name" data-t="clickName"></span><span class="sub" data-t="clickHint"></span></div>
-                  <button class="chip" id="vibe-click" type="button" aria-pressed="true"></button>
                 </div>
               </div>
             </div>
@@ -2379,8 +2372,6 @@ const T = {
     motions: { off: "Выкл", calm: "Спокойно", lively: "Живо" },
     motionSystem: "В Windows включено «уменьшение движения» — фон стоит, пока оно включено.",
     soundName: "Звук подключения", soundHint: "Короткий щелчок, когда туннель поднялся или опустился.",
-    fxName: "Отклик на руку", fxHint: "Кнопка тянется за курсором, карточки наклоняются, от нажатия расходится кольцо.",
-    clickName: "Волна по клику", clickHint: "Клик по пустому фону пускает по узору волну.",
     todayTraffic: "Трафик сегодня", peakDown: "Пик приёма за сессию", peakUp: "Пик отдачи за сессию",
     averageDown: "Приём в среднем", averageUp: "Отдача в среднем", wNoKey: "Добавьте ключ в настройках",
     chartTitle: "Трафик за час", chartFrom: "−60 мин", chartNow: "сейчас",
@@ -2663,8 +2654,6 @@ const T = {
     motions: { off: "Off", calm: "Calm", lively: "Lively" },
     motionSystem: "Windows has reduced motion on — the background stays still while it is.",
     soundName: "Connection sound", soundHint: "A short chirp when the tunnel goes up or down.",
-    fxName: "Responds to touch", fxHint: "The button leans toward the cursor, cards tilt, a ring spreads from a press.",
-    clickName: "Ripple on click", clickHint: "Clicking the empty background sends a ripple through the pattern.",
     todayTraffic: "Traffic today", peakDown: "Session download peak", peakUp: "Session upload peak",
     averageDown: "Average download", averageUp: "Average upload", wNoKey: "Add your access key in settings",
     chartTitle: "Traffic, last hour", chartFrom: "−60 min", chartNow: "now",
@@ -2860,7 +2849,7 @@ function finishWelcome() {
   onboarded = true;
   api("POST", "api/welcome").catch(() => { onboarded = false; });
   $("welcome").hidden = true;
-  document.querySelector('.tab[data-tab="settings"]').click();
+  document.querySelector('.tab[data-tab="nodes"]').click();
   $("account").focus();
 }
 
@@ -2892,7 +2881,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
 
     // Список стран подтягиваем при открытии вкладки, а не постоянно: он
     // меняется редко, а лишний опрос стоит человеку батареи и трафика.
-    if (openTab === "nodes") loadNodes();
+    if (openTab === "nodes") openNodes();
   });
 });
 
@@ -2908,11 +2897,12 @@ window.marviaView = ({mode, tab}) => {
 };
 
 // Вкладка из адреса: так виджет открывает полное окно сразу на нужной.
-// Ключ, журнал и «о программе» переехали в настройки; старые имена из
-// трея и ярлыков ведут туда же, чтобы ничего не открылось в пустоту.
+// Журнал и «о программе» живут в настройках, ключи — на «Серверах»; старые
+// имена из трея и ярлыков ведут туда же, чтобы ничего не открылось в пустоту.
 {
   let want = pageParams.get("tab");
-  if (want === "key" || want === "log" || want === "about") { openSec(want); want = "settings"; }
+  if (want === "key") want = "nodes";
+  if (want === "log" || want === "about") { openSec(want); want = "settings"; }
   const tab = want && document.querySelector('.tab[data-tab="' + want + '"]');
   if (tab) tab.click();
 }
@@ -3498,7 +3488,7 @@ function paintNodes(list) {
     if (opts.auto) {
       code.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>';
     } else {
-      code.textContent = opts.code || "··";
+      code.replaceChildren(flagEl(opts.code));
     }
     const titles = document.createElement("div");
     titles.className = "titles";
@@ -3614,6 +3604,11 @@ const COUNTRY_WORDS = {
   am: ["армен", "armenia", "ереван", "yerevan"], ge: ["грузи", "georgia", "тбилиси", "tbilisi"], rs: ["серби", "serbia", "белград", "belgrade"],
   at: ["австри", "austria", "вена", "vienna"], cz: ["чехи", "czech", "прага", "prague"], no: ["норвег", "norway", "осло", "oslo"],
   hk: ["гонконг", "hong kong"], in: ["инди", "india"], kr: ["корея", "korea", "сеул", "seoul"], il: ["израил", "israel"],
+  ru: ["росси", "russia", "москв", "moscow"], ua: ["украин", "ukraine", "киев", "kyiv"], md: ["молдов", "moldova", "кишин"],
+  bg: ["болгар", "bulgaria", "софия", "sofia"], ro: ["румын", "romania", "бухарест", "bucharest"], hu: ["венгр", "hungary", "будапешт"],
+  pt: ["португал", "portugal", "лиссабон", "lisbon"], ie: ["ирланд", "ireland", "дублин", "dublin"], be: ["бельги", "belgium", "брюссел"],
+  dk: ["дани", "denmark", "копенгаген"], is: ["исланд", "iceland", "рейкьявик"], lu: ["люксембург", "luxembourg"],
+  uz: ["узбек", "uzbekistan", "ташкент"], az: ["азербайдж", "azerbaijan", "баку", "baku"],
 };
 function regionName(code) {
   try { return new Intl.DisplayNames([lang === "en" ? "en" : "ru"], { type: "region" }).of(code) || ""; } catch (_) { return ""; }
@@ -3637,6 +3632,103 @@ function countryCode(country, name) {
   return "";
 }
 
+// Флаги рисуем сами: эмодзи-флагов Windows не знает и пишет вместо них две
+// буквы, а по буквам страну с полувзгляда не узнать. Полосы и кресты —
+// точно, гербы и звёзды — упрощённо: флаг здесь для узнавания, не для
+// геральдики. Разметка собирается только из этих постоянных — ни имя
+// продавца, ни код из подписки в неё не попадают, код лишь выбирает рисунок.
+const FLAG_H = {
+  de: ["#000", "#DD0000", "#FFCE00"], nl: ["#AE1C28", "#FFF", "#21468B"], ru: ["#FFF", "#0039A6", "#D52B1E"],
+  ee: ["#0072CE", "#000", "#FFF"], lt: ["#FDB913", "#006A44", "#C1272D"], am: ["#D90012", "#0033A0", "#F2A800"],
+  at: ["#ED2939", "#FFF", "#ED2939"], hu: ["#CE2939", "#FFF", "#477050"], bg: ["#FFF", "#00966E", "#D62612"],
+  lu: ["#ED2939", "#FFF", "#00A1DE"], rs: ["#C6363C", "#0C4076", "#FFF"], in: ["#FF9933", "#FFF", "#138808"],
+  uz: ["#0099B5", "#FFF", "#1EB53A"], az: ["#00B5E2", "#EF3340", "#509E2F"],
+};
+const FLAG_V = {
+  fr: ["#0055A4", "#FFF", "#EF4135"], it: ["#009246", "#FFF", "#CE2B37"], ie: ["#169B62", "#FFF", "#FF883E"],
+  be: ["#000", "#FDDA24", "#EF3340"], ro: ["#002B7F", "#FCD116", "#CE1126"], md: ["#0046AE", "#FFD200", "#CC092F"],
+};
+const FLAG_X = {
+  fi: ["#FFF", "#002F6C"], se: ["#006AA7", "#FECC00"], dk: ["#C8102E", "#FFF"],
+  no: ["#BA0C2F", "#FFF", "#00205B"], is: ["#02529C", "#FFF", "#DC1E35"],
+};
+function flagSVG(code) {
+  const c = (code || "").toLowerCase();
+  const r = (x, y, w, h, f) => '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + f + '"/>';
+  if (FLAG_H[c]) {
+    const [a, b, d] = FLAG_H[c];
+    let s = r(0, 0, 30, 7, a) + r(0, 6.66, 30, 6.68, b) + r(0, 13.33, 30, 6.67, d);
+    if (c === "in") s += '<circle cx="15" cy="10" r="2.6" fill="none" stroke="#000080" stroke-width=".8"/>';
+    return s;
+  }
+  if (FLAG_V[c]) {
+    const [a, b, d] = FLAG_V[c];
+    return r(0, 0, 10, 20, a) + r(9.99, 0, 10.02, 20, b) + r(20, 0, 10, 20, d);
+  }
+  if (FLAG_X[c]) {
+    const [bg, cross, inner] = FLAG_X[c];
+    let s = r(0, 0, 30, 20, bg) + r(8, 0, 5, 20, cross) + r(0, 7.5, 30, 5, cross);
+    if (inner) s += r(9.25, 0, 2.5, 20, inner) + r(0, 8.75, 30, 2.5, inner);
+    return s;
+  }
+  switch (c) {
+    case "pl": return r(0, 0, 30, 10, "#FFF") + r(0, 10, 30, 10, "#DC143C");
+    case "ua": return r(0, 0, 30, 10, "#0057B7") + r(0, 10, 30, 10, "#FFD700");
+    case "es": return r(0, 0, 30, 20, "#AA151B") + r(0, 5, 30, 10, "#F1BF00");
+    case "lv": return r(0, 0, 30, 20, "#9E3039") + r(0, 8, 30, 4, "#FFF");
+    case "ch": return r(0, 0, 30, 20, "#DA291C") + r(13, 4.5, 4, 11, "#FFF") + r(9.5, 8, 11, 4, "#FFF");
+    case "jp": return r(0, 0, 30, 20, "#FFF") + '<circle cx="15" cy="10" r="6" fill="#BC002D"/>';
+    case "ae": return r(0, 0, 30, 7, "#00732F") + r(0, 6.66, 30, 6.68, "#FFF") + r(0, 13.33, 30, 6.67, "#000") + r(0, 0, 8, 20, "#FF0000");
+    case "tr": return r(0, 0, 30, 20, "#E30A17") + '<circle cx="11.5" cy="10" r="5" fill="#FFF"/><circle cx="12.8" cy="10" r="4" fill="#E30A17"/><circle cx="18" cy="10" r="1.6" fill="#FFF"/>';
+    case "us": {
+      let s = "";
+      for (let i = 0; i < 13; i++) s += r(0, (i * 20) / 13, 30, 20 / 13 + 0.05, i % 2 ? "#FFF" : "#B22234");
+      return s + r(0, 0, 13, 10.77, "#3C3B6E");
+    }
+    case "gb": return r(0, 0, 30, 20, "#012169")
+      + '<path d="M0 0L30 20M30 0L0 20" stroke="#FFF" stroke-width="4"/><path d="M0 0L30 20M30 0L0 20" stroke="#C8102E" stroke-width="1.4"/>'
+      + r(12, 0, 6, 20, "#FFF") + r(0, 7, 30, 6, "#FFF") + r(13.2, 0, 3.6, 20, "#C8102E") + r(0, 8.2, 30, 3.6, "#C8102E");
+    case "ge": {
+      let s = r(0, 0, 30, 20, "#FFF") + r(13, 0, 4, 20, "#FF0000") + r(0, 8, 30, 4, "#FF0000");
+      for (const [x, y] of [[6.5, 4], [23.5, 4], [6.5, 16], [23.5, 16]]) s += r(x - 0.6, y - 2, 1.2, 4, "#FF0000") + r(x - 2, y - 0.6, 4, 1.2, "#FF0000");
+      return s;
+    }
+    case "il": return r(0, 0, 30, 20, "#FFF") + r(0, 2, 30, 3, "#0038B8") + r(0, 15, 30, 3, "#0038B8")
+      + '<path d="M15 6.2L18.3 11.9H11.7ZM15 13.8L11.7 8.1H18.3Z" fill="none" stroke="#0038B8" stroke-width=".9"/>';
+    case "ca": return r(0, 0, 30, 20, "#FFF") + r(0, 0, 7.5, 20, "#D80621") + r(22.5, 0, 7.5, 20, "#D80621")
+      + '<path d="M15 4.5l1.2 2.4 1.6-.6-.6 3.2 2-1.4.4 1.2 1.8-.2-.9 1.6.8.6-3.3 2.1.3 1.1-2.6-.4V17h-.6v-2.9l-2.6.4.3-1.1-3.3-2.1.8-.6-.9-1.6 1.8.2.4-1.2 2 1.4-.6-3.2 1.6.6z" fill="#D80621"/>';
+    case "sg": return r(0, 0, 30, 10, "#EF3340") + r(0, 10, 30, 10, "#FFF")
+      + '<circle cx="7" cy="5" r="3.2" fill="#FFF"/><circle cx="8.3" cy="5" r="3" fill="#EF3340"/>';
+    case "hk": return r(0, 0, 30, 20, "#DE2910") + '<circle cx="15" cy="10" r="4.5" fill="#FFF"/><circle cx="15" cy="10" r="1.2" fill="#DE2910"/>';
+    case "kr": return r(0, 0, 30, 20, "#FFF") + '<circle cx="15" cy="10" r="5" fill="#003478"/><path d="M10 10a5 5 0 0 1 10 0a2.5 2.5 0 0 1-5 0a2.5 2.5 0 0 0-5 0z" fill="#C60C30"/>';
+    case "cz": return r(0, 0, 30, 10, "#FFF") + r(0, 10, 30, 10, "#D7141A") + '<path d="M0 0L15 10L0 20Z" fill="#11457E"/>';
+    case "pt": return r(0, 0, 12, 20, "#006600") + r(12, 0, 18, 20, "#FF0000") + '<circle cx="12" cy="10" r="3.5" fill="#FFCC00"/>';
+    case "kz": return r(0, 0, 30, 20, "#00AFCA") + '<circle cx="15" cy="9" r="3.6" fill="#FEC50C"/>';
+  }
+  return "";
+}
+// flagEl — флаг страны или, если рисунка нет, её буквы.
+function flagEl(code) {
+  const span = document.createElement("span");
+  span.className = "flag";
+  const svg = flagSVG(code);
+  if (svg) {
+    span.innerHTML = '<svg viewBox="0 0 30 20" preserveAspectRatio="none" aria-hidden="true">' + svg + "</svg>";
+  } else {
+    span.classList.add("txt");
+    span.textContent = code || "··";
+  }
+  if (code) span.title = regionName(code) || code;
+  return span;
+}
+// autoMark — знак автовыбора на месте флага: молния.
+function autoMark() {
+  const span = document.createElement("span");
+  span.className = "flag auto";
+  span.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>';
+  return span;
+}
+
 // paintNodeRows — страны строками, вид «Marvia»: точка состояния, имя и
 // подпись, полоска качества и отклик.
 function paintNodeRows(box, list, d) {
@@ -3648,8 +3740,9 @@ function paintNodeRows(box, list, d) {
     if (opts.current) b.setAttribute("data-current", "");
     if (opts.chosen) b.setAttribute("data-chosen", "");
 
-    const dot = document.createElement("span");
-    dot.className = "dot";
+    // Слева — флаг страны, у автовыбора — молния: страна узнаётся с
+    // полувзгляда, а точка состояния ничего не говорила.
+    const dot = opts.id === 0 ? autoMark() : flagEl(opts.code);
 
     const grow = document.createElement("div");
     grow.className = "grow";
@@ -3671,7 +3764,7 @@ function paintNodeRows(box, list, d) {
 
     const ms = document.createElement("div");
     ms.className = "ms";
-    ms.textContent = opts.ms > 0 ? opts.ms + d.ms : d.pingUnknown;
+    ms.textContent = opts.ms > 0 ? opts.ms + d.ms : opts.pending ? d.nodesMeasuring : d.pingUnknown;
     // Автовыбор — не нода: мерить у него нечего, и «не измерен» с пустой
     // полоской читалось бы как поломка. Место остаётся, чтобы колонки не
     // съезжали.
@@ -3705,13 +3798,15 @@ function paintNodeRows(box, list, d) {
     let sub = n.country && n.country !== n.name ? n.name : "";
     const marks = [];
     if (n.current) marks.push(d.nodesCurrent);
-    if (n.setup_ms > 0) marks.push(d.setupLabel + ": " + n.setup_ms + d.ms);
     if (n.chosen) marks.push(d.nodesChosen);
-    if (!n.alive && !n.current) marks.push(n.ms > 0 ? d.nodesDead : d.nodesUnknown);
+    // «Меряю» стоит справа, на месте числа; под именем — только итог.
+    if (!n.pending && !n.alive && !n.current) marks.push(n.failed || n.ms > 0 ? d.nodesDead : d.nodesUnknown);
     if (marks.length) sub = sub ? sub + " · " + marks.join(" · ") : marks.join(" · ");
 
     box.append(row({
       id: n.id,
+      code: countryCode(n.country, n.name),
+      pending: n.pending,
       name: n.country || n.name,
       sub,
       ms: n.ms > 0 ? n.ms : 0,
@@ -3722,13 +3817,45 @@ function paintNodeRows(box, list, d) {
   }
 }
 
+// Замер идёт в программе, а окно забирает то, что уже пришло: каждая
+// страна появляется со своим числом, как только ответила, а не все разом
+// через пятнадцать секунд.
+let nodesPoll = 0;
+function followMeasure(data) {
+  clearTimeout(nodesPoll);
+  const busy = !!(data && data.measuring);
+  $("nodes-msg").textContent = busy ? L().nodesMeasuring : "";
+  $("nodes-measure").disabled = busy;
+  if (busy) nodesPoll = setTimeout(loadNodes, 600);
+}
+
 async function loadNodes() {
   try {
     const data = await api("GET", "api/nodes");
     paintNodes(data.nodes);
+    followMeasure(data);
   } catch (e) {
     $("nodes-msg").textContent = e.message;
   }
+}
+
+// measureNodes — замер списка. Сам — при открытии «Серверов», если
+// последний был давно: человек открывает список, чтобы выбрать, и выбирать
+// надо по свежим числам, а не жать «Перемерить» каждый раз.
+let measuredAt = 0;
+async function measureNodes() {
+  measuredAt = Date.now();
+  try {
+    const data = await api("POST", "api/nodes/measure");
+    paintNodes(data.nodes);
+    followMeasure(data);
+  } catch (e) {
+    $("nodes-msg").textContent = e.message;
+  }
+}
+function openNodes() {
+  if (lastStatus && lastStatus.state === "connected" && Date.now() - measuredAt > 120000) measureNodes();
+  else loadNodes();
 }
 
 async function chooseNode(id) {
@@ -3743,21 +3870,7 @@ async function chooseNode(id) {
   }
 }
 
-on("nodes-measure", "click", async () => {
-  const msg = $("nodes-msg");
-  const button = $("nodes-measure");
-  msg.textContent = L().nodesMeasuring;
-  button.disabled = true;
-  try {
-    const data = await api("POST", "api/nodes/measure");
-    paintNodes(data.nodes);
-    msg.textContent = "";
-  } catch (e) {
-    msg.textContent = e.message;
-  } finally {
-    button.disabled = false;
-  }
-});
+on("nodes-measure", "click", measureNodes);
 
 /* -------------------------------------------------------------- величины */
 
@@ -3908,7 +4021,7 @@ function render(s) {
   if (s.node) {
     const head = s.node.split("·")[0].trim();
     const rest = s.node.split("·").slice(1).map((x) => x.trim()).filter(Boolean);
-    $("place-code").textContent = countryCode(s.node, "") || "··";
+    $("place-code").replaceChildren(flagEl(countryCode(s.node, "")));
     $("node-name").textContent = head;
     const q = !s.ping_ms ? "" : s.ping_ms <= 120 ? "fast" : s.ping_ms <= 300 ? "mid" : "slow";
     $("node-addr").textContent = rest.join(" · ") || s.address || "";
@@ -5053,11 +5166,6 @@ function loadVibe() {
     motion: MOTIONS.includes(v.motion) ? v.motion : "calm",
     splash: v.splash !== false,
     sound: v.sound === true,
-    // Отклик на руку: кнопка тянется за курсором, карточки наклоняются,
-    // клик по пустому фону пускает волну. По умолчанию включено — ради этого
-    // окно и хочется трогать.
-    fx: v.fx !== false,
-    clickWave: v.clickWave !== false,
     // Настройки прежнего образа к новому не подходят: его цвета легли бы
     // поверх чужой палитры.
     o: renamed ? {} : normO(v.o),
@@ -5826,8 +5934,6 @@ function paintVibeControls() {
   const toggle = (id, on) => { $(id).setAttribute("aria-pressed", String(on)); $(id).textContent = on ? d.toggleOn : d.toggleOff; };
   toggle("vibe-splash", vibe.splash);
   toggle("vibe-sound", vibe.sound);
-  toggle("vibe-fx", vibe.fx);
-  toggle("vibe-click", vibe.clickWave);
   for (const b of $("vibe-motion").querySelectorAll("[data-motion]")) {
     b.setAttribute("aria-pressed", String(b.dataset.motion === vibe.motion));
     b.textContent = d.motions[b.dataset.motion];
@@ -5845,63 +5951,13 @@ $("fine-reset-all").addEventListener("click", () => { vibe.o = {}; saveVibe(); s
 const flip = (key) => () => { vibe[key] = !vibe[key]; saveVibe(); paintVibeControls(); };
 $("vibe-splash").addEventListener("click", flip("splash"));
 $("vibe-sound").addEventListener("click", () => { flip("sound")(); if (vibe.sound) chirp(true); });
-$("vibe-fx").addEventListener("click", () => { flip("fx")(); if (!vibe.fx) resetTilt(); });
-$("vibe-click").addEventListener("click", flip("clickWave"));
 for (const b of $("vibe-motion").querySelectorAll("[data-motion]")) {
   b.addEventListener("click", () => { vibe.motion = b.dataset.motion; saveVibe(); applyVibe(); Field.wave(0.6); });
 }
 
-// ── отклик на руку ──
-//
-// Кнопка питания чуть тянется за курсором и наклоняется к нему, карточки
-// поворачиваются в объёме, клик по пустому фону пускает волну. Всё — через
-// transform, без перерисовки страницы, и всё выключается одной строкой в
-// настройках или системным «уменьшением движения».
-const fxOn = () => vibe.fx && motion() !== "off";
-const ring = document.querySelector(".hero .ring");
-function resetTilt() {
-  if (ring) ring.style.transform = "";
-  for (const c of document.querySelectorAll(".tilt")) { c.style.transform = ""; c.classList.remove("tilt"); }
-}
-if (ring) {
-  const zone = ring.closest(".hero");
-  zone.addEventListener("pointermove", (e) => {
-    if (!fxOn()) return;
-    const r = ring.getBoundingClientRect();
-    const dx = (e.clientX - (r.left + r.width / 2)) / r.width, dy = (e.clientY - (r.top + r.height / 2)) / r.height;
-    const pull = Math.max(0, 1 - Math.hypot(dx, dy) / 1.6);
-    ring.style.transform = "translate(" + (dx * 14 * pull).toFixed(1) + "px," + (dy * 14 * pull).toFixed(1) + "px) "
-      + "rotateX(" + (-dy * 10 * pull).toFixed(1) + "deg) rotateY(" + (dx * 10 * pull).toFixed(1) + "deg)";
-  });
-  zone.addEventListener("pointerleave", () => { ring.style.transform = ""; });
-}
-document.addEventListener("pointermove", (e) => {
-  if (!fxOn()) return;
-  const card = e.target.closest && e.target.closest(".page .card, .page .kpi, .vibe");
-  for (const c of document.querySelectorAll(".tilt")) if (c !== card) { c.style.transform = ""; c.classList.remove("tilt"); }
-  if (!card || card.closest(".fine-grid")) return;
-  const r = card.getBoundingClientRect();
-  const dx = (e.clientX - r.left) / r.width - 0.5, dy = (e.clientY - r.top) / r.height - 0.5;
-  card.classList.add("tilt");
-  card.style.transform = "perspective(900px) rotateX(" + (-dy * 4).toFixed(2) + "deg) rotateY(" + (dx * 5).toFixed(2) + "deg) translateY(-2px)";
-});
-document.addEventListener("pointerdown", (e) => {
-  if (!vibe.clickWave || e.button !== 0) return;
-  // Волна — только от пустого фона: клик по кнопке или полю — это дело, а не игра.
-  if (e.target.closest("button, a, input, textarea, select, label, .card, .kpi, .node, .seller, .leak, aside, header")) return;
-  Field.waveFrom(e.clientX, e.clientY, 0.7);
-});
-
-// Кнопка питания при нажатии расходится кольцом от точки касания.
-$("power").addEventListener("pointerdown", (e) => {
-  if (!fxOn()) return;
-  const r = $("power").getBoundingClientRect();
-  const dot = el("i", "press-ring");
-  dot.style.left = e.clientX - r.left + "px";
-  dot.style.top = e.clientY - r.top + "px";
-  $("power").append(dot);
-  setTimeout(() => dot.remove(), 700);
-});
+// Отклика на руку нет: кнопка не тянется за курсором, карточки не
+// наклоняются, от нажатия не расходятся кольца и волны. Так попросил
+// владелец — окно должно стоять смирно, как и телефон, где вибрации тоже нет.
 
 // ── заставка ──
 //
@@ -5967,7 +6023,7 @@ Splash.play();
 const SEC_KEY = "marvia-settings-sec";
 function openSec(sec) {
   const groups = document.querySelectorAll(".set-panes .group[data-sec]");
-  if (![...groups].some((g) => g.dataset.sec === sec)) sec = "key";
+  if (![...groups].some((g) => g.dataset.sec === sec)) sec = "overview";
   for (const g of groups) g.classList.toggle("on", g.dataset.sec === sec);
   let current = null;
   for (const b of document.querySelectorAll("#set-nav button[data-sec]")) {
@@ -6002,7 +6058,7 @@ document.querySelector('.tab[data-tab="settings"]').addEventListener("click", ()
 // Переключатели вместо кнопок «Включено / Выключено»: состояние видно
 // формой, а не надписью. Надпись остаётся внутри — для экранного диктора.
 // Нажатие на саму строку тоже переключает: в узкую кнопку не надо целиться.
-const SWITCHES = ["vibe-splash", "vibe-sound", "vibe-fx", "vibe-click", "bypass-ru", "lan", "kill-switch", "auto-fix", "ipv6", "fragment", "reports", "dns-secure", "autostart"];
+const SWITCHES = ["vibe-splash", "vibe-sound", "bypass-ru", "lan", "kill-switch", "auto-fix", "ipv6", "fragment", "reports", "dns-secure", "autostart"];
 for (const id of SWITCHES) {
   const b = $(id);
   if (!b) continue;

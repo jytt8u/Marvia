@@ -47,7 +47,6 @@ type journal struct {
 // Замер идёт настоящими подключениями ко всем нодам разом, поэтому он не
 // мгновенный; переключение — это обычное подключение, только к заданной ноде.
 const (
-	measureTimeout = 30 * time.Second
 	selectTimeout  = 60 * time.Second
 )
 
@@ -204,16 +203,14 @@ func (u *ui) disconnect(w http.ResponseWriter, _ *http.Request) {
 
 // nodes отдаёт список нод без замера: тем, что уже известно.
 func (u *ui) nodes(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"nodes": u.ctl.Nodes()})
+	writeJSON(w, http.StatusOK, u.ctl.Nodes())
 }
 
-// measureNodes перемеряет все ноды. Секунды, а не мгновение: каждая нода
-// опрашивается настоящим подключением, иначе число было бы выдумкой.
-func (u *ui) measureNodes(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), measureTimeout)
-	defer cancel()
-
-	writeJSON(w, http.StatusOK, map[string]any{"nodes": u.ctl.MeasureNodes(ctx)})
+// measureNodes запускает замер в фоне и сразу отвечает: числа окно
+// забирает частями, пока замер идёт (см. Controller.StartMeasure).
+func (u *ui) measureNodes(w http.ResponseWriter, _ *http.Request) {
+	u.ctl.StartMeasure()
+	writeJSON(w, http.StatusOK, u.ctl.Nodes())
 }
 
 // selectNode переводит туннель на выбранную ноду. Ноль — обратно к автовыбору.
@@ -233,7 +230,7 @@ func (u *ui) selectNode(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"nodes": u.ctl.Nodes()})
+	writeJSON(w, http.StatusOK, u.ctl.Nodes())
 }
 
 // dropProxy снимает системный прокси — по нажатию человека, не сам.

@@ -171,6 +171,12 @@ type Controller struct {
 	// recoveredAt — когда последний раз сами поднимали пропавший адаптер.
 	recoveredAt time.Time
 
+	// measuring, measured — замер нод для экрана «Серверы»: идёт ли он и что
+	// успело прийти. Замер в фоне, окно спрашивает список, пока он идёт; см.
+	// StartMeasure.
+	measuring bool
+	measured  map[int64]client.Measurement
+
 	// check — итог проверки после подключения: пусто — всё хорошо или ещё
 	// не проверяли, иначе ключ сообщения; checkNode — нода, о которой он.
 	check     string
@@ -821,6 +827,17 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 
 	c.log.add("%s", sayf("logTunnelUp", node.Name))
 	go c.selfCheck(ctx, dialer)
+	// Список стран меряется сам, чуть позже: человек, открывший «Серверы»,
+	// видит числа сразу. С одной нодой выбирать не из чего — не меряем.
+	if len(dialer.Nodes()) > 1 {
+		go func() {
+			select {
+			case <-time.After(4 * time.Second):
+				c.StartMeasure()
+			case <-ctx.Done():
+			}
+		}()
+	}
 
 	return nil
 }
@@ -887,6 +904,7 @@ func (c *Controller) teardown() {
 	c.until, c.limitBytes, c.leftBytes = "", 0, 0
 	c.since = time.Time{}
 	c.check, c.checkNode = "", ""
+	c.measured = nil
 	c.mu.Unlock()
 
 	// Порядок обратный сборке: сначала перестаём разбирать пакеты, потом
@@ -996,28 +1014,100 @@ type NodeView struct {
 	// «выбранную» значило бы врать про то, куда идёт трафик.
 	Current bool `json:"current"`
 	Chosen  bool `json:"chosen"`
+
+	// Pending — замер идёт, а до этой ноды ещё не дошёл: «меряю», а не
+	// «не отвечает».
+	Pending bool `json:"pending,omitempty"`
+
+	// Failed — ноду мерили, и она не ответила. Без этого окно путало её с
+	// той, которую ещё не мерили, и писало «не мерили» о мёртвой.
+	Failed bool `json:"failed,omitempty"`
 }
 
-// Nodes отдаёт список нод без замера — тем, что известно с подключения.
-func (c *Controller) Nodes() []NodeView {
-	c.mu.Lock()
-	dialer := c.dialer
-	c.mu.Unlock()
-	if dialer == nil {
-		return nil
-	}
-	return nodeViews(dialer, dialer.Nodes(), []client.Measurement{dialer.Measurement()})
+// NodesView — список нод для окна и идёт ли сейчас замер.
+type NodesView struct {
+	Nodes     []NodeView `json:"nodes"`
+	Measuring bool       `json:"measuring"`
 }
 
-// MeasureNodes меряет все ноды заново — по нажатию «Обновить».
-func (c *Controller) MeasureNodes(ctx context.Context) []NodeView {
+// Nodes отдаёт список нод с тем, что уже намерено.
+func (c *Controller) Nodes() NodesView {
 	c.mu.Lock()
 	dialer := c.dialer
+	measuring := c.measuring
+	got := make([]client.Measurement, 0, len(c.measured)+1)
+	have := make(map[int64]bool, len(c.measured))
+	for id, m := range c.measured {
+		got = append(got, m)
+		have[id] = true
+	}
 	c.mu.Unlock()
 	if dialer == nil {
-		return nil
+		return NodesView{}
 	}
-	return nodeViews(dialer, dialer.Nodes(), dialer.Measure(ctx))
+	// Текущая нода известна и без замера — по живому соединению.
+	if cur := dialer.Measurement(); !have[cur.Node.ID] {
+		got = append(got, cur)
+		have[cur.Node.ID] = true
+	}
+	views := nodeViews(dialer, dialer.Nodes(), got)
+	if measuring {
+		for i := range views {
+			views[i].Pending = !have[views[i].ID]
+		}
+	}
+	return NodesView{Nodes: views, Measuring: measuring}
+}
+
+// measureLimit — дольше замер списка не идёт: нода, не ответившая за это
+// время, для человека и так «не отвечает».
+const measureLimit = 20 * time.Second
+
+// streamMeasurer — ядро, которое отдаёт замеры по одному, а не скопом.
+type streamMeasurer interface {
+	MeasureEach(ctx context.Context, each func(client.Measurement))
+}
+
+// StartMeasure запускает замер нод в фоне.
+//
+// Раньше окно ждало ответа на «Перемерить», пока не доберутся все ноды и
+// не замерится скорость, — до пятнадцати секунд «меряю…» без единого
+// числа. Теперь каждая нода появляется в списке, как только ответила, а
+// окно спрашивает список, пока замер идёт. Повторное нажатие во время
+// замера ничего не делает: второй замер поверх первого — это лишние
+// рукопожатия к тем же адресам.
+func (c *Controller) StartMeasure() {
+	c.mu.Lock()
+	dialer, base := c.dialer, c.connectCtx
+	if dialer == nil || base == nil || c.measuring {
+		c.mu.Unlock()
+		return
+	}
+	c.measuring = true
+	c.measured = map[int64]client.Measurement{}
+	c.mu.Unlock()
+
+	go func() {
+		ctx, cancel := context.WithTimeout(base, measureLimit)
+		defer cancel()
+		keep := func(m client.Measurement) {
+			c.mu.Lock()
+			if c.dialer == dialer && c.measured != nil {
+				c.measured[m.Node.ID] = m
+			}
+			c.mu.Unlock()
+		}
+		if s, ok := dialer.(streamMeasurer); ok {
+			s.MeasureEach(ctx, keep)
+		} else {
+			for _, m := range dialer.Measure(ctx) {
+				keep(m)
+			}
+		}
+		c.mu.Lock()
+		c.measuring = false
+		c.mu.Unlock()
+	}()
 }
 
 // SelectNode переводит туннель на выбранную ноду. Ноль — обратно к автовыбору.
@@ -1061,6 +1151,7 @@ func nodeViews(dialer client.Backend, nodes []client.Node, measured []client.Mea
 		}
 		if m, ok := byID[n.ID]; ok {
 			v.Alive = m.OK()
+			v.Failed = !m.OK()
 			v.MS = m.PingMS()
 			if m.OK() {
 				v.SetupMS = max(1, m.Latency.Milliseconds())

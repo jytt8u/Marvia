@@ -378,6 +378,66 @@ func (s *Supervisor) Measure(ctx context.Context) []Measurement {
 	return results
 }
 
+// MeasureEach меряет ноды и отдаёт каждую, как только она ответила.
+//
+// Measure ждёт всех, да ещё и меряет скорость: экран выбора страны стоял
+// на «меряю…» до пятнадцати секунд и не показывал ни одного числа, даже
+// когда ближняя нода ответила за долю секунды. Здесь — только отклик:
+// его хватает, чтобы выбрать, а порция для скорости — это трафик продавца.
+// Текущую ноду меряем по живому соединению, как и Measure.
+func (s *Supervisor) MeasureEach(ctx context.Context, each func(Measurement)) {
+	s.mu.Lock()
+	if s.closed || s.offline || s.dialer == nil {
+		s.mu.Unlock()
+		return
+	}
+	cfg := s.cfg
+	d := s.dialer
+	nodes := d.Subscription().Nodes
+	networkCtx := s.networkCtx
+	s.mu.Unlock()
+
+	measureCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	if networkCtx != nil {
+		stop := context.AfterFunc(networkCtx, cancel)
+		defer stop()
+	}
+	cur := d.Node()
+	live := d.pool.Live()
+	if live {
+		m := d.live(measureCtx)
+		d.measurement.Store(&m)
+		each(m)
+	}
+	slots := make(chan struct{}, maxParallelProbes)
+	var wg sync.WaitGroup
+	for _, n := range nodes {
+		if live && sameNode(n, cur) {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case slots <- struct{}{}:
+			case <-measureCtx.Done():
+				return
+			}
+			defer func() { <-slots }()
+			m := Probe(measureCtx, n, cfg.Key, cfg.Dial)
+			if m.dialer != nil {
+				_ = m.dialer.Close()
+				m.dialer = nil
+			}
+			if measureCtx.Err() == nil {
+				each(m)
+			}
+		}()
+	}
+	wg.Wait()
+}
+
 // Ping меряет отклик текущей ноды внутри готового туннеля и запоминает его.
 //
 // Это один запрос-ответ мультиплексора по уже открытой сессии: ни нового

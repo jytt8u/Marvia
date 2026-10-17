@@ -163,25 +163,8 @@ func (s *Supervisor) pick(ctx context.Context, links []Link, prefer int64) ([]cl
 				return
 			}
 			defer func() { <-sem }()
-			if err := ctx.Err(); err != nil {
-				out[i] = result{m: client.Measurement{Node: nodeOf(l), Err: err}}
-				return
-			}
-			n := nodeOf(l)
-			e, err := StartWith(l, s.opts)
-			if err != nil {
-				out[i] = result{m: client.Measurement{Node: n, Err: err}}
-				return
-			}
-			pctx, cancel := context.WithTimeout(ctx, probeTimeout)
-			rtt, err := e.Probe(pctx)
-			cancel()
-			if err != nil {
-				_ = e.Close()
-				out[i] = result{m: client.Measurement{Node: n, Err: err}}
-				return
-			}
-			out[i] = result{m: client.Measurement{Node: n, Latency: rtt, RTT: rtt}, e: e}
+			m, e := probeLink(ctx, l, s.opts)
+			out[i] = result{m: m, e: e}
 		}()
 	}
 	wg.Wait()
@@ -456,6 +439,80 @@ func (s *Supervisor) Measure(ctx context.Context) []client.Measurement {
 	s.mu.Unlock()
 	sort.SliceStable(all, func(i, j int) bool { return all[i].Node.ID == cur && all[j].Node.ID != cur })
 	return all
+}
+
+// probeLink поднимает движок ссылки и меряет её настоящим запросом. Живой
+// движок возвращается: победителю его не придётся поднимать заново.
+func probeLink(ctx context.Context, l Link, opts Options) (client.Measurement, *Engine) {
+	n := nodeOf(l)
+	if err := ctx.Err(); err != nil {
+		return client.Measurement{Node: n, Err: err}, nil
+	}
+	e, err := StartWith(l, opts)
+	if err != nil {
+		return client.Measurement{Node: n, Err: err}, nil
+	}
+	pctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	rtt, err := e.Probe(pctx)
+	cancel()
+	if err != nil {
+		_ = e.Close()
+		return client.Measurement{Node: n, Err: err}, nil
+	}
+	return client.Measurement{Node: n, Latency: rtt, RTT: rtt}, e
+}
+
+// MeasureEach — как Measure, но каждая нода отдаётся, как только ответила:
+// экран выбора страны не ждёт самую медленную, чтобы показать быструю.
+func (s *Supervisor) MeasureEach(ctx context.Context, each func(client.Measurement)) {
+	s.mu.Lock()
+	if s.closed || s.offline || s.engine == nil {
+		s.mu.Unlock()
+		return
+	}
+	cur := s.current.ID
+	networkCtx := s.networkCtx
+	opts := s.opts
+	var others []Link
+	for _, l := range s.sub.Links {
+		if NodeID(l) != cur {
+			others = append(others, l)
+		}
+	}
+	s.mu.Unlock()
+
+	measureCtx, cancel := context.WithCancel(networkCtx)
+	stop := context.AfterFunc(ctx, cancel)
+	defer stop()
+	defer cancel()
+	if _, err := s.Ping(measureCtx); err == nil {
+		s.mu.Lock()
+		m := s.measured[cur]
+		s.mu.Unlock()
+		each(m)
+	}
+	sem := make(chan struct{}, maxParallel)
+	var wg sync.WaitGroup
+	for _, l := range others {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+			case <-measureCtx.Done():
+				return
+			}
+			defer func() { <-sem }()
+			m, e := probeLink(measureCtx, l, opts)
+			if e != nil {
+				_ = e.Close()
+			}
+			if measureCtx.Err() == nil {
+				each(m)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 // pickAll — замер без выбора: все движки после него закрываются.

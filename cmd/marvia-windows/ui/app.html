@@ -539,6 +539,7 @@
   .keys .key small { font-size: 11px; color: var(--dim); }
   .pick input.code-in { width: 150px; }
   .log { max-height: 220px; max-width: 100%; overflow-x: hidden; overflow-y: auto; font-family: var(--mono); font-size: 11px; display: flex; flex-direction: column; gap: 4px; user-select: text; }
+  .log-act { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
   .log .ln { display: flex; gap: 10px; min-width: 0; color: var(--fg); }
   .log .tm { color: var(--dim); flex: none; }
   .log .msg { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
@@ -1880,6 +1881,12 @@
               <div class="card list">
                 <p class="lead" data-t="logLead"></p>
                 <div class="log" id="log"></div>
+                <!-- Отчёт для продавца: журнал и настройки без ключей и адресов, как на
+                     телефоне. Пересказывать журнал скриншотами никто не станет. -->
+                <div class="log-act">
+                  <button class="chip" id="log-copy" type="button" data-t="logCopy"></button>
+                  <span class="said" id="log-copy-msg"></span>
+                </div>
               </div>
             </div>
           </div>
@@ -2423,6 +2430,8 @@ const T = {
     subOn: "Ключ сохранён", subOff: "Ключа нет", subAfter: "срок и квота — после подключения", subNoKey: "вставьте ссылку от бота",
 
     logLead: "Что программа делала. Пригодится, если что-то не заработало.",
+    logCopy: "Скопировать отчёт",
+    logCopied: "Скопировано. В отчёте нет ключей и адресов — вставьте его в сообщение продавцу.",
     logEmpty: "пусто",
 
     themePresets: "Готовые виды", themeAccent: "Акцент", themeDensity: "Плотность",
@@ -2705,6 +2714,8 @@ const T = {
     subOn: "Key saved", subOff: "No key", subAfter: "expiry and quota — after connecting", subNoKey: "paste the link from the bot",
 
     logLead: "What the program did. Useful when something did not work.",
+    logCopy: "Copy a report",
+    logCopied: "Copied. The report has no keys or addresses — paste it into a message to your seller.",
     logEmpty: "empty",
 
     themePresets: "Ready looks", themeAccent: "Accent", themeDensity: "Density",
@@ -3338,6 +3349,18 @@ async function fixNow(button, said) {
     $(said).textContent = e.message;
   } finally {
     button.disabled = false;
+  }
+}
+
+// copyReport — отчёт собирает и кладёт в буфер программа: у страницы WebView2
+// права на буфер бывают отняты, и кнопка молча не делала бы обещанного.
+async function copyReport() {
+  const said = $("log-copy-msg");
+  try {
+    await api("POST", "api/report/copy");
+    said.textContent = L().logCopied;
+  } catch (e) {
+    said.textContent = e.message;
   }
 }
 
@@ -4164,6 +4187,7 @@ on("proxy-off", "click", dropProxy);
 on("conflict-fix", "click", () => fixNow($("conflict-fix"), "conflict-msg"));
 on("check-fix", "click", () => fixNow($("check-fix"), "check-msg"));
 on("check-again", "click", recheck);
+on("log-copy", "click", copyReport);
 
 // Канал продавца. Объявление — только через textContent: его пишет продавец,
 // и разметкой оно стать не должно.

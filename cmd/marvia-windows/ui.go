@@ -116,6 +116,7 @@ func serveUI(ctl *Controller, log *journal, onWindow *func(windowRequest)) (stri
 	mux.HandleFunc("POST "+prefix+"/api/proxy/off", u.dropProxy)
 	mux.HandleFunc("POST "+prefix+"/api/fix", u.fix)
 	mux.HandleFunc("POST "+prefix+"/api/check", u.recheck)
+	mux.HandleFunc("POST "+prefix+"/api/report/copy", u.copyReport)
 	mux.HandleFunc("POST "+prefix+"/api/update/open", u.openUpdate)
 	mux.HandleFunc("POST "+prefix+"/api/seller/open", u.openSeller)
 	mux.HandleFunc("POST "+prefix+"/api/seller/seen", u.seenReminder)
@@ -252,6 +253,16 @@ func (u *ui) fix(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"done": done, "state": u.ctl.Status()})
+}
+
+// copyReport — «Скопировать отчёт»: отчёт собирается и кладётся в буфер
+// программой, см. clipboard_windows.go.
+func (u *ui) copyReport(w http.ResponseWriter, _ *http.Request) {
+	if err := copyText(u.ctl.Report()); err != nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // recheck — «Проверить ещё раз».

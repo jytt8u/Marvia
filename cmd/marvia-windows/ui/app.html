@@ -1541,7 +1541,7 @@
               </div>
             </div>
             <!--
-              Мешающие программы рядом: zapret ломает YouTube внутри туннеля,
+              Мешающие программы рядом: второй VPN спорит за маршруты, Hiddify удаляет адаптер,
               второй VPN спорит за маршруты. Окно называет их и говорит, что
               сделать, — иначе виноватым выглядит VPN.
             -->
@@ -1948,7 +1948,7 @@
                   <button class="chip" id="kill-switch" type="button" aria-pressed="false"></button>
                 </div>
                 <!--
-                  Убирать помехи самим: zapret и WARP — на время подключения,
+                  Убирать помехи самим: WARP — на время подключения,
                   брошенный прокси — насовсем. Включено по умолчанию: к нам
                   приходят те, кто сам их не уберёт.
                 -->
@@ -2486,7 +2486,7 @@ const T = {
     checking: "проверяю…",
     checkFine: "Теперь открываются.",
     autoFix: "Убирать помехи сам",
-    autoFixHint: "На время подключения Marvia останавливает zapret, GoodbyeDPI и Cloudflare WARP, а после отключения запускает их снова. Брошенный прокси, на котором никто не отвечает, убирает, а пропавший адаптер поднимает заново. Чужие VPN-клиенты сама не закрывает — это делает кнопка «Починить».",
+    autoFixHint: "На время подключения Marvia отключает Cloudflare WARP, а после отключения включает снова. zapret и GoodbyeDPI не трогает: их поддельные пакеты туннель выбрасывает сам. Брошенный прокси, на котором никто не отвечает, убирает, а пропавший адаптер поднимает заново. Чужие VPN-клиенты сама не закрывает — это делает кнопка «Починить».",
     proxyCare: "Если прокси ставили не вы — на рабочем компьютере или под родительским "
       + "контролем — не трогайте его: без него перестанут открываться рабочие ресурсы.",
     proxyOff: "Убрать прокси",
@@ -2770,7 +2770,7 @@ const T = {
     checking: "checking…",
     checkFine: "They open now.",
     autoFix: "Clear interference automatically",
-    autoFixHint: "While connected, Marvia pauses zapret, GoodbyeDPI and Cloudflare WARP and starts them again after you disconnect. It removes an abandoned proxy nobody answers on and brings a vanished adapter back. It does not close other VPN clients on its own — the “Fix” button does that.",
+    autoFixHint: "While connected, Marvia disconnects Cloudflare WARP and reconnects it after you disconnect. It leaves zapret and GoodbyeDPI alone: the tunnel drops their fake packets itself. It removes an abandoned proxy nobody answers on and brings a vanished adapter back. It does not close other VPN clients on its own — the “Fix” button does that.",
     proxyCare: "If you did not set the proxy — on a work computer or under parental "
       + "controls — leave it alone: without it work resources stop opening.",
     proxyOff: "Remove the proxy",
@@ -3311,7 +3311,7 @@ on("update-open", "click", () => api("POST", "api/update/open").catch(() => {}))
   нечестно — так и пишем.
 */
 // Помехи важны, только пока есть туннель или он только что не поднялся:
-// zapret без VPN никому не мешает, и пугать им до подключения незачем.
+// второй VPN без туннеля никому не мешает, и пугать им до подключения незачем.
 function showConflicts(s) {
   const list = s.conflicts || [];
   const live = s.state === "connected" || s.state === "stalled" || s.state === "failed";

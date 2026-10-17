@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -48,46 +49,51 @@ func fakeWindows(t *testing.T, sys *fakeSystem) {
 	setWarp = func(on bool) error { sys.warp = on; return nil }
 }
 
-func TestZapretAndWarpStopForTheConnectionAndComeBackAfterIt(t *testing.T) {
-	sys := &fakeSystem{running: map[string]bool{"zapret": true}, warp: true}
+func TestZapretKeepsRunningAndWarpComesBackAfterTheConnection(t *testing.T) {
+	// zapret человеку нужен и без VPN, а его обманки мост выбрасывает сам:
+	// останавливать его ради туннеля больше незачем.
+	sys := &fakeSystem{running: map[string]bool{"zapret": true, "GoodbyeDPI": true}, warp: true}
 	fakeWindows(t, sys)
 	p := newPauser(filepath.Join(t.TempDir(), "paused.json"), func(string) {})
 
 	p.pause()
-	if sys.running["zapret"] || sys.warp {
-		t.Fatalf("на время подключения помехи остались: zapret=%v warp=%v", sys.running["zapret"], sys.warp)
+	if !sys.running["zapret"] || !sys.running["GoodbyeDPI"] {
+		t.Fatal("Marvia остановила zapret, который туннелю больше не мешает")
 	}
-	// Переподключение снова зовёт pause: остановленное нами не должно
-	// стать «остановленным до нас» и потеряться.
+	if sys.warp {
+		t.Fatal("второй VPN остался подключённым на время подключения")
+	}
+	// Переподключение снова зовёт pause: отключённое нами не должно стать
+	// «отключённым до нас» и потеряться.
 	p.pause()
 	p.restore()
-	if !sys.running["zapret"] || !sys.warp {
-		t.Fatalf("после отключения помехи не вернулись: zapret=%v warp=%v", sys.running["zapret"], sys.warp)
+	if !sys.warp {
+		t.Fatal("после отключения WARP не вернулся")
 	}
 }
 
-func TestServiceStoppedBeforeMarviaIsNotStartedByIt(t *testing.T) {
-	sys := &fakeSystem{running: map[string]bool{"zapret": false, "GoodbyeDPI": true}}
+func TestWarpDisconnectedBeforeMarviaIsNotConnectedByIt(t *testing.T) {
+	sys := &fakeSystem{running: map[string]bool{}}
 	fakeWindows(t, sys)
 	p := newPauser(filepath.Join(t.TempDir(), "paused.json"), func(string) {})
 
 	p.pause()
 	p.restore()
-	if sys.running["zapret"] {
-		t.Fatal("Marvia запустила zapret, который человек выключил сам")
-	}
-	if !sys.running["GoodbyeDPI"] || sys.warp {
-		t.Fatalf("вернулось не то: GoodbyeDPI=%v warp=%v", sys.running["GoodbyeDPI"], sys.warp)
+	if sys.warp {
+		t.Fatal("Marvia подключила WARP, который человек выключил сам")
 	}
 }
 
 func TestAfterACrashStoppedProgramsComeBackOnTheNextStart(t *testing.T) {
-	sys := &fakeSystem{running: map[string]bool{"zapret": true}, warp: true}
+	// Так оставляет файл alpha.15, упавшая посреди подключения: она ещё
+	// останавливала zapret. Новая версия обязана его вернуть.
+	sys := &fakeSystem{running: map[string]bool{"zapret": false}, warp: false}
 	fakeWindows(t, sys)
 	path := filepath.Join(t.TempDir(), "paused.json")
-	newPauser(path, func(string) {}).pause()
+	if err := os.WriteFile(path, []byte(`{"services":["zapret"],"warp":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
-	// Программа упала: память пропала, остался только файл.
 	next := newPauser(path, func(string) {})
 	if !next.pending() {
 		t.Fatal("новый запуск не знает, что zapret и WARP остановлены")
@@ -149,16 +155,16 @@ func TestCheckTellsAProblemOnThePCFromAProblemWithTheNode(t *testing.T) {
 	}
 }
 
-func TestFixClosesOtherVPNClientsButLeavesWarpRunning(t *testing.T) {
+func TestFixClosesOtherVPNClientsButLeavesWarpAndZapretRunning(t *testing.T) {
 	names := closable()
-	for _, want := range []string{"hiddify", "winws", "v2rayn"} {
+	for _, want := range []string{"hiddify", "v2rayn"} {
 		if !slices.Contains(names, want) {
 			t.Errorf("«Починить» не закрывает %s", want)
 		}
 	}
-	for _, keep := range []string{"warp-svc", "cloudflare warp", "marvia-windows"} {
+	for _, keep := range []string{"warp-svc", "cloudflare warp", "marvia-windows", "winws", "goodbyedpi"} {
 		if slices.Contains(names, keep) {
-			t.Errorf("«Починить» закрывает %s, хотя его достаточно отключить", keep)
+			t.Errorf("«Починить» закрывает %s, хотя он туннелю не мешает или его достаточно отключить", keep)
 		}
 	}
 }

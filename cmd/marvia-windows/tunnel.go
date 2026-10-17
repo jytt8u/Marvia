@@ -248,7 +248,7 @@ func NewController(dns string, mtu uint32, log *journal) *Controller {
 	}
 	c.fixer = newPauser(pausedPath, func(s string) { c.log.add("%s", s) })
 	// Остатки прошлого запуска: программа упала или компьютер выключили
-	// посреди подключения, и zapret с WARP так и стоят выключенными.
+	// посреди подключения, и WARP так и стоит отключённым.
 	if c.fixer.pending() {
 		go c.fixer.restore()
 	}
@@ -601,8 +601,8 @@ func (c *Controller) Connect() error {
 }
 
 func (c *Controller) connect(ctx context.Context, link string, set pcSettings) {
-	// Помехи убираем до дозвона: служба zapret перехватывает и само
-	// соединение с нодой, если та стоит на адресах его списка.
+	// Помехи убираем до дозвона: второй VPN перехватывает и само соединение
+	// с нодой.
 	if !set.AutoFixOff {
 		c.fixer.pause()
 		c.dropDeadProxy()
@@ -618,8 +618,8 @@ func (c *Controller) connect(ctx context.Context, link string, set pcSettings) {
 		// тот случай, когда нужна свежая ссылка «Продлить».
 		c.rememberSubscription(link)
 		c.finish(ctx, StateFailed, err.Error())
-		// Без туннеля остановленный zapret только отнимает у человека
-		// YouTube: возвращаем всё сразу, а не по кнопке «Отключить».
+		// Без туннеля отключённый WARP только отнимает у человека его VPN:
+		// возвращаем всё сразу, а не по кнопке «Отключить».
 		c.fixer.restore()
 	}
 }
@@ -853,7 +853,7 @@ func (c *Controller) Disconnect() {
 }
 
 // teardown убирает туннель, не возвращая помех: переподключению они снова
-// помешали бы, а запускать zapret на секунду между двумя туннелями незачем.
+// помешали бы, а включать WARP на секунду между двумя туннелями незачем.
 func (c *Controller) teardown() {
 	c.disconnectMu.Lock()
 	defer c.disconnectMu.Unlock()
@@ -891,6 +891,12 @@ func (c *Controller) teardown() {
 
 	// Порядок обратный сборке: сначала перестаём разбирать пакеты, потом
 	// снимаем маршруты и убираем адаптер, и только затем рвём туннель.
+	// Сколько обманок zapret мост выбросил за сеанс: видно, что он рядом и
+	// туннель с ним уживается, — и с чего начинать, если YouTube всё-таки
+	// не открылся.
+	if n := bridge.Decoys(); n > 0 {
+		c.log.add("%s", sayf("logDecoys", n))
+	}
 	if bridge != nil {
 		_ = bridge.Close()
 	}

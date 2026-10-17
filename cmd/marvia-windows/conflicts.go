@@ -7,9 +7,9 @@ import "strings"
 // Программы, которые мешают туннелю, если работают рядом с ним.
 //
 // Люди приходят к Marvia с уже стоящими средствами обхода. zapret и
-// GoodbyeDPI перехватывают трафик к YouTube драйвером WinDivert и подменяют
-// пакеты: без VPN это помогает, а внутри туннеля ломает соединение — YouTube
-// не открывается, остальное работает, и виноватым выглядит VPN. Второй
+// GoodbyeDPI помехой больше не считаются: их поддельные пакеты мост
+// выбрасывает сам (internal/tunbridge/decoy.go), и туннель с ними уживается —
+// а без VPN они человеку нужны. Второй
 // VPN-клиент спорит за маршруты, а Hiddify на том же драйвере Wintun удаляет
 // чужой адаптер и оставляет системный прокси. Человек этого не видит; окно
 // должно назвать программу и сказать, что сделать.
@@ -22,14 +22,13 @@ type conflictRule struct {
 }
 
 var conflictRules = []conflictRule{
-	{key: "conflictZapret", names: []string{"winws", "goodbyedpi"}},
 	{key: "conflictWarp", names: []string{"warp-svc", "cloudflare warp"}},
 	{key: "conflictHiddify", names: []string{"hiddify", "hiddifycli"}},
 	{key: "conflictVPN", names: []string{"v2rayn", "nekoray", "nekobox", "clash-verge", "clash verge", "amneziavpn", "outline", "happ", "v2raytun"}},
 }
 
 // conflictsAmong — какие правила сработали на этом списке процессов. Порядок
-// — как в conflictRules: zapret первым, он ломает тише всех.
+// — как в conflictRules.
 func conflictsAmong(processes []string) []string {
 	running := make(map[string]bool, len(processes))
 	for _, p := range processes {

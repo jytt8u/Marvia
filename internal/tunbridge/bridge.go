@@ -139,6 +139,7 @@ type Names interface {
 // Bridge — работающий мост.
 type Bridge struct {
 	device         stack.LinkEndpoint
+	guard          *decoyGuard
 	stream         io.Closer
 	stack          *stack.Stack
 	handler        *handler
@@ -167,6 +168,8 @@ func Start(cfg Config) (*Bridge, error) {
 		CloseFD(cfg.FD)
 		return nil, err
 	}
+	// Обманки zapret и GoodbyeDPI умирают здесь, до стека; см. decoy.go.
+	guard := guardDecoys(dev)
 	var stream io.Closer
 	if cfg.Endpoint == nil && cfg.Device != nil {
 		stream, _ = cfg.Device.(io.Closer)
@@ -182,18 +185,18 @@ func Start(cfg Config) (*Bridge, error) {
 	handler.v6.reset()
 
 	st, err := core.CreateStack(&core.Config{
-		LinkEndpoint:     dev,
+		LinkEndpoint:     guard,
 		TransportHandler: handler,
 	})
 	if err != nil {
 		if stream != nil {
 			_ = stream.Close()
 		}
-		dev.Close()
+		guard.Close()
 		return nil, fmt.Errorf("сетевой стек: %w", err)
 	}
 
-	return &Bridge{device: dev, stream: stream, stack: st, handler: handler}, nil
+	return &Bridge{device: guard, guard: guard, stream: stream, stack: st, handler: handler}, nil
 }
 
 // NodeChanged сообщает мосту, что трафик пошёл через другую ноду.

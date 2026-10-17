@@ -44,9 +44,6 @@ const (
 // TrojanHeaderLen — сколько байт нужно прочитать, чтобы опознать Trojan.
 const TrojanHeaderLen = trojanHexLen + 2
 
-// ErrUDPNotSupported — клиент попросил UDP, а нода пока умеет только TCP.
-var ErrUDPNotSupported = errors.New("UDP пока не поддерживается")
-
 // TrojanRequest — разобранный запрос.
 type TrojanRequest struct {
 	// Digest — двоичный SHA-224 пароля. Именно он ищется в списке
@@ -55,6 +52,9 @@ type TrojanRequest struct {
 
 	// Target — куда клиент хочет подключиться.
 	Target vp1.Address
+
+	// UDP — дальше пойдут датаграммы, у каждой свой адрес (см. udp.go).
+	UDP bool
 }
 
 // LooksLikeTrojan определяет по первым байтам, стоит ли пробовать Trojan.
@@ -98,9 +98,7 @@ func ReadTrojanRequest(r io.Reader) (*TrojanRequest, error) {
 		return nil, fmt.Errorf("чтение команды: %w", err)
 	}
 	switch cmd[0] {
-	case trojanCmdTCP:
-	case trojanCmdUDP:
-		return nil, ErrUDPNotSupported
+	case trojanCmdTCP, trojanCmdUDP:
 	default:
 		return nil, fmt.Errorf("неизвестная команда 0x%02x", cmd[0])
 	}
@@ -119,5 +117,5 @@ func ReadTrojanRequest(r io.Reader) (*TrojanRequest, error) {
 		return nil, errors.New("запрос не заканчивается CRLF")
 	}
 
-	return &TrojanRequest{Digest: digest, Target: target}, nil
+	return &TrojanRequest{Digest: digest, Target: target, UDP: cmd[0] == trojanCmdUDP}, nil
 }

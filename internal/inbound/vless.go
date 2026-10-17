@@ -49,6 +49,10 @@ const VLESSPrefixLen = 1 + vlessUUIDLen
 type VLESSRequest struct {
 	UUID   []byte
 	Target vp1.Address
+
+	// UDP — датаграммы одному собеседнику; XUDP — датаграммы многим,
+	// адрес в каждом кадре (см. udp.go). Без обоих — поток TCP.
+	UDP, XUDP bool
 }
 
 // PeekVLESSUUID достаёт UUID из начала потока, ничего больше не разбирая.
@@ -95,13 +99,13 @@ func ReadVLESSRequest(r io.Reader) (*VLESSRequest, error) {
 		return nil, fmt.Errorf("чтение команды: %w", err)
 	}
 	switch cmd[0] {
-	case vlessCmdTCP:
-	case vlessCmdUDP:
-		return nil, ErrUDPNotSupported
-	case vlessCmdMux:
-		return nil, errors.New("mux.cool не поддерживается")
+	case vlessCmdTCP, vlessCmdUDP, vlessCmdMux:
 	default:
 		return nil, fmt.Errorf("неизвестная команда 0x%02x", cmd[0])
+	}
+	// У mux.cool адреса в заголовке нет: адреса едут в кадрах (см. udp.go).
+	if cmd[0] == vlessCmdMux {
+		return &VLESSRequest{UUID: uuid, XUDP: true}, nil
 	}
 
 	var portRaw [2]byte
@@ -146,7 +150,7 @@ func ReadVLESSRequest(r io.Reader) (*VLESSRequest, error) {
 		return nil, fmt.Errorf("неизвестный тип адреса 0x%02x", atyp[0])
 	}
 
-	return &VLESSRequest{UUID: uuid, Target: target}, nil
+	return &VLESSRequest{UUID: uuid, Target: target, UDP: cmd[0] == vlessCmdUDP}, nil
 }
 
 // VLESSConn дописывает ответный заголовок к первой же порции данных.

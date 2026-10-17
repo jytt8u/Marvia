@@ -169,7 +169,17 @@ func serveVLESS(rc *rewind.Conn, meter *metered.Conn, peer net.Addr, d deps) {
 	defer stop()
 
 	// Ответный заголовок VLESS уедет вместе с первой порцией данных.
-	pipeSingle(inbound.NewVLESSConn(rc), request.Target, "vless")
+	client := inbound.NewVLESSConn(rc)
+	switch {
+	case request.XUDP:
+		if err := inbound.ServeXUDP(client, dialUDP, udpIdleTimeout); err != nil {
+			log.Printf("vless xudp: %s", why(err))
+		}
+	case request.UDP:
+		serveForeignDatagrams(client, request.Target, "vless")
+	default:
+		pipeSingle(client, request.Target, "vless")
+	}
 }
 
 // serveTrojan обслуживает чужой клиент по Trojan.
@@ -195,6 +205,12 @@ func serveTrojan(rc *rewind.Conn, meter *metered.Conn, peer net.Addr, d deps) {
 	defer stop()
 
 	// У Trojan ответного заголовка нет: сразу данные.
+	if request.UDP {
+		if err := inbound.ServeTrojanUDP(rc, dialUDP, udpIdleTimeout); err != nil {
+			log.Printf("trojan udp: %s", why(err))
+		}
+		return
+	}
 	pipeSingle(rc, request.Target, "trojan")
 }
 
@@ -210,6 +226,25 @@ func admit(d deps, kind string, identity []byte, peer net.Addr) (*users.Session,
 		return nil, errors.New("список пользователей не задан")
 	}
 	return d.registry.Admit(kind, identity, peer)
+}
+
+// dialUDP — исходящий UDP для чужих протоколов: те же запреты адресов и
+// портов, что у TCP и у датаграмм VP1.
+func dialUDP(to vp1.Address) (net.Conn, error) {
+	return egress.Dial(context.Background(), "udp", to.String(), dialTimeout)
+}
+
+// serveForeignDatagrams — простой UDP по VLESS: датаграммы одному
+// собеседнику с длиной впереди, ровно как у датаграмм VP1, только без
+// статуса — у VLESS его нет.
+func serveForeignDatagrams(client net.Conn, to vp1.Address, proto string) {
+	target, err := dialUDP(to)
+	if err != nil {
+		log.Printf("%s udp: цель недоступна: %s", proto, why(err))
+		return
+	}
+	defer target.Close()
+	relay.Datagrams(vp1.Datagrams(client), target, udpIdleTimeout)
 }
 
 // pipeSingle доводит до конца одно соединение чужого протокола.

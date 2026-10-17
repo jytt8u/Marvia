@@ -105,6 +105,11 @@ class Backdrop(private val t: Theme, private val pattern: String = io.marvia.and
 
     override fun draw(canvas: Canvas) {
         val b = bounds
+        // Сцена — картина целиком, со своим небом: свет темы и узор ей не нужны.
+        if (Scenes.isScene(pattern) && b.width() > 0 && b.height() > 0) {
+            canvas.drawBitmap(scene(pattern, b.width(), b.height(), t), null, b, null)
+            return
+        }
         canvas.drawRect(b, brush)
         if (t.kind != "flat") canvas.drawRect(b, grain)
         // Узор из цвета текста, едва заметный: фон перестаёт быть пустым, но
@@ -152,6 +157,26 @@ class Backdrop(private val t: Theme, private val pattern: String = io.marvia.and
     }
 
     companion object {
+        /**
+         * Нарисованные сцены по размеру и цветам темы. Фон пересоздаётся на
+         * каждую покраску экрана — ползунок затемнения зовёт её на каждом шаге,
+         * — а картина с размытием рисуется заметную долю секунды. Держим
+         * немного: экран целиком весит десяток мегабайт, миниатюры — крохи.
+         */
+        private val scenes = object : LinkedHashMap<String, Bitmap>(8, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean {
+                val pixels = values.sumOf { it.width.toLong() * it.height }
+                return size > 1 && pixels > SCENE_BUDGET
+            }
+        }
+        private const val SCENE_BUDGET = 6_000_000L
+
+        
+        fun scene(key: String, w: Int, h: Int, t: Theme): Bitmap {
+            val id = "$key/${w}x$h/${t.bg}/${t.fg}/${t.acc}"
+            return scenes.getOrPut(id) { Scenes.render(key, w, h, t) }
+        }
+
         private val grainTile: Bitmap by lazy {
             val n = 128
             val px = IntArray(n * n)

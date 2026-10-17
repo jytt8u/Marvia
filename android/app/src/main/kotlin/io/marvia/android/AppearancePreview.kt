@@ -39,9 +39,16 @@ class AppearancePreview(context: Context, private val profile: AppearanceProfile
         val p = profile.preview
         val t = theme
 
+        // Сцена — та же картина, что ляжет на экран, только меньше: по
+        // цветной заглушке нельзя выбрать между горами и сакурой.
+        val scene = Scenes.isScene(profile.pattern) && width > 0 && height > 0
+        if (scene) canvas.drawBitmap(Backdrop.scene(profile.pattern, width, height, t), 0f, 0f, null)
+
         // Фон и пятна света.
-        brush.shader = LinearGradient(0f, 0f, 0f, h, p.top, p.bottom, Shader.TileMode.CLAMP)
-        canvas.drawRect(0f, 0f, w, h, brush)
+        if (!scene) {
+            brush.shader = LinearGradient(0f, 0f, 0f, h, p.top, p.bottom, Shader.TileMode.CLAMP)
+            canvas.drawRect(0f, 0f, w, h, brush)
+        }
         fun blob(color: Int, x: Float, y: Float, r: Float) {
             if (color == 0) return
             brush.shader = RadialGradient(x, y, r, color, ColorUtils.setAlphaComponent(color, 0), Shader.TileMode.CLAMP)
@@ -121,7 +128,8 @@ class AppearancePreview(context: Context, private val profile: AppearanceProfile
         val cw = w * .38f
         rect.set(w - cw - 10 * dp, 12 * dp, w - 10 * dp, h - 12 * dp)
         val cr = (t.r * .5f * dp).coerceAtMost(14 * dp)
-        brush.color = t.surf
+        // На сцене карточка — стекло, как на экране.
+        brush.color = if (scene) ColorUtils.setAlphaComponent(t.surf, if (t.dark) 0x9E else 0xBE) else t.surf
         canvas.drawRoundRect(rect, cr, cr, brush)
         brush.style = Paint.Style.STROKE; brush.strokeWidth = dp
         brush.color = ColorUtils.setAlphaComponent(t.line, 180)

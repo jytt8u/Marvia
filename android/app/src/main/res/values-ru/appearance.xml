@@ -1,17 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="vibe_brass">Мерная шкала</string>
-    <string name="vibe_brass_sub">Деления прибора и латунная отметка</string>
-    <string name="vibe_blueprint">Синька</string>
-    <string name="vibe_blueprint_sub">Чертёжная сетка, бирюза на тёмно-синем</string>
-    <string name="vibe_kiln">Обожжённая глина</string>
-    <string name="vibe_kiln_sub">Матовая керамика и тёплый свет мастерской</string>
-    <string name="vibe_soundings">Промерная карта</string>
-    <string name="vibe_soundings_sub">Изолинии глубин и морская бирюза</string>
-    <string name="vibe_porcelain">Белый фарфор</string>
-    <string name="vibe_porcelain_sub">Холодный белый и синяя глазурь</string>
-    <string name="vibe_signboard">Сигнальный щит</string>
-    <string name="vibe_signboard_sub">Охристая табличка, прямые углы и полосы</string>
+    <string name="vibe_graphite">Графит</string>
+    <string name="vibe_graphite_sub">Серый, с которого Marvia начиналась</string>
+    <string name="vibe_summit">Вершина</string>
+    <string name="vibe_summit_sub">Снежный пик в чёрно-белом</string>
+    <string name="vibe_sakura">Сакура</string>
+    <string name="vibe_sakura_sub">Ветка в цвету и огоньки гирлянды</string>
+    <string name="vibe_champagne">Шампань</string>
+    <string name="vibe_champagne_sub">Тёплые золотые огни в расфокусе</string>
+    <string name="vibe_noir">Город</string>
+    <string name="vibe_noir_sub">Серые башни и огни окон</string>
+    <string name="vibe_haze">Туман</string>
+    <string name="vibe_haze_sub">Деревья в дымке и бледный цвет</string>
+    <string name="vibe_autumn">Осень</string>
+    <string name="vibe_autumn_sub">Фонари в тумане и листопад</string>
+    <string name="vibe_bordeaux">Бордо</string>
+    <string name="vibe_bordeaux_sub">Лилии на тёмном вине</string>
+    <string name="vibe_powder">Пудра</string>
+    <string name="vibe_powder_sub">Светлый, с мягкими розовыми лепестками</string>
     <string name="appearance_styles">Образы</string>
     <string name="appearance_styles_sub">Выберите образ для приложения.</string>
     <string name="appearance_controls">Экран и отклик</string>

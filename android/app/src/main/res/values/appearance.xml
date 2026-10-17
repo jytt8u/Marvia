@@ -1,17 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="vibe_brass">Instrument Scale</string>
-    <string name="vibe_brass_sub">Gauge ticks and a brass mark</string>
-    <string name="vibe_blueprint">Blueprint</string>
-    <string name="vibe_blueprint_sub">A drafting grid, cyan on deep blue</string>
-    <string name="vibe_kiln">Fired Clay</string>
-    <string name="vibe_kiln_sub">Matte ceramics and warm workshop light</string>
-    <string name="vibe_soundings">Soundings</string>
-    <string name="vibe_soundings_sub">Depth contours and sea teal</string>
-    <string name="vibe_porcelain">White Porcelain</string>
-    <string name="vibe_porcelain_sub">Cool white and blue glaze</string>
-    <string name="vibe_signboard">Signal Board</string>
-    <string name="vibe_signboard_sub">An ochre sign, square corners and stripes</string>
+    <string name="vibe_graphite">Graphite</string>
+    <string name="vibe_graphite_sub">The grey Marvia started with</string>
+    <string name="vibe_summit">Summit</string>
+    <string name="vibe_summit_sub">A snowy peak in black and white</string>
+    <string name="vibe_sakura">Sakura</string>
+    <string name="vibe_sakura_sub">A blossoming branch and fairy lights</string>
+    <string name="vibe_champagne">Champagne</string>
+    <string name="vibe_champagne_sub">Warm gold lights out of focus</string>
+    <string name="vibe_noir">City</string>
+    <string name="vibe_noir_sub">A grey skyline with lit windows</string>
+    <string name="vibe_haze">Haze</string>
+    <string name="vibe_haze_sub">Trees in fog and pale blossom</string>
+    <string name="vibe_autumn">Autumn</string>
+    <string name="vibe_autumn_sub">Lamps in the mist and falling leaves</string>
+    <string name="vibe_bordeaux">Bordeaux</string>
+    <string name="vibe_bordeaux_sub">Lilies on deep wine</string>
+    <string name="vibe_powder">Powder</string>
+    <string name="vibe_powder_sub">Light, with soft pink petals</string>
     <string name="appearance_styles">Looks</string>
     <string name="appearance_styles_sub">Choose a look for your app.</string>
     <string name="appearance_controls">Display and feedback</string>

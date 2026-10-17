@@ -181,7 +181,7 @@ object Paint {
      */
     private fun legible(v: TextView, t: Theme) {
         val ours = v.getTag(R.id.photo_shadow) == true
-        val want = style.photo && !insideCard(v)
+        val want = (style.photo || Scenes.isScene(style.pattern)) && !insideCard(v)
         if (want) {
             val dp = v.resources.displayMetrics.density
             v.setShadowLayer(5 * dp, 0f, 1 * dp, ColorUtils.setAlphaComponent(t.bg, 235))
@@ -216,7 +216,7 @@ object Paint {
             tag == BG -> v.background = Backdrop(t)
             tag == SURF -> v.setBackgroundColor(t.surf)
             // Нижняя панель — средний тон фона, чуть прозрачный, как в макете.
-            tag == NAVBAR -> v.background = rounded(t.surf, 24, dp).apply {
+            tag == NAVBAR -> v.background = rounded(glass(t, t.surf), 24, dp).apply {
                 setStroke(dp.toInt().coerceAtLeast(1), ColorUtils.setAlphaComponent(t.acc, 38))
             }
             tag == LINE -> v.setBackgroundColor(t.line)
@@ -237,7 +237,7 @@ object Paint {
             }
             tag == "feature" -> {
                 val base = card(t, dp).apply {
-                    colors = intArrayOf(ColorUtils.blendARGB(t.surf, t.acc, if (t.dark) .18f else .10f), t.surf)
+                    colors = intArrayOf(ColorUtils.blendARGB(t.surf, t.acc, if (t.dark) .18f else .10f).let { glass(t, it) }, glass(t, t.surf))
                     orientation = GradientDrawable.Orientation.TL_BR
                     setStroke(dp.toInt().coerceAtLeast(1), ColorUtils.setAlphaComponent(t.acc, 64))
                 }
@@ -299,6 +299,7 @@ object Paint {
      * любой подаче: отметка выбора важнее стиля.
      */
     fun card(t: Theme, dp: Float, stroke: Int = t.line): GradientDrawable {
+        if (glassy) return glassCard(t, dp, stroke)
         val line = if (stroke == t.line && t.card == "flat") 0 else stroke
         return rounded(t.surf, t.r, dp).apply {
             if (t.card != "flat") {
@@ -310,14 +311,38 @@ object Paint {
     }
 
     /**
+     * Стекло — карточки поверх сцены. Образцы, по которым выбирают оформление
+     * телефона, держатся на картине во весь экран и полупрозрачных плитках:
+     * непрозрачная карточка закрыла бы её почти целиком. Настоящего размытия
+     * под карточкой нет — RenderEffect только с Android 12 и дорог на каждом
+     * кадре, — поэтому плотность подобрана так, чтобы текст читался и без него.
+     * Свой снимок на фоне стекла не получает: там пелена и тени у букв уже
+     * настроены человеком, и менять ему вид без спроса незачем.
+     */
+    private val glassy: Boolean get() = Scenes.isScene(style.pattern)
+
+    private fun glass(t: Theme, color: Int): Int =
+        if (glassy) ColorUtils.setAlphaComponent(color, if (t.dark) 0x9E else 0xBE) else color
+
+    private fun glassCard(t: Theme, dp: Float, stroke: Int): GradientDrawable =
+        rounded(glass(t, t.surf), t.r, dp).apply {
+            orientation = GradientDrawable.Orientation.TL_BR
+            colors = intArrayOf(glass(t, ColorUtils.blendARGB(t.surf, t.fg, if (t.dark) .1f else .04f)), glass(t, t.surf))
+            // Блик по кромке — цветом текста, едва: так край стекла виден на любой картине.
+            setStroke(dp.toInt().coerceAtLeast(1), if (stroke == t.line) ColorUtils.setAlphaComponent(t.fg, if (t.dark) 0x30 else 0x40) else stroke)
+        }
+
+    /**
      * skin красит карточку и ставит тень, если подача «с тенью». Тень —
      * системная, через elevation: своей у GradientDrawable нет, а рисовать
      * размытие руками ради карточки — дорого и на глаз не лучше.
      */
     private fun skin(v: View, t: Theme, dp: Float) {
         v.background = card(t, dp)
-        v.elevation = if (t.card == "shadow") 6 * dp else 0f
-        if (t.card == "shadow") {
+        // Тень под стеклом ложится грязным пятном сквозь него: у стекла её нет.
+        val shadow = t.card == "shadow" && !glassy
+        v.elevation = if (shadow) 6 * dp else 0f
+        if (shadow) {
             v.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
             v.clipToOutline = false
         }

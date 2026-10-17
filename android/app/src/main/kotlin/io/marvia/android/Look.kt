@@ -77,19 +77,21 @@ object Look {
     val DEFAULT: LookTable.Look get() = LookTable.looks[0]
 
     /**
-     * Палитры телефона: общая таблица и шесть своих — под образы телефона
-     * (Синька, Глина, Промеры, Шкала, Фарфор, Щит). Свои живут только здесь:
-     * окно на ПК и панель их не показывают, поэтому код темы с такой палитрой
-     * открывается только на телефоне. Первые три буквы ключей не совпадают с
-     * общими — на этом держится код темы.
+     * Палитры телефона: общая таблица и восемь своих — под сцены образов
+     * (Вершина, Сакура, Шампань, Город, Туман, Осень, Бордо, Пудра). Свои
+     * живут только здесь: окно на ПК и панель их не показывают, поэтому код
+     * темы с такой палитрой открывается только на телефоне. Первые три буквы
+     * ключей не совпадают с общими — на этом держится код темы.
      */
     val presets: List<LookTable.Preset> = LookTable.presets + listOf(
-        LookTable.Preset("blueprint", 0xFF0C1523, 0xFFF2F6FF, 0xFF48C8D2),
-        LookTable.Preset("kiln", 0xFF1A1715, 0xFFF8F2EC, 0xFFF1A05D),
-        LookTable.Preset("soundings", 0xFFE7F2F1, 0xFF122B30, 0xFF006A68),
-        LookTable.Preset("brass", 0xFF111416, 0xFFF1F4F2, 0xFFD7B64B),
-        LookTable.Preset("porcelain", 0xFFEDF0F5, 0xFF1B2434, 0xFF3657A5),
-        LookTable.Preset("signboard", 0xFFF6F1D7, 0xFF20241F, 0xFF754A00),
+        LookTable.Preset("summit", 0xFF0B0B0D, 0xFFF2F3F5, 0xFFD8DCE2),
+        LookTable.Preset("sakura", 0xFF140D11, 0xFFF8ECF1, 0xFFF2A8C4),
+        LookTable.Preset("champagne", 0xFF15110C, 0xFFF7EFE2, 0xFFE2C18A),
+        LookTable.Preset("noir", 0xFF101112, 0xFFEEEEEE, 0xFFC8CCD2),
+        LookTable.Preset("haze", 0xFF2B2A2D, 0xFFF5F1F2, 0xFFF1C7D3),
+        LookTable.Preset("autumn", 0xFF18120D, 0xFFF4EADF, 0xFFDDA468),
+        LookTable.Preset("bordeaux", 0xFF17070E, 0xFFFAE8EE, 0xFFE88DAA),
+        LookTable.Preset("powder", 0xFFF1EBE9, 0xFF2F2627, 0xFF94585F),
     )
 
     fun preset(key: String): LookTable.Preset =

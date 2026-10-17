@@ -68,8 +68,12 @@ class AppearanceTest {
         store.vibe = "terminal"
         store.look = Look.Choice(preset = "emerald")
         AppearanceProfiles.migrate(store)
-        assertEquals("brass", Store(context).vibe)
-        assertEquals("brass", Store(context).look.preset)
+        assertEquals("graphite", Store(context).vibe)
+        assertEquals(Look.DEFAULT.preset, Store(context).look.preset)
+        // Шкала была образом из коробки вместо серого — серый возвращается.
+        store.vibe = "brass"
+        AppearanceProfiles.migrate(store)
+        assertEquals("graphite", Store(context).vibe)
         // Своя тема без образа остаётся своей.
         context.getSharedPreferences("veil", 0).edit().clear().commit()
         store.look = Look.Choice(preset = "rose")
@@ -112,10 +116,10 @@ class AppearanceTest {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()
         val store = Store(context)
-        AppearanceProfiles.apply(store, AppearanceProfiles.all.first { it.id == "kiln" })
-        assertEquals("kiln", AppearanceProfiles.detail(Store(context)))
+        AppearanceProfiles.apply(store, AppearanceProfiles.all.first { it.id == "autumn" })
+        assertEquals("autumn", AppearanceProfiles.detail(Store(context)))
         store.look = store.look.copy(accent = 0xFF40C8FF.toInt(), btn = "glass")
-        assertEquals("kiln", AppearanceProfiles.detail(Store(context)))
+        assertEquals("autumn", AppearanceProfiles.detail(Store(context)))
         store.look = store.look.copy(preset = "paper")
         assertEquals("", AppearanceProfiles.detail(Store(context)))
     }
@@ -124,12 +128,12 @@ class AppearanceTest {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("veil", 0).edit().clear().commit()
         val store = Store(context)
-        val board = AppearanceProfiles.all.first { it.id == "signboard" }
+        val board = AppearanceProfiles.all.first { it.id == "champagne" }
         store.look = board.choice
         store.pattern = board.pattern
         store.appearanceStyle = board.style
         store.font = board.font
-        assertEquals("signboard", AppearanceProfiles.detail(Store(context)))
+        assertEquals("champagne", AppearanceProfiles.detail(Store(context)))
     }
 
     @Test fun displayPreferencesSurviveRestartWithoutChangingNetworkOptions() {

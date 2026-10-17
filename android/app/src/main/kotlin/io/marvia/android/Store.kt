@@ -446,8 +446,8 @@ class Store(context: Context) {
     fun saveProfileStyle(slot: Int) { prefs.edit().putString("$KEY_PROFILE_STYLE$slot", appearanceStyle.key).apply() }
 
     var pattern: String
-        get() = prefs.getString(KEY_PATTERN, PATTERN_DOTS)?.takeIf { it in PATTERNS } ?: PATTERN_DOTS
-        set(value) { prefs.edit().putString(KEY_PATTERN, value.takeIf { it in PATTERNS } ?: PATTERN_DOTS).apply() }
+        get() = prefs.getString(KEY_PATTERN, PATTERN_DOTS)?.takeIf { it in KNOWN_PATTERNS } ?: PATTERN_DOTS
+        set(value) { prefs.edit().putString(KEY_PATTERN, value.takeIf { it in KNOWN_PATTERNS } ?: PATTERN_DOTS).apply() }
 
     var reduceMotion: Boolean
         get() = prefs.getBoolean(KEY_REDUCE_MOTION, false)
@@ -865,6 +865,13 @@ class Store(context: Context) {
         const val PATTERN_NONE = "none"
         const val PATTERN_DOTS = "dots"
         val PATTERNS = listOf(PATTERN_NONE, PATTERN_DOTS, "grid", "rings", "lines")
+
+        /**
+         * Что можно хранить: узоры из строки выбора и сцены образов. Сцены в
+         * строку не попадают — это картины, а не узор, и приходят вместе с
+         * образом; тринадцать плиток в строку выбора и не уместились бы.
+         */
+        val KNOWN_PATTERNS = PATTERNS + Scenes.keys
 
         const val FONT_ONEST = "onest"
         val FONTS = listOf(FONT_ONEST, "manrope", "geologica")

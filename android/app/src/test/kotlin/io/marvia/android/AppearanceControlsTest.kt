@@ -29,10 +29,9 @@ class AppearanceControlsTest {
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun aSolidButtonWithGlowIsPaintedInFullColour() {
         val context = org.robolectric.RuntimeEnvironment.getApplication()
-        val clay = AppearanceProfiles.all.first { it.id == "kiln" }
         val button = PowerButton(context).apply {
             motionEnabled = false
-            theme = Look.theme(clay.choice)
+            theme = Look.theme(Look.Choice(preset = "ember", btn = "solid", glow = "soft"))
             state = PowerButton.State.ON
         }
         val size = 400
@@ -55,11 +54,11 @@ class AppearanceControlsTest {
         picker.render(Look.theme(store.look))
         assertEquals("paper", store.look.preset)
         // Образ ищем по имени, а не по месту в ленте: порядок образов меняется.
-        val chosen = AppearanceProfiles.all.indexOfFirst { it.id == "blueprint" }
+        val chosen = AppearanceProfiles.all.indexOfFirst { it.id == "noir" }
         grid.getChildAt(chosen).performClick()
         assertEquals(AppearanceProfiles.all[chosen].choice, store.look)
         assertEquals(AppearanceStyle.CLASSIC, store.appearanceStyle)
-        assertEquals("grid", store.pattern)
+        assertEquals(Scenes.SKYLINE, store.pattern)
         assertEquals(1, changes)
         picker.render(Look.theme(store.look))
         assertTrue(grid.getChildAt(chosen).isSelected)

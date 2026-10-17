@@ -314,47 +314,74 @@ func subscriptionClient(pinned []netip.Addr) *http.Client {
 		return httpguard.SubscriptionClient(http.DefaultClient)
 	}
 
+	// Перебираем адреса целым запросом, а не одним TCP: адрес, который принял
+	// соединение и тут же его оборвал, — мёртвый узел CDN или фильтр, режущий
+	// после приветствия TLS, — тоже не ответил. Раньше перебор останавливался
+	// на первом принявшем TCP, и такой адрес оставлял покупателя без списка нод.
+	// Запрос подписки — GET без тела, повторять его на другом адресе безопасно.
+	try := make([]http.RoundTripper, 0, len(pinned)+1)
+	for _, ip := range pinned {
+		try = append(try, pinnedTransport(ip))
+	}
+	return httpguard.SubscriptionClient(&http.Client{Transport: pinnedRoundTripper{pinned: try, plain: pinnedTransport(netip.Addr{})}})
+}
+
+// pinnedTransport — транспорт, который идёт на этот адрес, что бы ни
+// говорило имя; нулевой адрес — обычный поход по имени.
+func pinnedTransport(ip netip.Addr) *http.Transport {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 
 	// Прокси из настроек системы отключаем намеренно. Он разрешил бы имя сам
 	// и увидел бы его — то есть подсказка перестала бы что-либо значить.
 	// Продавец, вписавший адреса в ссылку, рассчитывает на прямое соединение.
 	transport.Proxy = nil
+	if !ip.IsValid() {
+		return transport
+	}
 
+	// Срок на каждую попытку отдельно. Без него первый же неотвечающий
+	// адрес съедал бы весь срок запроса, и до живого мы бы не дошли — а у
+	// панели за CDN мёртвый адрес в списке дело обычное.
+	dialer := net.Dialer{Timeout: pinnedDialTimeout}
 	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 		_, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, err
 		}
+		return dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+	}
+	return transport
+}
 
-		// Срок на каждую попытку отдельно. Без него первый же неотвечающий
-		// адрес съедал бы весь срок запроса, и до живого мы бы не дошли — а у
-		// панели за CDN мёртвый адрес в списке дело обычное.
-		dialer := net.Dialer{Timeout: pinnedDialTimeout}
+// pinnedRoundTripper пробует подсказанные адреса по очереди, а затем имя.
+type pinnedRoundTripper struct {
+	pinned []http.RoundTripper
+	plain  http.RoundTripper
+}
 
-		for _, ip := range pinned {
-			conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
-			if err == nil {
-				return conn, nil
-			}
+func (p pinnedRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	for _, t := range p.pinned {
+		resp, err := t.RoundTrip(req)
+		if err == nil {
+			return resp, nil
 		}
-
-		// Все подсказанные адреса молчат — спрашиваем имя как обычно.
-		//
-		// Подсказку вписывают один раз и живёт она годами, а адреса панели за
-		// это время меняются: продавец переехал, CDN сменил диапазон. Упереться
-		// в устаревшую подсказку и оставить покупателя без списка нод — хуже,
-		// чем один запрос имени в редком случае. Ради этого запроса всё и
-		// затевалось, но затевалось ради обычного дня, а не ради поломки.
-		var plain net.Dialer
-		conn, err := plain.DialContext(ctx, network, addr)
-		if err != nil {
-			return nil, fmt.Errorf("адреса панели из ссылки не отвечают, и по имени тоже не вышло: %w", err)
+		if req.Context().Err() != nil {
+			return nil, err
 		}
-		return conn, nil
 	}
 
-	return httpguard.SubscriptionClient(&http.Client{Transport: transport})
+	// Все подсказанные адреса молчат — спрашиваем имя как обычно.
+	//
+	// Подсказку вписывают один раз и живёт она годами, а адреса панели за
+	// это время меняются: продавец переехал, CDN сменил диапазон. Упереться
+	// в устаревшую подсказку и оставить покупателя без списка нод — хуже,
+	// чем один запрос имени в редком случае. Ради этого запроса всё и
+	// затевалось, но затевалось ради обычного дня, а не ради поломки.
+	resp, err := p.plain.RoundTrip(req)
+	if err != nil {
+		return nil, fmt.Errorf("адреса панели из ссылки не отвечают, и по имени тоже не вышло: %w", err)
+	}
+	return resp, nil
 }
 
 // Until — до какого момента оплачена подписка.

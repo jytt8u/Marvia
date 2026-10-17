@@ -131,3 +131,47 @@ func pinned(t *testing.T, addrs ...string) []netip.Addr {
 	}
 	return out
 }
+
+// TestFetchSubscriptionSkipsAnAddressThatHangsUp — первый адрес принимает
+// соединение и тут же его рвёт, второй жив.
+//
+// Так выглядит не только мёртвый узел CDN, но и фильтр провайдера: он
+// пропускает TCP и сбрасывает соединение после приветствия TLS. Адрес,
+// который «ответил» только на TCP, не ответил — значит, пробуем следующий.
+func TestFetchSubscriptionSkipsAnAddressThatHangsUp(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"nodes":[{"id":1,"name":"ae-1","address":"203.0.113.9:443","public_key":"` + testKey + `"}]}`))
+	}))
+	defer srv.Close()
+	_, port, err := net.SplitHostPort(strings.TrimPrefix(srv.URL, "http://"))
+	if err != nil {
+		t.Fatalf("адрес тестовой панели: %v", err)
+	}
+
+	hangup, err := net.Listen("tcp", net.JoinHostPort("127.0.0.2", port))
+	if err != nil {
+		t.Skipf("второй адрес петли недоступен: %v", err)
+	}
+	defer hangup.Close()
+	go func() {
+		for {
+			conn, err := hangup.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+
+	sub, err := client.FetchSubscription(
+		context.Background(),
+		"http://panel.example.invalid:"+port+"/sub/token",
+		pinned(t, "127.0.0.2", "127.0.0.1"),
+	)
+	if err != nil {
+		t.Fatalf("адрес, рвущий соединение, остановил запрос: %v", err)
+	}
+	if len(sub.Nodes) != 1 {
+		t.Fatalf("нод %d, ожидалась одна", len(sub.Nodes))
+	}
+}

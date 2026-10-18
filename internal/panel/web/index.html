@@ -170,11 +170,128 @@
   .look-intro p { max-width: 64ch; color: var(--dim); font-size: 13px; line-height: 1.55; }
   .look-intro button { margin-left: auto; flex: none; padding: 10px 14px; border-radius: 9px;
     border: 1px solid var(--line); background: var(--surf2); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; }
-  /* Главная на узком окне: пары карточек встают друг под другом, иначе
-     правая сжимается до столбика и заголовок рвётся на три строки. */
+  /*
+    Раскладка рабочей области.
+
+    Раньше каждый раздел растягивался на высоту окна (flex: 1) и прокручивал
+    себя сам. На трёх нодах это давало две трети пустого экрана, а пустая
+    таблица ключей — рамку во весь рост с одной строкой внутри. Теперь
+    прокручивается вся рабочая область, а блоки занимают ровно свою высоту:
+    сколько данных, столько и места.
+  */
+  .p-main {
+    flex: 1; min-width: 0; overflow-y: auto; scrollbar-gutter: stable;
+    padding: 0 22px 28px; display: flex; flex-direction: column; gap: 14px;
+  }
+  /* В колонке с прокруткой flex иначе сжал бы блоки до нуля, а не дал бы
+     области прокрутиться. */
+  .p-main > * { flex: none; }
+  /* Верхний отступ — у первого блока, а не у области: липкая шапка таблицы
+     встаёт по краю содержимого, и при отступе у области над ней просвечивала
+     бы полоска уехавших строк. */
+  .p-main > :first-child { margin-top: 18px; }
+  .p-flow { display: flex; flex-direction: column; gap: var(--gap, 12px); }
+  /* Карточка целиком на переменных темы: вид перекрашивает её вместе со всем. */
+  .card {
+    min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px);
+    background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine, var(--line));
+    box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 12px;
+  }
+  .card.feature { background: var(--featureBg, var(--cardBg, var(--surf))); border-color: var(--featureLine, var(--cardLine, var(--line))); }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--fg); }
+  .mono-cap { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .08em; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Плитки показателей: столько в ряд, сколько влезает, но не уже 190px —
+     уже число в 26px перестаёт помещаться и обрезается многоточием. */
+  .kpi-row { display: grid; gap: var(--gap, 12px); grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  /* Одинокая плитка над таблицей не тянется на всю ширину: карточка на всю
+     ширину с одним числом и есть то пустое место, которое убираем. */
+  .kpi-row.solo { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+
+  /* Обзор: график и ноды, под ними сроки и тарифы. Строки сетки выравнивают
+     пары по высоте, а не растягивают их до низа окна. */
+  .dash-grid { display: grid; gap: var(--gap, 12px); grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+  .stats-grid { display: grid; gap: var(--gap, 12px); grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start; }
+  /* Высота графика задана, а не «сколько осталось от окна»: на большом
+     мониторе столбики в полэкрана не говорят больше, чем в двести пикселей. */
+  .chart { height: 150px; }
+  .chart.tall { height: 230px; }
+
+  /* Ноды плотной сеткой: на широком экране три-четыре в ряд. */
+  .node-grid { display: grid; gap: var(--gap, 12px); grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .node-grid > .wide, .cards-2 > .wide { grid-column: 1 / -1; }
+
+  /* Страницы настроек — две колонки карточек вместо одной узкой с пустой
+     правой половиной. Колонки, а не сетка: карточки разной высоты, и в сетке
+     под короткой осталась бы дыра до конца длинной соседки. */
+  .masonry { columns: 2 400px; column-gap: var(--gap, 12px); }
+  .masonry > * { break-inside: avoid; margin-bottom: var(--gap, 12px); }
+  .cards-2 { display: grid; gap: var(--gap, 12px); grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); align-items: start; }
+  .pair { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .pair > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+  /* Подписи полей в формах. Без правила подписи над полями копий и вебхуков
+     выходили шестнадцатым кеглем — крупнее заголовка своей же карточки. */
+  .form-card label[for] { font-size: 12px; color: var(--dim); }
+  .form-card label:not([for]) { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--fg); cursor: pointer; }
+  .form-card input[type=checkbox] { accent-color: var(--acc); width: 15px; height: 15px; }
+  /* Кнопки здесь настоящие button: без сброса браузер рисует им свою рамку
+     поверх стиля темы. */
+  .form-card button { border: 0; font-family: inherit; }
+
+  /* Вид: плитки тем идут вместе со страницей, ручки стоят рядом и не уезжают —
+     выбрал тему внизу списка, а цвет акцента всё ещё под рукой. */
+  .look-grid { display: grid; gap: var(--gap, 12px); grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+  .look-tiles { display: grid; gap: var(--gap, 12px); grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .look-knobs {
+    position: sticky; top: 0; max-height: calc(100vh - 46px - 36px); overflow-y: auto;
+    padding-right: 4px; display: flex; flex-direction: column; gap: var(--gap, 12px);
+  }
+
+  /* Пустое место — короткое: значок, строка и то же действие, что в углу. */
+  .empty-box { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 2px 0; }
+  .empty-box .glyph {
+    flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+    font: 600 15px/1 'JetBrains Mono', monospace;
+  }
+  .empty-box .what { flex: 1 1 260px; font-size: 13px; line-height: 1.5; color: var(--dim); }
+
+  /* Точка «на связи». Пульс только у живого: у молчащей ноды ровная точка,
+     и мигание ей приписало бы жизнь, которой нет. */
+  .live-dot { position: relative; flex: none; display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+  .live-dot.on::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%; background: inherit;
+    animation: ping 2.4s cubic-bezier(0, 0, .2, 1) infinite;
+  }
+  @keyframes ping { 0% { transform: scale(1); opacity: .6; } 75%, 100% { transform: scale(2.8); opacity: 0; } }
+
+  /* Отметка свежести в шапке: правда о том, когда данные пришли. */
+  .fresh { display: flex; align-items: center; gap: 7px; font: 11px/1 'JetBrains Mono', monospace; color: var(--dim); white-space: nowrap; }
+
+  /*
+    Появление при смене раздела. Класс enter стоит на #app только на время
+    входа: разметка пересобирается на каждое нажатие, и без этого карточки
+    вздрагивали бы от каждого фильтра и каждой буквы в поиске. fill-mode
+    backwards, а не both: застрявший конечный кадр перебил бы подъём под
+    курсором.
+  */
+  #app.enter .rise { animation: rise .34s cubic-bezier(.2, .7, .2, 1) backwards; animation-delay: var(--d, 0ms); }
+  #app.enter .grow { animation: grow .5s cubic-bezier(.2, .7, .2, 1) backwards; animation-delay: var(--d, 0ms); transform-origin: bottom; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  @keyframes grow { from { transform: scaleY(0); } }
+
+  /* Подъём под курсором — только у того, что открывается по нажатию. */
+  .lift { transition: transform .18s, box-shadow .18s, filter .18s; }
+  .lift:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .55); }
+
   @media (max-width: 1100px) {
-    .dash-pair { flex-direction: column; height: auto !important; flex: none !important; }
-    .dash-pair > div { flex: none !important; min-height: 200px; max-height: 340px; }
+    .dash-grid, .stats-grid { grid-template-columns: minmax(0, 1fr); }
+    .look-grid { grid-template-columns: minmax(0, 1fr) 280px; }
+  }
+  @media (max-width: 860px) {
+    .look-grid { grid-template-columns: minmax(0, 1fr); }
+    .look-knobs { position: static; max-height: none; overflow: visible; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; }
@@ -357,6 +474,17 @@
         <div style="{{ hostBadge }}">{{ host }}</div>
       </div>
       <div style="display: flex; align-items: center; gap: 10px;">
+        <!--
+          Когда данные пришли. Пульсирует точка, только пока панель сама их
+          подтягивает (раздел с данными, вкладка на виду); на настройках и при
+          скрытой вкладке опрос стоит, и точка стоит вместе с ним.
+        -->
+        <sc-if value="{{ hasFresh }}">
+          <div class="fresh" title="{{ freshTitle }}">
+            <span class="live-dot {{ freshLive }}" style="{{ freshDot }}" aria-hidden="true"></span>
+            <span id="fresh-text">{{ freshText }}</span>
+          </div>
+        </sc-if>
         <div style="{{ ghostBtn }}" onClick="{{ doLang }}" title="{{ d18.switchTitle }}">{{ d18.switchTo }}</div>
         <sc-if value="{{ isAdmin }}">
           <div style="{{ ghostBtn }}" onClick="{{ doBackup }}">{{ d18.head.backup }}</div>
@@ -376,10 +504,12 @@
         </sc-for>
       </div>
 
-      <div style="flex: 1; min-width: 0; padding: 22px 26px; display: flex; flex-direction: column; gap: 18px; overflow: hidden;">
-        <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+      <!-- Ключ прокрутки свой у каждого раздела: при перерисовке место
+           сохраняется, а при переходе в другой раздел страница начинается сверху. -->
+      <div class="p-main" data-keep-scroll="main-{{ page }}">
+        <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;">
           <div>
-            <div style="font-size: 25px; font-weight: 700; color: var(--fg, #eaf5ee);">{{ pageTitle }}</div>
+            <div style="font-size: 23px; font-weight: 700; letter-spacing: -.02em; color: var(--fg, #eaf5ee);">{{ pageTitle }}</div>
             <div style="font-size: 13px; color: var(--dim, #6c8a76); margin-top: 3px;">{{ pageSub }}</div>
           </div>
           <div style="display: flex; gap: 10px; align-items: center;">
@@ -425,7 +555,7 @@
           нет. Здесь она стоит первой.
         -->
         <sc-if value="{{ showStart }}">
-          <div style="{{ startBox }}">
+          <div class="rise" style="{{ startBox }}">
             <div style="font-size: 15px; font-weight: 600; color: var(--fg);">{{ d18.start.title }}</div>
             <sc-for list="{{ startSteps }}" as="s">
               <div style="{{ s.row }}" onClick="{{ s.onClick }}">
@@ -444,237 +574,247 @@
           продлевать, выдерживают ли ноды и кто на каком тарифе.
         -->
         <sc-if value="{{ isDash }}">
-          <div style="display: flex; flex-direction: column; gap: var(--gap, 12px); flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 2px;">
-            <div style="display: flex; gap: var(--gap, 12px); flex-wrap: wrap;">
-              <sc-for list="{{ kpis }}" as="k">
-                <div style="{{ k.style }}">
-                  <div style="font-size: 13px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: var(--fg, #eaf5ee); margin-top: 8px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ k.value }}</div>
-                  <div style="{{ k.deltaStyle }}">{{ k.delta }}</div>
-                </div>
-              </sc-for>
-            </div>
-            <div class="dash-pair" style="display: flex; gap: var(--gap, 12px); height: 230px; flex: none;">
-              <div style="flex: 1.6; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--featureBg, var(--surf, #0c1a11)); border: 1px solid var(--featureLine, var(--cardLine, var(--line))); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-                  <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.traffic }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim, #6c8a76); white-space: nowrap;">{{ chartTotal }}</div>
-                </div>
-                <div style="flex: 1; display: flex; align-items: flex-end; gap: 4px; padding-top: 10px; min-height: 0;">
-                  <sc-for list="{{ chartBars }}" as="l">
-                    <div style="{{ l.colStyle }}" title="{{ l.title }}">
-                      <div style="{{ l.dotStyle }}"></div>
-                      <div style="{{ l.stemStyle }}"></div>
-                    </div>
-                  </sc-for>
-                  <sc-if value="{{ chartEmpty }}">
-                    <div style="align-self: center; margin: auto; max-width: 420px; text-align: center; font-size: 12px; line-height: 1.5; color: var(--dim);">{{ chartEmpty }}</div>
-                  </sc-if>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .12em; color: var(--dim, #6c8a76);"><span>{{ firstDay }}</span><span>{{ lastDay }}</span></div>
+          <div class="kpi-row">
+            <sc-for list="{{ kpis }}" as="k">
+              <div class="rise" style="{{ k.style }}">
+                <div style="font-size: 12px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
+                <div data-count="{{ k.label }}" style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--fg, #eaf5ee); margin-top: 6px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ k.value }}</div>
+                <div style="{{ k.deltaStyle }}">{{ k.delta }}</div>
               </div>
-              <div style="flex: 1; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf, #0c1a11)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-                  <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.nodes }}</div>
-                  <div style="{{ linkStyle }}" onClick="{{ goNodes }}">{{ d18.dash.allNodes }}</div>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto; min-height: 0;">
-                  <sc-for list="{{ nodes }}" as="n">
-                    <div style="display: flex; flex-direction: column; gap: 6px;" onClick="{{ n.onClick }}">
-                      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
-                          <div style="{{ n.dotStyle }}" title="{{ n.state }}"></div>
-                          <div style="font-size: 13px; color: var(--fg, #eaf5ee); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ n.name }}</div>
-                        </div>
-                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim, #6c8a76); flex: none;">{{ n.load }} · {{ n.share }}</div>
-                      </div>
-                      <div style="{{ n.track }}"><div style="{{ n.fill }}"></div></div>
-                    </div>
-                  </sc-for>
-                </div>
-                <sc-if value="{{ noNodes }}">
-                  <div style="{{ emptyStyle }}">{{ d18.dash.noNodes }}</div>
-                </sc-if>
+            </sc-for>
+          </div>
+          <div class="dash-grid">
+            <div class="card feature rise">
+              <div class="card-head">
+                <div class="card-title">{{ d18.dash.traffic }}</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim, #6c8a76); white-space: nowrap;">{{ chartTotal }}</div>
               </div>
-            </div>
-            <div class="dash-pair" style="display: flex; gap: var(--gap, 12px); flex: 1; min-height: 220px;">
-              <div style="flex: 1.6; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf, #0c1a11)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
-                <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px;">
-                  <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
-                    <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.soon }}</div>
-                    <div style="font-size: 12px; color: var(--dim);">{{ soonNote }}</div>
-                  </div>
-                  <div style="{{ linkStyle }}" onClick="{{ goSoon }}">{{ soonAll }}</div>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0;">
-                  <sc-for list="{{ soon }}" as="c">
-                    <div style="{{ c.rowStyle }}" onClick="{{ c.onClick }}">
-                      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
-                        <div style="font-size: 13px; color: var(--fg, #eaf5ee); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.name }}</div>
-                        <div style="font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.plan }}</div>
-                      </div>
-                      <div style="{{ c.whenStyle }}">{{ c.when }}</div>
-                      <div style="{{ renewStyle }}" role="button" tabindex="0" onClick="{{ c.onRenew }}">{{ c.renew }}</div>
-                    </div>
-                  </sc-for>
-                </div>
-                <sc-if value="{{ noSoon }}">
-                  <div style="{{ emptyStyle }}">{{ noSoon }}</div>
-                </sc-if>
-              </div>
-              <div style="flex: 1; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf, #0c1a11)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 12px; overflow: hidden;">
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-                  <div style="font-size: 14px; font-weight: 600; color: var(--fg, #eaf5ee);">{{ d18.dash.byPlan }}</div>
-                  <sc-if value="{{ canPlans }}">
-                    <div style="{{ linkStyle }}" onClick="{{ goPlans }}">{{ d18.cta.plans }} →</div>
-                  </sc-if>
-                </div>
-                <sc-for list="{{ planRows }}" as="p">
-                  <div style="display: flex; flex-direction: column; gap: 6px;">
-                    <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px;">
-                      <span style="color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.name }}</span>
-                      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--fg); flex: none;">{{ p.sum }}</span>
-                    </div>
-                    <div style="{{ p.track }}"><div style="{{ p.fill }}"></div></div>
-                    <div style="font-size: 11px; color: var(--dim);">{{ p.count }}</div>
+              <div class="chart" style="display: flex; align-items: flex-end; gap: 4px;">
+                <sc-for list="{{ chartBars }}" as="l">
+                  <div class="grow" style="{{ l.colStyle }}" title="{{ l.title }}">
+                    <div style="{{ l.dotStyle }}"></div>
+                    <div style="{{ l.stemStyle }}"></div>
                   </div>
                 </sc-for>
-                <sc-if value="{{ noPlanRows }}">
-                  <div style="{{ emptyStyle }}">{{ noPlanRows }}</div>
+                <sc-if value="{{ chartEmpty }}">
+                  <div style="align-self: center; margin: auto; max-width: 420px; text-align: center; font-size: 12px; line-height: 1.5; color: var(--dim);">{{ chartEmpty }}</div>
                 </sc-if>
               </div>
+              <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .12em; color: var(--dim, #6c8a76);"><span>{{ firstDay }}</span><span>{{ lastDay }}</span></div>
+            </div>
+            <div class="card rise">
+              <div class="card-head">
+                <div class="card-title">{{ d18.dash.nodes }}</div>
+                <div style="{{ linkStyle }}" onClick="{{ goNodes }}">{{ d18.dash.allNodes }}</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <sc-for list="{{ nodes }}" as="n">
+                  <div style="display: flex; flex-direction: column; gap: 6px;" onClick="{{ n.onClick }}">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                      <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                        <span class="live-dot {{ n.pulse }}" style="{{ n.dotStyle }}" title="{{ n.state }}"></span>
+                        <div style="font-size: 13px; color: var(--fg, #eaf5ee); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ n.name }}</div>
+                      </div>
+                      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim, #6c8a76); flex: none;">{{ n.load }} · {{ n.share }}</div>
+                    </div>
+                    <div style="{{ n.track }}"><div style="{{ n.fill }}"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{ noNodes }}">
+                <div style="{{ emptyStyle }}">{{ d18.dash.noNodes }}</div>
+              </sc-if>
+            </div>
+            <div class="card rise" style="gap: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px;">
+                <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                  <div class="card-title">{{ d18.dash.soon }}</div>
+                  <div style="font-size: 12px; color: var(--dim);">{{ soonNote }}</div>
+                </div>
+                <div style="{{ linkStyle }}" onClick="{{ goSoon }}">{{ soonAll }}</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <sc-for list="{{ soon }}" as="c">
+                  <div style="{{ c.rowStyle }}" onClick="{{ c.onClick }}">
+                    <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                      <div style="font-size: 13px; color: var(--fg, #eaf5ee); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.name }}</div>
+                      <div style="font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.plan }}</div>
+                    </div>
+                    <div style="{{ c.whenStyle }}">{{ c.when }}</div>
+                    <div style="{{ renewStyle }}" role="button" tabindex="0" onClick="{{ c.onRenew }}">{{ c.renew }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{ noSoon }}">
+                <div style="{{ emptyStyle }}">{{ noSoon }}</div>
+              </sc-if>
+            </div>
+            <div class="card rise">
+              <div class="card-head">
+                <div class="card-title">{{ d18.dash.byPlan }}</div>
+                <sc-if value="{{ canPlans }}">
+                  <div style="{{ linkStyle }}" onClick="{{ goPlans }}">{{ d18.cta.plans }} →</div>
+                </sc-if>
+              </div>
+              <sc-for list="{{ planRows }}" as="p">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px;">
+                    <span style="color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.name }}</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--fg); flex: none;">{{ p.sum }}</span>
+                  </div>
+                  <div style="{{ p.track }}"><div style="{{ p.fill }}"></div></div>
+                  <div style="font-size: 11px; color: var(--dim);">{{ p.count }}</div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ noPlanRows }}">
+                <div style="{{ emptyStyle }}">{{ noPlanRows }}</div>
+              </sc-if>
             </div>
           </div>
         </sc-if>
 
         <sc-if value="{{ isTable }}">
-          <div style="display: flex; flex-direction: column; gap: var(--gap, 12px); flex: 1; min-height: 0;">
-            <sc-if value="{{ hasTableKpis }}">
-              <div style="display: flex; gap: var(--gap, 12px);">
-                <sc-for list="{{ pageKpis }}" as="k">
-                  <div style="{{ k.style }}">
-                    <div style="font-size: 13px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--fg); margin-top: 7px;">{{ k.value }}</div>
-                    <div style="{{ k.deltaStyle }}">{{ k.delta }}</div>
-                  </div>
-                </sc-for>
-              </div>
-            </sc-if>
-            <div style="flex: 1; min-height: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
-              <div style="{{ tableViewport }}">
-                <div style="{{ tableHead }}">
-                  <sc-for list="{{ tableCols }}" as="col">
-                    <div>{{ col }}</div>
-                  </sc-for>
-                </div>
-                <sc-for list="{{ tableRows }}" as="row">
-                  <div style="{{ row.style }}" onClick="{{ row.onClick }}">
-                    <sc-for list="{{ row.cells }}" as="cell">
-                      <div style="{{ cell.style }}">{{ cell.text }}</div>
-                    </sc-for>
-                  </div>
-                </sc-for>
-                <sc-if value="{{ noTableRows }}">
-                  <div style="{{ emptyStyle }}">{{ emptyTable }}</div>
-                </sc-if>
-              </div>
-              <sc-if value="{{ hasPages }}">
-                <div style="{{ pagerRow }}">
-                  <div style="{{ prevStyle }}" onClick="{{ prevPage }}">{{ d18.table.prev }}</div>
-                  <div style="{{ pagerInfo }}">{{ pagerText }}</div>
-                  <div style="{{ nextStyle }}" onClick="{{ nextPage }}">{{ d18.table.next }}</div>
-                </div>
-              </sc-if>
-            </div>
-          </div>
-        </sc-if>
-
-        <sc-if value="{{ isNodesPage }}">
-          <div style="flex: 1; min-height: 0; overflow-y: auto;">
-            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap, 12px); align-content: start;">
-              <sc-for list="{{ nodeCards }}" as="nc">
-                <div style="{{ nc.style }}" onClick="{{ nc.onClick }}">
-                  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
-                    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
-                      <div style="font-size: 16px; font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ nc.name }}</div>
-                      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ nc.host }}</div>
-                    </div>
-                    <div style="{{ nc.badge }}">{{ nc.state }}</div>
-                  </div>
-                  <div style="display: flex; gap: 18px;">
-                    <div style="display: flex; flex-direction: column; gap: 3px;">
-                      <div style="font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .14em; color: var(--dim);">{{ d18.col.traffic30 }}</div>
-                      <div style="font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 700; color: var(--fg);">{{ nc.load }}</div>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 3px;">
-                      <div style="font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .14em; color: var(--dim);">{{ d18.col.share }}</div>
-                      <div style="font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 700; color: var(--fg);">{{ nc.share }}</div>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 3px;">
-                      <div style="font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .14em; color: var(--dim);">{{ d18.col.online }}</div>
-                      <div style="font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 700; color: var(--acc);">{{ nc.seen }}</div>
-                    </div>
-                  </div>
-                  <div style="{{ nc.track }}"><div style="{{ nc.fill }}"></div></div>
-                </div>
-              </sc-for>
-              <sc-if value="{{ noNodes }}">
-                <div style="{{ emptyStyle }}">{{ d18.nodesPage.empty }}</div>
-              </sc-if>
-            </div>
-          </div>
-        </sc-if>
-
-        <sc-if value="{{ isStatsPage }}">
-          <div style="display: flex; flex-direction: column; gap: var(--gap, 12px); flex: 1; min-height: 0;">
-            <div style="display: flex; gap: var(--gap, 12px);">
+          <sc-if value="{{ hasTableKpis }}">
+            <div class="kpi-row solo">
               <sc-for list="{{ pageKpis }}" as="k">
-                <div style="{{ k.style }}">
-                  <div style="font-size: 13px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--fg); margin-top: 7px;">{{ k.value }}</div>
+                <div class="rise" style="{{ k.style }}">
+                  <div style="font-size: 12px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
+                  <div data-count="{{ k.label }}" style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; color: var(--fg); margin-top: 6px;">{{ k.value }}</div>
                   <div style="{{ k.deltaStyle }}">{{ k.delta }}</div>
                 </div>
               </sc-for>
             </div>
-            <div style="flex: 1; min-height: 0; display: flex; gap: var(--gap, 12px);">
-              <div style="flex: 1.5; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 14px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.statsPage.byDay }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim);">{{ totalTraffic }}</div>
-                </div>
-                <div style="flex: 1; display: flex; align-items: flex-end; gap: 3px;">
-                  <sc-for list="{{ dayBars }}" as="rb">
-                    <div style="{{ rb.col }}" title="{{ rb.title }}">
-                      <div style="{{ rb.bar }}"></div>
-                      <div style="{{ rb.label }}">{{ rb.month }}</div>
-                    </div>
+          </sc-if>
+          <!--
+            Таблица высотой в свои строки. Прокручивается вся рабочая область,
+            а заголовок прилипает к её верху: overflow у карточки нет нарочно,
+            иначе sticky держался бы за неё и уезжал вместе со страницей.
+          -->
+          <div class="card rise" style="gap: 8px;">
+            <div style="{{ tableViewport }}">
+              <div style="{{ tableHead }}">
+                <sc-for list="{{ tableCols }}" as="col">
+                  <div>{{ col }}</div>
+                </sc-for>
+              </div>
+              <sc-for list="{{ tableRows }}" as="row">
+                <div style="{{ row.style }}" onClick="{{ row.onClick }}">
+                  <sc-for list="{{ row.cells }}" as="cell">
+                    <div style="{{ cell.style }}">{{ cell.text }}</div>
                   </sc-for>
                 </div>
+              </sc-for>
+              <sc-if value="{{ noTableRows }}">
+                <div class="empty-box">
+                  <div class="glyph" style="{{ emptyGlyph }}" aria-hidden="true">{{ emptyIcon }}</div>
+                  <div class="what">{{ emptyTable }}</div>
+                  <sc-if value="{{ emptyCta }}">
+                    <div style="{{ ctaStyle }}" onClick="{{ doCta }}">{{ pageCta }}</div>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </div>
+            <sc-if value="{{ hasPages }}">
+              <div style="{{ pagerRow }}">
+                <div style="{{ prevStyle }}" onClick="{{ prevPage }}">{{ d18.table.prev }}</div>
+                <div style="{{ pagerInfo }}">{{ pagerText }}</div>
+                <div style="{{ nextStyle }}" onClick="{{ nextPage }}">{{ d18.table.next }}</div>
               </div>
-              <div style="flex: 1; min-width: 0; padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--cardLine, var(--line)); box-shadow: var(--cardShadow, none); display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
-                <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.statsPage.byNode }}</div>
-                <sc-for list="{{ shareRows }}" as="sr">
-                  <div style="display: flex; flex-direction: column; gap: 6px;">
-                    <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--fg);"><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ sr.name }}</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim); flex: none;">{{ sr.pct }}</span></div>
-                    <div style="{{ sr.track }}"><div style="{{ sr.fill }}"></div></div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isNodesPage }}">
+          <div class="node-grid">
+            <sc-for list="{{ nodeCards }}" as="nc">
+              <div class="rise lift" style="{{ nc.style }}" onClick="{{ nc.onClick }}">
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                  <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+                    <div style="font-size: 15px; font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ nc.name }}</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ nc.host }}</div>
+                  </div>
+                  <div style="{{ nc.badge }}"><span class="live-dot {{ nc.pulse }}" style="{{ nc.dot }}" aria-hidden="true"></span>{{ nc.state }}</div>
+                </div>
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 10px;">
+                  <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+                    <div class="mono-cap">{{ d18.col.traffic30 }}</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: var(--fg); white-space: nowrap;">{{ nc.load }}</div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+                    <div class="mono-cap">{{ d18.col.share }}</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: var(--fg);">{{ nc.share }}</div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+                    <div class="mono-cap">{{ d18.col.online }}</div>
+                    <div style="{{ nc.seenStyle }}">{{ nc.seen }}</div>
+                  </div>
+                </div>
+                <div style="{{ nc.track }}"><div style="{{ nc.fill }}"></div></div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noNodes }}">
+              <div class="card wide rise">
+                <div class="empty-box" style="padding: 0;">
+                  <div class="glyph" style="{{ emptyGlyph }}" aria-hidden="true">+</div>
+                  <div class="what">{{ d18.nodesPage.empty }}</div>
+                  <div style="{{ ctaStyle }}" onClick="{{ doCta }}">{{ pageCta }}</div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isStatsPage }}">
+          <div class="kpi-row">
+            <sc-for list="{{ pageKpis }}" as="k">
+              <div class="rise" style="{{ k.style }}">
+                <div style="font-size: 12px; color: var(--dim, #6c8a76);">{{ k.label }}</div>
+                <div data-count="{{ k.label }}" style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; color: var(--fg); margin-top: 6px;">{{ k.value }}</div>
+                <div style="{{ k.deltaStyle }}">{{ k.delta }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div class="stats-grid">
+            <div class="card feature rise">
+              <div class="card-head">
+                <div class="card-title">{{ d18.statsPage.byDay }}</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim);">{{ chartTotal }}</div>
+              </div>
+              <div class="chart tall" style="display: flex; align-items: flex-end; gap: 3px;">
+                <sc-for list="{{ dayBars }}" as="rb">
+                  <div style="{{ rb.col }}" title="{{ rb.title }}">
+                    <div class="grow" style="{{ rb.bar }}"></div>
+                    <div style="{{ rb.label }}">{{ rb.month }}</div>
                   </div>
                 </sc-for>
-                <sc-if value="{{ noShare }}">
-                  <div style="{{ emptyStyle }}">{{ d18.statsPage.noShare }}</div>
+                <sc-if value="{{ chartEmpty }}">
+                  <div style="align-self: center; margin: auto; max-width: 420px; text-align: center; font-size: 12px; line-height: 1.5; color: var(--dim);">{{ chartEmpty }}</div>
                 </sc-if>
               </div>
+            </div>
+            <div class="card rise">
+              <div class="card-title">{{ d18.statsPage.byNode }}</div>
+              <sc-for list="{{ shareRows }}" as="sr">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--fg);"><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ sr.name }}</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim); flex: none;">{{ sr.load }} · {{ sr.pct }}</span></div>
+                  <div style="{{ sr.track }}"><div style="{{ sr.fill }}"></div></div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ noShare }}">
+                <div style="{{ emptyStyle }}">{{ d18.statsPage.noShare }}</div>
+              </sc-if>
             </div>
           </div>
         </sc-if>
 
         <sc-if value="{{ isJournal }}">
-          <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
-            <div style="font-size: 12px; line-height: 1.5; color: var(--dim); padding-bottom: 6px;">{{ d18.journal.what }}</div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="font-size: 12px; line-height: 1.5; color: var(--dim); padding-bottom: 6px; max-width: 110ch;">{{ d18.journal.what }}</div>
             <sc-if value="{{ journalEmpty }}">
               <div style="{{ emptyStyle }}">{{ d18.journal.empty }}</div>
             </sc-if>
             <sc-for list="{{ journal }}" as="e">
-              <div style="{{ e.style }}">
+              <div class="rise" style="{{ e.style }}">
                 <div style="{{ e.whenStyle }}">{{ e.when }}</div>
                 <div style="{{ e.actorStyle }}">{{ e.actor }}</div>
                 <div style="{{ e.whatStyle }}">{{ e.what }}</div>
@@ -690,11 +830,11 @@
           релиз, сверенный с SHA256SUMS (internal/updater).
         -->
         <sc-if value="{{ isUpdates }}">
-          <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--gap, 12px); max-width: 760px;">
-            <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ d18.updates.what }}</div>
+          <div class="p-flow">
+            <div style="font-size: 12px; line-height: 1.5; color: var(--dim); max-width: 110ch;">{{ d18.updates.what }}</div>
             <sc-if value="{{ updHasChannel }}">
               <div style="display: flex; flex-direction: column; gap: 6px;">
-                <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ updChannelText }}</div>
+                <div style="font-size: 12px; line-height: 1.5; color: var(--dim); max-width: 110ch;">{{ updChannelText }}</div>
                 <div style="{{ updCmd }}">{{ updChannelCmd }}</div>
               </div>
             </sc-if>
@@ -702,69 +842,71 @@
               <div style="{{ errStyle }}">{{ updLatestErrText }}</div>
             </sc-if>
 
-            <div style="{{ updCard }}">
-              <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-                <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.updates.panel }}</div>
-                <sc-if value="{{ updCanPanel }}">
-                  <div style="{{ ctaStyle }}" data-focus="upd-panel" onClick="{{ doUpgradePanel }}">{{ d18.updates.upPanel }}</div>
+            <div class="cards-2">
+              <div class="rise" style="{{ updCard }}">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                  <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.updates.panel }}</div>
+                  <sc-if value="{{ updCanPanel }}">
+                    <div style="{{ ctaStyle }}" data-focus="upd-panel" onClick="{{ doUpgradePanel }}">{{ d18.updates.upPanel }}</div>
+                  </sc-if>
+                </div>
+                <div style="display: flex; gap: 28px;">
+                  <div style="display: flex; flex-direction: column; gap: 3px;">
+                    <div class="mono-cap">{{ d18.updates.current }}</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 700; color: var(--fg);">{{ updPanelVersion }}</div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 3px;">
+                    <div class="mono-cap">{{ d18.updates.latest }}</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 700; color: var(--acc);">{{ updLatest }}</div>
+                  </div>
+                </div>
+                <sc-if value="{{ updPanelLine }}">
+                  <div style="{{ updLineStyle }}">{{ updPanelLine }}</div>
+                </sc-if>
+                <sc-if value="{{ updNoService }}">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <div style="font-size: 12px; line-height: 1.5; color: var(--warn);">{{ d18.updates.noService }}</div>
+                    <div style="{{ updCmd }}">{{ d18.updates.command }}</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ updHasLog }}">
+                  <details>
+                    <summary style="font-size: 12px; color: var(--dim); cursor: pointer;">{{ d18.updates.log }}</summary>
+                    <pre style="{{ updLogStyle }}">{{ updLog }}</pre>
+                  </details>
                 </sc-if>
               </div>
-              <div style="display: flex; gap: 28px;">
-                <div style="display: flex; flex-direction: column; gap: 3px;">
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .14em; color: var(--dim);">{{ d18.updates.current }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 700; color: var(--fg);">{{ updPanelVersion }}</div>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 3px;">
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .14em; color: var(--dim);">{{ d18.updates.latest }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 700; color: var(--acc);">{{ updLatest }}</div>
-                </div>
-              </div>
-              <sc-if value="{{ updPanelLine }}">
-                <div style="{{ updLineStyle }}">{{ updPanelLine }}</div>
-              </sc-if>
-              <sc-if value="{{ updNoService }}">
-                <div style="display: flex; flex-direction: column; gap: 6px;">
-                  <div style="font-size: 12px; line-height: 1.5; color: var(--warn);">{{ d18.updates.noService }}</div>
-                  <div style="{{ updCmd }}">{{ d18.updates.command }}</div>
-                </div>
-              </sc-if>
-              <sc-if value="{{ updHasLog }}">
-                <details>
-                  <summary style="font-size: 12px; color: var(--dim); cursor: pointer;">{{ d18.updates.log }}</summary>
-                  <pre style="{{ updLogStyle }}">{{ updLog }}</pre>
-                </details>
-              </sc-if>
-            </div>
 
-            <div style="{{ updCard }}">
-              <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-                <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.updates.nodes }}</div>
-                <sc-if value="{{ updCanNodes }}">
-                  <div style="{{ ctaStyle }}" data-focus="upd-nodes" onClick="{{ doUpgradeNodes }}">{{ updNodesCta }}</div>
-                </sc-if>
-              </div>
-              <sc-for list="{{ updNodes }}" as="un">
-                <div style="{{ un.row }}">
-                  <div style="font-size: 13px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ un.name }}</div>
-                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim);">{{ un.version }}</div>
-                  <div style="{{ un.badge }}">{{ un.state }}</div>
+              <div class="rise" style="{{ updCard }}">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                  <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.updates.nodes }}</div>
+                  <sc-if value="{{ updCanNodes }}">
+                    <div style="{{ ctaStyle }}" data-focus="upd-nodes" onClick="{{ doUpgradeNodes }}">{{ updNodesCta }}</div>
+                  </sc-if>
                 </div>
-              </sc-for>
-              <sc-if value="{{ updNoNodes }}">
-                <div style="{{ emptyStyle }}">{{ d18.nodesPage.empty }}</div>
-              </sc-if>
-              <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ d18.updates.nodesNote }}</div>
+                <sc-for list="{{ updNodes }}" as="un">
+                  <div style="{{ un.row }}">
+                    <div style="font-size: 13px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ un.name }}</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim);">{{ un.version }}</div>
+                    <div style="{{ un.badge }}">{{ un.state }}</div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ updNoNodes }}">
+                  <div style="{{ emptyStyle }}">{{ d18.nodesPage.empty }}</div>
+                </sc-if>
+                <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ d18.updates.nodesNote }}</div>
+              </div>
             </div>
           </div>
         </sc-if>
 
         <sc-if value="{{ isAlerts }}">
-          <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--gap, 12px); max-width: 640px;">
-            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
-              <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.alerts.title }}</div>
+          <div class="masonry">
+            <div class="card form-card rise" style="border-color: var(--line);">
+              <div class="card-title">{{ d18.alerts.title }}</div>
               <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.alerts.what }}</div>
 
-              <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--fg); cursor: pointer;">
+              <label>
                 <input type="checkbox" id="al-on" />
                 <span>{{ d18.alerts.on }}</span>
               </label>
@@ -788,32 +930,52 @@
               <div style="font-size: 12px; line-height: 1.5; color: var(--dim); border-top: 1px solid var(--line); padding-top: 12px;">{{ d18.alerts.privacy }}</div>
             </div>
 
-            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
-              <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.bk.title }}</div>
+            <div class="card form-card rise" style="border-color: var(--line);">
+              <div class="card-title">{{ d18.bk.title }}</div>
               <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.bk.what }}</div>
               <label><input id="bk-on" type="checkbox" /> {{ d18.bk.on }}</label>
-              <label for="bk-time">{{ d18.bk.time }}</label>
-              <input id="bk-time" type="time" style="{{ inputStyle }}" />
-              <label for="bk-keep">{{ d18.bk.keep }}</label>
-              <input id="bk-keep" type="number" min="1" max="365" style="{{ inputStyle }}" />
+              <div class="pair">
+                <div>
+                  <label for="bk-time">{{ d18.bk.time }}</label>
+                  <input id="bk-time" type="time" style="{{ inputStyle }}" />
+                </div>
+                <div>
+                  <label for="bk-keep">{{ d18.bk.keep }}</label>
+                  <input id="bk-keep" type="number" min="1" max="365" style="{{ inputStyle }}" />
+                </div>
+              </div>
               <label for="bk-password">{{ d18.bk.password }}</label>
               <input id="bk-password" type="password" autocomplete="new-password" maxlength="4096" style="{{ inputStyle }}" />
               <div style="font-size: 12px; line-height: 1.45; color: var(--dim);">{{ d18.bk.passwordNote }}</div>
               <label><input id="bk-telegram" type="checkbox" /> {{ d18.bk.telegram }}</label>
               <div style="font-size: 12px; line-height: 1.45; color: var(--dim);">{{ d18.bk.telegramNote }}</div>
               <label><input id="bk-s3" type="checkbox" /> {{ d18.bk.s3 }}</label>
-              <label for="bk-endpoint">{{ d18.bk.endpoint }}</label>
-              <input id="bk-endpoint" type="url" placeholder="https://s3.example.com" style="{{ inputStyle }}" />
-              <label for="bk-region">{{ d18.bk.region }}</label>
-              <input id="bk-region" type="text" placeholder="us-east-1" style="{{ inputStyle }}" />
-              <label for="bk-bucket">{{ d18.bk.bucket }}</label>
-              <input id="bk-bucket" type="text" style="{{ inputStyle }}" />
-              <label for="bk-prefix">{{ d18.bk.prefix }}</label>
-              <input id="bk-prefix" type="text" placeholder="marvia-panel/" style="{{ inputStyle }}" />
-              <label for="bk-access">{{ d18.bk.access }}</label>
-              <input id="bk-access" type="text" autocomplete="off" style="{{ inputStyle }}" />
-              <label for="bk-secret">{{ d18.bk.secret }}</label>
-              <input id="bk-secret" type="password" autocomplete="new-password" style="{{ inputStyle }}" />
+              <div class="pair">
+                <div>
+                  <label for="bk-endpoint">{{ d18.bk.endpoint }}</label>
+                  <input id="bk-endpoint" type="url" placeholder="https://s3.example.com" style="{{ inputStyle }}" />
+                </div>
+                <div>
+                  <label for="bk-region">{{ d18.bk.region }}</label>
+                  <input id="bk-region" type="text" placeholder="us-east-1" style="{{ inputStyle }}" />
+                </div>
+                <div>
+                  <label for="bk-bucket">{{ d18.bk.bucket }}</label>
+                  <input id="bk-bucket" type="text" style="{{ inputStyle }}" />
+                </div>
+                <div>
+                  <label for="bk-prefix">{{ d18.bk.prefix }}</label>
+                  <input id="bk-prefix" type="text" placeholder="marvia-panel/" style="{{ inputStyle }}" />
+                </div>
+                <div>
+                  <label for="bk-access">{{ d18.bk.access }}</label>
+                  <input id="bk-access" type="text" autocomplete="off" style="{{ inputStyle }}" />
+                </div>
+                <div>
+                  <label for="bk-secret">{{ d18.bk.secret }}</label>
+                  <input id="bk-secret" type="password" autocomplete="new-password" style="{{ inputStyle }}" />
+                </div>
+              </div>
               <label for="bk-session">{{ d18.bk.session }}</label>
               <input id="bk-session" type="password" autocomplete="new-password" style="{{ inputStyle }}" />
               <div style="font-size: 12px; line-height: 1.45; color: var(--dim);">{{ d18.bk.s3Note }}</div>
@@ -829,8 +991,8 @@
               https и только наружу; секрет подписи браузер обратно не
               получает — пустое поле оставляет прежний.
             -->
-            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
-              <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.wh.title }}</div>
+            <div class="card form-card rise" style="border-color: var(--line);">
+              <div class="card-title">{{ d18.wh.title }}</div>
               <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.wh.what }}</div>
               <label><input id="wh-on" type="checkbox" /> {{ d18.wh.on }}</label>
               <label for="wh-urls">{{ d18.wh.urls }}</label>
@@ -845,8 +1007,8 @@
               <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ webhookStatus }}</div>
             </div>
 
-            <div style="padding: var(--pad, 16px); border-radius: var(--r, 16px); background: var(--cardBg, var(--surf)); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px;">
-              <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.seller.title }}</div>
+            <div class="card form-card rise" style="border-color: var(--line);">
+              <div class="card-title">{{ d18.seller.title }}</div>
               <div style="font-size: 13px; line-height: 1.5; color: var(--dim);">{{ d18.seller.what }}</div>
 
               <div style="display: flex; flex-direction: column; gap: 6px;">
@@ -877,17 +1039,17 @@
         </sc-if>
 
         <sc-if value="{{ isLook }}">
-          <section class="look-intro" aria-label="{{ d18.look.title }}">
+          <section class="look-intro rise" aria-label="{{ d18.look.title }}">
             <span class="logo" aria-hidden="true"></span>
             <div><h2>{{ d18.look.title }}</h2><p>{{ d18.look.intro }}</p></div>
             <button type="button" data-focus="reset-look" onClick="{{ resetLook }}">{{ d18.look.reset }}</button>
           </section>
-          <div style="flex: 1; min-height: 0; display: flex; gap: var(--gap, 12px); overflow: hidden;">
+          <div class="look-grid">
 
             <!-- Готовые виды: мини-макет панели в цветах каждого. -->
-            <div data-keep-scroll="looks" style="flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding-right: 4px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap, 12px); align-content: start;">
+            <div class="look-tiles">
               <sc-for list="{{ looks }}" as="lk">
-                <div style="{{ lk.wrap }}" data-focus="look-{{ lk.name }}" aria-pressed="{{ lk.selected }}" onClick="{{ lk.onClick }}">
+                <div class="rise lift" style="{{ lk.wrap }}" data-focus="look-{{ lk.name }}" aria-pressed="{{ lk.selected }}" onClick="{{ lk.onClick }}">
                   <div style="{{ lk.canvas }}">
                     <div style="{{ lk.side }}"></div>
                     <div style="{{ lk.navA }}"></div>
@@ -907,7 +1069,7 @@
             </div>
 
             <!-- Ручки. Всё применяется сразу: панель и есть предпросмотр. -->
-            <div data-keep-scroll="knobs" style="width: 320px; flex: none; min-height: 0; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: var(--gap, 12px);">
+            <div class="look-knobs" data-keep-scroll="knobs">
 
               <div style="{{ knobCard }}">
                 <div style="{{ knobTitle }}">{{ d18.look.accent }}</div>
@@ -1364,10 +1526,24 @@ function fillAlerts() {
   document.getElementById("sl-announce").value = sl.announce || "";
 }
 
-async function loadAll() {
-  state.loading = true;
-  state.error = null;
-  render();
+// Сама панель подтягивает данные только на разделах с данными. На настройках
+// перерисовка собрала бы поля заново и стёрла набранное, а журнал и
+// обновления ходят за своим отдельно.
+const AUTO_PAGES = ["dash", "clients", "keys", "nodes", "stats"];
+
+// Раз в полминуты: нода считается живой по отметке за последние десять
+// минут, и чаще спрашивать — гонять сервер продавца ради тех же чисел.
+const AUTO_EVERY = 30000;
+
+// quiet — тихая загрузка по таймеру: без затемнения панели и без «Обновляю…»
+// на кнопке. Мигать раз в полминуты всей страницей значило бы мешать читать
+// ровно то, что обновляется.
+async function loadAll(quiet) {
+  if (quiet !== true) {
+    state.loading = true;
+    state.error = null;
+    render();
+  }
   try {
     // Ключи — только админу. Вошедший ключом бота получает на них 403, и
     // это не ошибка загрузки, а ответ «кто ты»: разделы админа ему не
@@ -1391,6 +1567,8 @@ async function loadAll() {
 
     // Теперь мы действительно знаем, что в панели, и можем показывать числа.
     state.known = true;
+    state.fetchedAt = Date.now();
+    state.error = null;
   } catch (err) {
     state.error = err.message;
   } finally {
@@ -2362,7 +2540,12 @@ const TEXTS = {
       wrong: "Токен не подошёл",
     },
 
-    head: { backup: "Копия базы", reload: "Обновить", reloading: "Обновляю…", logout: "Выход" },
+    head: {
+      backup: "Копия базы", reload: "Обновить", reloading: "Обновляю…", logout: "Выход",
+      fresh: (s) => (s < 5 ? "обновлено только что" : s < 60 ? "обновлено " + s + " с назад" : "обновлено " + Math.floor(s / 60) + " мин назад"),
+      freshAuto: (s) => "Панель сама подтягивает данные раз в " + s + " секунд, пока вкладка открыта",
+      freshPaused: "На этой странице панель данные сама не подтягивает",
+    },
 
     nav: {
       dash: "Панель", clients: "Клиенты", keys: "Ключи ботов",
@@ -2781,7 +2964,12 @@ const TEXTS = {
       wrong: "Token was not accepted",
     },
 
-    head: { backup: "Backup", reload: "Refresh", reloading: "Refreshing…", logout: "Sign out" },
+    head: {
+      backup: "Backup", reload: "Refresh", reloading: "Refreshing…", logout: "Sign out",
+      fresh: (s) => (s < 5 ? "updated just now" : s < 60 ? "updated " + s + " s ago" : "updated " + Math.floor(s / 60) + " min ago"),
+      freshAuto: (s) => "The panel refetches its data every " + s + " seconds while the tab is open",
+      freshPaused: "The panel does not refetch data on its own on this page",
+    },
 
     nav: {
       dash: "Overview", clients: "Clients", keys: "Bot keys",
@@ -3578,8 +3766,8 @@ function renderVals() {
       state.known && nodes.length > 0 && liveNodes === nodes.length],
     [d18.kpi.expiring, num(expiring), d18.kpi.inSevenDays, expiring === 0],
   ].map(([label, value, delta, good]) => ({
-    label, value, delta, style: card + ";min-width:180px",
-    deltaStyle: "font-size:12px;margin-top:6px;color:" + (good ? t.acc : t.dim),
+    label, value, delta, style: card,
+    deltaStyle: "font-size:12px;margin-top:4px;color:" + (good ? t.acc : t.dim),
   }));
 
   const peak = byDay.reduce((m, x) => Math.max(m, x.up + x.down), 0) || 1;
@@ -3622,7 +3810,8 @@ function renderVals() {
         share: total ? Math.round((v / total) * 100) + "%" : "0%",
         state: alive ? d18.nodesPage.online : n.enabled ? d18.nodesPage.silent : d18.nodesPage.off,
         onClick: () => nodeSheet(n),
-        dotStyle: "width:8px;height:8px;border-radius:50%;flex:none;background:" + (alive ? t.acc : t.warn),
+        pulse: alive ? "on" : "",
+        dotStyle: "background:" + (alive ? t.acc : t.warn),
         track: "height:5px;border-radius:3px;background:" + t.surf2 + ";overflow:hidden",
         fill: "width:" + Math.round((v / dashPeak) * 100) + "%;height:100%;border-radius:3px;background:" + (alive ? t.acc : t.warn),
       };
@@ -3719,9 +3908,16 @@ function renderVals() {
 
   const tbl = TABLES[page] || TABLES.clients;
   const tableCols = tbl.cols;
-  const tableViewport = "flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px";
-  const tableHead = "position:sticky;top:0;z-index:1;flex:none;display:grid;grid-template-columns:" + tbl.grid
-    + ";gap:12px;padding:0 12px 8px;font-size:12px;color:" + t.dim + ";background:var(--cardBg," + t.surf + ")";
+  // Ни высоты, ни своей прокрутки: таблица длиной в свои строки, а листает
+  // её рабочая область целиком. Своя прокрутка здесь превращала пустую
+  // таблицу в рамку во весь экран, а заголовок прилипал бы к ней, а не к
+  // верху окна.
+  const tableViewport = "display:flex;flex-direction:column;gap:5px";
+  // Над пустым списком шапка с колонками ничего не подписывает — прячем её,
+  // остаётся одна строка о том, почему пусто и что сделать.
+  const headHidden = state.known && tbl.rows.length === 0;
+  const tableHead = "position:sticky;top:0;z-index:1;flex:none;display:" + (headHidden ? "none" : "grid") + ";grid-template-columns:" + tbl.grid
+    + ";gap:12px;padding:8px 12px;margin:-8px 0 0;font-size:12px;color:" + t.dim + ";background:var(--cardBg," + t.surf + ")";
   // Постраничность. Рисовать тысячу строк разом браузер умеет, но человек их
   // не читает, а прокрутка перестаёт быть навигацией.
   const totalRows = tbl.rows.length;
@@ -3739,7 +3935,7 @@ function renderVals() {
     return {
       onClick: tbl.onRow ? tbl.onRow(idx) : null,
       style: "display:grid;grid-template-columns:" + tbl.grid
-        + ";gap:12px;align-items:center;padding:11px 12px;border-radius:" + t.r + "px;background:" + t.surf2,
+        + ";gap:12px;align-items:center;padding:9px 12px;border-radius:" + t.r + "px;background:" + t.surf2,
       cells: cells.map((text, i) => ({
         text,
         style: i === cells.length - 1
@@ -3749,6 +3945,11 @@ function renderVals() {
       })),
     };
   });
+
+  // Действие в пустом списке — то же, что в углу, и только когда список
+  // пуст по-настоящему. «Никого не нашлось» по поиску не повод заводить
+  // нового покупателя.
+  const emptyCta = !!CTA[page] && (page === "keys" ? !(state.keys || []).length : users.length === 0);
 
   // Те же num()/size(), что на обзоре: пока !known — прочерк, а не голый ноль.
   // Карточка с «0» на разделе клиентов читается как «базу потеряли».
@@ -3764,7 +3965,7 @@ function renderVals() {
   };
   const pageKpis = (KPI[page] || []).map(([label, value, delta, good]) => ({
     label, value, delta, style: card,
-    deltaStyle: "font-size:12px;margin-top:6px;color:" + (good ? t.acc : t.dim),
+    deltaStyle: "font-size:12px;margin-top:4px;color:" + (good ? t.acc : t.dim),
   }));
 
   // ── ноды ─────────────────────────────────────────────────────────────────
@@ -3790,13 +3991,21 @@ function renderVals() {
       load: bytes(traffic),
       share: total ? Math.round((traffic / total) * 100) + "%" : "0%",
       seen: alive ? sinceLabel(n.last_seen) : n.enabled ? d18.nodesPage.silentShort : d18.nodesPage.offShort,
+      seenStyle: "font-family:JetBrains Mono,monospace;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:"
+        + (alive ? t.acc : t.warn),
       state: alive ? d18.nodesPage.online : n.enabled ? d18.nodesPage.silent : d18.nodesPage.off,
+      // Молчащую ноду выдаёт полупрозрачная рамка, а не сплошная оранжевая:
+      // когда молчат все три, сплошные рамки красили весь раздел и уже ничего
+      // не выделяли. Точка и подпись говорят то же самое точнее.
       style: "padding:" + d.pad + "px;border-radius:" + t.r + "px;background:var(--cardBg," + t.surf + ")"
-        + ";border:1px solid " + (st === "warn" ? t.warn : t.line) + ";display:flex;flex-direction:column;gap:14px",
-      badge: "flex:none;padding:4px 9px;border-radius:6px;font-family:JetBrains Mono,monospace;font-size:10px;color:"
-        + (st === "ok" ? t.acc : t.warn) + ";background:" + (st === "ok" ? t.accSoft : "rgba(242,160,61,.13)"),
-      track: "height:6px;border-radius:3px;background:" + t.surf2 + ";overflow:hidden",
-      fill: "width:" + Math.round(f * 100) + "%;height:100%;background:" + (st === "ok" ? t.acc : t.warn),
+        + ";border:1px solid " + (st === "warn" ? mix(t.warn, t.line, 0.45) : t.cardLine) + ";box-shadow:" + t.cardShadow
+        + ";display:flex;flex-direction:column;gap:12px;min-width:0",
+      pulse: alive ? "on" : "",
+      dot: "width:7px;height:7px;background:" + (st === "ok" ? t.acc : t.warn),
+      badge: "flex:none;display:flex;align-items:center;gap:7px;padding:4px 9px 4px 8px;border-radius:999px;font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.06em;color:"
+        + (st === "ok" ? t.acc : t.warn) + ";background:" + (st === "ok" ? t.accSoft : "rgba(242,160,61,.11)"),
+      track: "height:4px;border-radius:2px;background:" + t.surf2 + ";overflow:hidden",
+      fill: "width:" + Math.round(f * 100) + "%;height:100%;border-radius:2px;background:" + (st === "ok" ? t.acc : t.warn),
     };
   });
 
@@ -3819,6 +4028,7 @@ function renderVals() {
     const f = total ? traffic / total : 0;
     return {
       name: x.name,
+      load: bytes(traffic),
       pct: Math.round(f * 100) + "%",
       track: "height:8px;border-radius:4px;background:" + t.surf2 + ";overflow:hidden",
       fill: "width:" + Math.round(f * 100) + "%;height:100%;border-radius:4px;background:" + t.acc,
@@ -4063,6 +4273,14 @@ function renderVals() {
     hostBadge: "padding:3px 9px;border-radius:6px;background:" + t.accSoft
       + ";font-family:JetBrains Mono,monospace;font-size:10px;color:" + t.acc,
     ghostBtn,
+    page,
+    // Отметка свежести — только после первого настоящего ответа: «обновлено
+    // только что» над прочерками было бы неправдой.
+    hasFresh: !!state.fetchedAt,
+    freshText: state.fetchedAt ? d18.head.fresh(Math.floor((Date.now() - state.fetchedAt) / 1000)) : "",
+    freshTitle: AUTO_PAGES.includes(page) ? d18.head.freshAuto(AUTO_EVERY / 1000) : d18.head.freshPaused,
+    freshLive: AUTO_PAGES.includes(page) && !state.error ? "on" : "",
+    freshDot: "width:6px;height:6px;background:" + (state.error ? t.warn : AUTO_PAGES.includes(page) ? t.acc : t.dim),
     reloadLabel: state.loading ? d18.head.reloading : d18.head.reload,
     doReload: () => { if (!state.loading) loadAll(); },
     doLang: () => setLang(state.lang === "ru" ? "en" : "ru"),
@@ -4269,6 +4487,9 @@ function renderVals() {
     pageKpis, tableCols, tableViewport, tableHead, tableRows,
     noTableRows: state.known && tableRows.length === 0,
     emptyTable: tbl.empty,
+    emptyCta,
+    emptyIcon: emptyCta ? "+" : "∅",
+    emptyGlyph: "background:" + t.accSoft + ";color:" + t.acc,
 
     hasPages: totalRows > ROWS,
     pagerText: d18.table.range(from + 1, Math.min(from + ROWS, totalRows), totalRows),
@@ -4299,6 +4520,96 @@ function renderVals() {
 
 const shell = document.getElementById("shell");
 
+// Движение выключено, если человек попросил об этом систему. CSS гасит
+// анимации сам, а счёт чисел идёт из скрипта — его выключаем здесь.
+const calm = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// enterMotion проигрывает появление карточек при входе в раздел — и только
+// тогда. Разметка пересобирается на каждое нажатие, поэтому вход отмечаем по
+// смене раздела (и по первому ответу панели: до него карточки пустые), а не по
+// перерисовке. Перерисовка в первые мгновения входа — подъехал ответ
+// оповещений, например, — не начинает движение заново: задержка каждой
+// карточки сдвигается на уже прошедшее время, и она продолжает с того же места.
+let enterKey = "";
+let enterAt = 0;
+const ENTER_MS = 700;
+function enterMotion(app) {
+  const key = state.page + (state.known ? "+" : "");
+  const now = performance.now();
+  if (key !== enterKey) { enterKey = key; enterAt = now; }
+  const past = now - enterAt;
+  const on = past < ENTER_MS;
+  app.classList.toggle("enter", on);
+  if (!on) return;
+  // Лесенка в 35 мс, но не дольше десятой карточки: на тридцати видах темы
+  // последняя иначе появлялась бы через секунду. Столбики графика растут
+  // своей лесенкой, чаще: их тридцать, и волна слева направо читается как
+  // ось времени.
+  let i = 0, g = 0;
+  for (const el of app.querySelectorAll(".rise, .grow")) {
+    const delay = el.classList.contains("grow") ? 90 + Math.min(g++, 30) * 12 : Math.min(i++, 10) * 35;
+    el.style.setProperty("--d", Math.round(delay - past) + "ms");
+  }
+}
+
+// countUp коротко досчитывает показатель до нового значения, когда тот
+// изменился, — глаз замечает, что число новое. Помним, что было в плитке
+// в прошлый раз; совпало — не трогаем: счёт на каждую перерисовку превратил
+// бы плитки в игровой автомат.
+const counted = new Map();
+const NUMBER = /\d+(?:[.,]\d+)?/;
+function countUp(app) {
+  const quiet = calm();
+  for (const el of app.querySelectorAll("[data-count]")) {
+    const key = state.page + "|" + el.dataset.count;
+    const text = el.textContent;
+    const before = counted.get(key);
+    counted.set(key, text);
+    if (quiet || before === text) continue;
+    const m = NUMBER.exec(text);
+    if (!m) continue;
+    const to = parseFloat(m[0].replace(",", "."));
+    // С прежнего числа, если единица та же («1.8 ТБ» → «1.9 ТБ»); иначе с
+    // нуля: из «900 ГБ» в «1.0 ТБ» счёт по числам соврал бы о движении.
+    const pm = before && NUMBER.exec(before);
+    const from = pm && before.replace(pm[0], "") === text.replace(m[0], "") ? parseFloat(pm[0].replace(",", ".")) : 0;
+    if (from === to) continue;
+    const decimals = (m[0].split(/[.,]/)[1] || "").length;
+    const comma = m[0].includes(",");
+    const head = text.slice(0, m.index), tail = text.slice(m.index + m[0].length);
+    const start = performance.now();
+    const step = (now) => {
+      if (!el.isConnected) return;
+      const k = Math.min(1, (now - start) / 650);
+      const v = from + (to - from) * (1 - Math.pow(1 - k, 3));
+      const shown = v.toFixed(decimals);
+      el.textContent = k < 1 ? head + (comma ? shown.replace(".", ",") : shown) + tail : text;
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+}
+
+// Часы панели: раз в секунду переписывают «обновлено N с назад» и, когда
+// пора, тихо забирают данные заново. Перерисовкой подпись не обновляем —
+// пересборка всей панели раз в секунду ради одной строки обошлась бы дорого
+// и сбивала бы наведение. Пока вкладка скрыта, панель не спрашиваем вовсе:
+// смотреть некому, а сервер у продавца один. Открытое окно тоже пауза:
+// человек посреди действия, и данные под ним меняться не должны.
+let autoNext = 0;
+setInterval(() => {
+  if (!state.token || document.getElementById("app").hidden || !state.fetchedAt) return;
+  const note = document.getElementById("fresh-text");
+  if (note) note.textContent = L().head.fresh(Math.floor((Date.now() - state.fetchedAt) / 1000));
+  if (document.hidden || state.loading || !AUTO_PAGES.includes(state.page) || document.getElementById("veil")) return;
+  const now = Date.now();
+  if (now - state.fetchedAt < AUTO_EVERY || now < autoNext) return;
+  // Следующая попытка не раньше чем через тот же срок, даже если эта не
+  // удалась: упавшую панель не долбим запросами каждую секунду.
+  autoNext = now + AUTO_EVERY;
+  loadAll(true);
+}, 1000);
+
 function render() {
   const app = document.getElementById("app");
   const vals = renderVals();
@@ -4328,6 +4639,8 @@ function render() {
   const frag = document.createDocumentFragment();
   buildInto(shell.content, frag, vals);
   app.replaceChildren(frag);
+  enterMotion(app);
+  countUp(app);
 
   if (focusKey) {
     const next = Array.from(app.querySelectorAll("[data-focus]")).find((e) => e.dataset.focus === focusKey);

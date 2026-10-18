@@ -198,6 +198,11 @@ func SelectPreferred(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Op
 		if ranked[a].OK() != ranked[b].OK() {
 			return ranked[a].OK()
 		}
+		// Замеренная скорость важнее задержки рукопожатия: нода, до которой
+		// замер скорости не успел, сравнивается только с такими же.
+		if (ranked[a].Fetch > 0) != (ranked[b].Fetch > 0) {
+			return ranked[a].Fetch > 0
+		}
 		return ranked[a].Cost() < ranked[b].Cost()
 	})
 
@@ -223,49 +228,90 @@ func SelectPreferred(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Op
 // живая ответила за полсекунды. Недождавшиеся получают ErrNotWaited — это
 // не отказ, и панели о нём не сообщается.
 func probeAll(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Options, quick bool) []Measurement {
+	type result struct {
+		i int
+		m Measurement
+	}
 	results := make([]Measurement, len(nodes))
 	slots := make(chan struct{}, maxParallelProbes)
 	probeCtx, settle := context.WithCancel(ctx)
 	defer settle()
-	done := make(chan int, len(nodes))
+	done := make(chan result, len(nodes))
 
 	for i, node := range nodes {
 		go func(i int, node Node) {
-			defer func() { done <- i }()
-
 			select {
 			case slots <- struct{}{}:
 			case <-probeCtx.Done():
-				results[i] = Measurement{Node: node, Err: probeCtx.Err()}
+				done <- result{i, Measurement{Node: node, Err: probeCtx.Err()}}
 				return
 			}
 			defer func() { <-slots }()
 
-			results[i] = Probe(probeCtx, node, key, opts)
+			m := Probe(probeCtx, node, key, opts)
+			// При подключении скорость меряется сразу за ответом ноды, а не
+			// после всех: раньше выбор ждал самую медленную ноду, а потом ещё
+			// и самый медленный замер скорости — три-пять секунд на
+			// «Подключаюсь» при живой ноде, ответившей за четверть секунды.
+			if quick && len(nodes) > 1 && m.OK() && m.dialer != nil {
+				speedCtx, cancel := context.WithTimeout(probeCtx, SpeedTimeout)
+				if fetch, err := m.dialer.MeasureFetch(speedCtx, vp1.DefaultSpeedSample); err == nil {
+					m.Fetch = fetch
+				}
+				cancel()
+			}
+			done <- result{i, m}
 		}(i, node)
 	}
-	var grace <-chan time.Time
-	settled := false
-	for left := len(nodes); left > 0; {
+	// Пока ответа нет, нода — «не дождались»: так она и останется, если
+	// выбор сделан раньше. Настоящий отказ, пришедший до выбора, её
+	// перепишет — о нём панели знать нужно.
+	for i, node := range nodes {
+		results[i] = Measurement{Node: node, Err: ErrNotWaited}
+	}
+	var grace, giveUp <-chan time.Time
+	left := len(nodes)
+	for left > 0 && giveUp == nil {
 		select {
-		case i := <-done:
+		case r := <-done:
 			left--
-			if settled {
-				if !results[i].OK() {
-					results[i].Err = ErrNotWaited
-				}
-			} else if quick && grace == nil && results[i].OK() {
+			results[r.i] = r.m
+			if quick && grace == nil && r.m.OK() {
 				grace = time.After(SettleWait)
 			}
 		case <-grace:
-			settled = true
 			settle()
+			// Отмена доходит до замеров не мгновенно; ждать её дольше
+			// незачем — выбор уже сделан, остальное дочистится само.
+			giveUp = time.After(200 * time.Millisecond)
 		}
 	}
+	for left > 0 {
+		select {
+		case r := <-done:
+			left--
+			if r.m.OK() {
+				results[r.i] = r.m
+			}
+			continue
+		case <-giveUp:
+		}
+		break
+	}
+	if left > 0 {
+		go func(n int) {
+			for ; n > 0; n-- {
+				if r := <-done; r.m.dialer != nil {
+					_ = r.m.dialer.Close()
+				}
+			}
+		}(left)
+	}
 
-	measureSpeeds(ctx, results)
+	if !quick {
+		measureSpeeds(ctx, results)
+	}
 	return results
-
 }
 
 // measureAround меряет ноды, не открывая нового соединения к той, через

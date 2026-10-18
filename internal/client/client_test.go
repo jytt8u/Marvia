@@ -689,3 +689,37 @@ func TestSelectBestDoesNotWaitForASilentNode(t *testing.T) {
 		}
 	}
 }
+
+// TestDeadNodeIsStillReportedWhenConnectDoesNotWait: быстрый выбор не
+// прячет настоящий отказ — нода, отказавшая до выбора, уходит панели
+// отчётом «не дошли», иначе продавец не узнает, что её заблокировали.
+func TestDeadNodeIsStillReportedWhenConnectDoesNotWait(t *testing.T) {
+	node := startTestNode(t)
+	closed, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadAddr := closed.Addr().String()
+	_ = closed.Close()
+	nodes := []client.Node{
+		{ID: 1, Name: "мёртвая", Address: deadAddr, SNI: "node.example", PublicKey: node.info.PublicKey},
+		{ID: 2, Name: "живая", Address: node.info.Address, SNI: node.info.SNI, PublicKey: node.info.PublicKey},
+	}
+	dialer, measurements, err := client.SelectBest(context.Background(), nodes, node.clientKey, node.opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dialer.Close()
+	found := false
+	for _, r := range client.ReportsFrom(measurements) {
+		if r.NodeID == 1 {
+			found = true
+			if r.OK {
+				t.Fatal("мёртвая нода отчитана живой")
+			}
+		}
+	}
+	if !found {
+		t.Fatal("отказ мёртвой ноды не дошёл до отчёта панели")
+	}
+}

@@ -73,7 +73,36 @@ func ParseList(body []byte) Subscription {
 		}
 		sub.Links = append(sub.Links, l)
 	}
+	trimCommonLabel(sub.Links)
 	return sub
+}
+
+// trimCommonLabel убирает из имён хвост, общий для всех нод подписки.
+//
+// Панели дописывают к каждой ноде имя покупателя: «fi-1 · проверка2»,
+// «ae-1 · проверка2». В чужом приложении с десятком подписок это помогает
+// отличить одну от другой, а у нас подписка одна, и одинаковый хвост у
+// каждой строки списка стран только мешал читать сами страны. Подписку и так
+// видно по имени ключа.
+func trimCommonLabel(links []Link) {
+	if len(links) < 2 {
+		return
+	}
+	var tail string
+	for i, l := range links {
+		at := strings.LastIndex(l.Name, " · ")
+		if at <= 0 {
+			return
+		}
+		if i == 0 {
+			tail = l.Name[at:]
+		} else if l.Name[at:] != tail {
+			return
+		}
+	}
+	for i := range links {
+		links[i].Name = strings.TrimSuffix(links[i].Name, tail)
+	}
 }
 
 // ParseUserinfo разбирает subscription-userinfo: «upload=1; download=2;

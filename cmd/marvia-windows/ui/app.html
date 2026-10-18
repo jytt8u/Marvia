@@ -362,6 +362,34 @@
   .node .ping { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--acc); }
 
   .side { width: 380px; flex: 0 0 380px; display: flex; flex-direction: column; gap: var(--gap); min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--dim) transparent; padding-right: 3px; }
+  /* Проверка через туннель */
+  .netcheck { display: flex; flex-direction: column; gap: 10px; }
+  .netcheck[hidden] { display: none; }
+  .nc-live { width: 8px; height: 8px; border-radius: 50%; background: var(--ok, #6fd39b); box-shadow: 0 0 0 0 rgba(111,211,155,.6); animation: ncPulse 2s ease-out infinite; }
+  @keyframes ncPulse { 0% { box-shadow: 0 0 0 0 rgba(111,211,155,.55); } 70% { box-shadow: 0 0 0 8px rgba(111,211,155,0); } 100% { box-shadow: 0 0 0 0 rgba(111,211,155,0); } }
+  .nc-where { display: flex; align-items: center; gap: 12px; }
+  .nc-where .flag { width: 34px; height: 24px; }
+  .nc-addr { display: flex; flex-direction: column; min-width: 0; }
+  .nc-addr b { font: 700 17px var(--mono); color: var(--fg); letter-spacing: .02em; }
+  .nc-addr small { font-size: 12px; color: var(--dim); }
+  .nc-sites { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .nc-sites:empty { display: none; }
+  .nc-site { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 9px; border-radius: 9px; background: var(--shade); border: 1px solid var(--line); font-size: 12px; animation: ncIn .35s var(--ease) both; }
+  .nc-site b { font-weight: 600; color: var(--fg); }
+  .nc-site span { font-family: var(--mono); color: var(--dim); }
+  .nc-site[data-ok="1"] span { color: var(--ok, #6fd39b); }
+  .nc-site[data-ok="0"] span { color: var(--fail); }
+  .nc-site[data-wait] span { background: linear-gradient(90deg, var(--line), var(--dim), var(--line)); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: ncShine 1.2s linear infinite; }
+  @keyframes ncIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @keyframes ncShine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  .nc-act { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .nc-speed { margin-left: auto; font: 700 16px var(--mono); color: var(--acc); }
+  /* Всплывающее «перешёл на другую ноду» */
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 60;
+    padding: 10px 16px; border-radius: 12px; background: var(--surf2); color: var(--fg); border: 1px solid var(--line);
+    box-shadow: 0 20px 50px rgba(0,0,0,.45); font-size: 13px; transition: opacity .3s var(--ease), transform .3s var(--ease); }
+  .toast[data-show] { opacity: 1; transform: translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce) { .nc-live, .nc-site, .nc-site[data-wait] span { animation: none; } .toast { transition: none; } }
   .side .chart { flex: none; padding: 14px; }
   .side .chart .bars { height: 60px; }
   .side .kpi { padding: 10px 12px; }
@@ -1619,6 +1647,27 @@
               </div>
             </div>
 
+            <!--
+              Проверка через туннель: под каким адресом человека видит
+              интернет, открываются ли главные сайты и какая скорость. Всё
+              идёт через ядро туннеля — ответ про сам туннель, а не про
+              браузер. Видна, только пока туннель поднят.
+            -->
+            <div class="card netcheck" id="netcheck" hidden>
+              <div class="card-head"><b data-t="ncTitle"></b><span class="nc-live" id="nc-live"></span></div>
+              <div class="nc-where">
+                <span class="nc-flag" id="nc-flag"></span>
+                <div class="nc-addr"><b id="nc-ip">—</b><small id="nc-country"></small></div>
+              </div>
+              <div class="nc-sites" id="nc-sites"></div>
+              <div class="nc-act">
+                <button class="chip" id="nc-sites-btn" type="button" data-t="ncSites"></button>
+                <button class="chip" id="nc-speed-btn" type="button" data-t="ncSpeed" data-t-title="ncSpeedHint"></button>
+                <span class="nc-speed" id="nc-speed"></span>
+              </div>
+              <span class="hint" id="nc-msg"></span>
+            </div>
+
             <div class="card daily feature">
               <div class="card-head"><b data-t="todayTraffic"></b><span class="mono" id="today-total">—</span></div>
               <div class="daily-bars" id="day-bars" role="img" data-t-title="todayTraffic"></div>
@@ -2431,6 +2480,9 @@ const T = {
 
     logLead: "Что программа делала. Пригодится, если что-то не заработало.",
     logCopy: "Скопировать отчёт",
+    ncTitle: "Проверка через туннель", ncAsking: "узнаю адрес…", ncSeenAs: (c) => c ? "интернет видит вас здесь: " + c : "", ncChecking: "проверяю…", ncNo: "нет",
+    ncSites: "Проверить сайты", ncSpeed: "Скорость", ncSpeedHint: "Скачает до 30 МБ через туннель — из трафика подписки", ncMeasuring: "меряю…",
+    movedTo: (n) => "Перешёл на " + n,
     logCopied: "Скопировано. В отчёте нет ключей и адресов — вставьте его в сообщение продавцу.",
     logEmpty: "пусто",
 
@@ -2713,6 +2765,9 @@ const T = {
 
     logLead: "What the program did. Useful when something did not work.",
     logCopy: "Copy a report",
+    ncTitle: "Check through the tunnel", ncAsking: "asking the address…", ncSeenAs: (c) => c ? "the internet sees you in " + c : "", ncChecking: "checking…", ncNo: "no",
+    ncSites: "Check sites", ncSpeed: "Speed", ncSpeedHint: "Downloads up to 30 MB through the tunnel — from the subscription traffic", ncMeasuring: "measuring…",
+    movedTo: (n) => "Switched to " + n,
     logCopied: "Copied. The report has no keys or addresses — paste it into a message to your seller.",
     logEmpty: "empty",
 
@@ -3962,9 +4017,16 @@ function paintSpark(svg, key, value, live) {
 
 function render(s) {
   const d = L();
+  const prevStatus = lastStatus;
   if (s.state !== "connecting") connectingAt = 0;
   else if (!connectingAt) connectingAt = Date.now();
   lastStatus = s;
+  paintNetcheck(s);
+  // Нода сменилась сама или по выбору — сказать вслух: в журнал никто не
+  // смотрит, а страна в капсуле меняется незаметно.
+  if (prevStatus && prevStatus.state === "connected" && s.state === "connected" && prevStatus.node && s.node && prevStatus.node !== s.node) {
+    toast(d.movedTo(s.node.split("·")[0].trim()));
+  }
   if (openTab === "settings") paintOverview();
   if (window.vibeState) window.vibeState(s.state);
   document.body.dataset.state = s.state;
@@ -4745,6 +4807,117 @@ on("first-save", "click", async () => {
     msg.textContent = err.message;
   }
 });
+
+/* --------------------------------------------------- проверка через туннель */
+
+// Адрес спрашиваем раз за сессию: он меняется только с нодой, а окно
+// рисуется каждую секунду. Ключ сессии — время подключения и нода.
+let ncSession = "", ncBusy = false;
+function paintNetcheck(s) {
+  const card = $("netcheck");
+  const up = s.state === "connected";
+  card.hidden = !up;
+  if (!up) { ncSession = ""; return; }
+  const key = (s.since || 0) + "|" + (s.node || "");
+  if (key === ncSession) return;
+  ncSession = key;
+  $("nc-ip").textContent = L().ncAsking;
+  $("nc-country").textContent = "";
+  $("nc-flag").replaceChildren();
+  $("nc-sites").replaceChildren();
+  $("nc-speed").textContent = "";
+  $("nc-msg").textContent = "";
+  api("GET", "api/net/where").then((w) => {
+    if (ncSession !== key) return;
+    if (!w.ip) { $("nc-ip").textContent = "—"; $("nc-country").textContent = w.error || ""; return; }
+    $("nc-ip").textContent = w.ip;
+    const code = (w.country || "").toUpperCase();
+    $("nc-country").textContent = L().ncSeenAs(regionName(code) || code);
+    if (code) $("nc-flag").replaceChildren(flagEl(code));
+  }).catch(() => {});
+}
+
+function siteRow(name, state, ms) {
+  const row = document.createElement("div");
+  row.className = "nc-site";
+  const b = document.createElement("b");
+  b.textContent = name;
+  const v = document.createElement("span");
+  if (state === "wait") { row.setAttribute("data-wait", ""); v.textContent = L().ncChecking; }
+  else { row.dataset.ok = state ? "1" : "0"; v.textContent = state ? "✓ " + ms + L().ms : "✗ " + L().ncNo; }
+  row.append(b, v);
+  return row;
+}
+
+on("nc-sites-btn", "click", async () => {
+  if (ncBusy) return;
+  ncBusy = true;
+  const btn = $("nc-sites-btn");
+  btn.disabled = true;
+  $("nc-msg").textContent = "";
+  $("nc-sites").replaceChildren(...NC_SITES.map((n) => siteRow(n, "wait")));
+  try {
+    const r = await api("POST", "api/net/sites");
+    $("nc-sites").replaceChildren(...(r.sites || []).map((x, i) => {
+      const row = siteRow(x.name, x.ok, x.ms);
+      row.style.animationDelay = (i * 40) + "ms";
+      return row;
+    }));
+  } catch (e) {
+    $("nc-sites").replaceChildren();
+    $("nc-msg").textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    ncBusy = false;
+  }
+});
+// Имена — те же, что проверяет программа (netcheck.go): пока идёт проверка,
+// человек видит, что именно проверяется.
+const NC_SITES = ["YouTube", "Instagram", "Discord", "Roblox", "Telegram", "ChatGPT", "GitHub"];
+
+on("nc-speed-btn", "click", async () => {
+  if (ncBusy) return;
+  ncBusy = true;
+  const btn = $("nc-speed-btn");
+  btn.disabled = true;
+  $("nc-msg").textContent = "";
+  const out = $("nc-speed");
+  out.textContent = L().ncMeasuring;
+  try {
+    const r = await api("POST", "api/net/speed");
+    countUp(out, r.mbps, (v) => v.toLocaleString(lang === "en" ? "en-US" : "ru-RU", { maximumFractionDigits: v < 10 ? 1 : 0 }) + " " + L().mbps);
+  } catch (e) {
+    out.textContent = "";
+    $("nc-msg").textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    ncBusy = false;
+  }
+});
+
+// countUp — число набегает за полсекунды: результат замера видно как
+// результат, а не как подменённую строку.
+function countUp(el, to, fmt) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { el.textContent = fmt(to); return; }
+  const start = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - start) / 600);
+    el.textContent = fmt(to * (1 - Math.pow(1 - k, 3)));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// toast — короткое сообщение внизу окна. Только о том, что случилось само,
+// без нажатия: переезд на другую ноду человек иначе не заметит.
+let toastTimer = 0;
+function toast(text) {
+  const t = $("toast");
+  t.textContent = text;
+  t.setAttribute("data-show", "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.removeAttribute("data-show"), 4500);
+}
 
 /* ----------------------------------------------------------------- опрос */
 
@@ -6245,5 +6418,6 @@ window.paintDotNums = paintDotNums;
   });
 }
 </script>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

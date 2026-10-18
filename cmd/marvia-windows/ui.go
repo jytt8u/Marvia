@@ -116,6 +116,9 @@ func serveUI(ctl *Controller, log *journal, onWindow *func(windowRequest)) (stri
 	mux.HandleFunc("POST "+prefix+"/api/fix", u.fix)
 	mux.HandleFunc("POST "+prefix+"/api/check", u.recheck)
 	mux.HandleFunc("POST "+prefix+"/api/report/copy", u.copyReport)
+	mux.HandleFunc("GET "+prefix+"/api/net/where", u.netWhere)
+	mux.HandleFunc("POST "+prefix+"/api/net/sites", u.netSites)
+	mux.HandleFunc("POST "+prefix+"/api/net/speed", u.netSpeed)
 	mux.HandleFunc("POST "+prefix+"/api/update/open", u.openUpdate)
 	mux.HandleFunc("POST "+prefix+"/api/seller/open", u.openSeller)
 	mux.HandleFunc("POST "+prefix+"/api/seller/seen", u.seenReminder)
@@ -525,4 +528,29 @@ func (u *ui) setClose(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"quit": closeQuits()})
+}
+
+// netWhere — адрес и страна через туннель; см. netcheck.go.
+func (u *ui) netWhere(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, u.ctl.Where(r.Context()))
+}
+
+// netSites проверяет главные сайты через туннель.
+func (u *ui) netSites(w http.ResponseWriter, r *http.Request) {
+	sites, err := u.ctl.CheckSites(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"sites": sites})
+}
+
+// netSpeed меряет скорость приёма через туннель — только по кнопке.
+func (u *ui) netSpeed(w http.ResponseWriter, r *http.Request) {
+	v, err := u.ctl.SpeedTest(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, v)
 }

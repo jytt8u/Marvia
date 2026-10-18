@@ -108,6 +108,13 @@ Cloudflare, их журналы — отдельная история, и нас
 приложение иногда спрашивает у `ipapi.co`, когда продавец её не указал, —
 через ноду, так что сервис видит адрес ноды, а не телефона.
 
+Окно на ПК после подключения спрашивает у `www.cloudflare.com/cdn-cgi/trace`,
+под каким адресом и в какой стране человека видит интернет, — тоже через
+ноду, так что Cloudflare видит адрес ноды. По кнопкам «Проверить сайты» и
+«Скорость» окно открывает главные страницы нескольких сайтов (YouTube,
+Instagram, Discord, Roblox, Telegram, ChatGPT, GitHub) и качает до 30 МБ с
+`speed.cloudflare.com` — тоже через ноду и только по нажатию.
+
 ### На устройстве
 
 Windows хранит дневные объёмы трафика по часам локально в
@@ -263,6 +270,11 @@ connecting a node report with **node number, success and latency only**.
 Reports can be turned off (Android: advanced VPN settings; Windows: settings).
 Exit-country detection sometimes queries `ipapi.co` through the node, so the
 service sees the node's address, not the phone's.
+The Windows window asks `www.cloudflare.com/cdn-cgi/trace` after connecting
+which address and country the internet sees — through the node, so Cloudflare
+sees the node's address. Only when the buttons are pressed, it opens the main
+pages of a few sites and downloads up to 30 MB from `speed.cloudflare.com`,
+also through the node.
 
 On the device the app stores access keys and subscription URLs, node lists
 and measurements, VPN and appearance settings, apps that bypass the VPN,

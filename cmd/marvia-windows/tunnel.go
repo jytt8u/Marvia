@@ -132,7 +132,9 @@ type Controller struct {
 	// подключение ждёт: поднимать туннель посреди уборки старого нельзя.
 	leaving int
 	// step — шаг подключения для окна; см. Status.Step.
-	step       string
+	step string
+	// where — адрес и страна через туннель, до конца сессии; см. netcheck.go.
+	where      WhereView
 	connectCtx context.Context
 	state      State
 	node       client.Node
@@ -960,6 +962,7 @@ func (c *Controller) teardown() {
 	c.until, c.limitBytes, c.leftBytes = "", 0, 0
 	c.since = time.Time{}
 	c.check, c.checkNode = "", ""
+	c.where = WhereView{}
 	c.measured = nil
 	c.mu.Unlock()
 
@@ -1012,6 +1015,8 @@ func (c *Controller) moved(ctx context.Context, node client.Node) {
 	}
 	c.node = node
 	c.ping = 0
+	// Нода другая — и адрес другой.
+	c.where = WhereView{}
 	if c.state == StateStalled {
 		c.state = StateConnected
 		c.reason = ""

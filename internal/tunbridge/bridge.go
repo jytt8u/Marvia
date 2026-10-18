@@ -195,6 +195,8 @@ func Start(cfg Config) (*Bridge, error) {
 		guard.Close()
 		return nil, fmt.Errorf("сетевой стек: %w", err)
 	}
+	handler.acceptTCP(st)
+	guard.ready.Store(true)
 
 	return &Bridge{device: guard, guard: guard, stream: stream, stack: st, handler: handler}, nil
 }

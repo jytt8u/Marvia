@@ -61,6 +61,11 @@ type decoyGuard struct {
 	mu      sync.Mutex
 	flows   map[flowKey]flowTS
 	dropped atomic.Int64
+	// ready — стек собран целиком. До того пакеты не пропускаются: приём
+	// TCP подменяется уже после создания стека (см. tcp.go), и пакет,
+	// пришедший раньше, читал бы обработчик посреди замены. Первый SYN,
+	// выброшенный при старте, приложение просто повторит.
+	ready atomic.Bool
 }
 
 func guardDecoys(child stack.LinkEndpoint) *decoyGuard {
@@ -71,6 +76,9 @@ func guardDecoys(child stack.LinkEndpoint) *decoyGuard {
 
 // DeliverNetworkPacket — пакет от системы к стеку.
 func (g *decoyGuard) DeliverNetworkPacket(protocol tcpip.NetworkProtocolNumber, pkt *stack.PacketBuffer) {
+	if !g.ready.Load() {
+		return
+	}
 	if g.decoy(head(pkt)) {
 		g.dropped.Add(1)
 		return

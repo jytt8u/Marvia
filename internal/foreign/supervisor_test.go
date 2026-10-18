@@ -2,6 +2,7 @@ package foreign
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -129,5 +130,48 @@ func TestNothingSurvivesTheDisconnect(t *testing.T) {
 	}
 	if _, err := s.now(); err == nil {
 		t.Fatal("после отключения у надзора есть движок")
+	}
+}
+
+// TestConnectDoesNotWaitForASilentNode: нода, которая принимает соединение и
+// молчит, не держит подключение все восемь секунд замера — оно идёт через
+// живую, как только та ответила, а молчащая не записывается в мёртвые.
+func TestConnectDoesNotWaitForASilentNode(t *testing.T) {
+	probeHere(t)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			defer c.Close()
+		}
+	}()
+	silent := "vless://b831381d-6324-4d53-ad4f-8cda48b30811@" + ln.Addr().String() + "?security=none#Молчит"
+	alive, _ := vlessNode(t, "Жива")
+	sub := ParseList([]byte(silent + "\n" + alive))
+
+	start := time.Now()
+	s, _, err := Supervise(context.Background(), sub, 0, client.Events{}, Options{})
+	if err != nil {
+		t.Fatalf("надзор: %v", err)
+	}
+	defer s.Close()
+	if took := time.Since(start); took > probeTimeout/2 {
+		t.Fatalf("подключение ждало молчащую ноду: %v", took)
+	}
+	if s.Node().Name != "Жива" {
+		t.Fatalf("выбрана %s", s.Node().Name)
+	}
+	s.mu.Lock()
+	_, judged := s.measured[NodeID(sub.Links[0])]
+	s.mu.Unlock()
+	if judged {
+		t.Fatal("недождавшийся замер записан ноде в приговор")
 	}
 }

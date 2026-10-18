@@ -39,7 +39,17 @@ const (
 	// просто сравнится по задержке, и это лучше, чем задержать человека на
 	// экране подключения ради точности, которой он не заметит.
 	SpeedTimeout = 6 * time.Second
+
+	// SettleWait — сколько после первого ответа ждём остальных при
+	// подключении. Быстрые ноды отвечают кучно; та, что не уложилась и в
+	// полторы секунды после первой, лучшей уже не будет.
+	SettleWait = 1500 * time.Millisecond
 )
+
+// ErrNotWaited — нода не успела ответить до того, как подключение выбрало
+// другую. Это не смерть ноды: панель о ней не узнаёт, а список не пишет
+// «не ответила».
+var ErrNotWaited = errors.New("замер не дождались")
 
 // Measurement — результат замера одной ноды.
 type Measurement struct {
@@ -168,7 +178,7 @@ func SelectPreferred(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Op
 			others := make([]Node, 0, len(nodes)-1)
 			others = append(others, nodes[:index]...)
 			others = append(others, nodes[index+1:]...)
-			fallback := probeAll(ctx, others, key, opts)
+			fallback := probeAll(ctx, others, key, opts, true)
 			results = make([]Measurement, 0, len(nodes))
 			results = append(results, fallback[:index]...)
 			results = append(results, chosen)
@@ -177,7 +187,7 @@ func SelectPreferred(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Op
 		}
 	}
 	if results == nil {
-		results = probeAll(ctx, nodes, key, opts)
+		results = probeAll(ctx, nodes, key, opts, true)
 	}
 
 	// Сортируем копию: порядок замеров должен совпадать с порядком нод,
@@ -206,26 +216,56 @@ func SelectPreferred(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Op
 //
 // Закрывает их тот, кто звал: победителя надо сохранить, а при простом замере
 // для экрана выбора — закрыть все до одного.
-func probeAll(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Options) []Measurement {
+//
+// quick — подключение, а не замер для экрана: как только ответила первая
+// нода, остальным даётся ещё SettleWait, а не все восемь секунд. Мёртвая
+// нода иначе держала бы человека на «Подключаюсь» до своего тайм-аута, хотя
+// живая ответила за полсекунды. Недождавшиеся получают ErrNotWaited — это
+// не отказ, и панели о нём не сообщается.
+func probeAll(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Options, quick bool) []Measurement {
 	results := make([]Measurement, len(nodes))
 	slots := make(chan struct{}, maxParallelProbes)
-	var wg sync.WaitGroup
+	probeCtx, settle := context.WithCancel(ctx)
+	defer settle()
+	done := make(chan int, len(nodes))
 
 	for i, node := range nodes {
-		wg.Add(1)
 		go func(i int, node Node) {
-			defer wg.Done()
+			defer func() { done <- i }()
 
-			slots <- struct{}{}
+			select {
+			case slots <- struct{}{}:
+			case <-probeCtx.Done():
+				results[i] = Measurement{Node: node, Err: probeCtx.Err()}
+				return
+			}
 			defer func() { <-slots }()
 
-			results[i] = Probe(ctx, node, key, opts)
+			results[i] = Probe(probeCtx, node, key, opts)
 		}(i, node)
 	}
-	wg.Wait()
+	var grace <-chan time.Time
+	settled := false
+	for left := len(nodes); left > 0; {
+		select {
+		case i := <-done:
+			left--
+			if settled {
+				if !results[i].OK() {
+					results[i].Err = ErrNotWaited
+				}
+			} else if quick && grace == nil && results[i].OK() {
+				grace = time.After(SettleWait)
+			}
+		case <-grace:
+			settled = true
+			settle()
+		}
+	}
 
 	measureSpeeds(ctx, results)
 	return results
+
 }
 
 // measureAround меряет ноды, не открывая нового соединения к той, через
@@ -297,7 +337,7 @@ func (d *Dialer) live(ctx context.Context) Measurement {
 // Меряем с его устройства, а не берём числа у панели — панель стоит за
 // границей и видит ноду живой ровно тогда, когда для телефона она уже мертва.
 func MeasureAll(ctx context.Context, nodes []Node, key vp1.KeyPair, opts Options) []Measurement {
-	results := probeAll(ctx, nodes, key, opts)
+	results := probeAll(ctx, nodes, key, opts, false)
 	closeAll(results, nil)
 	return results
 }

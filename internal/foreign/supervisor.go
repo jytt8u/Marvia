@@ -35,6 +35,11 @@ var (
 	watchEvery   = 30 * time.Second
 	deadAfter    = 2
 	switchBudget = 40 * time.Second
+
+	// settleWait — сколько после первого ответа ждём остальных при
+	// подключении. Быстрые ноды отвечают кучно, за доли секунды друг от
+	// друга; та, что не ответила и за полторы секунды, лучшей уже не будет.
+	settleWait = 1500 * time.Millisecond
 )
 
 // Supervisor держит подключение к чужой подписке: выбирает ноду, следит за
@@ -119,7 +124,7 @@ func Supervise(ctx context.Context, sub Subscription, prefer int64, events clien
 	for _, l := range sub.Links {
 		s.nodes = append(s.nodes, nodeOf(l))
 	}
-	results, winner := s.pick(ctx, sub.Links, prefer)
+	results, winner := s.pick(ctx, sub.Links, prefer, true)
 	if winner == nil {
 		// С причиной первой неудачи: «не отвечает» без причины не говорит ни
 		// человеку, ни продавцу, куда смотреть — сеть, ключ или сама нода.
@@ -141,7 +146,13 @@ func Supervise(ctx context.Context, sub Subscription, prefer int64, events clien
 
 // pick меряет ноды и отдаёт движок победителя; остальные закрывает.
 // Выбранная руками выигрывает, если жива, — иначе самая быстрая.
-func (s *Supervisor) pick(ctx context.Context, links []Link, prefer int64) ([]client.Measurement, *Engine) {
+//
+// quick — подключение, а не замер: ждать самую медленную незачем. Как
+// только выбранная руками ответила — берём её; как только ответила любая —
+// даём остальным ещё settleWait и берём лучшую из ответивших. Раньше
+// подключение ждало, пока мёртвая нода истратит все восемь секунд, и на
+// подписке с десятком стран это были десятки секунд перед глазами человека.
+func (s *Supervisor) pick(ctx context.Context, links []Link, prefer int64, quick bool) ([]client.Measurement, *Engine) {
 	s.mu.Lock()
 	networkCtx := s.networkCtx
 	s.mu.Unlock()
@@ -150,24 +161,59 @@ func (s *Supervisor) pick(ctx context.Context, links []Link, prefer int64) ([]cl
 		e *Engine
 	}
 	out := make([]result, len(links))
+	// Пробы, которые перестали ждать, отменяются своим контекстом: их
+	// неудача — не приговор ноде, и в список замеров она не идёт.
+	probeCtx, settle := context.WithCancel(ctx)
+	defer settle()
 	sem := make(chan struct{}, maxParallel)
-	var wg sync.WaitGroup
+	done := make(chan int, len(links))
 	for i, l := range links {
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
+			defer func() { done <- i }()
 			select {
 			case sem <- struct{}{}:
-			case <-ctx.Done():
-				out[i] = result{m: client.Measurement{Node: nodeOf(l), Err: ctx.Err()}}
+			case <-probeCtx.Done():
+				out[i] = result{m: client.Measurement{Node: nodeOf(l), Err: probeCtx.Err()}}
 				return
 			}
 			defer func() { <-sem }()
-			m, e := probeLink(ctx, l, s.opts)
+			m, e := probeLink(probeCtx, l, s.opts)
 			out[i] = result{m: m, e: e}
 		}()
 	}
-	wg.Wait()
+	var grace <-chan time.Time
+	settled, preferDone, anyOK := false, prefer == 0, false
+	for left := len(links); left > 0; {
+		select {
+		case i := <-done:
+			left--
+			r := &out[i]
+			if settled {
+				// Ответ пришёл, когда ждать уже перестали: неудача здесь —
+				// наша отмена, а не молчание ноды.
+				if r.e == nil {
+					r.m.Err = client.ErrNotWaited
+				}
+				continue
+			}
+			if r.m.Node.ID == prefer {
+				preferDone = true
+			}
+			anyOK = anyOK || r.e != nil
+			if !quick {
+				continue
+			}
+			if prefer != 0 && r.m.Node.ID == prefer && r.e != nil {
+				settled = true
+				settle()
+			} else if anyOK && preferDone && grace == nil {
+				grace = time.After(settleWait)
+			}
+		case <-grace:
+			settled = true
+			settle()
+		}
+	}
 
 	best := -1
 	for i, r := range out {
@@ -198,7 +244,9 @@ func (s *Supervisor) pick(ctx context.Context, links []Link, prefer int64) ([]cl
 	}
 	for i, r := range out {
 		measurements[i] = r.m
-		s.measured[r.m.Node.ID] = r.m
+		if !errors.Is(r.m.Err, client.ErrNotWaited) {
+			s.measured[r.m.Node.ID] = r.m
+		}
 		if i == best {
 			winner = r.e
 		} else if r.e != nil {
@@ -311,7 +359,7 @@ func (s *Supervisor) move(networkCtx context.Context) bool {
 	}
 	ctx, cancel := context.WithTimeout(networkCtx, switchBudget)
 	defer cancel()
-	_, winner := s.pick(ctx, others, 0)
+	_, winner := s.pick(ctx, others, 0, true)
 	if winner == nil {
 		return false
 	}
@@ -520,7 +568,7 @@ func (s *Supervisor) pickAll(ctx context.Context, links []Link) ([]client.Measur
 	if len(links) == 0 {
 		return nil, nil
 	}
-	return s.pick(ctx, links, 0)
+	return s.pick(ctx, links, 0, false)
 }
 
 // Ping — отклик текущей ноды настоящим запросом через неё.
@@ -562,7 +610,7 @@ func (s *Supervisor) Select(ctx context.Context, id int64) error {
 	stop := context.AfterFunc(ctx, cancel)
 	defer stop()
 	defer cancel()
-	_, winner := s.pick(selectCtx, target, id)
+	_, winner := s.pick(selectCtx, target, id, true)
 	if winner == nil {
 		return errors.New("нода не отвечает")
 	}
@@ -634,7 +682,7 @@ func (s *Supervisor) Close() error {
 func MeasureAll(ctx context.Context, links []Link, opts Options) []client.Measurement {
 	s := newSupervisor(Subscription{}, 0, client.Events{}, opts)
 	defer s.cancel()
-	results, winner := s.pick(ctx, links, 0)
+	results, winner := s.pick(ctx, links, 0, false)
 	if winner != nil {
 		_ = winner.Close()
 	}

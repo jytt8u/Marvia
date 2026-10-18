@@ -644,3 +644,48 @@ func TestBypassListArrivesByPinnedAddress(t *testing.T) {
 		t.Fatalf("список разобран неверно: %q", got)
 	}
 }
+
+// TestSelectBestDoesNotWaitForASilentNode: нода, которая приняла соединение
+// и молчит, не держит человека на «Подключаюсь» все восемь секунд замера, и
+// панель не получает про неё отчёт «не дошли» — её просто не дождались.
+func TestSelectBestDoesNotWaitForASilentNode(t *testing.T) {
+	node := startTestNode(t)
+
+	silent, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("слушатель: %v", err)
+	}
+	defer silent.Close()
+	go func() {
+		for {
+			c, err := silent.Accept()
+			if err != nil {
+				return
+			}
+			defer c.Close()
+		}
+	}()
+
+	nodes := []client.Node{
+		{ID: 1, Name: "молчит", Address: silent.Addr().String(), SNI: "node.example", PublicKey: node.info.PublicKey},
+		{ID: 2, Name: "живая", Address: node.info.Address, SNI: node.info.SNI, PublicKey: node.info.PublicKey},
+	}
+
+	start := time.Now()
+	dialer, measurements, err := client.SelectBest(context.Background(), nodes, node.clientKey, node.opts)
+	if err != nil {
+		t.Fatalf("выбор ноды: %v", err)
+	}
+	defer dialer.Close()
+	if took := time.Since(start); took > client.ProbeTimeout/2 {
+		t.Fatalf("подключение ждало молчащую ноду: %v", took)
+	}
+	if dialer.Node().Name != "живая" {
+		t.Fatalf("выбрана нода %q", dialer.Node().Name)
+	}
+	for _, r := range client.ReportsFrom(measurements) {
+		if r.NodeID == 1 {
+			t.Fatalf("панели ушёл отчёт про недождавшуюся ноду: %+v", r)
+		}
+	}
+}

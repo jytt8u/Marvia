@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,7 +30,7 @@ func ReportsFrom(measurements []Measurement) []Report {
 	out := make([]Report, 0, len(measurements))
 
 	for _, m := range measurements {
-		if m.Node.ID == 0 {
+		if m.Node.ID == 0 || errors.Is(m.Err, ErrNotWaited) {
 			continue
 		}
 		report := Report{NodeID: m.Node.ID, OK: m.OK()}

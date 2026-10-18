@@ -47,7 +47,7 @@ type journal struct {
 // Замер идёт настоящими подключениями ко всем нодам разом, поэтому он не
 // мгновенный; переключение — это обычное подключение, только к заданной ноде.
 const (
-	selectTimeout  = 60 * time.Second
+	selectTimeout = 60 * time.Second
 )
 
 const journalDepth = 200

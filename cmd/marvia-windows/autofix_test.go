@@ -212,3 +212,39 @@ func TestWarpStatusIsReadExactly(t *testing.T) {
 		t.Fatal("«Disconnected» принято за подключённый WARP")
 	}
 }
+
+// TestWindowSaysDisconnectingUntilTheNetworkIsBack: пока туннель снимается и
+// WARP возвращается, окно пишет «Отключаюсь», а не «Отключено», и нажатие
+// «Подключиться» в эти секунды не теряется молча — его просто не за что
+// нажимать. Раньше окно врало «Отключено», кнопка не срабатывала, и человек
+// жал её по три раза.
+func TestWindowSaysDisconnectingUntilTheNetworkIsBack(t *testing.T) {
+	sys := &fakeSystem{running: map[string]bool{}, warp: true}
+	fakeWindows(t, sys)
+	p := newPauser(filepath.Join(t.TempDir(), "paused.json"), func(string) {})
+	p.pause()
+	release := make(chan struct{})
+	setWarp = func(on bool) error { <-release; sys.warp = on; return nil }
+
+	c := &Controller{state: StateConnected, account: "marvia://ключ", log: newJournal(), fixer: p, conflictsAt: time.Now()}
+	c.StartDisconnect()
+	if got := c.Status().State; got != StateDisconnecting {
+		t.Fatalf("сразу после нажатия окно пишет %q, а не «Отключаюсь»", got)
+	}
+	_ = c.Connect()
+	if got := c.Status().State; got != StateDisconnecting {
+		t.Fatalf("подключение посреди уборки сменило состояние на %q", got)
+	}
+
+	close(release)
+	deadline := time.Now().Add(5 * time.Second)
+	for c.Status().State != StateIdle {
+		if time.Now().After(deadline) {
+			t.Fatalf("после уборки состояние так и осталось %q", c.Status().State)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !sys.warp {
+		t.Fatal("WARP не вернулся")
+	}
+}

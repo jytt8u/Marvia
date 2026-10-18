@@ -197,7 +197,7 @@ func (u *ui) connect(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (u *ui) disconnect(w http.ResponseWriter, _ *http.Request) {
-	u.ctl.Disconnect()
+	u.ctl.StartDisconnect()
 	writeJSON(w, http.StatusOK, map[string]any{})
 }
 

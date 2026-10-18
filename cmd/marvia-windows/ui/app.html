@@ -276,9 +276,10 @@
   body[data-state="connected"] .ring .arc-a { stop-color: var(--acc); }
   body[data-state="connected"] .ring .arc-b { stop-color: var(--acc); stop-opacity: .12; }
   body[data-state="stalled"] .ring .arc-a { stop-color: var(--warn); }
-  body[data-state="connecting"] .ring circle { stroke-dasharray: 160 493; }
-  body[data-state="connecting"] .ring .arc-a { stop-color: var(--dim); }
-  body[data-state="connecting"] .ring > svg { animation: spin 1.4s linear infinite; }
+  body[data-state="connecting"] .ring circle, body[data-state="disconnecting"] .ring circle { stroke-dasharray: 160 493; }
+  body[data-state="connecting"] .ring .arc-a, body[data-state="disconnecting"] .ring .arc-a { stop-color: var(--dim); }
+  body[data-state="connecting"] .ring > svg, body[data-state="disconnecting"] .ring > svg { animation: spin 1.4s linear infinite; }
+  body[data-state="disconnecting"] .ring > svg { animation-direction: reverse; }
   @keyframes spin { to { transform: rotate(450deg); } }
 
   .power {
@@ -298,7 +299,7 @@
   }
   .power[data-state="connected"] svg { color: var(--acc); }
   .power[data-state="stalled"] svg { color: var(--warn); }
-  .power[data-state="connecting"] svg { color: var(--dim); }
+  .power[data-state="connecting"] svg, .power[data-state="disconnecting"] svg { color: var(--dim); }
   .power[data-state="connected"][data-btn="solid"] {
     /* Блик — отдельным слоем над цветом: полупрозрачный белый в той же
        градиентной полосе ложился на пустоту и давал серое пятно. */
@@ -540,11 +541,28 @@
   .rows .stack { flex-direction: column; align-items: stretch; gap: 10px; }
   .pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .keys { display: flex; flex-direction: column; gap: 6px; }
-  .keys .key { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: min(var(--r), 12px); background: var(--shade); border: 1px solid var(--line); }
+  .keys .key { display: flex; align-items: stretch; border-radius: min(var(--r), 12px); background: var(--shade); border: 1px solid var(--line); overflow: hidden; }
   .keys .key[data-active] { border-color: var(--acc); }
-  .keys .key .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .keys .key .pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+    background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .keys .key .pick:hover { background: color-mix(in srgb, var(--fg) 5%, transparent); }
+  .keys .key[data-active] .pick { cursor: default; }
+  .keys .key[data-active] .pick:hover { background: none; }
+  .keys .key .radio { flex: none; width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--dim); }
+  .keys .key[data-active] .radio { box-shadow: inset 0 0 0 1.5px var(--acc), inset 0 0 0 4px var(--shade), inset 0 0 0 8px var(--acc); }
+  .keys .key .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .keys .key b { font-size: 13px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .keys .key small { font-size: 11px; color: var(--dim); }
+  .keys .key small { font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .keys .key .quota { color: var(--fg); font-family: var(--mono); white-space: normal; }
+  .keys .key .track { display: block; margin-top: 4px; height: 4px; }
+  .keys .key .track[hidden], .keys .key .quota[hidden] { display: none; }
+  .keys .key .drop { flex: none; min-width: 36px; padding: 0 10px; background: none; border: 0; border-left: 1px solid var(--line);
+    color: var(--dim); font-size: 12px; font-weight: 600; cursor: pointer; }
+  .keys .key .drop:hover { color: var(--fail); background: color-mix(in srgb, var(--fg) 5%, transparent); }
+  .keys .key .drop[data-sure="1"] { color: var(--fail); }
+  .key-form { display: flex; flex-direction: column; gap: 10px; }
+  .key-form[hidden] { display: none; }
+  .key-form .row .grow { flex: 1; min-width: 0; }
   .pick input.code-in { width: 150px; }
   .log { max-height: 220px; max-width: 100%; overflow-x: hidden; overflow-y: auto; font-family: var(--mono); font-size: 11px; display: flex; flex-direction: column; gap: 4px; user-select: text; }
   .log-act { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
@@ -1669,36 +1687,27 @@
           <div class="col side">
             <!--
               Ключи — здесь, рядом со странами: ключ и есть «чьи это серверы».
-              В настройках их искали и не находили.
+              Сначала то, что у человека уже есть, — список; поле для новой
+              ссылки раскрывается по кнопке. Раньше карточка начиналась с
+              прочерков и полной ссылки рабочего ключа на виду, а список
+              прятался внизу.
             -->
             <div class="card keycard">
               <div class="card-head">
-                <div>
-                  <b id="key-label"></b>
-                  <div class="host" id="key-host"></div>
-                </div>
-                <span class="badge" id="key-state"></span>
+                <b data-t="keysTitle"></b>
+                <button class="chip" id="key-add" data-t="keyAdd" aria-expanded="false"></button>
               </div>
-              <div class="facts">
-                <div class="fact"><div class="k" data-t="factTraffic"></div><div class="v" id="f-traffic">—</div></div>
-                <div class="fact"><div class="k" data-t="factUntil"></div><div class="v" id="f-until">—</div></div>
-              </div>
-              <div class="track"><i id="f-fill" style="width:0"></i></div>
-              <span class="hint" id="key-note"></span>
-              <p class="lead" data-t="keyLead"></p>
-              <textarea id="account" rows="3" spellcheck="false" placeholder="marvia://…  vless://…  https://…"></textarea>
-              <div class="row">
-                <input type="text" class="code-in" id="key-name" autocomplete="off" spellcheck="false" maxlength="40" style="width: 200px;">
-                <button class="primary" id="save" data-t="keySave"></button>
-                <span id="save-msg" class="hint"></span>
-              </div>
-              <!--
-                Сохранённые ключи: доступ бывает у двух продавцов сразу.
-                Рабочий один; смена переподнимает туннель.
-              -->
-              <div class="k" data-t="keysTitle"></div>
               <div class="keys" id="keys-list"></div>
-              <p class="hint" data-t="keyHint"></p>
+              <span id="save-msg" class="hint"></span>
+              <div class="key-form" id="key-form" hidden>
+                <p class="lead" data-t="keyLead"></p>
+                <textarea id="account" rows="3" spellcheck="false" autocomplete="off" placeholder="marvia://…  vless://…  https://…"></textarea>
+                <div class="row">
+                  <input type="text" class="code-in grow" id="key-name" autocomplete="off" spellcheck="false" maxlength="40">
+                  <button class="primary" id="save" data-t="keySave"></button>
+                </div>
+                <p class="hint" data-t="keyHint"></p>
+              </div>
             </div>
             <div class="card">
               <b data-t="nodesAutoTitle"></b>
@@ -2392,32 +2401,32 @@ const T = {
 
     state: {
       idle: "Отключено", connecting: "Подключаюсь", connected: "Подключено",
-      failed: "Не подключилось", stalled: "Связь потеряна",
+      failed: "Не подключилось", stalled: "Связь потеряна", disconnecting: "Отключаюсь",
     },
     detail: {
       idle: "трафик идёт напрямую",
       noKey: "вставьте ключ доступа, его присылает бот после оплаты",
       connecting: "выбираю самую быструю ноду",
+      disconnecting: "убираю туннель и возвращаю сеть как было",
+      steps: { prepare: "убираю помехи", nodes: "проверяю страны", adapter: "поднимаю туннель" },
       connected: "туннель поднят через выбранную ноду",
       stalled: "нода перестала отвечать",
       unknown: "причина неизвестна",
     },
     power: { on: "Подключиться", off: "Отключиться", cancel: "Отменить" },
+    secShort: "с",
 
     noNode: "Нода не выбрана",
     noNodeSub: "подключись — она выберется сама, по замерам",
 
-    keyTitle: "Ключ доступа",
     keyLead: "Ключ Marvia (marvia://), ссылка VLESS, VMess, Trojan, Shadowsocks, Hysteria2, WireGuard или адрес подписки — всё, что дал продавец.",
     keyHint: "В ссылке личный ключ. Она лежит в профиле пользователя и никуда не отправляется — кроме адреса подписки, который в ней же и записан.",
     keySave: "Сохранить", keySaveFirst: "Сохранить ключ", keySaved: "Сохранено",
-    keyNameHint: "имя, необязательно", keysTitle: "Сохранённые ключи",
-    keyActive: "рабочий", keyUse: "Сделать рабочим", keyRemove: "Убрать", keyRemoveSure: "Точно убрать?",
-    keyMarvia: "ключ Marvia", keyForeign: "чужая подписка или ссылка",
-    keyOn: "СОХРАНЁН", keyOff: "НЕТ КЛЮЧА", keyNoHost: "ссылки пока нет",
-    keyNote: "срок и остаток трафика панель сообщает при подключении",
-    keyNoLimit: "без квоты", keyNoUntil: "без срока",
-    factTraffic: "Осталось", factUntil: "Срок",
+    keyNameHint: "имя, необязательно", keysTitle: "Ключи", keyAdd: "+ Добавить", keyAddClose: "Отмена",
+    keyActive: "рабочий", keyUse: "Сделать рабочим", keyRemove: "Убрать", keyRemoveSure: "Убрать?",
+    keyKinds: { marvia: "Marvia", sub: "подписка", link: "ссылка" },
+    keyNoLimits: "без срока и квоты",
+    keyLeftOf: (left, all) => left + " из " + all,
     subOn: "Ключ сохранён", subOff: "Ключа нет", subAfter: "срок и квота — после подключения", subNoKey: "вставьте ссылку от бота",
 
     logLead: "Что программа делала. Пригодится, если что-то не заработало.",
@@ -2674,32 +2683,32 @@ const T = {
 
     state: {
       idle: "Disconnected", connecting: "Connecting", connected: "Connected",
-      failed: "Could not connect", stalled: "Connection lost",
+      failed: "Could not connect", stalled: "Connection lost", disconnecting: "Disconnecting",
     },
     detail: {
       idle: "traffic goes directly",
       noKey: "paste the access key — the bot sends it after payment",
       connecting: "picking the fastest node",
+      disconnecting: "removing the tunnel and putting the network back",
+      steps: { prepare: "clearing interference", nodes: "checking countries", adapter: "raising the tunnel" },
       connected: "the tunnel is connected through the selected node",
       stalled: "the node stopped responding",
       unknown: "reason unknown",
     },
     power: { on: "Connect", off: "Disconnect", cancel: "Cancel" },
+    secShort: "s",
 
     noNode: "No node picked",
     noNodeSub: "connect — it picks itself, by measurement",
 
-    keyTitle: "Access key",
     keyLead: "A Marvia key (marvia://), a VLESS, VMess, Trojan, Shadowsocks, Hysteria2 or WireGuard link, or a subscription URL — whatever your provider gave you.",
     keyHint: "The link carries a private key. It stays in the user profile and is sent nowhere — except to the subscription address written in the link itself.",
     keySave: "Save", keySaveFirst: "Save the key", keySaved: "Saved",
-    keyNameHint: "name, optional", keysTitle: "Saved keys",
-    keyActive: "active", keyUse: "Make active", keyRemove: "Remove", keyRemoveSure: "Remove for sure?",
-    keyMarvia: "Marvia key", keyForeign: "other subscription or link",
-    keyOn: "SAVED", keyOff: "NO KEY", keyNoHost: "no link yet",
-    keyNote: "the panel reports expiry and remaining traffic on connect",
-    keyNoLimit: "no quota", keyNoUntil: "no expiry",
-    factTraffic: "Left", factUntil: "Until",
+    keyNameHint: "name, optional", keysTitle: "Keys", keyAdd: "+ Add", keyAddClose: "Cancel",
+    keyActive: "active", keyUse: "Make active", keyRemove: "Remove", keyRemoveSure: "Remove?",
+    keyKinds: { marvia: "Marvia", sub: "subscription", link: "link" },
+    keyNoLimits: "no expiry or quota",
+    keyLeftOf: (left, all) => left + " of " + all,
     subOn: "Key saved", subOff: "No key", subAfter: "expiry and quota — after connecting", subNoKey: "paste the link from the bot",
 
     logLead: "What the program did. Useful when something did not work.",
@@ -2850,7 +2859,7 @@ function finishWelcome() {
   api("POST", "api/welcome").catch(() => { onboarded = false; });
   $("welcome").hidden = true;
   document.querySelector('.tab[data-tab="nodes"]').click();
-  $("account").focus();
+  if (!lastStatus || !lastStatus.has_account) showKeyForm(true);
 }
 
 /* --------------------------------------------------------------- вкладки */
@@ -3887,16 +3896,6 @@ function clock(seconds) {
   return two(h) + ":" + two(m) + ":" + two(s);
 }
 
-// keyParts достаёт из ссылки то, что можно показать: хост подписки и метку.
-// Сам ключ — между «//» и «@» — на экран не выводится: он и так в поле ниже.
-function keyParts(link) {
-  const m = /^marvia:\/\/[^@]*@([^/#?]+)[^#]*(?:#(.*))?$/.exec((link || "").trim());
-  if (!m) return null;
-  let label = "";
-  try { label = decodeURIComponent(m[2] || ""); } catch (_) { label = m[2] || ""; }
-  return { host: m[1], label };
-}
-
 /* ------------------------------------------------------------- отрисовка */
 
 // Названия состояний живут в словаре: их видит человек, а не программа.
@@ -3911,6 +3910,8 @@ function keyParts(link) {
   прочитать. Он видел красный проблеск и нажимал снова.
 */
 let complaint = null;
+// connectingAt — когда окно увидело начало подключения; см. connectingLine.
+let connectingAt = 0;
 
 function complain(text) {
   complaint = { text, until: Date.now() + 12000 };
@@ -3961,6 +3962,8 @@ function paintSpark(svg, key, value, live) {
 
 function render(s) {
   const d = L();
+  if (s.state !== "connecting") connectingAt = 0;
+  else if (!connectingAt) connectingAt = Date.now();
   lastStatus = s;
   if (openTab === "settings") paintOverview();
   if (window.vibeState) window.vibeState(s.state);
@@ -3969,7 +3972,9 @@ function render(s) {
   $("power").dataset.state = s.state;
   // Во время подключения кнопка была заблокирована, а обработчик отмену умел:
   // человек полторы минуты смотрел на замершее окно и не мог ничего сделать.
-  $("power").disabled = !s.elevated;
+  // Пока туннель снимается, жать нечего: новое подключение всё равно ждёт
+  // конца уборки, а живая кнопка обещала бы то, чего не будет.
+  $("power").disabled = !s.elevated || s.state === "disconnecting";
   $("power").title =
     s.state === "connecting" ? d.power.cancel
     : s.state === "connected" || s.state === "stalled" ? d.power.off
@@ -3991,7 +3996,8 @@ function render(s) {
   if (said !== null) detail.textContent = said;
   else if (s.state === "failed") detail.textContent = s.reason || d.detail.unknown;
   else if (s.state === "stalled") detail.textContent = s.reason || d.detail.stalled;
-  else if (s.state === "connecting") detail.textContent = d.detail.connecting;
+  else if (s.state === "connecting") detail.textContent = connectingLine(s);
+  else if (s.state === "disconnecting") detail.textContent = d.detail.disconnecting;
   else if (s.state === "connected") detail.textContent = s.since ? d.sessionLine(clock(Math.max(0, Math.floor(Date.now() / 1000) - s.since))) : d.detail.connected;
   else if (!s.has_account) detail.textContent = d.detail.noKey;
   else detail.textContent = d.detail.idle;
@@ -4007,12 +4013,7 @@ function render(s) {
   $("subscription").textContent = parts.length ? parts.join(" · ") : (s.has_account ? d.subAfter : d.subNoKey);
 
   const up = s.state === "connected" || s.state === "stalled";
-  $("key-state").textContent = s.has_account ? d.keyOn : d.keyOff;
-  $("key-state").classList.toggle("on", s.has_account);
-  $("f-until").textContent = s.until ? s.until : (up ? d.keyNoUntil : "—");
-  $("f-traffic").textContent = s.limit_bytes > 0 ? bytes(s.left_bytes || 0) + " / " + bytes(s.limit_bytes) : (up ? d.keyNoLimit : "—");
-  $("f-fill").style.width = s.limit_bytes > 0 ? Math.round(100 * Math.max(0, s.left_bytes || 0) / s.limit_bytes) + "%" : "0";
-  $("key-note").textContent = up ? "" : d.keyNote;
+  paintKeyQuota(s);
 
   // Где вы: крупно страна, ниже город; справа отклик числом и словом, как
   // в списке стран. Адрес ноды покупателю ничего не говорит — он в подсказке.
@@ -4098,7 +4099,7 @@ function render(s) {
   // скорость, нода. Красится тем же, чем окно, только короче.
   $("w-power").dataset.state = s.state;
   $("w-power").dataset.btn = $("power").dataset.btn || "";
-  $("w-power").disabled = !s.elevated;
+  $("w-power").disabled = $("power").disabled;
   $("w-power").title = $("power").title;
   $("w-status").textContent = $("status").textContent;
   const wmeta = [];
@@ -4192,14 +4193,6 @@ function paintWeek(traffic) {
   $("week-peak").textContent = peak.total ? peakName + " · " + bytes(peak.total) : "—";
 }
 
-// paintKeyCard — заголовок карточки ключа: метка и хост из ссылки.
-function paintKeyCard(link) {
-  const d = L();
-  const parts = keyParts(link);
-  $("key-label").textContent = parts && parts.label ? parts.label : d.keyTitle;
-  $("key-host").textContent = parts ? parts.host : d.keyNoHost;
-}
-
 // paintLog раскладывает строки журнала: время отдельно, текст отдельно.
 // Строка приходит как «ЧЧ:ММ:СС  текст» — программа так их и пишет.
 function paintLog(lines) {
@@ -4238,13 +4231,39 @@ function paintLog(lines) {
 
 let busy = false;
 
+// connectingLine — что подключение делает сейчас и сколько уже идёт: по
+// одному «Подключаюсь» не понять, работает программа или зависла.
+function connectingLine(s) {
+  const d = L();
+  const step = (s.step && d.detail.steps[s.step]) || d.detail.connecting;
+  const secs = connectingAt ? Math.floor((Date.now() - connectingAt) / 1000) : 0;
+  return secs >= 2 ? step + " · " + secs + " " + d.secShort : step;
+}
+
+// showState — нажатие видно сразу, не дожидаясь ответа программы: иначе
+// между щелчком и следующим опросом кнопка выглядела нетронутой, и её жали
+// ещё раз — а второе нажатие отменяло первое.
+function showState(state) {
+  if (!lastStatus) return;
+  render(Object.assign({}, lastStatus, { state, step: "" }));
+}
+
 async function togglePower() {
   if (busy) return;
   busy = true;
   try {
     const s = await api("GET", "api/state");
-    if (s.state === "connected" || s.state === "connecting") await api("POST", "api/disconnect");
-    else await api("POST", "api/connect");
+    if (s.state === "disconnecting") return;
+    // «Связь потеряна» — туннель стоит, нода молчит: кнопка его снимает, как
+    // и у подключённого. Раньше она звала «подключиться», программа молча
+    // отвечала «уже подключено», и ничего не происходило.
+    if (s.state === "connected" || s.state === "connecting" || s.state === "stalled") {
+      showState("disconnecting");
+      await api("POST", "api/disconnect");
+    } else {
+      showState("connecting");
+      await api("POST", "api/connect");
+    }
     await tick();
   } catch (err) {
     complain(err.message);
@@ -4562,49 +4581,99 @@ loadConn();
 
 // Ключи рисуем сами, текстом: имя ключа вписывает человек или продавец в
 // метке ссылки, и разметкой его вставлять нельзя.
+//
+// Строка — сам выбор: щелчок делает ключ рабочим. Рядом только «убрать»;
+// срок и остаток видны в строке рабочего ключа, а не прочерками в отдельной
+// таблице, которая до подключения ничего не знает.
 let keys = [];
+function keyKind(k) {
+  const d = L();
+  return d.keyKinds[k.kind] || (k.kind || "").toUpperCase();
+}
 function paintKeys() {
   const d = L();
   $("key-name").placeholder = d.keyNameHint;
   const box = $("keys-list");
+  // Ключей нет — сразу поле: кнопка «Добавить» над пустым списком была бы
+  // лишним шагом для того, кто пришёл ровно за этим.
+  $("key-add").hidden = !keys.length;
+  if (keys.length && $("key-add").getAttribute("aria-expanded") !== "true") $("key-form").hidden = true;
+  if (!keys.length) {
+    $("key-form").hidden = false;
+    box.replaceChildren();
+    return;
+  }
   box.replaceChildren(...keys.map((k) => {
     const row = document.createElement("div");
     row.className = "key";
     if (k.active) row.setAttribute("data-active", "");
-    const grow = document.createElement("div");
+
+    const pick = document.createElement("button");
+    pick.type = "button";
+    pick.className = "pick";
+    pick.setAttribute("aria-pressed", String(!!k.active));
+    pick.title = k.active ? d.keyActive : d.keyUse;
+    const mark = document.createElement("span");
+    mark.className = "radio";
+    const grow = document.createElement("span");
     grow.className = "grow";
     const name = document.createElement("b");
     name.textContent = k.name;
+    name.title = k.name;
     const kind = document.createElement("small");
-    kind.textContent = (k.active ? d.keyActive + " · " : "") + (k.foreign ? d.keyForeign : d.keyMarvia);
+    kind.textContent = [k.active ? d.keyActive : "", keyKind(k), k.host && k.host !== k.name ? k.host : ""].filter(Boolean).join(" · ");
     grow.append(name, kind);
-    row.append(grow);
-    if (!k.active) {
-      const use = document.createElement("button");
-      use.type = "button";
-      use.className = "chip";
-      use.textContent = d.keyUse;
-      use.addEventListener("click", () => keyAction(use, "api/keys/use", k.id));
-      row.append(use);
+    if (k.active) {
+      const quota = document.createElement("small");
+      quota.className = "quota";
+      const track = document.createElement("span");
+      track.className = "track";
+      track.append(document.createElement("i"));
+      grow.append(quota, track);
     }
+    pick.append(mark, grow);
+    if (!k.active) pick.addEventListener("click", () => keyAction(pick, "api/keys/use", k.id));
+
     // Убрать — в два нажатия: ссылки может уже не быть под рукой, и
     // промах мышью не должен стоить ключа.
     const drop = document.createElement("button");
     drop.type = "button";
-    drop.className = "chip";
-    drop.textContent = d.keyRemove;
+    drop.className = "drop";
+    drop.title = d.keyRemove;
+    drop.setAttribute("aria-label", d.keyRemove);
+    drop.textContent = "✕";
     drop.addEventListener("click", () => {
       if (drop.dataset.sure !== "1") {
         drop.dataset.sure = "1";
-        drop.textContent = d.keyRemoveSure;
-        setTimeout(() => { drop.dataset.sure = ""; drop.textContent = L().keyRemove; }, 4000);
+        drop.textContent = L().keyRemoveSure;
+        setTimeout(() => { drop.dataset.sure = ""; drop.textContent = "✕"; }, 4000);
         return;
       }
       keyAction(drop, "api/keys/remove", k.id);
     });
-    row.append(drop);
+    row.append(pick, drop);
     return row;
   }));
+  paintKeyQuota(lastStatus);
+}
+// paintKeyQuota — срок и остаток в строке рабочего ключа. Пока туннель не
+// поднят, панель их не сообщала, и строки нет вовсе: прочерк ничего не
+// говорит, а «без срока» до подключения было бы неправдой.
+function paintKeyQuota(s) {
+  const row = document.querySelector("#keys-list .key[data-active]");
+  if (!row || !s) return;
+  const d = L();
+  const up = s.state === "connected" || s.state === "stalled";
+  const parts = [];
+  if (s.limit_bytes > 0) parts.push(d.keyLeftOf(bytes(s.left_bytes || 0), bytes(s.limit_bytes)));
+  if (s.until) parts.push(d.until + s.until);
+  if (!parts.length && up) parts.push(d.keyNoLimits);
+  const quota = row.querySelector(".quota");
+  quota.textContent = parts.join(" · ");
+  quota.hidden = !parts.length;
+  const track = row.querySelector(".track");
+  track.hidden = !(s.limit_bytes > 0);
+  track.firstChild.style.width = s.limit_bytes > 0 ? Math.round(100 * Math.max(0, s.left_bytes || 0) / s.limit_bytes) + "%" : "0";
 }
 async function loadKeys() {
   try {
@@ -4612,8 +4681,8 @@ async function loadKeys() {
     paintKeys();
   } catch (_) { /* покажем при следующем заходе */ }
 }
-// keyAction — сменить рабочий или убрать. После неё рабочая ссылка в поле
-// и карточка другие, а туннель мог переподняться: перечитываем всё.
+// keyAction — сменить рабочий или убрать. Туннель мог переподняться:
+// перечитываем и состояние.
 async function keyAction(button, path, id) {
   const msg = $("save-msg");
   msg.className = "hint";
@@ -4622,9 +4691,6 @@ async function keyAction(button, path, id) {
   try {
     keys = (await api("POST", path, { id })).keys || [];
     paintKeys();
-    const a = await api("GET", "api/account");
-    $("account").value = a.link || "";
-    paintKeyCard(a.link);
     await tick();
   } catch (err) {
     msg.className = "hint bad";
@@ -4635,14 +4701,24 @@ async function keyAction(button, path, id) {
 }
 loadKeys();
 
+// Поле для новой ссылки — по кнопке. Ссылка рабочего ключа в него больше не
+// подставляется: в ней личный ключ, и держать его на экране незачем.
+function showKeyForm(open) {
+  $("key-form").hidden = !open;
+  $("key-add").setAttribute("aria-expanded", String(open));
+  $("key-add").textContent = open ? L().keyAddClose : L().keyAdd;
+  if (open) $("account").focus();
+  else { $("account").value = ""; $("key-name").value = ""; }
+}
+on("key-add", "click", () => showKeyForm($("key-form").hidden));
+
 on("save", "click", async () => {
   const msg = $("save-msg");
   msg.className = "hint";
   try {
     await api("POST", "api/account", { link: $("account").value, name: $("key-name").value.trim() });
     msg.textContent = L().keySaved;
-    $("key-name").value = "";
-    paintKeyCard($("account").value);
+    showKeyForm(false);
     await loadKeys();
     await tick();
   } catch (err) {
@@ -4661,8 +4737,6 @@ on("first-save", "click", async () => {
   try {
     const link = $("first-account").value;
     await api("POST", "api/account", { link });
-    $("account").value = link;
-    paintKeyCard(link);
     loadKeys();
     msg.textContent = L().keySaved;
     await tick();
@@ -4712,8 +4786,6 @@ api("GET", "api/account").then((a) => {
   } else {
     api("POST", "api/lang", { lang }).catch(() => {});
   }
-  $("account").value = a.link || "";
-  paintKeyCard(a.link);
   if (a.link && !welcomeSeen()) {
     onboarded = true;
     api("POST", "api/welcome").catch(() => {});

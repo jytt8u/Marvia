@@ -153,6 +153,11 @@ type KeyView struct {
 	// Foreign — чужая подписка или ссылка: окно подписывает её протоколом,
 	// а не «ключ Marvia».
 	Foreign bool `json:"foreign"`
+	// Host и Kind — подпись строки: чей сервер и что за ссылка. Сама ссылка
+	// в окно не уходит, а по одному имени два ключа одного продавца не
+	// различить.
+	Host string `json:"host,omitempty"`
+	Kind string `json:"kind"`
 }
 
 func keyViews(list []savedKey, active string) []KeyView {
@@ -163,7 +168,32 @@ func keyViews(list []savedKey, active string) []KeyView {
 	}
 	for _, k := range list {
 		id := keyID(k.Link)
-		out = append(out, KeyView{ID: id, Name: k.Name, Active: id == activeID, Foreign: foreign.IsForeign(k.Link)})
+		host, kind := keySource(k.Link)
+		out = append(out, KeyView{ID: id, Name: k.Name, Active: id == activeID, Foreign: foreign.IsForeign(k.Link), Host: host, Kind: kind})
 	}
 	return out
+}
+
+// keySource — хост и вид ссылки для подписи в окне: «marvia», «sub» для
+// адреса подписки или схема чужой ссылки — vless, trojan и прочие.
+func keySource(link string) (host, kind string) {
+	link = strings.TrimSpace(link)
+	u, err := url.Parse(link)
+	if err != nil {
+		return "", "link"
+	}
+	host = u.Hostname()
+	switch scheme := strings.ToLower(u.Scheme); {
+	case !foreign.IsForeign(link):
+		kind = "marvia"
+	case scheme == "http" || scheme == "https":
+		kind = "sub"
+	case scheme == "hysteria2" || scheme == "hy2":
+		kind = "hy2"
+	case scheme == "":
+		kind = "link"
+	default:
+		kind = scheme
+	}
+	return host, kind
 }

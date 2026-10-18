@@ -42,6 +42,13 @@ const (
 	// стоят, и разница для человека принципиальная — «нажми ещё раз» против
 	// «сейчас ничего не работает и вот почему».
 	StateStalled State = "stalled"
+
+	// StateDisconnecting — туннель снимается, а сеть возвращается как была.
+	//
+	// Раньше окно писало «Отключено» сразу, а уборка шла ещё секунды: человек
+	// жал «Подключиться», программа молча отказывала — уборка не кончилась, —
+	// и он жал снова, не понимая, включено или нет.
+	StateDisconnecting State = "disconnecting"
 )
 
 // Status — всё, что показывает окно.
@@ -57,6 +64,10 @@ type Status struct {
 	Up        int64  `json:"up"`
 	Down      int64  `json:"down"`
 	Reason    string `json:"reason,omitempty"`
+	// Step — чем подключение занято прямо сейчас: «проверяю страны»,
+	// «поднимаю туннель». Одно «Подключаюсь» на десять секунд выглядит как
+	// зависание, и человек жмёт кнопку снова — то есть отменяет.
+	Step string `json:"step,omitempty"`
 	// Conflicts — мешающие программы, уже словами на языке окна.
 	Conflicts []string `json:"conflicts,omitempty"`
 	// Check — что нашла проверка после подключения, словами; пусто — всё
@@ -116,12 +127,18 @@ type Controller struct {
 	tunnelMu      sync.Mutex
 	disconnectMu  sync.Mutex
 	disconnecting bool
-	connectCtx    context.Context
-	state         State
-	node          client.Node
-	mtuInUse      uint32
-	ping          time.Duration
-	reason        string
+	// leaving — сколько отключений идёт прямо сейчас, вместе с возвратом
+	// помех. Пока не ноль, окно показывает «Отключаюсь», а новое
+	// подключение ждёт: поднимать туннель посреди уборки старого нельзя.
+	leaving int
+	// step — шаг подключения для окна; см. Status.Step.
+	step       string
+	connectCtx context.Context
+	state      State
+	node       client.Node
+	mtuInUse   uint32
+	ping       time.Duration
+	reason     string
 
 	// Подписка, с которой выбрана нода: её показывает окно.
 	until      string
@@ -413,8 +430,17 @@ func (c *Controller) Status() Status {
 		pingMS = c.dialer.Measurement().PingMS()
 	}
 
+	state := c.state
+	if c.disconnecting || c.leaving > 0 {
+		state = StateDisconnecting
+	}
+	step := ""
+	if state == StateConnecting {
+		step = c.step
+	}
+
 	return Status{
-		State:       c.state,
+		State:       state,
 		Node:        c.node.Title(),
 		Address:     c.node.Address,
 		Transport:   transportOf(c.node),
@@ -422,6 +448,7 @@ func (c *Controller) Status() Status {
 		Up:          max(0, c.up.Load()-c.baseUp),
 		Down:        max(0, c.down.Load()-c.baseDown),
 		Reason:      c.reason,
+		Step:        step,
 		Until:       c.until,
 		LimitBytes:  c.limitBytes,
 		LeftBytes:   c.leftBytes,
@@ -565,7 +592,7 @@ func (c *Controller) Connect() error {
 	c.mu.Lock()
 	// StateStalled сюда же: туннель поднят, просто нода молчит. Поднимать
 	// второй поверх первого нельзя — адаптер и маршруты уже заняты.
-	if c.disconnecting || c.state == StateConnecting || c.state == StateConnected || c.state == StateStalled {
+	if c.disconnecting || c.leaving > 0 || c.state == StateConnecting || c.state == StateConnected || c.state == StateStalled {
 		c.mu.Unlock()
 		return nil
 	}
@@ -583,6 +610,7 @@ func (c *Controller) Connect() error {
 	c.proxyAt = time.Now()
 	c.state = StateConnecting
 	c.reason = ""
+	c.step = ""
 	c.baseUp, c.baseDown = c.up.Load(), c.down.Load()
 	c.traffic.resetRates(time.Now(), c.baseUp, c.baseDown)
 
@@ -610,6 +638,7 @@ func (c *Controller) connect(ctx context.Context, link string, set pcSettings) {
 	// Помехи убираем до дозвона: второй VPN перехватывает и само соединение
 	// с нодой.
 	if !set.AutoFixOff {
+		c.setStep(ctx, "prepare")
 		c.fixer.pause()
 		c.dropDeadProxy()
 	}
@@ -642,6 +671,7 @@ func (c *Controller) raise(ctx context.Context, link string, set pcSettings) err
 
 		err error
 	)
+	c.setStep(ctx, "nodes")
 	if foreign.IsForeign(link) {
 		dialer, measurements, err = c.raiseForeign(ctx, link, set)
 	} else {
@@ -757,6 +787,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 		return err
 	}
 
+	c.setStep(ctx, "adapter")
 	c.log.add("%s", say("logAdapter"))
 	adapter, err := wintun.Open(wintun.Config{
 		Name:    adapterName,
@@ -865,6 +896,27 @@ func (c *Controller) names(resolver string, set pcSettings, tunnel tunbridge.Dia
 // Disconnect убирает туннель и всё, что под него настраивалось, и
 // возвращает помехи, остановленные на время подключения.
 func (c *Controller) Disconnect() {
+	c.mu.Lock()
+	c.leaving++
+	c.mu.Unlock()
+	c.leave()
+}
+
+// StartDisconnect — то же, но не дожидаясь уборки: окно сразу видит
+// «Отключаюсь», а не висит на запросе, пока снимается адаптер.
+func (c *Controller) StartDisconnect() {
+	c.mu.Lock()
+	c.leaving++
+	c.mu.Unlock()
+	go c.leave()
+}
+
+func (c *Controller) leave() {
+	defer func() {
+		c.mu.Lock()
+		c.leaving--
+		c.mu.Unlock()
+	}()
 	c.teardown()
 	c.fixer.restore()
 }
@@ -1185,6 +1237,16 @@ func (c *Controller) recovered(ctx context.Context) {
 	c.mu.Unlock()
 
 	c.log.add("%s", say("logNodeBack"))
+}
+
+// setStep отмечает шаг подключения — только своего: отменённое подключение
+// не должно переписывать шаг следующего.
+func (c *Controller) setStep(ctx context.Context, step string) {
+	c.mu.Lock()
+	if c.connectCtx == ctx {
+		c.step = step
+	}
+	c.mu.Unlock()
 }
 
 func (c *Controller) finish(ctx context.Context, state State, reason string) {

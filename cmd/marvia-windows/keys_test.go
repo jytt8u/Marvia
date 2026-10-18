@@ -77,3 +77,23 @@ func TestKeyNameIsTheLabelOrTheSellerDomain(t *testing.T) {
 		}
 	}
 }
+
+// Строка ключа подписана хостом и видом ссылки, но ни личный ключ, ни UUID,
+// ни путь подписки в окно не уходят.
+func TestKeyRowNamesTheServerButNotTheSecret(t *testing.T) {
+	cases := []struct{ link, host, kind, secret string }{
+		{"marvia://cHJpdmF0ZQ@panel.example.com:8443/sub/tok3n#пк2", "panel.example.com", "marvia", "tok3n"},
+		{"vless://b831381d-6324-4d53-ad4f-8cda48b30811@de.example.net:443?security=reality#DE", "de.example.net", "vless", "b831381d"},
+		{"https://sub.example.org/s/tok3n", "sub.example.org", "sub", "tok3n"},
+		{"hy2://pass@hy.example.net:443", "hy.example.net", "hy2", "pass"},
+	}
+	for _, c := range cases {
+		v := keyViews([]savedKey{{Name: "x", Link: c.link}}, "")[0]
+		if v.Host != c.host || v.Kind != c.kind {
+			t.Errorf("%s: хост %q, вид %q", c.link, v.Host, v.Kind)
+		}
+		if strings.Contains(v.Host+v.Kind, c.secret) {
+			t.Errorf("%s: в подписи секрет", c.link)
+		}
+	}
+}

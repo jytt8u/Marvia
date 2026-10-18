@@ -501,13 +501,13 @@ func probeLink(ctx context.Context, l Link, opts Options) (client.Measurement, *
 		return client.Measurement{Node: n, Err: err}, nil
 	}
 	pctx, cancel := context.WithTimeout(ctx, probeTimeout)
-	rtt, err := e.Probe(pctx)
+	setup, rtt, err := e.Measure(pctx)
 	cancel()
 	if err != nil {
 		_ = e.Close()
 		return client.Measurement{Node: n, Err: err}, nil
 	}
-	return client.Measurement{Node: n, Latency: rtt, RTT: rtt}, e
+	return client.Measurement{Node: n, Latency: setup, RTT: rtt}, e
 }
 
 // MeasureEach — как Measure, но каждая нода отдаётся, как только ответила:
@@ -533,14 +533,20 @@ func (s *Supervisor) MeasureEach(ctx context.Context, each func(client.Measureme
 	stop := context.AfterFunc(ctx, cancel)
 	defer stop()
 	defer cancel()
-	if _, err := s.Ping(measureCtx); err == nil {
-		s.mu.Lock()
-		m := s.measured[cur]
-		s.mu.Unlock()
-		each(m)
-	}
 	sem := make(chan struct{}, maxParallel)
 	var wg sync.WaitGroup
+	// Текущая нода меряется вместе с остальными, а не перед ними: раньше
+	// список ждал её секунду-полторы, прежде чем начать с прочими.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if _, err := s.Ping(measureCtx); err == nil {
+			s.mu.Lock()
+			m := s.measured[cur]
+			s.mu.Unlock()
+			each(m)
+		}
+	}()
 	for _, l := range others {
 		wg.Add(1)
 		go func() {

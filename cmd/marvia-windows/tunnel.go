@@ -193,6 +193,10 @@ type Controller struct {
 	// StartMeasure.
 	measuring bool
 	measured  map[int64]client.Measurement
+	// fresh — какие ноды ответили в идущем замере. Прежние числа на это время
+	// остаются на экране: раньше замер стирал их, и список мигал «меряю…»
+	// так, будто ничего не мерилось.
+	fresh map[int64]bool
 
 	// check — итог проверки после подключения: пусто — всё хорошо или ещё
 	// не проверяли, иначе ключ сообщения; checkNode — нода, о которой он.
@@ -1104,9 +1108,11 @@ func (c *Controller) Nodes() NodesView {
 	}
 	views := nodeViews(dialer, dialer.Nodes(), got)
 	if measuring {
+		c.mu.Lock()
 		for i := range views {
-			views[i].Pending = !have[views[i].ID]
+			views[i].Pending = !c.fresh[views[i].ID]
 		}
+		c.mu.Unlock()
 	}
 	return NodesView{Nodes: views, Measuring: measuring}
 }
@@ -1136,7 +1142,10 @@ func (c *Controller) StartMeasure() {
 		return
 	}
 	c.measuring = true
-	c.measured = map[int64]client.Measurement{}
+	if c.measured == nil {
+		c.measured = map[int64]client.Measurement{}
+	}
+	c.fresh = map[int64]bool{}
 	c.mu.Unlock()
 
 	go func() {
@@ -1146,6 +1155,7 @@ func (c *Controller) StartMeasure() {
 			c.mu.Lock()
 			if c.dialer == dialer && c.measured != nil {
 				c.measured[m.Node.ID] = m
+				c.fresh[m.Node.ID] = true
 			}
 			c.mu.Unlock()
 		}
@@ -1157,6 +1167,15 @@ func (c *Controller) StartMeasure() {
 			}
 		}
 		c.mu.Lock()
+		// Кто не ответил за отведённое время — «не ответила», а не старое
+		// число, которое уже неправда.
+		if c.dialer == dialer && c.measured != nil {
+			for _, n := range dialer.Nodes() {
+				if !c.fresh[n.ID] {
+					c.measured[n.ID] = client.Measurement{Node: n, Err: context.DeadlineExceeded}
+				}
+			}
+		}
 		c.measuring = false
 		c.mu.Unlock()
 	}()

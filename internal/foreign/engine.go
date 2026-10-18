@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -148,6 +149,18 @@ var probeURL = "http://cp.cloudflare.com/generate_204"
 // соединение и молча роняет пакеты после, и замер «порт открыт» показал бы
 // её живой. Здесь — полный путь: протокол, маскировка, нода, выход в сеть.
 func (e *Engine) Probe(ctx context.Context) (time.Duration, error) {
+	_, rtt, err := e.Measure(ctx)
+	return rtt, err
+}
+
+// Measure — установка связи и отклик по отдельности.
+//
+// Первый запрос открывает соединение через ноду: рукопожатие с ней, TLS,
+// путь до сайта проверки — это setup. Второй идёт по тому же соединению, и
+// его время — круг до сайта через ноду, то, что человек называет пингом.
+// Раньше показывалось время первого: у быстрой ноды по VLESS выходила
+// секунда и больше, и в списке стран она выглядела хуже медленной по VP1.
+func (e *Engine) Measure(ctx context.Context) (setup, rtt time.Duration, err error) {
 	tr := &http.Transport{
 		DialContext: func(ctx context.Context, _, addr string) (net.Conn, error) {
 			host, portText, err := net.SplitHostPort(addr)
@@ -164,21 +177,34 @@ func (e *Engine) Probe(ctx context.Context) (time.Duration, error) {
 			}
 			return e.DialTarget(ctx, a)
 		},
-		DisableKeepAlives: true,
+		MaxIdleConnsPerHost: 1,
 	}
 	defer tr.CloseIdleConnections()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, probeURL, nil)
-	if err != nil {
-		return 0, err
+	hc := &http.Client{Transport: tr}
+	get := func() (time.Duration, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, probeURL, nil)
+		if err != nil {
+			return 0, err
+		}
+		start := time.Now()
+		resp, err := hc.Do(req)
+		if err != nil {
+			return 0, fmt.Errorf("нода не отвечает: %w", err)
+		}
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+			return 0, fmt.Errorf("нода ответила %s", resp.Status)
+		}
+		return time.Since(start), nil
 	}
-	start := time.Now()
-	resp, err := (&http.Client{Transport: tr}).Do(req)
-	if err != nil {
-		return 0, fmt.Errorf("нода не отвечает: %w", err)
+	if setup, err = get(); err != nil {
+		return 0, 0, err
 	}
-	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("нода ответила %s", resp.Status)
+	// Второй запрос не обязан пройти: нода уже ответила. Не прошёл —
+	// отклик остаётся временем первого, как раньше.
+	if rtt, err = get(); err != nil {
+		return setup, setup, nil
 	}
-	return time.Since(start), nil
+	return setup, rtt, nil
 }

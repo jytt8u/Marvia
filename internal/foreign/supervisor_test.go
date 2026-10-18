@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -173,5 +174,42 @@ func TestConnectDoesNotWaitForASilentNode(t *testing.T) {
 	s.mu.Unlock()
 	if judged {
 		t.Fatal("недождавшийся замер записан ноде в приговор")
+	}
+}
+
+// TestPingIsTheSecondRequestOverTheSameConnection: отклик ноды — второй
+// запрос по уже открытому соединению, а не рукопожатие заново. Иначе в
+// списке стран быстрая нода по VLESS показывала секунду вместо десятков
+// миллисекунд.
+func TestPingIsTheSecondRequestOverTheSameConnection(t *testing.T) {
+	var conns, reqs atomic.Int32
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		reqs.Add(1)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	srv.Config.ConnState = func(_ net.Conn, s http.ConnState) {
+		if s == http.StateNew {
+			conns.Add(1)
+		}
+	}
+	srv.Start()
+	t.Cleanup(srv.Close)
+	old := probeURL
+	probeURL = srv.URL
+	t.Cleanup(func() { probeURL = old })
+
+	link, _ := vlessNode(t, "Жива")
+	e, err := StartWith(ParseList([]byte(link)).Links[0], Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer e.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, _, err := e.Measure(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if reqs.Load() != 2 || conns.Load() != 1 {
+		t.Fatalf("запросов %d, соединений %d: отклик мерился не по открытому соединению", reqs.Load(), conns.Load())
 	}
 }

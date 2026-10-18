@@ -50,7 +50,7 @@ func TestIPv6IsRefusedAtTheSynWhenItIsOff(t *testing.T) {
 				return
 			}
 			ip := header.IPv6(append([]byte(nil), buf[:n]...))
-			if n >= header.IPv6MinimumSize && ip.TransportProtocol() == header.TCPProtocolNumber {
+			if n >= header.IPv6MinimumSize && ip.NextHeader() == uint8(header.TCPProtocolNumber) {
 				replies <- header.TCP(ip.Payload())
 			}
 		}

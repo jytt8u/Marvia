@@ -1,0 +1,3 @@
+0.13.0-alpha.17 — test release.
+vless:// and trojan:// links to a Marvia node carry UDP: games, calls, QUIC. The buyer name is no longer repeated in the country list of a foreign subscription.
+The VP1 wire format is unchanged.

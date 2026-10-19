@@ -68,6 +68,11 @@ type Status struct {
 	// «поднимаю туннель». Одно «Подключаюсь» на десять секунд выглядит как
 	// зависание, и человек жмёт кнопку снова — то есть отменяет.
 	Step string `json:"step,omitempty"`
+	// Quality — отклик, джиттер и потери текущей ноды вживую.
+	Quality QualityView `json:"quality"`
+	// MovedFrom — с какой ноды надзор уехал сам за последние полминуты:
+	// окно говорит «Финляндия перестала отвечать — перешёл на Германию».
+	MovedFrom string `json:"moved_from,omitempty"`
 	// Conflicts — мешающие программы, уже словами на языке окна.
 	Conflicts []string `json:"conflicts,omitempty"`
 	// Check — что нашла проверка после подключения, словами; пусто — всё
@@ -134,13 +139,19 @@ type Controller struct {
 	// step — шаг подключения для окна; см. Status.Step.
 	step string
 	// where — адрес и страна через туннель, до конца сессии; см. netcheck.go.
-	where      WhereView
-	connectCtx context.Context
-	state      State
-	node       client.Node
-	mtuInUse   uint32
-	ping       time.Duration
-	reason     string
+	where WhereView
+	// quality — отклик текущей ноды за последние минуты; см. quality.go.
+	quality qualityRing
+	// movedFrom и movedAt — откуда надзор уехал сам, чтобы окно сказало
+	// почему; manualAt — когда ноду выбрал человек: такой переезд не беда.
+	movedFrom         string
+	movedAt, manualAt time.Time
+	connectCtx        context.Context
+	state             State
+	node              client.Node
+	mtuInUse          uint32
+	ping              time.Duration
+	reason            string
 
 	// Подписка, с которой выбрана нода: её показывает окно.
 	until      string
@@ -435,6 +446,11 @@ func (c *Controller) Status() Status {
 	if c.dialer != nil {
 		pingMS = c.dialer.Measurement().PingMS()
 	}
+	// Живой отклик важнее замера при подключении: тот был минуту назад.
+	quality := c.quality.view()
+	if quality.PingMS > 0 {
+		pingMS = quality.PingMS
+	}
 
 	state := c.state
 	if c.disconnecting || c.leaving > 0 {
@@ -443,6 +459,10 @@ func (c *Controller) Status() Status {
 	step := ""
 	if state == StateConnecting {
 		step = c.step
+	}
+	movedFrom := ""
+	if time.Since(c.movedAt) < 30*time.Second {
+		movedFrom = c.movedFrom
 	}
 
 	return Status{
@@ -455,6 +475,8 @@ func (c *Controller) Status() Status {
 		Down:        max(0, c.down.Load()-c.baseDown),
 		Reason:      c.reason,
 		Step:        step,
+		Quality:     quality,
+		MovedFrom:   movedFrom,
 		Until:       c.until,
 		LimitBytes:  c.limitBytes,
 		LeftBytes:   c.leftBytes,
@@ -864,6 +886,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 
 	c.log.add("%s", sayf("logTunnelUp", node.Name))
 	go c.selfCheck(ctx, dialer)
+	go c.watchQuality(ctx, dialer)
 	// Список стран меряется сам, чуть позже: человек, открывший «Серверы»,
 	// видит числа сразу. С одной нодой выбирать не из чего — не меряем.
 	if len(dialer.Nodes()) > 1 {
@@ -963,6 +986,8 @@ func (c *Controller) teardown() {
 	c.since = time.Time{}
 	c.check, c.checkNode = "", ""
 	c.where = WhereView{}
+	c.quality.reset()
+	c.movedFrom = ""
 	c.measured = nil
 	c.mu.Unlock()
 
@@ -1013,8 +1038,12 @@ func (c *Controller) moved(ctx context.Context, node client.Node) {
 		c.mu.Unlock()
 		return
 	}
+	if time.Since(c.manualAt) > 20*time.Second && c.node.Address != "" {
+		c.movedFrom, c.movedAt = c.node.Title(), time.Now()
+	}
 	c.node = node
 	c.ping = 0
+	c.quality.reset()
 	// Нода другая — и адрес другой.
 	c.where = WhereView{}
 	if c.state == StateStalled {
@@ -1195,12 +1224,17 @@ func (c *Controller) SelectNode(ctx context.Context, id int64) error {
 		return errors.New(say("notConnected"))
 	}
 
+	c.mu.Lock()
+	c.manualAt = time.Now()
+	c.mu.Unlock()
+
 	if err := dialer.Select(ctx, id); err != nil {
 		return err
 	}
 
 	c.mu.Lock()
 	c.node = dialer.Node()
+	c.quality.reset()
 	c.mu.Unlock()
 
 	c.log.add("%s", sayf("logChosen", dialer.Node().Title()))

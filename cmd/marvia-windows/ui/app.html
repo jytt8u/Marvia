@@ -362,6 +362,14 @@
   .node .ping { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--acc); }
 
   .side { width: 380px; flex: 0 0 380px; display: flex; flex-direction: column; gap: var(--gap); min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--dim) transparent; padding-right: 3px; }
+  /* Качество связи: отклик последних минут полосками */
+  .kpi.quality .q-bars { display: flex; align-items: flex-end; gap: 1px; height: 22px; margin-top: 6px; }
+  .kpi.quality .q-bars:empty { display: none; }
+  .kpi.quality .q-bars i { flex: 1; min-width: 2px; border-radius: 1px; background: var(--acc); opacity: .55; transition: height .4s var(--ease); }
+  .kpi.quality .q-bars i:last-child { opacity: 1; }
+  .kpi.quality .q-bars i[data-lost] { background: var(--fail); opacity: .9; height: 22px !important; width: 2px; }
+  .kpi.quality .q-sub { margin-top: 5px; font: 500 11px var(--mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi.quality .q-sub[data-bad] { color: var(--warn); }
   /* Проверка через туннель */
   .netcheck { display: flex; flex-direction: column; gap: 10px; }
   .netcheck[hidden] { display: none; }
@@ -1697,7 +1705,7 @@
             </div>
             <div class="tiles two home-classic">
               <div class="kpi"><div class="k" data-t="kSession"></div><div class="v" id="k-session">—</div></div>
-              <div class="kpi"><div class="k" data-t="kPing"></div><div class="v acc" id="k-ping">—</div></div>
+              <div class="kpi quality"><div class="k" data-t="kPing"></div><div class="v acc" id="k-ping">—</div><div class="q-bars" id="q-bars" aria-hidden="true"></div><div class="q-sub" id="q-sub" data-t-title="qHint"></div></div>
             </div>
             <!--
               Неделя: считает сама программа, как телефон — у панели есть только
@@ -2482,7 +2490,10 @@ const T = {
     logCopy: "Скопировать отчёт",
     ncTitle: "Проверка через туннель", ncAsking: "узнаю адрес…", ncSeenAs: (c) => c ? "интернет видит вас здесь: " + c : "", ncChecking: "проверяю…", ncNo: "нет",
     ncSites: "Проверить сайты", ncSpeed: "Скорость", ncSpeedHint: "Скачает до 30 МБ через туннель — из трафика подписки", ncMeasuring: "меряю…",
-    movedTo: (n) => "Перешёл на " + n,
+    movedTo: (n) => "Нода сменилась: " + n,
+    movedBecause: (from, to) => "Нода «" + from + "» не отвечала — теперь «" + to + "»",
+    qLine: (j, l) => "±" + j + " мс · потери " + l + "%",
+    qHint: "± — насколько скачет отклик (джиттер); потери — сколько из последних замеров остались без ответа",
     logCopied: "Скопировано. В отчёте нет ключей и адресов — вставьте его в сообщение продавцу.",
     logEmpty: "пусто",
 
@@ -2767,7 +2778,10 @@ const T = {
     logCopy: "Copy a report",
     ncTitle: "Check through the tunnel", ncAsking: "asking the address…", ncSeenAs: (c) => c ? "the internet sees you in " + c : "", ncChecking: "checking…", ncNo: "no",
     ncSites: "Check sites", ncSpeed: "Speed", ncSpeedHint: "Downloads up to 30 MB through the tunnel — from the subscription traffic", ncMeasuring: "measuring…",
-    movedTo: (n) => "Switched to " + n,
+    movedTo: (n) => "Node changed: " + n,
+    movedBecause: (from, to) => "Node “" + from + "” stopped answering — now “" + to + "”",
+    qLine: (j, l) => "±" + j + " ms · loss " + l + "%",
+    qHint: "± is how much the response time jumps (jitter); loss is how many recent probes got no answer",
     logCopied: "Copied. The report has no keys or addresses — paste it into a message to your seller.",
     logEmpty: "empty",
 
@@ -4022,10 +4036,12 @@ function render(s) {
   else if (!connectingAt) connectingAt = Date.now();
   lastStatus = s;
   paintNetcheck(s);
+  paintQuality(s);
   // Нода сменилась сама или по выбору — сказать вслух: в журнал никто не
   // смотрит, а страна в капсуле меняется незаметно.
   if (prevStatus && prevStatus.state === "connected" && s.state === "connected" && prevStatus.node && s.node && prevStatus.node !== s.node) {
-    toast(d.movedTo(s.node.split("·")[0].trim()));
+    const to = s.node.split("·")[0].trim();
+    toast(s.moved_from ? d.movedBecause(s.moved_from.split("·")[0].trim(), to) : d.movedTo(to));
   }
   if (openTab === "settings") paintOverview();
   if (window.vibeState) window.vibeState(s.state);
@@ -4917,6 +4933,27 @@ function toast(text) {
   t.setAttribute("data-show", "");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.removeAttribute("data-show"), 4500);
+}
+
+// paintQuality — отклик последних минут: полоска на каждый замер, высота —
+// время ответа, красная — ответа не было. Под ней джиттер и потери: ровная
+// ли связь, а не только быстрая ли.
+function paintQuality(s) {
+  const q = s.quality || {};
+  const bars = $("q-bars"), sub = $("q-sub");
+  const up = s.state === "connected" || s.state === "stalled";
+  const samples = up ? (q.samples || []).slice(-30) : [];
+  if (!samples.length) { bars.replaceChildren(); sub.textContent = ""; sub.removeAttribute("data-bad"); return; }
+  const top = Math.max(60, ...samples);
+  while (bars.children.length < samples.length) bars.append(document.createElement("i"));
+  while (bars.children.length > samples.length) bars.firstChild.remove();
+  samples.forEach((ms, i) => {
+    const bar = bars.children[i];
+    if (ms > 0) { bar.removeAttribute("data-lost"); bar.style.height = Math.max(3, Math.round(22 * ms / top)) + "px"; }
+    else bar.setAttribute("data-lost", "");
+  });
+  sub.textContent = L().qLine(q.jitter_ms || 0, q.loss_pct || 0);
+  sub.toggleAttribute("data-bad", (q.loss_pct || 0) >= 10 || (q.jitter_ms || 0) >= 50);
 }
 
 /* ----------------------------------------------------------------- опрос */

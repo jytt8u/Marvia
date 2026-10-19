@@ -88,3 +88,32 @@ func TestRemeasureKeepsTheOldNumberUntilANewOneArrives(t *testing.T) {
 		}
 	}
 }
+
+// TestAutoMoveIsExplainedButAChoiceIsNot: надзор сам ушёл с замолчавшей
+// ноды — окно получает, откуда; человек выбрал ноду сам — «перестала
+// отвечать» было бы неправдой.
+func TestAutoMoveIsExplainedButAChoiceIsNot(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	b := &slowBackend{nodes: []client.Node{{ID: 1, Name: "fi-1", Address: "1.1.1.1:443"}, {ID: 2, Name: "de-1", Address: "2.2.2.2:443"}}}
+	c := &Controller{state: StateConnected, dialer: b, connectCtx: ctx, log: newJournal(), node: b.nodes[0], conflictsAt: time.Now()}
+	c.quality.add(30)
+
+	c.moved(ctx, b.nodes[1])
+	s := c.Status()
+	if s.MovedFrom != "fi-1" {
+		t.Fatalf("причина переезда: %q", s.MovedFrom)
+	}
+	if len(s.Quality.Samples) != 0 {
+		t.Fatal("отклик прежней ноды остался на графике новой")
+	}
+
+	c.mu.Lock()
+	c.manualAt = time.Now()
+	c.movedFrom = ""
+	c.mu.Unlock()
+	c.moved(ctx, b.nodes[0])
+	if s := c.Status(); s.MovedFrom != "" {
+		t.Fatalf("ручной выбор назван бедой: %q", s.MovedFrom)
+	}
+}

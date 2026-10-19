@@ -120,16 +120,6 @@ func (s *pcSettings) placeSites(direct, tunnel *[]string) error {
 	return nil
 }
 
-// displaySites — список для окна: всегда массив и с кириллицей, как вписано.
-// Окно присылает его обратно целиком, и NormalizeSites вернёт те же имена.
-func displaySites(list []string) []string {
-	out := make([]string, 0, len(list))
-	for _, name := range list {
-		out = append(out, tunbridge.DisplaySite(name))
-	}
-	return out
-}
-
 // withoutSites — список без имён из drop; новый срез, чтобы не задеть
 // настройки, с которых он скопирован.
 func withoutSites(list, drop []string) []string {

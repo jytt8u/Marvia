@@ -269,3 +269,14 @@ func dnsHost(hostPort string) string {
 	}
 	return host
 }
+
+// displaySites — список для окна: всегда массив и с кириллицей, как вписано.
+// Окно присылает его обратно целиком, и NormalizeSites вернёт те же имена.
+// Здесь, а не в settings.go: зовёт его только окно Windows.
+func displaySites(list []string) []string {
+	out := make([]string, 0, len(list))
+	for _, name := range list {
+		out = append(out, tunbridge.DisplaySite(name))
+	}
+	return out
+}

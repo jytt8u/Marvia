@@ -28,7 +28,7 @@ func (d *recordDialer) DialDatagrams(_ context.Context, t vp1.Address) (net.Conn
 func TestRussianAddressGoesAroundTheTunnelAndTheRestThroughIt(t *testing.T) {
 	ru := netip.MustParsePrefix("77.88.0.0/18")
 	var tunnel, local recordDialer
-	d := tunbridge.Split(&tunnel, &local, ru.Contains)
+	d := tunbridge.Split(&tunnel, &local, ru.Contains, nil)
 
 	ctx := context.Background()
 	_, _ = d.DialTarget(ctx, vp1.Address{Type: vp1.AtypIPv4, Host: "77.88.55.242", Port: 443})
@@ -48,7 +48,7 @@ func TestRussianAddressGoesAroundTheTunnelAndTheRestThroughIt(t *testing.T) {
 // он выдал бы список посещённых сайтов.
 func TestNameQueriesNeverGoAroundTheTunnel(t *testing.T) {
 	var tunnel, local recordDialer
-	d := tunbridge.Split(&tunnel, &local, func(netip.Addr) bool { return true })
+	d := tunbridge.Split(&tunnel, &local, func(netip.Addr) bool { return true }, nil)
 	_, _ = d.DialDatagrams(context.Background(), vp1.Address{Type: vp1.AtypIPv4, Host: "77.88.8.8", Port: 53})
 	_, _ = d.DialTarget(context.Background(), vp1.Address{Type: vp1.AtypIPv4, Host: "77.88.8.8", Port: 53})
 	if len(local.got) != 0 || len(tunnel.got) != 2 {
@@ -61,7 +61,7 @@ func TestNameQueriesNeverGoAroundTheTunnel(t *testing.T) {
 func TestSplitDecisionCanChangeWhileTheTunnelIsUp(t *testing.T) {
 	on := false
 	var tunnel, local recordDialer
-	d := tunbridge.Split(&tunnel, &local, func(netip.Addr) bool { return on })
+	d := tunbridge.Split(&tunnel, &local, func(netip.Addr) bool { return on }, nil)
 	target := vp1.Address{Type: vp1.AtypIPv4, Host: "77.88.55.242", Port: 443}
 	_, _ = d.DialTarget(context.Background(), target)
 	on = true

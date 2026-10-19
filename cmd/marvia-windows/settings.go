@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jytt8u/marvia/internal/securedns"
+	"github.com/jytt8u/marvia/internal/tunbridge"
 )
 
 // pcSettings — то, что человек выбрал в настройках подключения.
@@ -79,6 +80,70 @@ type pcSettings struct {
 	// Нужен там, где провайдер или чужой туннель снаружи режет крупные
 	// пакеты: сайты открываются наполовину, а меньший MTU это лечит.
 	MTU uint32 `json:"mtu,omitempty"`
+
+	// SitesDirect — сайты, которые идут мимо туннеля, по имени: банк,
+	// госуслуги, всё, что не пускает из-за границы. SitesTunnel — сайты,
+	// которые идут через туннель, даже если их адрес в российском списке.
+	// Имя действует вместе с поддоменами. Решает мост: tunbridge.Sites, там
+	// же — как он узнаёт имя соединения и где это не получается. Пустые по
+	// умолчанию: новичку правила не нужны, а российский обход — один
+	// переключатель.
+	SitesDirect []string `json:"sites_direct,omitempty"`
+	SitesTunnel []string `json:"sites_tunnel,omitempty"`
+}
+
+// placeSites ставит списки сайтов из правки окна.
+//
+// Сайт живёт ровно в одном списке: только что вписанный в один пропадает из
+// другого. Иначе человек видел бы «сбербанк» и в «мимо», и в «через», и
+// гадал бы, какой из них главный. Неверное имя в правке не меняет ничего —
+// ни одного из списков.
+func (s *pcSettings) placeSites(direct, tunnel *[]string) error {
+	next := *s
+	if direct != nil {
+		list, err := tunbridge.NormalizeSites(*direct)
+		if err != nil {
+			return err
+		}
+		next.SitesDirect = list
+		next.SitesTunnel = withoutSites(next.SitesTunnel, list)
+	}
+	if tunnel != nil {
+		list, err := tunbridge.NormalizeSites(*tunnel)
+		if err != nil {
+			return err
+		}
+		next.SitesTunnel = list
+		next.SitesDirect = withoutSites(next.SitesDirect, list)
+	}
+	*s = next
+	return nil
+}
+
+// displaySites — список для окна: всегда массив и с кириллицей, как вписано.
+// Окно присылает его обратно целиком, и NormalizeSites вернёт те же имена.
+func displaySites(list []string) []string {
+	out := make([]string, 0, len(list))
+	for _, name := range list {
+		out = append(out, tunbridge.DisplaySite(name))
+	}
+	return out
+}
+
+// withoutSites — список без имён из drop; новый срез, чтобы не задеть
+// настройки, с которых он скопирован.
+func withoutSites(list, drop []string) []string {
+	gone := make(map[string]bool, len(drop))
+	for _, name := range drop {
+		gone[name] = true
+	}
+	var out []string
+	for _, name := range list {
+		if !gone[name] {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // mtuMin и mtuMax — пределы своего MTU. Ниже 1280 IPv6 по стандарту не
@@ -121,6 +186,11 @@ type SettingsView struct {
 	RuError string `json:"ru_error,omitempty"`
 
 	LANOutside bool `json:"lan_outside"`
+
+	// SitesDirect и SitesTunnel — списки сайтов; всегда массивы, а не null:
+	// окну проще рисовать пустой список, чем проверять его наличие.
+	SitesDirect []string `json:"sites_direct"`
+	SitesTunnel []string `json:"sites_tunnel"`
 
 	// DNS — выбранный резолвер; DNSInUse — тот, с которым поднят туннель.
 	// Разные — значит выбор применится при следующем подключении: адрес
@@ -172,6 +242,12 @@ type SettingsPatch struct {
 	Reports       *bool   `json:"reports"`
 	KillSwitch    *bool   `json:"kill_switch"`
 	AutoFix       *bool   `json:"auto_fix"`
+
+	// SitesDirect и SitesTunnel — список целиком, а не «добавь одно»: окно
+	// присылает ровно то, что показывает, и правка не зависит от того, что
+	// программа помнит между запросами.
+	SitesDirect *[]string `json:"sites_direct"`
+	SitesTunnel *[]string `json:"sites_tunnel"`
 }
 
 // settingsFile — где лежат настройки подключения.

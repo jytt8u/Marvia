@@ -52,6 +52,12 @@ func (c *Controller) Report() string {
 	line("reportSettings",
 		yesNo(set.BypassRussian), yesNo(set.LANOutside), yesNo(set.KillSwitch),
 		set.DNS, yesNo(set.DNSSecure), yesNo(set.IPv6), yesNo(set.Fragment), mtu, yesNo(set.AutoFix))
+	// Сколько, а не какие: отчёт уходит продавцу, а список сайтов — это
+	// список того, куда человек ходит. Для разбора «почему сайт видит не ту
+	// страну» хватает знать, что правила есть.
+	if len(set.SitesDirect)+len(set.SitesTunnel) > 0 {
+		line("reportSites", len(set.SitesDirect), len(set.SitesTunnel))
+	}
 	for _, conflict := range st.Conflicts {
 		line("reportConflict", conflict)
 	}

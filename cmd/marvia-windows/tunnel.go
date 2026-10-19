@@ -241,6 +241,11 @@ type Controller struct {
 	// lan — домашняя сеть мимо туннеля; атомарно по той же причине, что bypass.
 	lan atomic.Bool
 
+	// sites — правила по сайтам и память «адрес → имя». Одна на всю работу
+	// программы, а не на подключение: кэш имён Windows переживает
+	// переподключение, и приложение пойдёт к адресу, не спрашивая заново.
+	sites *tunbridge.Sites
+
 	// dnsInUse — резолвер поднятого туннеля; пусто, пока туннеля нет.
 	dnsInUse string
 
@@ -271,7 +276,7 @@ type Controller struct {
 
 // NewController готовит управление, подхватывая сохранённую ссылку доступа.
 func NewController(dns string, mtu uint32, log *journal) *Controller {
-	c := &Controller{state: StateIdle, dns: dns, mtu: mtu, log: log}
+	c := &Controller{state: StateIdle, dns: dns, mtu: mtu, log: log, sites: tunbridge.NewSites()}
 	c.account = readAccount()
 	adoptLegacyCache(c.account)
 	c.known = knownSubscription(c.account)
@@ -295,6 +300,7 @@ func NewController(dns string, mtu uint32, log *journal) *Controller {
 	if dir, err := settingsDir(); err == nil {
 		c.settings = loadSettings(dir)
 		c.lan.Store(c.settings.LANOutside)
+		c.sites.Set(c.settings.SitesDirect, c.settings.SitesTunnel)
 		if c.settings.BypassRussian {
 			c.applyRussian(dir)
 		}
@@ -842,7 +848,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	bridge, err := tunbridge.Start(tunbridge.Config{
 		Endpoint: adapter.Endpoint(),
 		MTU:      mtu,
-		Dialer:   tunbridge.Split(tunnel, localNetwork, c.around),
+		Dialer:   tunbridge.Split(tunnel, localNetwork, c.around, c.sites),
 		DNS:      dns,
 		Names:    names,
 		NoIPv6:   set.IPv6Off,

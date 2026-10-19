@@ -4,6 +4,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -14,20 +15,20 @@ import (
 // отказ подключаться.
 func TestSettingsSurviveRestartAndBrokenFileGivesDefaults(t *testing.T) {
 	dir := t.TempDir()
-	if got := loadSettings(dir); got != (pcSettings{}) {
+	if got := loadSettings(dir); !reflect.DeepEqual(got, pcSettings{}) {
 		t.Fatalf("без файла: %+v", got)
 	}
-	want := pcSettings{BypassRussian: true, LANOutside: true, DNS: "9.9.9.9", DNSPlain: true, Fragment: true, IPv6Off: true, ReportsOff: true, KillSwitch: true}
+	want := pcSettings{BypassRussian: true, LANOutside: true, DNS: "9.9.9.9", DNSPlain: true, Fragment: true, IPv6Off: true, ReportsOff: true, KillSwitch: true, SitesDirect: []string{"sberbank.ru"}, SitesTunnel: []string{"vk.com"}}
 	if err := saveSettings(dir, want); err != nil {
 		t.Fatal(err)
 	}
-	if got := loadSettings(dir); got != want {
+	if got := loadSettings(dir); !reflect.DeepEqual(got, want) {
 		t.Errorf("после перезапуска: %+v", got)
 	}
 	if err := os.WriteFile(settingsFile(dir), []byte("{сломано"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got := loadSettings(dir); got != (pcSettings{}) {
+	if got := loadSettings(dir); !reflect.DeepEqual(got, pcSettings{}) {
 		t.Errorf("испорченный файл: %+v", got)
 	}
 }
@@ -171,5 +172,26 @@ func TestOwnMTUStaysInSaneBoundsAndSurvivesRestart(t *testing.T) {
 	}
 	if got := loadSettings(dir).mtu(1500); got != 1380 {
 		t.Errorf("после перезапуска MTU %d, а выбран 1380", got)
+	}
+}
+
+// Сайт живёт в одном списке: вписанный в «через туннель» пропадает из
+// «мимо», а неверное имя в правке не трогает ни одного из списков.
+func TestSiteMovesBetweenListsAndABadNameChangesNothing(t *testing.T) {
+	s := pcSettings{SitesDirect: []string{"sberbank.ru", "vk.com"}}
+	tunnel := []string{"https://VK.com/feed"}
+	if err := s.placeSites(nil, &tunnel); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(s.SitesDirect, []string{"sberbank.ru"}) || !reflect.DeepEqual(s.SitesTunnel, []string{"vk.com"}) {
+		t.Fatalf("мимо %v, через %v", s.SitesDirect, s.SitesTunnel)
+	}
+	before := s
+	direct := []string{"sberbank.ru", "сбер банк"}
+	if err := s.placeSites(&direct, nil); err == nil {
+		t.Fatal("неверное имя принято")
+	}
+	if !reflect.DeepEqual(s, before) {
+		t.Fatalf("неверная правка изменила списки: %+v", s)
 	}
 }

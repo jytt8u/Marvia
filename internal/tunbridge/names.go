@@ -100,7 +100,11 @@ func (h *handler) lookup(query []byte, udp bool) ([]byte, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), namesTimeout)
 	defer cancel()
-	return h.names.Exchange(ctx, query, udp)
+	reply, err := h.names.Exchange(ctx, query, udp)
+	if err == nil {
+		h.sites.learnAnswer(reply)
+	}
+	return reply, err
 }
 
 // DialAddr — дозвон до адреса через туннель в том виде, в каком его ждёт

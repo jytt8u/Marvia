@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -43,6 +44,11 @@ const (
 
 	// dnsPort — порт, на котором мы перехватываем запросы имён.
 	dnsPort = 53
+
+	// httpsPort — порт, на котором ждём TLS-приветствия ради правил по
+	// сайтам. Только он: на остальных TLS редок, а ждать первого пакета на
+	// чужом протоколе — значит задерживать его зря.
+	httpsPort = 443
 
 	// udpIdleTimeout — сколько держим поток датаграмм без единого пакета.
 	//
@@ -181,6 +187,9 @@ func Start(cfg Config) (*Bridge, error) {
 		names:   cfg.Names,
 		onError: cfg.OnError,
 	}
+	if s, ok := cfg.Dialer.(interface{ siteRules() *Sites }); ok {
+		handler.sites = s.siteRules()
+	}
 	handler.v6.never = cfg.NoIPv6
 	handler.v6.reset()
 
@@ -290,6 +299,10 @@ type handler struct {
 	names   Names
 	onError func(error)
 
+	// sites — правила по сайтам у развилки (Split); nil — правил нет. Мост
+	// кладёт им в память ответы на запросы имён и достаёт имя из TLS.
+	sites *Sites
+
 	// noUDP — нода отказалась от датаграмм. Ставится один раз за сессию,
 	// чтобы не платить лишний круг на каждом новом потоке.
 	noUDP atomic.Bool
@@ -339,7 +352,22 @@ func (h *handler) HandleTCP(conn adapter.TCPConn) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
+	// Имя сайта — для правил по сайтам; см. sites.go, там же цена ожидания.
+	site := ""
+	if conn.ID().LocalPort == httpsPort && h.sites.active() {
+		head, name := readHello(conn, helloWait)
+		if len(head) > 0 {
+			conn = &peekedConn{TCPConn: conn, head: head}
+		}
+		site = name
+		if ip, err := netip.ParseAddr(target.Host); err == nil && site != "" {
+			// QUIC к этому же сайту пойдёт по UDP, где имени не увидеть, —
+			// пусть решится так же, как это соединение.
+			h.sites.learn(site, ip, seenFloor)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(withSite(context.Background(), site), dialTimeout)
 	stream, err := h.dialer.DialTarget(ctx, target)
 	cancel()
 	if v6 {
@@ -502,6 +530,9 @@ func (h *handler) pipeUDP(conn adapter.UDPConn, target vp1.Address, first []byte
 			// Датаграмма нулевой длины — это датаграмма, а не «ничего не
 			// пришло»: в UDP такие законны, ими проверяют, что путь жив.
 			if err == nil || n > 0 {
+				if target.Port == dnsPort {
+					h.sites.learnAnswer(buf[:n])
+				}
 				if _, err := conn.WriteTo(buf[:n], from); err != nil {
 					return
 				}
@@ -569,6 +600,7 @@ func (h *handler) serveDNS(conn adapter.UDPConn, query []byte, addr net.Addr) er
 	if err != nil {
 		return err
 	}
+	h.sites.learnAnswer(answer)
 	if _, err := conn.WriteTo(answer, addr); err != nil {
 		return fmt.Errorf("отправка ответа: %w", err)
 	}

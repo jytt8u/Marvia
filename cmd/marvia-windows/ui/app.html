@@ -600,6 +600,8 @@
   .key-form[hidden] { display: none; }
   .key-form .row .grow { flex: 1; min-width: 0; }
   .pick input.code-in { width: 150px; }
+  /* Имя сайта длиннее адреса резолвера: поле тянется, но не за край. */
+  .pick input.code-in.site-in { width: auto; flex: 1 1 200px; max-width: 340px; min-width: 0; }
   .log { max-height: 220px; max-width: 100%; overflow-x: hidden; overflow-y: auto; font-family: var(--mono); font-size: 11px; display: flex; flex-direction: column; gap: 4px; user-select: text; }
   .log-act { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
   .log .ln { display: flex; gap: 10px; min-width: 0; color: var(--fg); }
@@ -1998,6 +2000,29 @@
                   <button class="chip" id="lan" type="button" aria-pressed="false"></button>
                 </div>
                 <!--
+                  Свои сайты по имени: «мимо туннеля» в дополнение к
+                  российскому списку и «всегда через туннель» — поверх него.
+                  Решает мост, по ответам на запросы имён и по имени из TLS
+                  (tunbridge/sites.go). Пустые по умолчанию: новичку хватает
+                  переключателя выше.
+                -->
+                <div class="stack">
+                  <div class="grow"><span class="name" data-t="sitesDirect"></span><span class="sub" data-t="sitesDirectHint"></span><span class="sub" id="sites-direct-msg"></span></div>
+                  <div class="pick" id="sites-direct-list" hidden></div>
+                  <div class="pick">
+                    <input type="text" class="code-in site-in" id="sites-direct-in" autocomplete="off" spellcheck="false" maxlength="1024">
+                    <button class="chip" id="sites-direct-add" type="button" data-t="sitesAdd"></button>
+                  </div>
+                </div>
+                <div class="stack">
+                  <div class="grow"><span class="name" data-t="sitesTunnel"></span><span class="sub" data-t="sitesTunnelHint"></span><span class="sub" id="sites-tunnel-msg"></span></div>
+                  <div class="pick" id="sites-tunnel-list" hidden></div>
+                  <div class="pick">
+                    <input type="text" class="code-in site-in" id="sites-tunnel-in" autocomplete="off" spellcheck="false" maxlength="1024">
+                    <button class="chip" id="sites-tunnel-add" type="button" data-t="sitesAdd"></button>
+                  </div>
+                </div>
+                <!--
                   Kill switch — фильтр Windows (WFP) поверх туннеля: пока туннель
                   включён, мимо него не идёт ничего. Стоит рядом с домашней
                   сетью: она — единственное, что он пропускает по выбору.
@@ -2326,6 +2351,11 @@ const T = {
     killSwitchFailed: (e) => "Не встал, туннель работает без него: " + e,
     lanOutside: "Домашняя сеть мимо туннеля",
     lanOutsideHint: "Принтер, сетевой диск или камера — частные адреса 10.x, 172.16–31.x и 192.168.x идут напрямую. Свою подсеть Windows и так ведёт мимо туннеля — это для соседних. В чужом Wi-Fi домашняя сеть чужая: включай осознанно.",
+    sitesDirect: "Свои сайты мимо туннеля",
+    sitesDirectHint: "Имя действует вместе с поддоменами: sberbank.ru уводит и online.sberbank.ru. Можно вписать несколько через пробел. Действует сразу, без переподключения. Сайт, который прячет своё имя (ECH), правило не узнает — он пойдёт через туннель.",
+    sitesTunnel: "Свои сайты всегда через туннель",
+    sitesTunnelHint: "Остаются в туннеле, даже если их адрес в российском списке. Сайт живёт в одном списке: вписанный сюда уходит из списка выше.",
+    sitesAdd: "Добавить", sitesPlaceholder: "например sberbank.ru", sitesRemove: (s) => "Убрать " + s,
     pages: {
       home: ["Туннель", "Состояние и трафик"],
       nodes: ["Серверы", "Через какой идти"],
@@ -2397,7 +2427,7 @@ const T = {
       crypto: "Шифрование", ping: "Отклик ноды", pingOn: "время ответа ноды", pingOff: "замер — при подключении",
       dns: "Имена (DNS)", dnsSecure: "по HTTPS внутри туннеля: нода не видит имён", dnsPlain: "внутри туннеля, без шифрования имён", dnsOff: "резолвер для туннеля",
       adapter: "Адаптер", ipv6On: "IPv6 идёт через туннель", ipv6Off: "IPv6 в туннель не пускается",
-      routes: "Маршруты", ruDirect: "Россия · {n} сетей", ruSub: "напрямую, мимо туннеля", allTunnel: "всё через туннель", lanDirect: "домашняя сеть — напрямую", lanTunnel: "домашняя сеть — через туннель",
+      routes: "Маршруты", ruDirect: "Россия · {n} сетей", ruSub: "напрямую, мимо туннеля", allTunnel: "всё через туннель", lanDirect: "домашняя сеть — напрямую", lanTunnel: "домашняя сеть — через туннель", sitesSub: "своих сайтов мимо: {n}",
       proxy: "Системный прокси", none: "нет", proxyOk: "ничего не перехватывает трафик", proxyWarn: "проверьте: прокси может вести мимо туннеля",
       rights: "Права", admin: "администратор", noAdmin: "без прав", adminOk: "можно поднять адаптер", adminWarn: "туннель не поднимется — перезапустите от администратора",
       version: "Версия", updateNo: "новее у продавца нет", updateYes: "у продавца есть {v}",
@@ -2411,7 +2441,7 @@ const T = {
       dnsIn: ["Запросы имён идут внутри туннеля", "Резолвер стоит на адаптере туннеля: провайдер не видит, какие сайты вы ищете."],
       doh: ["Имена скрыты и от ноды", "С известным резолвером запросы уходят по HTTPS внутри туннеля. Проверено тестами, на живом компьютере — ещё нет."],
       failover: ["Переезд с замолчавшей ноды", "Если соединение замёрзло, клиент уезжает на живую ноду примерно за 12 секунд — проверено на стенде."],
-      direct: ["Российские сайты и домашняя сеть — напрямую", "По выбору в «Подключении»: сайты видят ваш обычный адрес, принтер и роутер остаются доступны."],
+      direct: ["Российские и свои сайты, домашняя сеть — напрямую", "По выбору в «Подключении»: сайты видят ваш обычный адрес, принтер и роутер остаются доступны."],
       stats: ["Расход за неделю и месяц", "Считает сама программа на этом компьютере; подённая история продавцу не уходит."],
       killswitch: ["Kill switch", "По выбору в «Подключении»: если туннель упал, интернет закрыт, а не идёт напрямую, до возвращения туннеля или «Отключить». Проверено тестами, на живом компьютере — ещё нет."],
       apps: ["Приложения мимо туннеля", "Выбрать программы, которые идут напрямую, на Windows пока нельзя; на телефоне можно."],
@@ -2424,7 +2454,7 @@ const T = {
     secKeyTitle: "Ключ доступа", secKeySub: "срок, трафик, ключи",
     secKeyDesc: "Ключ от продавца: до какого числа он действует и сколько трафика осталось. Здесь же — запасные ключи.",
     secConnTitle: "Подключение", secConnSub: "что идёт мимо туннеля, DNS",
-    secConnDesc: "Что идёт мимо туннеля и как: российские сайты, домашняя сеть, kill switch, IPv6, дробление приветствия, DNS.",
+    secConnDesc: "Что идёт мимо туннеля и как: российские и свои сайты, домашняя сеть, kill switch, IPv6, дробление приветствия, DNS.",
     secLookTitle: "Вид и звук", secLookSub: "заставка, фон, отклик",
     secLookDesc: "То, что делает окно живым. Образ и цвета — во вкладке «Тема».",
     secAppTitle: "Программа", secAppSub: "автозапуск, трей, язык",
@@ -2615,6 +2645,11 @@ const T = {
     killSwitchFailed: (e) => "Did not start, the tunnel runs without it: " + e,
     lanOutside: "Home network around the tunnel",
     lanOutsideHint: "Printer, network drive or camera — private addresses 10.x, 172.16–31.x and 192.168.x go directly. Windows already keeps your own subnet outside the tunnel — this is for the neighbouring ones. On someone else's Wi-Fi the home network is theirs: turn it on deliberately.",
+    sitesDirect: "Your sites around the tunnel",
+    sitesDirectHint: "A name covers its subdomains: sberbank.ru also takes online.sberbank.ru. Several at once, separated by spaces. Applies at once, no reconnect. A site that hides its name (ECH) is not recognised — it goes through the tunnel.",
+    sitesTunnel: "Your sites always through the tunnel",
+    sitesTunnelHint: "Stay in the tunnel even if their address is on the Russian list. A site lives in one list: adding it here removes it from the list above.",
+    sitesAdd: "Add", sitesPlaceholder: "e.g. sberbank.ru", sitesRemove: (s) => "Remove " + s,
     pages: {
       home: ["Tunnel", "State and traffic"],
       nodes: ["Servers", "Which one to go through"],
@@ -2685,7 +2720,7 @@ const T = {
       crypto: "Encryption", ping: "Node response", pingOn: "node response time", pingOff: "measured on connect",
       dns: "Names (DNS)", dnsSecure: "over HTTPS inside the tunnel: the node can't see names", dnsPlain: "inside the tunnel, names not encrypted", dnsOff: "resolver for the tunnel",
       adapter: "Adapter", ipv6On: "IPv6 goes through the tunnel", ipv6Off: "IPv6 is kept out of the tunnel",
-      routes: "Routes", ruDirect: "Russia · {n} nets", ruSub: "direct, around the tunnel", allTunnel: "everything through the tunnel", lanDirect: "home network — direct", lanTunnel: "home network — through the tunnel",
+      routes: "Routes", ruDirect: "Russia · {n} nets", ruSub: "direct, around the tunnel", allTunnel: "everything through the tunnel", lanDirect: "home network — direct", lanTunnel: "home network — through the tunnel", sitesSub: "own sites around: {n}",
       proxy: "System proxy", none: "none", proxyOk: "nothing intercepts traffic", proxyWarn: "check it: a proxy may route around the tunnel",
       rights: "Rights", admin: "administrator", noAdmin: "no rights", adminOk: "the adapter can be created", adminWarn: "the tunnel won't start — run as administrator",
       version: "Version", updateNo: "nothing newer from the seller", updateYes: "the seller has {v}",
@@ -2699,7 +2734,7 @@ const T = {
       dnsIn: ["Name lookups go inside the tunnel", "The resolver sits on the tunnel adapter: your ISP can't see which sites you look up."],
       doh: ["Names hidden from the node too", "With a known resolver, lookups go over HTTPS inside the tunnel. Tested, not yet on a live computer."],
       failover: ["Moving off a silent node", "If the connection freezes, the client moves to a live node in about 12 seconds — tested on a stand."],
-      direct: ["Russian sites and the home network — direct", "Your choice in Connection: sites see your usual address, the printer and router stay reachable."],
+      direct: ["Russian and your own sites, the home network — direct", "Your choice in Connection: sites see your usual address, the printer and router stay reachable."],
       stats: ["Traffic for the week and month", "Counted by the program on this computer; the daily history never goes to the seller."],
       killswitch: ["Kill switch", "Your choice in Connection: if the tunnel drops, the internet is closed instead of going direct, until the tunnel is back or you press Disconnect. Tested, not yet on a live computer."],
       apps: ["Apps around the tunnel", "Choosing programs that go direct isn't possible on Windows yet; on the phone it is."],
@@ -2712,7 +2747,7 @@ const T = {
     secKeyTitle: "Access key", secKeySub: "expiry, traffic, keys",
     secKeyDesc: "The key from your provider: until when it works and how much traffic is left. Spare keys live here too.",
     secConnTitle: "Connection", secConnSub: "what bypasses the tunnel, DNS",
-    secConnDesc: "What goes around the tunnel and how: Russian sites, home network, kill switch, IPv6, hello splitting, DNS.",
+    secConnDesc: "What goes around the tunnel and how: Russian and your own sites, home network, kill switch, IPv6, hello splitting, DNS.",
     secLookTitle: "Look and sound", secLookSub: "splash, background, response",
     secLookDesc: "What makes the window feel alive. Vibe and colours are on the Theme tab.",
     secAppTitle: "App", secAppSub: "autostart, tray, language",
@@ -4465,6 +4500,8 @@ function paintConn() {
   const lan = $("lan");
   lan.textContent = conn.lan_outside ? d.toggleOn : d.toggleOff;
   lan.setAttribute("aria-pressed", String(!!conn.lan_outside));
+  paintSites("direct");
+  paintSites("tunnel");
 
   // Под kill switch — стоит ли он сейчас на самом деле: включённый тумблер
   // без фильтра хуже выключенного, человек думает, что защищён.
@@ -4540,7 +4577,7 @@ var PROMISES = [
   ["dnsIn", (s) => (s && s.state === "connected" ? "ok" : "wait")],
   ["doh", (s, c) => (c && c.dns_secure_in_use ? "ok" : c && c.dns_secure && c.dns_secure_now ? "wait" : "off")],
   ["failover", () => "ok"],
-  ["direct", (s, c) => (c && (c.bypass_russian || c.lan_outside) ? "ok" : "off")],
+  ["direct", (s, c) => (c && (c.bypass_russian || c.lan_outside || (c.sites_direct || []).length) ? "ok" : "off")],
   ["stats", () => "ok"],
   ["killswitch", (s, c) => (c && c.kill_switch && c.kill_switch_in_use !== false ? "ok" : "off")],
   ["apps", () => "no"],
@@ -4571,7 +4608,7 @@ function paintOverview() {
     tiles.push(ovTile(o.dns, c.dns_in_use || c.dns || "—", on ? (secure ? o.dnsSecure : o.dnsPlain) : o.dnsOff, on ? (secure ? "ok" : "idle") : "idle"));
     const mtu = c.mtu_in_use || c.mtu || c.mtu_default;
     tiles.push(ovTile(o.adapter, "Wintun · MTU " + mtu, (c.ipv6 ? o.ipv6On : o.ipv6Off), on ? "ok" : "idle"));
-    tiles.push(ovTile(o.routes, c.bypass_russian ? o.ruDirect.replace("{n}", c.ru_count || 0) : o.allTunnel, (c.bypass_russian ? o.ruSub + " · " : "") + (c.lan_outside ? o.lanDirect : o.lanTunnel), c.ru_error ? "warn" : on ? "ok" : "idle"));
+    tiles.push(ovTile(o.routes, c.bypass_russian ? o.ruDirect.replace("{n}", c.ru_count || 0) : o.allTunnel, (c.bypass_russian ? o.ruSub + " · " : "") + ((c.sites_direct || []).length ? o.sitesSub.replace("{n}", c.sites_direct.length) + " · " : "") + (c.lan_outside ? o.lanDirect : o.lanTunnel), c.ru_error ? "warn" : on ? "ok" : "idle"));
   }
   if (s) {
     tiles.push(ovTile(o.proxy, s.proxy ? [s.proxy_owner, s.proxy_server].filter(Boolean).join(" · ") || s.proxy : o.none, s.proxy ? o.proxyWarn : o.proxyOk, s.proxy ? "warn" : "ok"));
@@ -4598,19 +4635,62 @@ function paintOverview() {
 // changeConn отправляет одну правку и рисует то, что ответила программа.
 // Кнопку держим нажатой до ответа: включение обхода качает список и может
 // занять секунды, а второе нажатие посреди них отменило бы первое.
+// Возвращает, приняла ли программа правку.
 async function changeConn(button, patch, msg) {
-  if (!conn) return;
+  if (!conn) return false;
   button.disabled = true;
   try {
     conn = await api("POST", "api/settings", patch);
     paintConn();
     paintMTU();
     paintOverview();
+    return true;
   } catch (err) {
     $(msg).textContent = err.message;
+    return false;
   } finally {
     button.disabled = false;
   }
+}
+
+// Свои сайты. Список рисуется из ответа программы — в нём имена уже
+// приведены (без https://, звёздочек и повторов), и человек видит то
+// правило, которое действует, а не то, что вписал. Правка уходит списком
+// целиком: окно присылает ровно то, что показывает.
+function paintSites(kind) {
+  const d = L(), list = (conn && conn["sites_" + kind]) || [];
+  const box = $("sites-" + kind + "-list");
+  box.hidden = list.length === 0;
+  box.replaceChildren(...list.map((name) => {
+    const b = el("button", "chip", name + " ×");
+    b.type = "button";
+    b.setAttribute("aria-label", d.sitesRemove(name));
+    b.addEventListener("click", () => sendSites(b, kind, list.filter((n) => n !== name)));
+    return b;
+  }));
+  $("sites-" + kind + "-in").placeholder = d.sitesPlaceholder;
+  $("sites-" + kind + "-msg").textContent = "";
+}
+// Поле правки пишется буквой, а не собирается из строки: проверка разметки
+// сверяет каждое поле, которое шлёт окно, с тем, что понимает программа.
+function sendSites(button, kind, list) {
+  const msg = "sites-" + kind + "-msg";
+  return kind === "direct"
+    ? changeConn(button, { sites_direct: list }, msg)
+    : changeConn(button, { sites_tunnel: list }, msg);
+}
+for (const kind of ["direct", "tunnel"]) {
+  const input =$("sites-" + kind + "-in"), add = $("sites-" + kind + "-add"), msg = "sites-" + kind + "-msg";
+  add.addEventListener("click", async () => {
+    // Через пробел, запятую или с новой строки — как скопировали. Имя
+    // проверяет программа: причина отказа встаёт под строкой с тем именем,
+    // что не подошло, а поле не очищается, чтобы его можно было поправить.
+    const fresh = input.value.split(/[\s,;]+/).filter(Boolean);
+    if (!fresh.length) return;
+    $(msg).textContent = "";
+    if (await sendSites(add, kind, (conn["sites_" + kind] || []).concat(fresh))) input.value = "";
+  });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") add.click(); });
 }
 on("bypass-ru", "click", () => changeConn($("bypass-ru"), { bypass_russian: !conn.bypass_russian }, "bypass-ru-msg"));
 on("lan", "click", () => changeConn($("lan"), { lan_outside: !conn.lan_outside }, "lan-msg"));

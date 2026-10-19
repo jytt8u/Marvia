@@ -135,6 +135,8 @@ func (c *Controller) Settings() SettingsView {
 		RuCount:         c.bypass.Load().Len(),
 		RuError:         c.ruErr,
 		LANOutside:      c.settings.LANOutside,
+		SitesDirect:     displaySites(c.settings.SitesDirect),
+		SitesTunnel:     displaySites(c.settings.SitesTunnel),
 		DNS:             dnsHost(c.settings.resolver(c.dns)),
 		DNSInUse:        c.dnsInUse,
 		DNSSecure:       !c.settings.DNSPlain,
@@ -208,6 +210,10 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 		}
 		next.DNS = want
 	}
+	if err := next.placeSites(p.SitesDirect, p.SitesTunnel); err != nil {
+		c.mu.Unlock()
+		return c.Settings(), errors.New(siteError(err))
+	}
 	account := c.account
 	c.mu.Unlock()
 
@@ -218,6 +224,8 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	c.settings = next
 	c.mu.Unlock()
 	c.lan.Store(next.LANOutside)
+	// Правила по сайтам, как и обход, действуют на новые соединения сразу.
+	c.sites.Set(next.SitesDirect, next.SitesTunnel)
 
 	// Kill switch и домашняя сеть в его правилах действуют сразу: ждать
 	// переподключения ради запрета, который человек только что включил,
@@ -238,6 +246,19 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 		}
 	}
 	return c.Settings(), nil
+}
+
+// siteError — почему список сайтов не принят, на языке окна и с той
+// строкой, которая не подошла.
+func siteError(err error) string {
+	var bad *tunbridge.BadSiteError
+	if errors.As(err, &bad) {
+		return sayf("siteBad", bad.Site)
+	}
+	if errors.Is(err, tunbridge.ErrTooManySites) {
+		return say("siteTooMany")
+	}
+	return err.Error()
 }
 
 // dnsHost — адрес резолвера без порта, как его показывает окно.

@@ -187,3 +187,77 @@ func TestNodeFromTheFutureIsHeard(t *testing.T) {
 		t.Fatalf("отчёт с незнакомым полем: код %d", code)
 	}
 }
+
+// TestCheckNowSeesAReleasePublishedAMinuteAgo: продавец опубликовал выпуск —
+// «Проверить сейчас» видит его сразу, а обычный заход на страницу берёт
+// запомненный номер и GitHub не дёргает.
+func TestCheckNowSeesAReleasePublishedAMinuteAgo(t *testing.T) {
+	h := newHarness(t)
+	tag := "v0.12.0"
+	gh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://github.com/jytt8u/marvia/releases/tag/"+tag, http.StatusFound)
+	}))
+	defer gh.Close()
+	defer panel.SetReleaseURL(gh.URL + "/releases/latest")()
+	defer panel.SetFreshEvery(0)()
+
+	var view struct {
+		Latest    string  `json:"latest"`
+		CheckedAt *string `json:"checked_at"`
+	}
+	h.do(http.MethodGet, "/api/v1/updates", adminToken, nil, &view)
+	if view.Latest != "v0.12.0" || view.CheckedAt == nil {
+		t.Fatalf("первая проверка: %+v", view)
+	}
+	tag = "v0.12.1"
+	h.do(http.MethodGet, "/api/v1/updates", adminToken, nil, &view)
+	if view.Latest != "v0.12.0" {
+		t.Fatalf("обычный заход дёрнул GitHub: %s", view.Latest)
+	}
+	h.do(http.MethodGet, "/api/v1/updates?fresh=1", adminToken, nil, &view)
+	if view.Latest != "v0.12.1" {
+		t.Fatalf("«Проверить сейчас» не увидело новый выпуск: %s", view.Latest)
+	}
+}
+
+// TestUpgradeAllAsksNodesAndThePanelAtOnce: «Обновить всё» просит отставшие
+// ноды и кладёт просьбу службе панели одним нажатием; без службы ноды всё
+// равно попрошены, а панель честно не тронута.
+func TestUpgradeAllAsksNodesAndThePanelAtOnce(t *testing.T) {
+	home := t.TempDir()
+	store, err := panel.Open(filepath.Join(t.TempDir(), "panel.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	server := httptest.NewServer(panel.NewAPI(store, adminToken, "https://sub.example.com", t.TempDir()).WithHome(home).WithVersion("v0.11.0").Handler())
+	t.Cleanup(server.Close)
+	h := &harness{t: t, server: server}
+	stale := h.createNode("stale")
+	h.do(http.MethodPost, "/api/v1/node/usage", stale.Token, map[string]any{"usage": map[string]any{}, "version": "v0.11.0"}, nil)
+	defer h.fakeRelease("v0.12.0")()
+
+	was := updater.AgentPath
+	updater.AgentPath = filepath.Join(t.TempDir(), "agent.sh")
+	t.Cleanup(func() { updater.AgentPath = was })
+
+	var out struct {
+		Target string `json:"target"`
+		Asked  int    `json:"asked"`
+		Panel  bool   `json:"panel"`
+	}
+	if code := h.do(http.MethodPost, "/api/v1/updates/all", adminToken, nil, &out); code != http.StatusOK {
+		t.Fatalf("без службы: код %d", code)
+	}
+	if out.Asked != 1 || out.Panel {
+		t.Fatalf("без службы: %+v", out)
+	}
+
+	_ = os.WriteFile(updater.AgentPath, []byte("#!/bin/sh\n"), 0o755)
+	if code := h.do(http.MethodPost, "/api/v1/updates/all", adminToken, nil, &out); code != http.StatusOK || !out.Panel {
+		t.Fatalf("со службой: код %d, %+v", code, out)
+	}
+	if _, err := os.Stat(updater.RequestPath(home)); err != nil {
+		t.Fatalf("просьба панели не легла: %v", err)
+	}
+}

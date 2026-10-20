@@ -841,6 +841,18 @@
             <sc-if value="{{ updLatestErr }}">
               <div style="{{ errStyle }}">{{ updLatestErrText }}</div>
             </sc-if>
+            <!--
+              Проверить сейчас — продавец только что опубликовал выпуск и не ждёт,
+              пока панель спросит GitHub сама. Обновить всё — панель и отставшие
+              ноды одним нажатием: по отдельности вторую кнопку забывали.
+            -->
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <div style="font-size: 12px; color: var(--dim); margin-right: auto;">{{ updCheckedLine }}</div>
+              <div style="{{ cta2Style }}" data-focus="upd-check" onClick="{{ doCheckNow }}">{{ updCheckLabel }}</div>
+              <sc-if value="{{ updCanAll }}">
+                <div style="{{ ctaStyle }}" data-focus="upd-all" onClick="{{ doUpgradeAll }}">{{ d18.updates.upAll }}</div>
+              </sc-if>
+            </div>
 
             <div class="cards-2">
               <div class="rise" style="{{ updCard }}">
@@ -2717,6 +2729,11 @@ const TEXTS = {
       restarting: "панель перезапускается на новой версии…",
       asked: (n, v) => n + " " + pluralRU(n, "нода получит", "ноды получат", "нод получат") + " просьбу обновиться до " + v + " в течение минуты",
       noneToAsk: "Все включённые ноды уже на последней версии",
+      checkNow: "Проверить сейчас", checking: "Проверяю…",
+      checked: (m) => m < 1 ? "релиз проверен только что" : "релиз проверен " + m + " мин назад",
+      upAll: "Обновить всё",
+      confirmAll: (v) => "Панель и все отставшие ноды обновятся до " + v + ". Ноды перезапускаются на секунды, панель — на полминуты; страница подождёт.",
+      allAsked: (n, p) => (p ? "Панель обновляется" : "Панель уже на последней версии") + "; " + (n ? n + " " + pluralRU(n, "нода получит", "ноды получат", "нод получат") + " просьбу в течение минуты" : "все ноды уже на последней версии"),
       log: "Журнал последнего обновления",
       latestErr: (e) => "Не удалось узнать последний релиз: " + e,
       nodesNote: "Нода, поставленная до версии 0.12, версию не сообщает и просьбу не услышит: такую обнови один раз той же командой на её сервере.",
@@ -3141,6 +3158,11 @@ const TEXTS = {
       restarting: "the panel is restarting on the new version…",
       asked: (n, v) => n + " " + (n === 1 ? "node gets" : "nodes get") + " the request to upgrade to " + v + " within a minute",
       noneToAsk: "All enabled nodes are already on the latest version",
+      checkNow: "Check now", checking: "Checking…",
+      checked: (m) => m < 1 ? "release checked just now" : "release checked " + m + " min ago",
+      upAll: "Upgrade everything",
+      confirmAll: (v) => "The panel and all outdated nodes will be upgraded to " + v + ". Nodes restart for a few seconds, the panel for about half a minute; the page will wait.",
+      allAsked: (n, p) => (p ? "The panel is upgrading" : "The panel is already on the latest version") + "; " + (n ? n + " " + (n === 1 ? "node gets" : "nodes get") + " the request within a minute" : "all nodes are already on the latest version"),
       log: "Log of the last upgrade",
       latestErr: (e) => "Could not learn the latest release: " + e,
       nodesNote: "A node installed before 0.12 does not report its version and will not hear the request: upgrade it once with the same command on its server.",
@@ -3614,6 +3636,8 @@ function updatesView(t, d, dict) {
     };
   });
 
+  const updCanPanelNow = !!u && svc.installed && !svc.pending && svc.state !== "running" && !state.updRestarting
+    && !!latest && older(panelVersion, latest);
   return {
     updCard: "padding:" + d.pad + "px;border-radius:" + t.r + "px;background:var(--cardBg," + t.surf + ")"
       + ";border:1px solid " + t.line + ";display:flex;flex-direction:column;gap:12px",
@@ -3629,8 +3653,7 @@ function updatesView(t, d, dict) {
     updChannelCmd: u && u.channel === "test" ? up.commandStable : up.commandTest,
     updCmd: "padding:10px 12px;border-radius:" + t.r + "px;background:" + t.surf2
       + ";font-family:JetBrains Mono,monospace;font-size:11.5px;color:" + t.fg + ";user-select:all;word-break:break-all",
-    updCanPanel: !!u && svc.installed && !svc.pending && svc.state !== "running" && !state.updRestarting
-      && !!latest && older(panelVersion, latest),
+    updCanPanel: updCanPanelNow,
     updHasLog: !!svc.log,
     updLog: svc.log || "",
     updLogStyle: "margin:8px 0 0;max-height:260px;overflow:auto;padding:10px 12px;border-radius:" + t.r
@@ -3645,6 +3668,30 @@ function updatesView(t, d, dict) {
       await api("/api/v1/updates/panel", "POST");
       state.updWaiting = true;
       toast(up.state.pending);
+      await loadUpdates();
+    }),
+    // Сколько минут назад панель спрашивала GitHub: без этого не понять,
+    // свежий ли номер «последнего релиза» на экране.
+    updCheckedLine: u && u.checked_at
+      ? up.checked(Math.max(0, Math.floor((Date.now() - Date.parse(u.checked_at)) / 60000))) : "",
+    updCheckLabel: state.updChecking ? up.checking : up.checkNow,
+    updCanAll: (updCanPanelNow || stale.some((n) => !n.upgrade_to || n.upgrade_to !== latest)),
+    doCheckNow: () => act(async () => {
+      if (state.updChecking) return;
+      state.updChecking = true;
+      render();
+      try {
+        state.updates = await api("/api/v1/updates?fresh=1");
+      } finally {
+        state.updChecking = false;
+        render();
+      }
+    }),
+    doUpgradeAll: () => act(async () => {
+      if (!(await ask(up.upAll, up.confirmAll(latest)))) return;
+      const res = await api("/api/v1/updates/all", "POST");
+      if (res && res.panel) state.updWaiting = true;
+      toast(up.allAsked(res ? res.asked : 0, !!(res && res.panel)));
       await loadUpdates();
     }),
     doUpgradeNodes: () => act(async () => {

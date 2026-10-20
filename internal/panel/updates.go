@@ -29,9 +29,21 @@ import (
 // с его ограничением на число запросов.
 var releaseURL = "https://github.com/jytt8u/marvia/releases/latest"
 
-// releaseEvery — как долго доверяем узнанному номеру. Релизы выходят раз в
-// несколько дней, а страница «Обновления» открывается куда чаще.
-const releaseEvery = 6 * time.Hour
+// releaseEvery — как долго доверяем узнанному номеру в стабильном канале,
+// testEvery — в тестовом. Раньше было шесть часов на оба: продавец
+// публиковал альфу и видел в панели прежнюю до вечера. Тестовые выпуски
+// выходят по нескольку в день, и ждать их дольше двадцати минут незачем;
+// стабильные — реже, им хватает часа.
+const (
+	releaseEvery = time.Hour
+	testEvery    = 20 * time.Minute
+)
+
+// freshEvery — не чаще этого «Проверить сейчас» идёт в GitHub на самом
+// деле. Кнопку жмут и по нескольку раз подряд, а у GitHub есть предел
+// запросов с одного адреса — для всей панели, а не для одной кнопки.
+// Переменная, а не константа, — ради тестов.
+var freshEvery = 20 * time.Second
 
 var releaseTag = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
 
@@ -51,10 +63,11 @@ type releaseCache struct {
 	checked time.Time
 }
 
-// get отдаёт номер последнего релиза, спрашивая GitHub не чаще releaseEvery.
-// Ошибка — строкой для продавца: панель в России может не видеть GitHub, и
-// это надо сказать, а не молча показать пустоту.
-func (c *releaseCache) get(ctx context.Context) (string, string) {
+// get отдаёт номер последнего релиза, спрашивая GitHub не чаще срока своего
+// канала, а с fresh — не чаще freshEvery. Ошибка — строкой для продавца:
+// панель в России может не видеть GitHub, и это надо сказать, а не молча
+// показать пустоту.
+func (c *releaseCache) get(ctx context.Context, fresh bool) (string, string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	// Канал читаем каждый раз: root мог переключить его командой, и ждать
@@ -63,7 +76,14 @@ func (c *releaseCache) get(ctx context.Context) (string, string) {
 	if channel != c.channel {
 		c.channel, c.latest, c.err, c.checked = channel, "", "", time.Time{}
 	}
-	if !c.checked.IsZero() && time.Since(c.checked) < releaseEvery {
+	every := releaseEvery
+	if channel == "test" {
+		every = testEvery
+	}
+	if fresh {
+		every = freshEvery
+	}
+	if !c.checked.IsZero() && time.Since(c.checked) < every {
 		return c.latest, c.err
 	}
 	fetch := fetchLatest
@@ -163,7 +183,9 @@ func (a *API) WithHome(dir string) *API {
 // getUpdates — всё для страницы «Обновления»: версия панели, последний
 // релиз, состояние службы обновления и ноды с их версиями.
 func (a *API) getUpdates(w http.ResponseWriter, r *http.Request) {
-	latest, latestErr := a.releases.get(r.Context())
+	// fresh=1 — кнопка «Проверить сейчас»: продавец только что опубликовал
+	// выпуск и не хочет ждать, пока панель спросит GitHub сама.
+	latest, latestErr := a.releases.get(r.Context(), r.URL.Query().Get("fresh") == "1")
 	nodes, err := a.store.ListNodes(r.Context())
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
@@ -185,6 +207,7 @@ func (a *API) getUpdates(w http.ResponseWriter, r *http.Request) {
 	ok(w, map[string]any{
 		"latest":       latest,
 		"latest_error": latestErr,
+		"checked_at":   a.releases.checkedAt(),
 		"channel":      updater.Channel(),
 		"panel": map[string]any{
 			"version": a.version,
@@ -216,7 +239,7 @@ func (a *API) upgradePanel(w http.ResponseWriter, r *http.Request) {
 // последнего релиза. Ноды узнают об этом на следующей сверке — в течение
 // четверти минуты — и передают просьбу своим службам обновления.
 func (a *API) upgradeNodes(w http.ResponseWriter, r *http.Request) {
-	latest, latestErr := a.releases.get(r.Context())
+	latest, latestErr := a.releases.get(r.Context(), false)
 	if latest == "" {
 		msg := "не удалось узнать последний релиз"
 		if latestErr != "" {
@@ -232,6 +255,56 @@ func (a *API) upgradeNodes(w http.ResponseWriter, r *http.Request) {
 	}
 	a.record(r, EventNodesUpgrade, Event{Detail: fmt.Sprintf("до %s: %d", latest, n)})
 	ok(w, map[string]any{"target": latest, "asked": n})
+}
+
+// upgradeAll — «Обновить всё»: просьба отставшим нодам и службе на машине
+// панели одним нажатием. Раньше это были две кнопки, и вторую забывали:
+// панель уезжала на новую версию, а ноды оставались на старой.
+//
+// Ноды — первыми: просьба им лежит в базе и переживёт перезапуск панели, а
+// панель на время своей подмены перестаёт отвечать. Без службы обновления
+// на машине панели ноды всё равно получают просьбу, а про панель ответ
+// честно говорит, что её надо обновить командой.
+func (a *API) upgradeAll(w http.ResponseWriter, r *http.Request) {
+	latest, latestErr := a.releases.get(r.Context(), false)
+	if latest == "" {
+		msg := "не удалось узнать последний релиз"
+		if latestErr != "" {
+			msg += ": " + latestErr
+		}
+		fail(w, http.StatusConflict, msg)
+		return
+	}
+	n, err := a.store.RequestNodeUpgrade(r.Context(), latest)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	a.record(r, EventNodesUpgrade, Event{Detail: fmt.Sprintf("до %s: %d", latest, n)})
+
+	panel := false
+	if OlderVersion(a.version, latest) && updater.ReadStatus(a.home).Installed {
+		if err := updater.Request(a.home); err != nil {
+			fail(w, http.StatusInternalServerError, fmt.Sprintf("ноды попрошены, а просьба панели не легла: %v", err))
+			return
+		}
+		a.record(r, EventPanelUpgrade, Event{Detail: "до последнего релиза"})
+		panel = true
+	}
+	ok(w, map[string]any{"target": latest, "asked": n, "panel": panel})
+}
+
+// checkedAt — когда панель последний раз спрашивала GitHub; пусто — ещё ни
+// разу. Окно пишет «проверено N минут назад»: иначе не понять, свежий ли
+// номер на экране.
+func (c *releaseCache) checkedAt() *time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.checked.IsZero() {
+		return nil
+	}
+	t := c.checked.UTC()
+	return &t
 }
 
 // clip обрезает строку от ноды: версия и разрядность приходят из сети и в

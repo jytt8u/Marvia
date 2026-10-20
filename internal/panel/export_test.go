@@ -67,3 +67,10 @@ func (s *Store) Exec(ctx context.Context, query string, args ...any) error {
 	_, err := s.db.ExecContext(ctx, query, args...)
 	return err
 }
+
+// SetFreshEvery меняет паузу между настоящими проверками по кнопке.
+func SetFreshEvery(d time.Duration) (restore func()) {
+	was := freshEvery
+	freshEvery = d
+	return func() { freshEvery = was }
+}

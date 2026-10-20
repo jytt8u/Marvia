@@ -66,7 +66,11 @@ func server(t *testing.T, inbound map[string]any) *core.Instance {
 	raw, _ := json.Marshal(map[string]any{
 		"log":       map[string]any{"loglevel": "none"},
 		"inbounds":  []any{inbound},
-		"outbounds": []any{map[string]any{"protocol": "freedom"}},
+		// Цели тестов — на 127.0.0.1, а Xray с июля 2026 года по умолчанию не
+		// пускает серверы VLESS, VMess и Trojan в частные сети (защита от
+		// SSRF). Тестовому серверу это разрешаем явно.
+		"outbounds": []any{map[string]any{"protocol": "freedom",
+			"settings": map[string]any{"finalRules": []any{map[string]any{"action": "allow"}}}}},
 	})
 	pb, err := serial.LoadJSONConfig(bytes.NewReader(raw))
 	if err != nil {

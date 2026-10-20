@@ -13,7 +13,7 @@ require (
 	github.com/refraction-networking/utls v1.8.3-0.20260301010127-aa6edf4b11af
 	github.com/xjasonlyu/tun2socks/v2 v2.7.0
 	github.com/xtls/reality v0.0.0-20260322125925-9234c772ba8f
-	github.com/xtls/xray-core v1.260327.0
+	github.com/xtls/xray-core v1.260327.1-0.20260710210335-64fada32b5b9
 	golang.org/x/crypto v0.57.0
 	golang.org/x/mobile v0.0.0-20260821190718-4776eadac327
 	golang.org/x/net v0.60.0
@@ -28,8 +28,8 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
-	github.com/apernet/quic-go v0.59.1-0.20260217092621-db4786c77a22 // indirect
-	github.com/cloudflare/circl v1.6.3 // indirect
+	github.com/apernet/quic-go v0.59.1-0.20260425001925-6c6cc9bcb716 // indirect
+	github.com/cloudflare/circl v1.6.4 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gaukas/clienthellod v0.4.2 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
@@ -43,19 +43,25 @@ require (
 	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
 	github.com/juju/ratelimit v1.0.2 // indirect
 	github.com/klauspost/compress v1.18.7 // indirect
-	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/miekg/dns v1.1.72 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.17.2 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/pires/go-proxyproto v0.11.0 // indirect
+	github.com/pion/dtls/v3 v3.1.4 // indirect
+	github.com/pion/logging v0.2.4 // indirect
+	github.com/pion/stun/v3 v3.1.6 // indirect
+	github.com/pion/transport/v4 v4.0.2 // indirect
+	github.com/pires/go-proxyproto v0.15.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/sagernet/sing v0.5.1 // indirect
 	github.com/sagernet/sing-shadowsocks v0.2.7 // indirect
 	github.com/vishvananda/netlink v1.3.1 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
+	github.com/wlynxg/anet v0.0.5 // indirect
 	go.uber.org/mock v0.5.2 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976 // indirect

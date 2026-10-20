@@ -19,7 +19,9 @@ func dialSystem(d internet.SystemDialer, ctx context.Context, src xnet.Address, 
 	}
 	// Xray проглатывает ошибки контроллеров сокета. Дозваниваемся сами:
 	// неудачная привязка должна прервать подключение, а не замкнуть туннель.
-	if opts != nil && (opts.BindPort != 0 || len(opts.BindAddress) != 0 || opts.Interface != "") {
+	// Привязку к адресу и порту Xray с июля 2026 года из настроек сокета
+	// убрал; осталась привязка к интерфейсу.
+	if opts != nil && opts.Interface != "" {
 		return nil, fmt.Errorf("чужой ключ задаёт несовместимую привязку сокета")
 	}
 	if dest.Network == xnet.Network_UDP {

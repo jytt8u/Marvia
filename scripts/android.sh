@@ -29,7 +29,7 @@ if [ "${1:-}" != "--skip-core" ]; then
     mkdir -p android/app/libs
     gomobile bind \
         -target=android/arm64,android/arm \
-        -trimpath -ldflags="-s -w" \
+        -trimpath -ldflags="-s -w -checklinkname=0" \
         -androidapi 24 \
         -javapkg=io.marvia \
         -o android/app/libs/marvia.aar \

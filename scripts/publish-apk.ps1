@@ -79,7 +79,7 @@ if (-not $SkipCore) {
     }
 
     Write-Host '== ядро -> android/app/libs/marvia.aar'
-    gomobile bind '-target=android/arm64,android/arm' '-androidapi' '24' '-trimpath' '-ldflags=-s -w' `
+    gomobile bind '-target=android/arm64,android/arm' '-androidapi' '24' '-trimpath' '-ldflags=-s -w -checklinkname=0' `
         '-javapkg=io.marvia' '-o' 'android/app/libs/marvia.aar' './mobile'
     if ($LASTEXITCODE -ne 0) { throw 'не собралась библиотека ядра' }
 }

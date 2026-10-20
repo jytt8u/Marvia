@@ -105,7 +105,7 @@ if (-not $SkipCore) {
     # в них заметную долю. Ровно так же собираются бинарники релиза.
     gomobile bind `
         "-target=$targets" `
-        '-trimpath' '-ldflags=-s -w' `
+        '-trimpath' '-ldflags=-s -w -checklinkname=0' `
         '-androidapi' '24' `
         '-javapkg=io.marvia' `
         '-o' 'android/app/libs/marvia.aar' `

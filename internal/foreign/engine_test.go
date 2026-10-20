@@ -64,8 +64,8 @@ func selfSigned(t *testing.T) (certPEM, keyPEM string) {
 func server(t *testing.T, inbound map[string]any) *core.Instance {
 	t.Helper()
 	raw, _ := json.Marshal(map[string]any{
-		"log":       map[string]any{"loglevel": "none"},
-		"inbounds":  []any{inbound},
+		"log":      map[string]any{"loglevel": "none"},
+		"inbounds": []any{inbound},
 		// Цели тестов — на 127.0.0.1, а Xray с июля 2026 года по умолчанию не
 		// пускает серверы VLESS, VMess и Trojan в частные сети (защита от
 		// SSRF). Тестовому серверу это разрешаем явно.

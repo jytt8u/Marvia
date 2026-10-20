@@ -425,6 +425,44 @@
     border: 1px solid var(--line, #1c2e21);
   }
   #toast.bad { background: rgba(242, 160, 61, .16); color: #f2a03d; border-color: #f2a03d; }
+  /* Ход обновления: шаги с линией между ними; текущий пульсирует. */
+  .upd-steps { display: flex; align-items: center; gap: 0; padding: 14px 16px; border-radius: 14px;
+    background: var(--cardBg, #15191d); border: 1px solid var(--line, #2a2f35); overflow-x: auto; }
+  .upd-step { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; color: var(--dim);
+    font-size: 12px; white-space: nowrap; position: relative; }
+  .upd-step:not(:last-child)::after { content: ""; flex: 1; height: 2px; margin: 0 10px; border-radius: 2px;
+    background: var(--line, #2a2f35); transition: background .4s; }
+  .upd-step.done::after { background: var(--acc, #c3ccd6); }
+  .upd-step i { width: 18px; height: 18px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line, #2a2f35);
+    display: grid; place-items: center; transition: box-shadow .3s, background .3s; }
+  .upd-step.done { color: var(--fg); }
+  .upd-step.done i { background: var(--acc, #c3ccd6); box-shadow: none; }
+  .upd-step.done i::before { content: ""; width: 7px; height: 4px; margin-top: -2px; border: solid #0b0d10;
+    border-width: 0 0 2px 2px; transform: rotate(-45deg); }
+  .upd-step.now { color: var(--fg); font-weight: 600; }
+  .upd-step.now i { box-shadow: inset 0 0 0 2px var(--acc, #c3ccd6); animation: updPulse 1.4s ease-out infinite; }
+  @keyframes updPulse { 0% { box-shadow: inset 0 0 0 2px var(--acc, #c3ccd6), 0 0 0 0 rgba(195,204,214,.45); }
+    80%, 100% { box-shadow: inset 0 0 0 2px var(--acc, #c3ccd6), 0 0 0 9px rgba(195,204,214,0); } }
+  /* Нода в пути — бегущая полоска под строкой; дошла — короткая вспышка. */
+  .upd-node { position: relative; overflow: hidden; }
+  .upd-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(195,204,214,.12); }
+  .upd-bar i { position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 2px; background: var(--acc, #c3ccd6);
+    animation: updRun 1.3s ease-in-out infinite; }
+  @keyframes updRun { from { left: -35%; } to { left: 100%; } }
+  .upd-node.fresh { animation: updDone .9s ease-out 1; }
+  @keyframes updDone { from { box-shadow: inset 0 0 0 1px rgba(111,211,155,.6); } to { box-shadow: inset 0 0 0 1px rgba(111,211,155,0); } }
+  /* Тумблер автообновления. */
+  .upd-switch { width: 42px; height: 24px; flex: none; border-radius: 12px; cursor: pointer; position: relative;
+    background: var(--line, #2a2f35); transition: background .25s; }
+  .upd-switch i { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--fg, #f1f4f7); transition: transform .25s cubic-bezier(.2,.8,.2,1); }
+  .upd-switch.on { background: var(--acc, #c3ccd6); }
+  .upd-switch.on i { transform: translateX(18px); background: #0b0d10; }
+  .upd-switch:focus-visible { outline: 2px solid var(--acc, #c3ccd6); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) {
+    .upd-step.now i, .upd-bar i, .upd-node.fresh { animation: none; }
+    .upd-switch, .upd-switch i, .upd-step::after { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -854,6 +892,15 @@
               </sc-if>
             </div>
 
+            <!-- Ход обновления шагами, пока оно идёт. -->
+            <sc-if value="{{ updShowSteps }}">
+              <div class="upd-steps" role="list">
+                <sc-for list="{{ updSteps }}" as="s">
+                  <div class="{{ s.cls }}" role="listitem"><i></i><span>{{ s.label }}</span></div>
+                </sc-for>
+              </div>
+            </sc-if>
+
             <div class="cards-2">
               <div class="rise" style="{{ updCard }}">
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
@@ -897,10 +944,11 @@
                   </sc-if>
                 </div>
                 <sc-for list="{{ updNodes }}" as="un">
-                  <div style="{{ un.row }}">
+                  <div class="{{ un.cls }}" style="{{ un.row }}">
                     <div style="font-size: 13px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ un.name }}</div>
                     <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim);">{{ un.version }}</div>
                     <div style="{{ un.badge }}">{{ un.state }}</div>
+                    <sc-if value="{{ un.going }}"><div class="upd-bar"><i></i></div></sc-if>
                   </div>
                 </sc-for>
                 <sc-if value="{{ updNoNodes }}">
@@ -908,7 +956,27 @@
                 </sc-if>
                 <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ d18.updates.nodesNote }}</div>
               </div>
+
             </div>
+
+              <!--
+                Ночное автообновление. Сохраняется сразу, без кнопки: у
+                переключателя, рядом с которым ещё и «Сохранить», путаются.
+              -->
+              <div class="rise" style="{{ updCard }}">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                  <div style="font-size: 14px; font-weight: 600; color: var(--fg);">{{ d18.updates.autoTitle }}</div>
+                  <div class="{{ updAutoSwitch }}" role="switch" tabindex="0" aria-checked="{{ updAutoPressed }}" aria-label="{{ d18.updates.autoOn }}"
+                       data-focus="upd-auto" onClick="{{ doAutoToggle }}"><i></i></div>
+                </div>
+                <div style="font-size: 12px; line-height: 1.5; color: var(--dim);">{{ d18.updates.autoWhat }}</div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <div style="font-size: 12px; color: var(--dim); margin-right: auto;">{{ d18.updates.autoHour }}</div>
+                  <div style="{{ cta2Style }}" role="button" tabindex="0" aria-label="−1 ч" onClick="{{ doAutoEarlier }}">−</div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 700; color: var(--fg); min-width: 64px; text-align: center;">{{ updAutoHour }}</div>
+                  <div style="{{ cta2Style }}" role="button" tabindex="0" aria-label="+1 ч" onClick="{{ doAutoLater }}">+</div>
+                </div>
+              </div>
           </div>
         </sc-if>
 
@@ -1461,19 +1529,71 @@ function journalWhen(iso) {
 async function loadUpdates() {
   clearTimeout(state.updTimer);
   try {
-    state.updates = await api("/api/v1/updates");
+    const [u, auto] = await Promise.all([
+      api("/api/v1/updates"),
+      state.updAuto ? Promise.resolve(state.updAuto) : api("/api/v1/updates/auto").catch(() => null),
+    ]);
+    state.updates = u;
+    state.updAuto = auto;
     state.updRestarting = false;
   } catch (_) {
     state.updRestarting = !!state.updWaiting;
   }
   const u = state.updates;
-  const busy = state.updRestarting || (u && (u.panel.updater.pending || u.panel.updater.state === "running"
+  const svc = (u && u.panel && u.panel.updater) || {};
+
+  // Панель поднялась на новой версии — страница сама перезагружается на
+  // неё: иначе продавец смотрел бы на старый интерфейс новой панели и жал
+  // «Обновить» в шапке, не понимая, закончилось ли.
+  if (u && u.panel && u.panel.version) {
+    if (!state.updBootVersion) state.updBootVersion = u.panel.version;
+    else if (u.panel.version !== state.updBootVersion) {
+      toast(L().updates.doneToast(u.panel.version));
+      setTimeout(() => location.reload(), 1600);
+      return;
+    }
+  }
+
+  // Служба только что работала и попросила подождать. Повторяем сами, когда
+  // срок выйдет, — но только если просьбу клал этот человек на этой
+  // странице: чужую давнюю просьбу страница по кругу не повторяет.
+  if (svc.state === "wait" && state.updWaiting && updWaitLeft(svc) <= 0 && !state.updRetried) {
+    state.updRetried = true;
+    try { await api("/api/v1/updates/panel", "POST"); } catch (_) { /* скажет следующий опрос */ }
+  }
+  if (svc.state !== "wait") state.updRetried = false;
+
+  const busy = state.updRestarting || (u && (svc.pending || svc.state === "running"
+    || (svc.state === "wait" && state.updWaiting)
     || (u.nodes || []).some((n) => n.upgrade_to)));
   if (!busy) state.updWaiting = false;
   if (state.page === "updates" && (busy || state.updWaiting)) {
-    state.updTimer = setTimeout(loadUpdates, 4000);
+    // Пока идёт — раз в полторы секунды: шаги сменяются за секунды, и
+    // опрос раз в четыре секунды проскакивал половину из них.
+    state.updTimer = setTimeout(loadUpdates, 1500);
   }
   render();
+}
+
+// saveAuto сохраняет ночное автообновление сразу, без кнопки «Сохранить»:
+// переключатель, у которого есть ещё и кнопка, путает.
+async function saveAuto(patch) {
+  const next = Object.assign({ enabled: false, hour: 4 }, state.updAuto || {}, patch);
+  try {
+    state.updAuto = await api("/api/v1/updates/auto", "PUT", next);
+    toast(L().updates.autoSaved);
+  } catch (e) {
+    toast(e.message, true);
+  }
+  render();
+}
+
+// updWaitLeft — сколько секунд служба просила подождать, с учётом того,
+// сколько уже прошло.
+function updWaitLeft(svc) {
+  const total = parseInt(svc.reason, 10) || 0;
+  const since = svc.at ? (Date.now() - Date.parse(svc.at)) / 1000 : 0;
+  return Math.max(0, Math.ceil(total - since));
 }
 
 async function loadAlerts() {
@@ -2687,6 +2807,7 @@ const TEXTS = {
       what: "Что делали с панелью: завели, продлили, отключили, сменили ключ. Это летопись действий над панелью, а не слежка за людьми: подключений и адресов здесь нет и не будет.",
       empty: "Пока ничего не происходило.",
       admin: "админ",
+      auto: "автообновление",
       action: {
         "user.create": "заведён покупатель",
         "user.update": "правка покупателя",
@@ -2706,6 +2827,7 @@ const TEXTS = {
         "plan.create": "новый тариф", "plan.update": "правка тарифа", "plan.delete": "тариф удалён",
         "panel.upgrade": "обновление панели",
         "nodes.upgrade": "обновление нод",
+        "autoupdate.update": "автообновление",
       },
     },
     updates: {
@@ -2730,6 +2852,12 @@ const TEXTS = {
       asked: (n, v) => n + " " + pluralRU(n, "нода получит", "ноды получат", "нод получат") + " просьбу обновиться до " + v + " в течение минуты",
       noneToAsk: "Все включённые ноды уже на последней версии",
       checkNow: "Проверить сейчас", checking: "Проверяю…",
+      steps: ["Просьба", "Выпуск", "Подпись", "Установка", "Перезапуск", "Готово"],
+      waitLine: (s) => "Служба только что работала — повторю сама через " + s + " с",
+      doneToast: (v) => "Готово: панель на " + v,
+      autoTitle: "Ночное автообновление",
+      autoWhat: "Панель сама ставит новый выпуск своего канала себе и отставшим нодам в выбранный час по Москве. Ставит та же служба с проверкой подписи; если новая версия не поднялась, вернётся прежняя.",
+      autoOn: "Обновлять автоматически", autoHour: "Час по Москве", autoSaved: "Сохранено",
       checked: (m) => m < 1 ? "релиз проверен только что" : "релиз проверен " + m + " мин назад",
       upAll: "Обновить всё",
       confirmAll: (v) => "Панель и все отставшие ноды обновятся до " + v + ". Ноды перезапускаются на секунды, панель — на полминуты; страница подождёт.",
@@ -3116,6 +3244,7 @@ const TEXTS = {
       what: "What was done to the panel: created, extended, disabled, keys changed. This is a record of actions on the panel, not surveillance of people: there are no connections and no addresses here, and there will not be.",
       empty: "Nothing has happened yet.",
       admin: "admin",
+      auto: "auto-update",
       action: {
         "user.create": "subscriber created",
         "user.update": "subscriber edited",
@@ -3135,6 +3264,7 @@ const TEXTS = {
         "plan.create": "new plan", "plan.update": "plan edited", "plan.delete": "plan deleted",
         "panel.upgrade": "panel upgrade",
         "nodes.upgrade": "nodes upgrade",
+        "autoupdate.update": "auto-update",
       },
     },
     updates: {
@@ -3159,6 +3289,12 @@ const TEXTS = {
       asked: (n, v) => n + " " + (n === 1 ? "node gets" : "nodes get") + " the request to upgrade to " + v + " within a minute",
       noneToAsk: "All enabled nodes are already on the latest version",
       checkNow: "Check now", checking: "Checking…",
+      steps: ["Request", "Release", "Signature", "Install", "Restart", "Done"],
+      waitLine: (s) => "The service ran a moment ago — retrying by itself in " + s + " s",
+      doneToast: (v) => "Done: the panel is on " + v,
+      autoTitle: "Nightly auto-update",
+      autoWhat: "The panel installs a new release of its channel on itself and outdated nodes at the chosen Moscow hour. The same service installs it with signature checks; if the new version does not come up, the previous one returns.",
+      autoOn: "Update automatically", autoHour: "Hour, Moscow time", autoSaved: "Saved",
       checked: (m) => m < 1 ? "release checked just now" : "release checked " + m + " min ago",
       upAll: "Upgrade everything",
       confirmAll: (v) => "The panel and all outdated nodes will be upgraded to " + v + ". Nodes restart for a few seconds, the panel for about half a minute; the page will wait.",
@@ -3617,7 +3753,21 @@ function updatesView(t, d, dict) {
   let panelLine = "";
   if (state.updRestarting) panelLine = up.restarting;
   else if (svc.pending) panelLine = up.state.pending;
+  else if (svc.state === "wait") panelLine = up.waitLine(updWaitLeft(svc));
+  else if (svc.state === "running") panelLine = up.state.running;
   else if (svc.state) panelLine = up.state[svc.state] + (svc.at ? " · " + journalWhen(svc.at) : "") + (svc.reason ? " · " + svc.reason : "");
+
+  // Ход обновления шагами: просьба → выпуск → подпись → установка →
+  // перезапуск → готово. Служба пишет шаг в причину состояния (agent.sh).
+  let step = -1;
+  if (state.updRestarting) step = 4;
+  else if (svc.pending || (svc.state === "wait" && state.updWaiting)) step = 0;
+  else if (svc.state === "running") step = svc.reason === "verify" ? 2 : String(svc.reason || "").startsWith("install") ? 3 : 1;
+  const stepsShown = step >= 0;
+  const steps = up.steps.map((label, i) => ({
+    label,
+    cls: "upd-step" + (i < step ? " done" : i === step ? " now" : ""),
+  }));
 
   const rows = nodes.map((n) => {
     let label = up.fresh, warn = false;
@@ -3625,10 +3775,17 @@ function updatesView(t, d, dict) {
     else if (n.upgrade_to && n.version !== n.upgrade_to) label = up.going(n.upgrade_to);
     else if (!n.version) { label = up.old; warn = true; }
     else if (latest && older(n.version, latest)) { label = up.stale; warn = true; }
+    // Нода, которую попросили, — с бегущей полоской: она получит просьбу на
+    // ближайшей сверке и перезапустится; когда версия дойдёт, полоска уйдёт.
+    const going = !!(n.enabled && n.upgrade_to && n.version !== n.upgrade_to);
     return {
       name: n.name,
       version: n.version ? n.version + (n.arch ? " · " + n.arch : "") : "—",
       state: label,
+      going,
+      // Вспышка — только в тот миг, когда нода дошла: была в пути и стала
+      // свежей. Иначе она мигала бы на каждой перерисовке.
+      cls: "upd-node" + (going ? " going" : (!warn && (state.updGoing || {})[n.id] ? " fresh" : "")),
       row: "display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 12px;border-radius:"
         + t.r + "px;background:" + t.surf2,
       badge: "padding:4px 9px;border-radius:6px;font-family:JetBrains Mono,monospace;font-size:10px;color:"
@@ -3636,6 +3793,7 @@ function updatesView(t, d, dict) {
     };
   });
 
+  state.updGoing = Object.fromEntries(nodes.map((n) => [n.id, !!(n.enabled && n.upgrade_to && n.version !== n.upgrade_to)]));
   const updCanPanelNow = !!u && svc.installed && !svc.pending && svc.state !== "running" && !state.updRestarting
     && !!latest && older(panelVersion, latest);
   return {
@@ -3670,6 +3828,14 @@ function updatesView(t, d, dict) {
       toast(up.state.pending);
       await loadUpdates();
     }),
+    updShowSteps: stepsShown,
+    updSteps: steps,
+    updAutoSwitch: "upd-switch" + (state.updAuto && state.updAuto.enabled ? " on" : ""),
+    updAutoPressed: String(!!(state.updAuto && state.updAuto.enabled)),
+    updAutoHour: String(state.updAuto ? state.updAuto.hour : 4).padStart(2, "0") + ":00",
+    doAutoToggle: () => saveAuto({ enabled: !(state.updAuto && state.updAuto.enabled) }),
+    doAutoEarlier: () => saveAuto({ hour: ((state.updAuto ? state.updAuto.hour : 4) + 23) % 24 }),
+    doAutoLater: () => saveAuto({ hour: ((state.updAuto ? state.updAuto.hour : 4) + 1) % 24 }),
     // Сколько минут назад панель спрашивала GitHub: без этого не понять,
     // свежий ли номер «последнего релиза» на экране.
     updCheckedLine: u && u.checked_at
@@ -4384,7 +4550,7 @@ function renderVals() {
     // летопись действий над панелью, и в общий loadAll ей незачем.
     journal: (state.journal || []).map((e) => ({
       when: journalWhen(e.at),
-      actor: e.actor === "admin" ? d18.journal.admin : e.actor,
+      actor: e.actor === "admin" ? d18.journal.admin : e.actor === "auto" ? d18.journal.auto : e.actor,
       what: (d18.journal.action[e.action] || e.action) + (e.detail ? " · " + e.detail : ""),
       style: "display:flex;gap:12px;align-items:baseline;padding:9px 12px;border-radius:" + t.r
         + "px;background:" + t.surf2,

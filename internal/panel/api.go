@@ -49,6 +49,8 @@ type API struct {
 
 	// releases — что известно о последнем релизе; см. updates.go.
 	releases releaseCache
+	// auto — что ночное автообновление уже попросило; см. autoupdate.go.
+	auto autoState
 }
 
 // NewAPI собирает обработчики панели.
@@ -119,6 +121,8 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/updates/panel", a.admin(a.upgradePanel))
 	mux.HandleFunc("POST /api/v1/updates/nodes", a.admin(a.upgradeNodes))
 	mux.HandleFunc("POST /api/v1/updates/all", a.admin(a.upgradeAll))
+	mux.HandleFunc("GET /api/v1/updates/auto", a.admin(a.getAutoUpdate))
+	mux.HandleFunc("PUT /api/v1/updates/auto", a.admin(a.setAutoUpdate))
 	mux.HandleFunc("PUT /api/v1/alerts", a.admin(a.setAlerts))
 	// Получатели видят метки покупателей, а подпись даёт доверие ботам:
 	// ни адреса доставки, ни секрет не может менять ключ бота.

@@ -42,14 +42,21 @@ status() {
 # Не чаще раза в пять минут. Просьбу может положить и взломанная панель, и
 # каждая попытка качает приложения по десятку мегабайт; частое нажатие ничего
 # не ускорит, а обстрел GitHub с сервера продавца ни к чему.
+#
+# Молча выходить нельзя: просьба уже убрана, и панель показывала бы, будто
+# кнопку нажали в пустоту. Пишем, сколько ждать, — панель повторит сама.
 if [ -f "$STATE/started" ]; then
 	last=$(stat -c %Y "$STATE/started" 2>/dev/null || echo 0)
-	if [ $(($(date +%s) - last)) -lt 300 ]; then
+	left=$((300 - ($(date +%s) - last)))
+	if [ "$left" -gt 0 ]; then
+		status wait "$left"
 		exit 0
 	fi
 fi
 touch "$STATE/started"
-status running
+# Шаги — в причине состояния: панель рисует по ним ход обновления, а не одно
+# «идёт обновление…» на полминуты.
+status running release
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -146,6 +153,7 @@ verify_release() {
 }
 
 TRUSTED_ROOT=/usr/local/lib/marvia/sigstore-root.jsonl
+status running verify
 if ! curl --proto '=https' --proto-redir '=https' -fsSL --max-time 120 -o "$work/SHA256SUMS.sigstore.json" "$base/SHA256SUMS.sigstore.json" ||
 	! verify_release "$work/SHA256SUMS" "$work/SHA256SUMS.sigstore.json" >"$STATE/log" 2>&1; then
 	status failed 'подпись релиза не прошла проверку'; exit 1
@@ -155,6 +163,7 @@ if ! (cd "$work" && grep '[ *]upgrade.sh$' SHA256SUMS | sha256sum -c - >/dev/nul
 	exit 1
 fi
 
+status running "install $tag"
 if MARVIA_RELEASE_TAG="$tag" sh "$work/upgrade.sh" >>"$STATE/log" 2>&1; then
 	status ok
 else

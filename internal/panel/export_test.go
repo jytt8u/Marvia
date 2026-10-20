@@ -74,3 +74,6 @@ func SetFreshEvery(d time.Duration) (restore func()) {
 	freshEvery = d
 	return func() { freshEvery = was }
 }
+
+// AutoUpdateAt — одна проверка автообновления в момент now.
+func (a *API) AutoUpdateAt(ctx context.Context, now time.Time) error { return a.autoUpdateAt(ctx, now) }

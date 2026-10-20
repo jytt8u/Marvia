@@ -252,6 +252,9 @@ func run(opts options) error {
 		log.Printf("резервная копия не создана или не доставлена: %v", err)
 	})
 	go panel.NewWebhooks(store).Watch(ctx)
+	// Ночное автообновление: само ничего не делает, пока продавец его не
+	// включит на странице «Обновления»; см. internal/panel/autoupdate.go.
+	go api.KeepUpToDate(ctx)
 
 	go func() {
 		<-ctx.Done()

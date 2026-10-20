@@ -54,6 +54,7 @@ const (
 	EventPlanDelete     = "plan.delete"
 	EventWebhooksUpdate = "webhooks.update"
 	EventWebhookFailed  = "webhook.failed"
+	EventAutoUpdate     = "autoupdate.update"
 )
 
 // ActorAdmin — действие сделано админским токеном. Ключи ботов записываются

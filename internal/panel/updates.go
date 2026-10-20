@@ -2,6 +2,7 @@ package panel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -266,32 +267,54 @@ func (a *API) upgradeNodes(w http.ResponseWriter, r *http.Request) {
 // на машине панели ноды всё равно получают просьбу, а про панель ответ
 // честно говорит, что её надо обновить командой.
 func (a *API) upgradeAll(w http.ResponseWriter, r *http.Request) {
-	latest, latestErr := a.releases.get(r.Context(), false)
-	if latest == "" {
-		msg := "не удалось узнать последний релиз"
-		if latestErr != "" {
-			msg += ": " + latestErr
-		}
-		fail(w, http.StatusConflict, msg)
+	res, err := a.upgradeEverything(r.Context(), actorOf(r))
+	if errors.Is(err, errNoRelease) {
+		fail(w, http.StatusConflict, err.Error())
 		return
 	}
-	n, err := a.store.RequestNodeUpgrade(r.Context(), latest)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	a.record(r, EventNodesUpgrade, Event{Detail: fmt.Sprintf("до %s: %d", latest, n)})
+	ok(w, res)
+}
 
-	panel := false
+// errNoRelease — номер последнего релиза узнать не удалось; обновлять не до
+// чего.
+var errNoRelease = errors.New("не удалось узнать последний релиз")
+
+// upgradeResult — что попросили: до какой версии, сколько нод и панель ли.
+type upgradeResult struct {
+	Release string `json:"target"`
+	Asked   int    `json:"asked"`
+	Panel   bool   `json:"panel"`
+}
+
+// upgradeEverything — общее для «Обновить всё» и ночного автообновления.
+func (a *API) upgradeEverything(ctx context.Context, actor string) (upgradeResult, error) {
+	latest, latestErr := a.releases.get(ctx, false)
+	if latest == "" {
+		if latestErr != "" {
+			return upgradeResult{}, fmt.Errorf("%w: %s", errNoRelease, latestErr)
+		}
+		return upgradeResult{}, errNoRelease
+	}
+	n, err := a.store.RequestNodeUpgrade(ctx, latest)
+	if err != nil {
+		return upgradeResult{}, err
+	}
+	if n > 0 {
+		a.store.Record(ctx, Event{Action: EventNodesUpgrade, Actor: actor, Detail: fmt.Sprintf("до %s: %d", latest, n)})
+	}
+	res := upgradeResult{Release: latest, Asked: n}
 	if OlderVersion(a.version, latest) && updater.ReadStatus(a.home).Installed {
 		if err := updater.Request(a.home); err != nil {
-			fail(w, http.StatusInternalServerError, fmt.Sprintf("ноды попрошены, а просьба панели не легла: %v", err))
-			return
+			return res, fmt.Errorf("ноды попрошены, а просьба панели не легла: %w", err)
 		}
-		a.record(r, EventPanelUpgrade, Event{Detail: "до последнего релиза"})
-		panel = true
+		a.store.Record(ctx, Event{Action: EventPanelUpgrade, Actor: actor, Detail: "до " + latest})
+		res.Panel = true
 	}
-	ok(w, map[string]any{"target": latest, "asked": n, "panel": panel})
+	return res, nil
 }
 
 // checkedAt — когда панель последний раз спрашивала GitHub; пусто — ещё ни

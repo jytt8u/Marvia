@@ -113,10 +113,12 @@ func TestNodeCountryReachesClients(t *testing.T) {
 		t.Errorf("страна не первая в названии ноды: %q", title)
 	}
 
-	// Чужому клиенту страну передать больше нечем: он читает только название.
+	// Чужому клиенту страну передать больше нечем: он читает только название,
+	// а флаг рисует, только если название начинается с эмодзи флага — так
+	// делают Happ, Hiddify и v2rayTun. Без него список стран там был серым.
 	for _, link := range strings.Split(stockSubscription(t, h, created.User.SubToken), "\n") {
-		if title := fragmentOf(t, link); !strings.HasPrefix(title, "Нидерланды") {
-			t.Errorf("страны нет в названии для чужого клиента: %q", title)
+		if title := fragmentOf(t, link); !strings.HasPrefix(title, "🇳🇱 Нидерланды") {
+			t.Errorf("нет флага и страны в начале названия для чужого клиента: %q", title)
 		}
 	}
 }

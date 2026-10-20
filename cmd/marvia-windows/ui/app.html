@@ -1,4 +1,4 @@
-<!doctype html>
+  $("w-node").textContent = bare(s.node) || d.noNode;  $("oc-name").textContent = bare(s.node) || d.noNode;<!doctype html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -3607,7 +3607,7 @@ function paintNodes(list) {
     titles.className = "titles";
     const name = document.createElement("div");
     name.className = "name";
-    name.textContent = opts.name;
+    name.textContent = bare(opts.name);
     const city = document.createElement("div");
     city.className = "city";
     city.textContent = opts.city;
@@ -3820,6 +3820,14 @@ function flagSVG(code) {
   }
   return "";
 }
+// bare — название без эмодзи флага впереди. Подписки для Happ и Hiddify
+// начинают имя ноды с флага, а Windows рисует его двумя буквами — «FI
+// Финляндия» рядом с нашим флагом. Страну узнаём по исходному тексту, а
+// показываем без флага.
+function bare(s) {
+  return String(s || "").replace(/^\s*(?:[\u{1F1E6}-\u{1F1FF}]{2}\s*)+/u, "");
+}
+
 // flagEl — флаг страны или, если рисунка нет, её буквы.
 function flagEl(code) {
   const span = document.createElement("span");
@@ -3861,7 +3869,7 @@ function paintNodeRows(box, list, d) {
     grow.className = "grow";
     const name = document.createElement("div");
     name.className = "name";
-    name.textContent = opts.name;
+    name.textContent = bare(opts.name);
     const sub = document.createElement("div");
     sub.className = "sub";
     sub.textContent = opts.sub;
@@ -4075,8 +4083,8 @@ function render(s) {
   // Нода сменилась сама или по выбору — сказать вслух: в журнал никто не
   // смотрит, а страна в капсуле меняется незаметно.
   if (prevStatus && prevStatus.state === "connected" && s.state === "connected" && prevStatus.node && s.node && prevStatus.node !== s.node) {
-    const to = s.node.split("·")[0].trim();
-    toast(s.moved_from ? d.movedBecause(s.moved_from.split("·")[0].trim(), to) : d.movedTo(to));
+    const to = bare(s.node.split("·")[0]).trim();
+    toast(s.moved_from ? d.movedBecause(bare(s.moved_from.split("·")[0]).trim(), to) : d.movedTo(to));
   }
   if (openTab === "settings") paintOverview();
   if (window.vibeState) window.vibeState(s.state);
@@ -4133,7 +4141,7 @@ function render(s) {
   const place = $("place-card");
   const pingText = s.ping_ms ? s.ping_ms + d.ms : d.pingUnknown;
   if (s.node) {
-    const head = s.node.split("·")[0].trim();
+    const head = bare(s.node.split("·")[0]).trim();
     const rest = s.node.split("·").slice(1).map((x) => x.trim()).filter(Boolean);
     $("place-code").replaceChildren(flagEl(countryCode(s.node, "")));
     $("node-name").textContent = head;
@@ -4143,7 +4151,7 @@ function render(s) {
     $("node-ping").textContent = pingText;
     place.dataset.q = q;
     place.title = s.address || "";
-    $("rule-now").textContent = s.node;
+    $("rule-now").textContent = bare(s.node);
   } else {
     $("place-code").textContent = "··";
     place.dataset.q = "";

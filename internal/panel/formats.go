@@ -52,7 +52,8 @@ func stockEndpoints(nodes []Node, creds []Credential, label string) []stockEndpo
 		if err != nil {
 			continue
 		}
-		base := NodeTitle(n)
+		// Флаг впереди — Clash и sing-box показывают его так же, как Happ.
+		base := flagged(NodeTitle(n))
 		if label != "" {
 			base += " · " + label
 		}

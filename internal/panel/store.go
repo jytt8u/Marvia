@@ -154,6 +154,10 @@ type Node struct {
 	// UpgradeTo — версия, до которой продавец попросил ноду обновиться;
 	// пусто, когда не просил или нода уже дошла.
 	UpgradeTo string `json:"upgrade_to,omitempty"`
+
+	// ExitID — у входа каскада: на какую ноду он перекладывает. Ноль — обычная
+	// нода. См. cascade.go.
+	ExitID int64 `json:"exit_id,omitempty"`
 }
 
 // Store — хранилище панели поверх SQLite.
@@ -396,6 +400,12 @@ func migrate(db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS sub_aliases (kind TEXT NOT NULL, key TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, secret TEXT NOT NULL DEFAULT '', not_before TEXT, PRIMARY KEY (kind, key))`,
 		`ALTER TABLE users ADD COLUMN last_seen TEXT`,
 		`ALTER TABLE idempotency ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`,
+		// Каскад: вход — та же запись ноды со ссылкой на свой выход (cascade.go).
+		// relay_ip — откуда вход сверяется с панелью: от этого адреса выход
+		// верит заголовку с адресом покупателя.
+		`ALTER TABLE nodes ADD COLUMN exit_id INTEGER REFERENCES nodes(id) ON DELETE CASCADE`,
+		`ALTER TABLE nodes ADD COLUMN relay_ip TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE node_invites ADD COLUMN exit_id INTEGER REFERENCES nodes(id) ON DELETE CASCADE`,
 	}
 
 	for _, step := range steps {
@@ -982,7 +992,7 @@ func (s *Store) GetNode(ctx context.Context, id int64) (Node, error) {
 
 func (s *Store) queryNodes(ctx context.Context, where string, args ...any) ([]Node, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, country, address, sni, sni_extra, public_key, reality_public_key, reality_short_id, ws_path, quic, enabled, last_seen, created_at, version, arch, upgrade_to, fingerprint
+		`SELECT id, name, country, address, sni, sni_extra, public_key, reality_public_key, reality_short_id, ws_path, quic, enabled, last_seen, created_at, version, arch, upgrade_to, fingerprint, COALESCE(exit_id, 0)
 		 FROM nodes `+where+` ORDER BY id`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("чтение нод: %w", err)
@@ -1001,7 +1011,7 @@ func (s *Store) queryNodes(ctx context.Context, where string, args ...any) ([]No
 		)
 		if err := rows.Scan(&n.ID, &n.Name, &n.Country, &n.Address, &n.SNI, &sniExtra, &n.PublicKey,
 			&n.RealityPublicKey, &n.RealityShortID, &n.WSPath, &quicOn, &enabled, &lastSeen, &createdAt,
-			&n.Version, &n.Arch, &n.UpgradeTo, &n.Fingerprint); err != nil {
+			&n.Version, &n.Arch, &n.UpgradeTo, &n.Fingerprint, &n.ExitID); err != nil {
 			return nil, err
 		}
 		n.SNIExtra = splitNames(sniExtra)
@@ -1070,6 +1080,10 @@ type UpdateNodeParams struct {
 
 	// Fingerprint — чьё TLS-приветствие изображает клиент; пусто — Chrome.
 	Fingerprint *string `json:"fingerprint,omitempty"`
+
+	// ExitID — новый выход входа каскада. Проверяет его API (checkExit):
+	// хранилищу не видно, вход ли это и годится ли выход.
+	ExitID *int64 `json:"exit_id,omitempty"`
 }
 
 // UpdateNode меняет заданные поля ноды.
@@ -1133,6 +1147,10 @@ func (s *Store) UpdateNode(ctx context.Context, id int64, p UpdateNodeParams) (N
 		sets = append(sets, "address = ?")
 		args = append(args, address)
 	}
+	if p.ExitID != nil {
+		sets = append(sets, "exit_id = ?")
+		args = append(args, *p.ExitID)
+	}
 	if len(sets) == 0 {
 		return s.GetNode(ctx, id)
 	}
@@ -1170,11 +1188,11 @@ func (s *Store) AuthenticateNode(ctx context.Context, token string) (Node, error
 		createdAt string
 	)
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, name, country, address, sni, public_key, reality_public_key, reality_short_id, ws_path, quic, enabled, last_seen, created_at, version, arch, upgrade_to
+		`SELECT id, name, country, address, sni, public_key, reality_public_key, reality_short_id, ws_path, quic, enabled, last_seen, created_at, version, arch, upgrade_to, COALESCE(exit_id, 0)
 		 FROM nodes WHERE token_hash = ?`, HashToken(token)).
 		Scan(&n.ID, &n.Name, &n.Country, &n.Address, &n.SNI, &n.PublicKey,
 			&n.RealityPublicKey, &n.RealityShortID, &n.WSPath, &quicOn, &enabled, &lastSeen, &createdAt,
-			&n.Version, &n.Arch, &n.UpgradeTo)
+			&n.Version, &n.Arch, &n.UpgradeTo, &n.ExitID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Node{}, ErrNotFound
 	}

@@ -37,6 +37,10 @@ var installNodeTmpl = template.Must(template.New("install").Parse(installNodeTem
 type installParams struct {
 	Panel string
 	Token string
+
+	// Relay — приглашение входа каскада: ставится перекладчик без ключей
+	// и без сайта прикрытия (cascade.go).
+	Relay bool
 }
 
 // installScript отдаёт установщик, готовый к запуску: адрес панели и
@@ -55,7 +59,13 @@ func (a *API) installScript(w http.ResponseWriter, r *http.Request) {
 		base = "https://" + r.Host
 	}
 
-	out, err := renderInstall(base, token)
+	exitID, err := a.store.InviteExit(r.Context(), token)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	out, err := renderInstall(base, token, exitID != 0)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
@@ -71,10 +81,10 @@ func (a *API) installScript(w http.ResponseWriter, r *http.Request) {
 // значениях закрываем по правилам shell. Адрес без -sub-base берётся из
 // заголовка Host, а в нём одинарная кавычка допустима: без этого строка
 // установщика обрывалась бы на ней, и остаток шёл бы командой от root.
-func renderInstall(base, token string) ([]byte, error) {
+func renderInstall(base, token string, relay bool) ([]byte, error) {
 	quote := func(s string) string { return strings.ReplaceAll(s, "'", `'\''`) }
 	var out bytes.Buffer
-	if err := installNodeTmpl.Execute(&out, installParams{Panel: quote(base), Token: quote(token)}); err != nil {
+	if err := installNodeTmpl.Execute(&out, installParams{Panel: quote(base), Token: quote(token), Relay: relay}); err != nil {
 		return nil, err
 	}
 	return out.Bytes(), nil
@@ -203,11 +213,20 @@ func (a *API) registerNode(w http.ResponseWriter, r *http.Request) {
 func (a *API) createNodeInvite(w http.ResponseWriter, r *http.Request) {
 	var p struct {
 		Label string `json:"label"`
+
+		// ExitID — приглашение входа каскада для этой ноды (cascade.go).
+		ExitID int64 `json:"exit_id"`
 	}
 	// Тело необязательное: приглашение без пометки — обычное дело.
 	_ = decodeOptional(r, &p)
 
-	invite, token, err := a.store.CreateInvite(r.Context(), p.Label)
+	if p.ExitID != 0 {
+		if err := a.checkExit(r.Context(), p.ExitID); err != nil {
+			fail(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	invite, token, err := a.store.CreateInvite(r.Context(), p.Label, p.ExitID)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return

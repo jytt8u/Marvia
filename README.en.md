@@ -104,7 +104,7 @@ VP1 is not compatible with WireGuard or Xray clients.
 | Client | Server |
 |---|---|
 | Android: Marvia and third-party keys, node selection, usage and VPN settings, a choice of home screen, from a single button to country and subscription cards, apps and your own addresses outside the tunnel, name lookups over HTTPS hidden from the node, seller's Renew and Support | Panel and nodes: limits, accounting, plans and two-click renewal, an overview of who runs out soon and traffic by node, QR code and Telegram text, backups, bot API, migration from Marzban and 3x-ui; support and renew links and an announcement in the subscription for Happ, v2RayTun, Hiddify |
-| Windows: TUN client, Russian sites and home network directly, DNS choice and encrypted name lookups, split TLS hello, several keys, weekly and monthly traffic, custom MTU, works alongside zapret and GoodbyeDPI, clears interference for the connection by itself (WARP, an abandoned proxy) and checks that sites open, a status and promises overview in settings, IPv6 and reports switches, seller's Support and Renew | VP1, VLESS and Trojan; verified node updates |
+| Windows: TUN client, Russian sites and home network directly, DNS choice and encrypted name lookups, split TLS hello, several keys, weekly and monthly traffic, custom MTU, works alongside zapret and GoodbyeDPI, clears interference for the connection by itself (WARP, an abandoned proxy) and checks that sites open, a status and promises overview in settings, IPv6 and reports switches, seller's Support and Renew | VP1, VLESS and Trojan; verified node updates; an entry in Russia — a cascade through a Russian cloud for whitelist regimes |
 
 Manually selected nodes connect without waiting for measurements of every
 other node. If the selected node is unavailable, the client checks fallbacks.
@@ -194,6 +194,8 @@ client in the panel. [Full guide (Russian)](docs/guide.md) · [Bot API](docs/bot
 - Encrypted name lookups (DoH) are covered by tests but not yet checked on a
   real phone and PC. They hide names from the node, not site addresses or the
   name in the TLS hello (SNI): the node still sees those.
+- The entry in Russia (cascade) is covered by tests but not yet checked on a
+  real Russian cloud under whitelists.
 
 For a future verified 1.x release, the bot API, `marvia://` links and subscription format are intended to
 remain backward compatible throughout 1.x. Marvia does not sell VPN access,

@@ -23,6 +23,10 @@ set -eu
 
 PANEL='{{.Panel}}'
 INVITE='{{.Token}}'
+# RELAY=1 — вход каскада: принимает покупателей здесь и перекладывает их
+# соединения на зарубежную ноду, которую назовёт панель. Ключей у него нет,
+# сайт прикрытия ему не нужен: и то и другое — у выхода.
+RELAY={{if .Relay}}1{{else}}0{{end}}
 PORT="${PORT:-443}"
 DEST="${DEST:-www.samsung.com:443}"
 NAME="${NAME:-$(hostname 2>/dev/null || echo нода)}"
@@ -90,16 +94,19 @@ spin() {
 	return $rc
 }
 
+WHAT='установка ноды'
+[ "$RELAY" = 1 ] && WHAT='установка входа'
+
 banner() {
 	if [ "$TTY" != 1 ]; then
-		say "marvia · установка ноды · панель $PANEL"
+		say "marvia · $WHAT · панель $PANEL"
 		say ''
 		return
 	fi
 	say ''
 	printf '  %s███╗   ███╗%s\n' "$ACCENT" "$RESET"
 	printf '  %s████╗ ████║%s   %smarvia%s\n' "$ACCENT" "$RESET" "$BOLD" "$RESET"
-	printf '  %s██╔████╔██║%s   установка ноды\n' "$ACCENT" "$RESET"
+	printf '  %s██╔████╔██║%s   %s\n' "$ACCENT" "$RESET" "$WHAT"
 	printf '  %s██║╚██╔╝██║%s\n' "$ACCENT" "$RESET"
 	printf '  %s██║ ╚═╝ ██║%s   %sпанель  %s%s\n' "$ACCENT" "$RESET" "$DIM" "$PANEL" "$RESET"
 	printf '  %s╚═╝     ╚═╝%s   %sнода    %s · порт %s%s\n' "$ACCENT" "$RESET" "$DIM" "$NAME" "$PORT" "$RESET"
@@ -163,10 +170,12 @@ if [ -n "$GIVEN_KEY$GIVEN_PUB" ]; then
 	esac
 fi
 
-spin "проверяю сайт прикрытия $DEST_HOST" \
-	curl -sI --max-time 10 --tlsv1.3 "https://$DEST_HOST/" -o /dev/null ||
-	die "сайт прикрытия $DEST_HOST недоступен отсюда или не умеет TLS 1.3. Возьми другой: DEST=www.icloud.com:443"
-done_ "сайт прикрытия $DEST_HOST отвечает по TLS 1.3"
+if [ "$RELAY" != 1 ]; then
+	spin "проверяю сайт прикрытия $DEST_HOST" \
+		curl -sI --max-time 10 --tlsv1.3 "https://$DEST_HOST/" -o /dev/null ||
+		die "сайт прикрытия $DEST_HOST недоступен отсюда или не умеет TLS 1.3. Возьми другой: DEST=www.icloud.com:443"
+	done_ "сайт прикрытия $DEST_HOST отвечает по TLS 1.3"
+fi
 
 # ---------------------------------------------------------------- установка
 
@@ -200,7 +209,7 @@ fetch() {
 }
 
 fetch marvia-node
-fetch marvia-keygen
+[ "$RELAY" = 1 ] || fetch marvia-keygen
 
 # Запускаем то, что скачали, до выпуска ключей: чужая разрядность или
 # побитый файл должны остановить установку, пока приглашение ещё живо.
@@ -210,37 +219,45 @@ VERSION=$(awk '{print $2}' "$WORK/version")
 
 umask 077
 
-"$DIR/marvia-keygen" >"$DIR/.k1" 2>&1
-"$DIR/marvia-keygen" -reality >"$DIR/.k2" 2>&1
+if [ "$RELAY" != 1 ]; then
+	"$DIR/marvia-keygen" >"$DIR/.k1" 2>&1
+	"$DIR/marvia-keygen" -reality >"$DIR/.k2" 2>&1
 
-NODE_KEY=$(awk '/Приватный ключ:/{print $3; exit}' "$DIR/.k1")
-NODE_PUB=$(awk '/Публичный ключ:/{print $3; exit}' "$DIR/.k1")
-REALITY_KEY=$(awk '/Приватный ключ:/{print $3; exit}' "$DIR/.k2")
-REALITY_PUB=$(awk '/Публичный ключ:/{print $3; exit}' "$DIR/.k2")
-SHORT_ID=$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')
+	NODE_KEY=$(awk '/Приватный ключ:/{print $3; exit}' "$DIR/.k1")
+	NODE_PUB=$(awk '/Публичный ключ:/{print $3; exit}' "$DIR/.k1")
+	REALITY_KEY=$(awk '/Приватный ключ:/{print $3; exit}' "$DIR/.k2")
+	REALITY_PUB=$(awk '/Публичный ключ:/{print $3; exit}' "$DIR/.k2")
+	SHORT_ID=$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')
 
-rm -f "$DIR/.k1" "$DIR/.k2"
-[ -n "$NODE_KEY" ] && [ -n "$REALITY_KEY" ] || die 'не получилось выпустить ключи'
+	rm -f "$DIR/.k1" "$DIR/.k2"
+	[ -n "$NODE_KEY" ] && [ -n "$REALITY_KEY" ] || die 'не получилось выпустить ключи'
 
-# Прежние ключи REALITY заменяют новые целиком: публичный ключ из пары
-# покупатели уже держат в ссылках как pbk.
-if [ -n "$GIVEN_KEY" ]; then
-	REALITY_KEY=$GIVEN_KEY
-	REALITY_PUB=$GIVEN_PUB
-	done_ 'ключи REALITY прежние — старые ссылки подойдут'
+	# Прежние ключи REALITY заменяют новые целиком: публичный ключ из пары
+	# покупатели уже держат в ссылках как pbk.
+	if [ -n "$GIVEN_KEY" ]; then
+		REALITY_KEY=$GIVEN_KEY
+		REALITY_PUB=$GIVEN_PUB
+		done_ 'ключи REALITY прежние — старые ссылки подойдут'
+	fi
+	SHORT_IDS="${SHORT_IDS:-$SHORT_ID}"
+
+	printf '%s\n' "$NODE_KEY" >"$DIR/node.key"
+	chmod 600 "$DIR/node.key"
+	done_ 'ключи выпущены, приватные остались здесь'
 fi
-SHORT_IDS="${SHORT_IDS:-$SHORT_ID}"
-
-printf '%s\n' "$NODE_KEY" >"$DIR/node.key"
-chmod 600 "$DIR/node.key"
-done_ 'ключи выпущены, приватные остались здесь'
 
 # ---------------------------------------------------------------- запись в панель
 
 # Адрес не отправляем: за NAT нода видит свой внутренний, а панель видит
 # настоящий, с которого пришло соединение.
-BODY=$(printf '{"name":"%s","country":"%s","port":%s,"sni":"%s","public_key":"%s","reality_public_key":"%s","reality_short_id":"%s"}' \
-	"$NAME" "$COUNTRY" "$PORT" "${SNI%%,*}" "$NODE_PUB" "$REALITY_PUB" "${SHORT_IDS%%,*}")
+if [ "$RELAY" = 1 ]; then
+	BODY=$(printf '{"name":"%s","country":"%s","port":%s}' "$NAME" "$COUNTRY" "$PORT")
+	RUN_ARGS="-panel $PANEL -relay"
+else
+	BODY=$(printf '{"name":"%s","country":"%s","port":%s,"sni":"%s","public_key":"%s","reality_public_key":"%s","reality_short_id":"%s"}' \
+		"$NAME" "$COUNTRY" "$PORT" "${SNI%%,*}" "$NODE_PUB" "$REALITY_PUB" "${SHORT_IDS%%,*}")
+	RUN_ARGS="-key-file $DIR/node.key -panel $PANEL -reality-dest $DEST -reality-sni $SNI -reality-short-id $SHORT_IDS"
+fi
 
 spin 'записываюсь в панель' \
 	curl -fsS -X POST "$PANEL/api/v1/nodes/register" \
@@ -255,10 +272,15 @@ done_ 'нода записана в панель'
 
 # Секреты уезжают в файл окружения, а не в строку запуска. В строке запуска
 # их видел бы любой пользователь системы через ps.
-cat >"$DIR/env" <<ENVEOF
+if [ "$RELAY" = 1 ]; then
+	printf 'MARVIA_NODE_TOKEN=%s
+' "$NODE_TOKEN" >"$DIR/env"
+else
+	cat >"$DIR/env" <<ENVEOF
 MARVIA_NODE_TOKEN=$NODE_TOKEN
 MARVIA_REALITY_KEY=$REALITY_KEY
 ENVEOF
+fi
 chmod 600 "$DIR/env"
 
 # ---------------------------------------------------------------- служба
@@ -329,7 +351,7 @@ User=marvia
 Group=marvia
 WorkingDirectory=$DIR
 EnvironmentFile=$DIR/env
-ExecStart=$DIR/marvia-node -listen 0.0.0.0:$PORT -key-file $DIR/node.key -panel $PANEL -reality-dest $DEST -reality-sni $SNI -reality-short-id $SHORT_IDS
+ExecStart=$DIR/marvia-node -listen 0.0.0.0:$PORT $RUN_ARGS
 Restart=on-failure
 
 # Отступ между попытками. Раньше стояло три секунды: нода, падавшая при
@@ -378,11 +400,19 @@ done_ 'служба работает'
 
 say ''
 printf '  %s────────────────────────────────────────────%s\n' "$DIM" "$RESET"
-printf '  %s●%s %sнода поднята и записана в панель%s\n' "$OK" "$RESET" "$BOLD" "$RESET"
+if [ "$RELAY" = 1 ]; then
+	printf '  %s●%s %sвход поднят и записан в панель%s\n' "$OK" "$RESET" "$BOLD" "$RESET"
+else
+	printf '  %s●%s %sнода поднята и записана в панель%s\n' "$OK" "$RESET" "$BOLD" "$RESET"
+fi
 say ''
 printf '    имя         %s\n' "$NAME"
 printf '    порт        %s\n' "$PORT"
-printf '    прикрытие   %s\n' "$DEST"
+if [ "$RELAY" = 1 ]; then
+	printf '    выход       тот, что назвала панель: сменить можно там же\n'
+else
+	printf '    прикрытие   %s\n' "$DEST"
+fi
 printf '    версия      %s · %s\n' "${VERSION:-?}" "$ARCH"
 say ''
 printf '    %sжурнал      journalctl -u marvia-node -f%s\n' "$DIM" "$RESET"

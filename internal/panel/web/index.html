@@ -2463,7 +2463,9 @@ function sheet(title, body, buttons, onClose) {
   for (const part of body) box.append(part);
   if (buttons && buttons.length) {
     const row = el("div", { cls: "row" });
-    for (const b of buttons) row.append(b);
+    // null — кнопка, которой здесь нет: окну ноды «Вход в России» положен
+    // только у обычной ноды.
+    for (const b of buttons) if (b) row.append(b);
     box.append(row);
   }
 
@@ -2943,9 +2945,12 @@ function userSheet(user) {
 // Панель отдаёт не инструкцию, а готовую строку: приглашение уже внутри,
 // бинарники нода возьмёт у самой панели. На чистом сервере не нужно ни
 // флагов, ни файлов для правки.
-function newNodeSheet() {
+//
+// exit — нода, к которой ставится вход каскада (cascade.go). Та же строка,
+// но установщик по приглашению поставит перекладчик без ключей.
+function newNodeSheet(exit) {
   act(async () => {
-    const res = await api("/api/v1/nodes/invite", "POST", { label: "" });
+    const res = await api("/api/v1/nodes/invite", "POST", exit ? { label: "", exit_id: exit.id } : { label: "" });
     const cmd = res.command;
 
     const d = L();
@@ -2953,8 +2958,8 @@ function newNodeSheet() {
     const steps = el("div", { cls: "wizard" });
     const help = el("div", { cls: "wizard-help" });
     help.hidden = true;
-    sheet(d.node.newTitle, [
-      el("div", { cls: "note", text: d.node.paste }),
+    sheet(exit ? d.node.entryTitle(exit.name || exit.address) : d.node.newTitle, [
+      el("div", { cls: "note", text: exit ? d.node.entryPaste : d.node.paste }),
       el("pre", { text: cmd }),
       btn(d.act.copy, "go", async () => {
         try {
@@ -2967,7 +2972,7 @@ function newNodeSheet() {
       steps,
       help,
       el("div", { cls: "note", text: d.node.invite }),
-      el("div", { cls: "note", text: d.node.vars }),
+      el("div", { cls: "note", text: exit ? d.node.entryVars : d.node.vars }),
     ], [btn(d.act.done, "", () => { closeSheet(); loadAll(); })]);
     watchNewNode(steps, help, before);
   });
@@ -3023,21 +3028,26 @@ function nodeSheet(node) {
   const alive = nodeAlive(node);
 
   const d = L();
+  const entry = !!node.exit_id;
   const facts = [
     [d.node.address, node.address],
-    [d.node.cover, node.sni || "—"],
+    entry ? null : [d.node.cover, node.sni || "—"],
     [d.node.state, node.enabled ? (alive ? d.node.online : d.node.silentOn) : d.node.offState],
     [d.node.lastSeen, sinceLabel(node.last_seen)],
-  ].map(([k, v]) => el("div", { cls: "note", text: k + ": " + v }));
+  ].filter(Boolean).map(([k, v]) => el("div", { cls: "note", text: k + ": " + v }));
 
   // Имя и страну пишет продавец, а не хостер и не панель. Хостер зовёт машину
   // vm-4823917-ubuntu, и ровно это видит покупатель в списке серверов; а адреса
   // у хостеров числятся то в Нидерландах, то в США, так что определять страну
   // по адресу значит врать покупателю, выбравшему Финляндию.
-  const form = [
-    field(d.node.name[0], "nd-name", "text", node.name || "", d.node.name[1]),
-    field(d.node.country[0], "nd-country", "text", node.country || "", d.node.country[1]),
-  ];
+  // У входа страну покупатель не видит — он видит страну выхода, а вход
+  // только в имени. Поле страны там обещало бы то, чего нет.
+  const form = entry
+    ? [field(d.node.name[0], "nd-name", "text", node.name || "", d.node.entryName)]
+    : [
+      field(d.node.name[0], "nd-name", "text", node.name || "", d.node.name[1]),
+      field(d.node.country[0], "nd-country", "text", node.country || "", d.node.country[1]),
+    ];
 
   // Отпечаток TLS выбирает продавец, а не клиент. Перебирать его самому
   // клиенту нельзя: по наблюдениям 2026 года смена отпечатка сразу после
@@ -3050,7 +3060,22 @@ function nodeSheet(node) {
   }
   // Отпечаток — тонкая настройка: в простом режиме поле не показываем, а
   // сохраняем то, что уже выбрано, — fp.value берётся из списка и без него.
-  form.push(el("label", { text: d.node.fp[0] }, fp, el("span", { cls: "note", text: d.node.fp[1] })));
+  // У входа своего отпечатка нет: в подписку он уходит с отпечатком выхода.
+  if (!entry) form.push(el("label", { text: d.node.fp[0] }, fp, el("span", { cls: "note", text: d.node.fp[1] })));
+
+  // Вход каскада: куда он ведёт, с выбором другого выхода. Выходом бывает
+  // только обычная нода не за CDN — то же, что проверяет панель (checkExit).
+  const exitPick = el("select", { id: "nd-exit" });
+  if (entry) {
+    for (const n of state.nodes || []) {
+      if (n.exit_id || n.ws_path || n.id === node.id) continue;
+      const option = el("option", { value: String(n.id), text: n.name || n.address });
+      if (n.id === node.exit_id) option.setAttribute("selected", "");
+      exitPick.append(option);
+    }
+    form.push(el("label", { text: d.node.entryExit[0] }, exitPick, el("span", { cls: "note", text: d.node.entryExit[1] })));
+    form.push(el("div", { cls: "note", text: d.node.entryNote }));
+  }
 
   // Запасные имена прикрытия — только под REALITY: там ноду подтверждает её
   // ключ, а не сертификат, и в SNI годится любое принимаемое имя. При обычном
@@ -3067,11 +3092,22 @@ function nodeSheet(node) {
 
   sheet(node.name || node.address, facts.concat(form), [
     btn(d.node.save, "go", () => act(async () => {
-      await api("/api/v1/nodes/" + node.id, "PATCH", { name: val("nd-name"), country: val("nd-country"), fingerprint: fp.value });
+      const patch = { name: val("nd-name") };
+      if (entry) {
+        const to = Number(exitPick.value);
+        if (to && to !== node.exit_id) patch.exit_id = to;
+      } else {
+        patch.country = val("nd-country");
+        patch.fingerprint = fp.value;
+      }
+      await api("/api/v1/nodes/" + node.id, "PATCH", patch);
       closeSheet();
       toast(d.node.saved);
       await loadAll();
     })),
+    // Вход в России ставится к обычной ноде не за CDN: за CDN адрес ноды и
+    // так скрыт, а сырые байты от входа CDN не поймёт.
+    entry || node.ws_path ? null : btn(d.node.addEntry, "", () => { closeSheet(); newNodeSheet(node); }),
     btn(node.enabled ? d.node.disable : d.node.enable, "", () => act(async () => {
       await api("/api/v1/nodes/" + node.id, "PATCH", { enabled: !node.enabled });
       closeSheet();
@@ -3643,6 +3679,7 @@ const TEXTS = {
       empty: "Ни одной ноды. Установщик раздаёт сама панель — заведи ноду и получишь команду.",
       online: "НА СВЯЗИ", silent: "МОЛЧИТ", off: "ВЫКЛЮЧЕНА",
       silentShort: "молчит", offShort: "выкл",
+      via: (exit) => "вход → " + exit,
     },
 
     statsPage: {
@@ -3894,6 +3931,17 @@ const TEXTS = {
       sniExtra: "Запасные имена прикрытия",
       fp: ["Отпечаток TLS", "Чьё приветствие изображает клиент. Меняй, только если на ноду массово не подключаются, и не чаще раза в несколько минут"],
       fpDefault: "chrome — по умолчанию",
+      addEntry: "Вход в России",
+      entryTitle: (exit) => "Вход к ноде " + exit,
+      entryPaste: "Вставь эту строку на сервере в российском облаке (Яндекс Облако, Selectel, VK Cloud) — от root. "
+        + "Вход примет покупателей там, куда их пускают и при белых списках, и переложит соединения на эту ноду. "
+        + "Ключей у входа нет, список покупателей он не получает: шифрование идёт насквозь до ноды.",
+      entryVars: "Порт и имя можно задать переменными перед sh, например: PORT=443 NAME=Москва. "
+        + "Имя увидит покупатель: «Хельсинки · вход Москва».",
+      entryName: "Видно покупателю после имени выхода: «Хельсинки · вход Москва». Страна — выхода",
+      entryExit: ["Выход", "Нода, на которую вход перекладывает соединения. Смена доезжает до входа за четверть минуты"],
+      entryNote: "Покупатель получит вход отдельной строкой в подписке: ключи выхода, адрес входа. "
+        + "Задержка вырастет на путь от входа до выхода, обычно на 20–50 мс.",
       save: "Сохранить", saved: "Сохранено",
       disable: "Выключить", enable: "Включить",
       disabled: "Нода убрана из подписок", enabled: "Нода вернулась в подписки",
@@ -4083,6 +4131,7 @@ const TEXTS = {
       empty: "No nodes yet. The panel serves the installer itself — add a node and you get the command.",
       online: "ONLINE", silent: "SILENT", off: "DISABLED",
       silentShort: "silent", offShort: "off",
+      via: (exit) => "entry → " + exit,
     },
 
     statsPage: {
@@ -4334,6 +4383,17 @@ const TEXTS = {
       sniExtra: "Spare cover names",
       fp: ["TLS fingerprint", "Whose hello the client imitates. Change it only if buyers massively fail to connect, and not more often than every few minutes"],
       fpDefault: "chrome — default",
+      addEntry: "Entry in Russia",
+      entryTitle: (exit) => "Entry to " + exit,
+      entryPaste: "Paste this on a server in a Russian cloud (Yandex Cloud, Selectel, VK Cloud), as root. "
+        + "The entry accepts buyers where even whitelists let them in and forwards their connections to this node. "
+        + "The entry has no keys and never gets the buyer list: encryption goes end to end to the node.",
+      entryVars: "Port and name can be set with variables before sh, for example: PORT=443 NAME=Moscow. "
+        + "The buyer sees the name: “Helsinki · entry Moscow”.",
+      entryName: "The buyer sees it after the exit name: “Helsinki · entry Moscow”. The country is the exit's",
+      entryExit: ["Exit", "The node the entry forwards connections to. A change reaches the entry within fifteen seconds"],
+      entryNote: "Buyers get the entry as a separate line in the subscription: exit keys, entry address. "
+        + "Latency grows by the path from entry to exit, usually 20–50 ms.",
       save: "Save", saved: "Saved",
       disable: "Disable", enable: "Enable",
       disabled: "Node removed from subscriptions", enabled: "Node is back in subscriptions",
@@ -5087,16 +5147,20 @@ function renderVals() {
   for (const x of byNode) nodeTraffic.set(x.node_id, (x.up || 0) + (x.down || 0));
   const nodePeak = [...nodeTraffic.values()].reduce((m, v) => Math.max(m, v), 0) || 1;
 
+  const nodeName = new Map(nodes.map((n) => [n.id, n.name || n.address]));
   const nodeCards = nodes.map((n) => {
     const alive = nodeAlive(n);
     const traffic = nodeTraffic.get(n.id) || 0;
     const fl = flagOf(n.country);
+    // Вход каскада сам трафика не считает — его считает выход, — поэтому
+    // вместо доли важнее, куда он ведёт.
+    const via = n.exit_id ? d18.nodesPage.via(nodeName.get(n.exit_id) || "?") + " · " : "";
     return Object.assign({}, fl, {
       onClick: () => nodeSheet(n),
       name: n.name || n.address,
       // Страну, у которой есть флаг, флаг и называет (полностью — в
       // подсказке); незнакомую оставляем словом, как её написал продавец.
-      host: n.address + (n.country && !fl.flag ? " · " + n.country : "") + (n.version ? " · " + n.version : ""),
+      host: via + n.address + (n.country && !fl.flag ? " · " + n.country : "") + (n.version ? " · " + n.version : ""),
       load: bytes(traffic),
       share: total ? Math.round((traffic / total) * 100) + "%" : "0%",
       seen: alive ? sinceLabel(n.last_seen) : n.enabled ? d18.nodesPage.silentShort : d18.nodesPage.offShort,

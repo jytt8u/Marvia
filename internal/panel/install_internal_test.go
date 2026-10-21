@@ -8,7 +8,7 @@ import (
 // Адрес панели без -sub-base берётся из заголовка Host, а в нём допустима
 // одинарная кавычка. Строка установщика не должна из-за неё обрываться.
 func TestPanelAddressWithQuoteStaysInsideInstallerString(t *testing.T) {
-	out, err := renderInstall("https://x';touch /tmp/p;'", "invite")
+	out, err := renderInstall("https://x';touch /tmp/p;'", "invite", false)
 	if err != nil {
 		t.Fatal(err)
 	}

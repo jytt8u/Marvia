@@ -25,6 +25,12 @@ type accessSnapshot struct {
 	At      time.Time              `json:"at"`
 	Users   []users.User           `json:"users"`
 	Usage   map[string]users.Usage `json:"usage"`
+
+	// RelayTo и Relays — каскад (route.go). Без них вход, перезапущенный при
+	// лежащей панели, не знал бы, куда перекладывать, а выход — кому верить
+	// адрес покупателя; доступы при этом были бы на месте.
+	RelayTo string   `json:"relay_to,omitempty"`
+	Relays  []string `json:"relays,omitempty"`
 }
 
 // WithSnapshot включает восстановление доступа после перезапуска. Файл
@@ -50,7 +56,8 @@ func (c *Client) saveSnapshot(list []users.User, at time.Time) error {
 	for i := range clean {
 		clean[i].Label = ""
 	}
-	plain, err := json.Marshal(accessSnapshot{1, at.UTC(), clean, c.snapshotUsage})
+	to, relays := c.route.get()
+	plain, err := json.Marshal(accessSnapshot{Version: 1, At: at.UTC(), Users: clean, Usage: c.snapshotUsage, RelayTo: to, Relays: relays})
 	if err != nil {
 		return err
 	}
@@ -163,6 +170,7 @@ func (c *Client) Bootstrap(ctx context.Context, saved map[string]users.Usage) ([
 	if ctx.Err() != nil && !errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return nil, nil, false, ctx.Err()
 	}
+	c.route.set(snapshot.RelayTo, snapshot.Relays)
 	return snapshot.Users, usage, true, nil
 }
 

@@ -408,7 +408,7 @@ func (a *API) links(ctx context.Context, user User, issued []Issued) map[string]
 		return out
 	}
 
-	nodes, err := a.store.ListNodes(ctx)
+	nodes, err := a.store.SubscriptionNodes(ctx)
 	if err != nil {
 		// Ссылки на ноды не собрались, но подписку отдать всё равно можно:
 		// клиент возьмёт список оттуда.
@@ -577,7 +577,7 @@ func (a *API) userLinks(w http.ResponseWriter, r *http.Request) {
 		respondStoreErr(w, err)
 		return
 	}
-	nodes, err := a.store.ListNodes(r.Context())
+	nodes, err := a.store.SubscriptionNodes(r.Context())
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
@@ -790,6 +790,28 @@ func (a *API) updateNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if p.ExitID != nil {
+		// Выход меняют только у входа: обычная нода, ставшая «входом»
+		// правкой, осталась бы с ключами и покупателями, которых вход
+		// знать не должен.
+		current, err := a.store.GetNode(r.Context(), id)
+		if err != nil {
+			respondStoreErr(w, err)
+			return
+		}
+		if current.ExitID == 0 {
+			fail(w, http.StatusBadRequest, "выход меняют только у входа каскада")
+			return
+		}
+		if *p.ExitID == id {
+			fail(w, http.StatusBadRequest, "вход не может вести сам в себя")
+			return
+		}
+		if err := a.checkExit(r.Context(), *p.ExitID); err != nil {
+			fail(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 
 	node, err := a.store.UpdateNode(r.Context(), id, p)
 	if err != nil {
@@ -814,14 +836,24 @@ func (a *API) deleteNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) nodeUsers(w http.ResponseWriter, r *http.Request, n Node) {
+	if n.ExitID != 0 {
+		a.entrySync(w, r, n)
+		return
+	}
 	list, err := a.store.NodeUsers(r.Context(), n.ID)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	relays, err := a.store.RelayIPs(r.Context(), n.ID)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	// upgrade_to — просьба обновиться, если продавец её дал. Нода передаёт
 	// её службе обновления; что ставить, та решает сама (internal/updater).
-	ok(w, map[string]any{"users": list, "upgrade_to": n.UpgradeTo})
+	// relays — адреса входов каскада, от которых верить адресу покупателя.
+	ok(w, map[string]any{"users": list, "upgrade_to": n.UpgradeTo, "relays": relays})
 }
 
 // maxCoverNames — сколько имён прикрытия панель принимает от ноды за раз.
@@ -939,7 +971,7 @@ func (a *API) serveSubscription(w http.ResponseWriter, r *http.Request, user Use
 		return
 	}
 
-	nodes, err := a.store.ListNodes(r.Context())
+	nodes, err := a.store.SubscriptionNodes(r.Context())
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
@@ -1663,6 +1695,9 @@ func nodeUpdateDetail(p UpdateNodeParams) string {
 	}
 	if p.Fingerprint != nil {
 		parts = append(parts, "изменён отпечаток TLS")
+	}
+	if p.ExitID != nil {
+		parts = append(parts, "сменён выход")
 	}
 	// Имена прикрытия нода присылает сама, каждым отчётом. Писать о них в
 	// журнал значило бы забивать его строками, которых человек не делал.

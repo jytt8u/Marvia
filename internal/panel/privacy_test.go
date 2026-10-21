@@ -34,11 +34,12 @@ func TestPanelSchemaHasNoPlaceForBuyerAddresses(t *testing.T) {
 	ctx := context.Background()
 
 	allowed := map[string]string{
-		"nodes.address": "адрес сервера продавца, а не покупателя",
-		"nodes.country": "страна ноды, её пишет продавец",
-		"users.max_ips": "лимит устройств — число, а не адреса",
-		"plans.max_ips": "лимит устройств в тарифе — тоже число",
-		"presence.ips":  "сколько адресов было за окно — число, сами адреса остаются на ноде в памяти",
+		"nodes.address":  "адрес сервера продавца, а не покупателя",
+		"nodes.relay_ip": "адрес входа каскада — сервера продавца, с которого тот сверяется с панелью",
+		"nodes.country":  "страна ноды, её пишет продавец",
+		"users.max_ips":  "лимит устройств — число, а не адреса",
+		"plans.max_ips":  "лимит устройств в тарифе — тоже число",
+		"presence.ips":   "сколько адресов было за окно — число, сами адреса остаются на ноде в памяти",
 	}
 	suspicious := []string{"ip", "addr", "remote", "agent", "mail", "phone", "tel", "geo", "city", "country", "device", "imei", "mac"}
 

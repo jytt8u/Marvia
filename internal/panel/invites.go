@@ -41,11 +41,16 @@ type Invite struct {
 	ExpiresAt time.Time  `json:"expires_at"`
 	UsedAt    *time.Time `json:"used_at,omitempty"`
 	NodeID    *int64     `json:"node_id,omitempty"`
-	CreatedAt time.Time  `json:"created_at"`
+
+	// ExitID — у приглашения входа каскада: чей это вход. По такому
+	// приглашению записывается не нода, а вход (cascade.go).
+	ExitID    int64     `json:"exit_id,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // CreateInvite выпускает приглашение и возвращает его токен — один раз.
-func (s *Store) CreateInvite(ctx context.Context, label string) (Invite, string, error) {
+// exitID — для входа каскада: чей вход; ноль — обычная нода.
+func (s *Store) CreateInvite(ctx context.Context, label string, exitID int64) (Invite, string, error) {
 	token, err := NewToken()
 	if err != nil {
 		return Invite{}, "", err
@@ -55,8 +60,8 @@ func (s *Store) CreateInvite(ctx context.Context, label string) (Invite, string,
 	expires := now.Add(InviteLifetime)
 
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO node_invites (token_hash, label, expires_at, created_at) VALUES (?, ?, ?, ?)`,
-		HashToken(token), label, format(expires), format(now))
+		`INSERT INTO node_invites (token_hash, label, expires_at, created_at, exit_id) VALUES (?, ?, ?, ?, ?)`,
+		HashToken(token), label, format(expires), format(now), nullID(exitID))
 	if err != nil {
 		return Invite{}, "", fmt.Errorf("выпуск приглашения: %w", err)
 	}
@@ -65,7 +70,7 @@ func (s *Store) CreateInvite(ctx context.Context, label string) (Invite, string,
 		return Invite{}, "", err
 	}
 
-	return Invite{ID: id, Label: label, ExpiresAt: expires, CreatedAt: now}, token, nil
+	return Invite{ID: id, Label: label, ExpiresAt: expires, CreatedAt: now, ExitID: exitID}, token, nil
 }
 
 // RedeemInvite обменивает приглашение на запись ноды и её токен.
@@ -92,10 +97,11 @@ func (s *Store) RedeemInvite(ctx context.Context, token string, p CreateNodePara
 	var (
 		inviteID int64
 		expires  string
+		exitID   int64
 	)
 	err = tx.QueryRowContext(ctx,
-		`SELECT id, expires_at FROM node_invites WHERE token_hash = ? AND used_at IS NULL`,
-		HashToken(token)).Scan(&inviteID, &expires)
+		`SELECT id, expires_at, COALESCE(exit_id, 0) FROM node_invites WHERE token_hash = ? AND used_at IS NULL`,
+		HashToken(token)).Scan(&inviteID, &expires, &exitID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Node{}, "", ErrInviteSpent
 	}
@@ -111,11 +117,17 @@ func (s *Store) RedeemInvite(ctx context.Context, token string, p CreateNodePara
 		return Node{}, "", err
 	}
 
+	if exitID != 0 {
+		// Входу ключи и маскировка ни к чему: протокол насквозь говорит
+		// выход, и в подписку уходят его параметры. Что бы установщик ни
+		// прислал, в запись входа это не попадает.
+		p = CreateNodeParams{Name: p.Name, Country: p.Country, Address: p.Address}
+	}
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO nodes (name, country, address, sni, public_key, reality_public_key, reality_short_id, ws_path, token_hash, enabled, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+		`INSERT INTO nodes (name, country, address, sni, public_key, reality_public_key, reality_short_id, ws_path, token_hash, enabled, created_at, exit_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
 		p.Name, p.Country, p.Address, p.SNI, p.PublicKey, p.RealityPublicKey, p.RealityShortID, p.WSPath,
-		HashToken(nodeToken), format(now))
+		HashToken(nodeToken), format(now), nullID(exitID))
 	if err != nil {
 		return Node{}, "", fmt.Errorf("создание ноды: %w", err)
 	}
@@ -138,7 +150,7 @@ func (s *Store) RedeemInvite(ctx context.Context, token string, p CreateNodePara
 		ID: nodeID, Name: p.Name, Country: p.Country, Address: p.Address, SNI: p.SNI,
 		PublicKey: p.PublicKey, RealityPublicKey: p.RealityPublicKey,
 		RealityShortID: p.RealityShortID, WSPath: p.WSPath,
-		Enabled: true, CreatedAt: now,
+		Enabled: true, CreatedAt: now, ExitID: exitID,
 	}, nodeToken, nil
 }
 
@@ -158,4 +170,17 @@ func (s *Store) InviteAlive(ctx context.Context, token string) (bool, error) {
 		return false, err
 	}
 	return parse(expires).After(time.Now().UTC()), nil
+}
+
+// InviteExit — чей вход ставит приглашение; ноль — обычная нода. Установщик
+// по нему решает, что ставить: ноду с ключами или перекладчик без них.
+func (s *Store) InviteExit(ctx context.Context, token string) (int64, error) {
+	var exitID int64
+	err := s.db.QueryRowContext(ctx,
+		`SELECT COALESCE(exit_id, 0) FROM node_invites WHERE token_hash = ? AND used_at IS NULL`,
+		HashToken(token)).Scan(&exitID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrInviteSpent
+	}
+	return exitID, err
 }

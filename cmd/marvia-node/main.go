@@ -29,6 +29,7 @@ import (
 	"github.com/jytt8u/marvia/internal/envvar"
 	"github.com/jytt8u/marvia/internal/fallback"
 	"github.com/jytt8u/marvia/internal/nodesync"
+	"github.com/jytt8u/marvia/internal/proxyproto"
 	"github.com/jytt8u/marvia/internal/redact"
 	"github.com/jytt8u/marvia/internal/transport"
 	"github.com/jytt8u/marvia/internal/updater"
@@ -98,6 +99,10 @@ type serverOptions struct {
 	// quic поднимает второй слушатель на том же порту, но по UDP.
 	quic     bool
 	quicAddr string
+
+	// relay — вход каскада: принимать и перекладывать на ноду, которую
+	// назовёт панель (relay.go).
+	relay bool
 }
 
 func main() {
@@ -128,6 +133,7 @@ func main() {
 	flag.StringVar(&opts.quicAddr, "quic-listen", "", "отдельный адрес для QUIC (по умолчанию — тот же, что у -listen)")
 
 	flag.StringVar(&opts.coverTitle, "cover-title", "", "если сайт-прикрытие не задан, отдавать заглушку с таким заголовком")
+	flag.BoolVar(&opts.relay, "relay", false, "работать входом каскада: перекладывать соединения на ноду, которую назовёт панель (нужен -panel)")
 
 	showVersion := flag.Bool("version", false, "показать версию и выйти")
 	installUpdater := flag.Bool("install-updater", false, "поставить службу обновления по кнопке в панели и выйти (нужен root)")
@@ -146,6 +152,13 @@ func main() {
 		return
 	}
 
+	if opts.relay {
+		if err := runRelay(opts); err != nil {
+			fmt.Fprintf(os.Stderr, "ошибка: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(opts); err != nil {
 		fmt.Fprintf(os.Stderr, "ошибка: %v\n", err)
 		os.Exit(1)
@@ -166,7 +179,7 @@ func run(opts serverOptions) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	registry, usagePath, err := setupUsers(ctx, opts)
+	registry, usagePath, panel, err := setupUsers(ctx, opts)
 	if err != nil {
 		return err
 	}
@@ -176,6 +189,14 @@ func run(opts serverOptions) error {
 		return fmt.Errorf("прослушивание %s: %w", opts.listenAddr, err)
 	}
 	defer ln.Close()
+
+	// Адрес покупателя, пришедшего через вход каскада, нода узнаёт из
+	// заголовка, который вход шлёт первым (internal/proxyproto). Читается он
+	// до маскировки: вход перекладывает сырой поток, и TLS начинается уже за
+	// заголовком. Каким адресам верить, говорит панель.
+	if panel != nil {
+		ln = proxyproto.Listen(ln, panel.TrustsRelay)
+	}
 
 	addr := ln.Addr()
 	switch {
@@ -277,21 +298,21 @@ func run(opts serverOptions) error {
 //
 // Источник списка — либо панель, либо локальный файл. Панель приоритетнее:
 // если она задана, файл не читается вовсе.
-func setupUsers(ctx context.Context, opts serverOptions) (*users.Registry, string, error) {
+func setupUsers(ctx context.Context, opts serverOptions) (*users.Registry, string, *nodesync.Client, error) {
 	if opts.panelURL != "" {
 		return setupPanelUsers(ctx, opts)
 	}
 	if opts.usersFile == "" {
-		return nil, "", nil
+		return nil, "", nil, nil
 	}
 
 	list, err := users.LoadUsers(opts.usersFile)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 	registry, err := users.NewRegistry(list)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 
 	usagePath := opts.usageFile
@@ -320,7 +341,7 @@ func setupUsers(ctx context.Context, opts serverOptions) (*users.Registry, strin
 		log.Printf("не удалось сохранить расход: %v", err)
 	})
 
-	return registry, usagePath, nil
+	return registry, usagePath, nil, nil
 }
 
 // setupPanelUsers берёт список пользователей у панели.
@@ -391,12 +412,24 @@ func preparePanelUsers(ctx context.Context, opts serverOptions) (*users.Registry
 	return registry, usagePath, client, nil
 }
 
-func setupPanelUsers(ctx context.Context, opts serverOptions) (*users.Registry, string, error) {
+func setupPanelUsers(ctx context.Context, opts serverOptions) (*users.Registry, string, *nodesync.Client, error) {
 	registry, usagePath, client, err := preparePanelUsers(ctx, opts)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
-	go client.Run(ctx, registry, panelSyncInterval, nodesync.Events{
+	go client.Run(ctx, registry, panelSyncInterval, panelEvents())
+
+	go registry.PersistUsage(ctx, usagePath, usageFlushInterval, func(err error) {
+		log.Printf("не удалось сохранить расход: %v", err)
+	})
+
+	return registry, usagePath, client, nil
+}
+
+// panelEvents — что нода пишет в журнал о синхронизации с панелью и как
+// передаёт просьбу обновиться. Общее для ноды и входа каскада.
+func panelEvents() nodesync.Events {
+	return nodesync.Events{
 		OnUsers: func(count int) {
 			if count == 0 {
 				log.Printf("панель вернула пустой список пользователей")
@@ -426,13 +459,7 @@ func setupPanelUsers(ctx context.Context, opts serverOptions) (*users.Registry, 
 			}
 			log.Printf("панель просит обновиться до %s: просьба передана службе обновления", release)
 		},
-	})
-
-	go registry.PersistUsage(ctx, usagePath, usageFlushInterval, func(err error) {
-		log.Printf("не удалось сохранить расход: %v", err)
-	})
-
-	return registry, usagePath, nil
+	}
 }
 
 func logPanelSyncError(err error) {

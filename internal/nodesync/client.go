@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -60,6 +61,9 @@ type Client struct {
 	snapshotPath  string
 	snapshotUsage map[string]users.Usage
 	snapshotErr   error
+
+	// route — каскад, если нода в нём участвует; см. route.go.
+	route route
 }
 
 // buildRetry — через сколько снова сообщать сборку панели, которая её не
@@ -112,6 +116,7 @@ func (c *Client) FetchUsers(ctx context.Context) ([]users.User, error) {
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusUnauthorized {
 		c.forgetSnapshot()
+		c.route.set("", nil)
 		return nil, ErrNodeUnauthorized
 	}
 
@@ -132,6 +137,9 @@ func (c *Client) FetchUsers(ctx context.Context) ([]users.User, error) {
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		if panelSaysDisabled(raw) {
 			c.forgetSnapshot()
+			// Выключенный вход перестаёт перекладывать: выключение — то же
+			// «никого не пускать», что и у обычной ноды.
+			c.route.set("", nil)
 			return nil, ErrNodeDisabled
 		}
 		return nil, fmt.Errorf("панель ответила %s", resp.Status)
@@ -143,14 +151,25 @@ func (c *Client) FetchUsers(ctx context.Context) ([]users.User, error) {
 	var body struct {
 		Users     []users.User `json:"users"`
 		UpgradeTo string       `json:"upgrade_to"`
+
+		// RelayTo — только у входа: адрес выхода. Relays — только у выхода:
+		// адреса его входов. Панель постарше не шлёт ни того, ни другого.
+		RelayTo string   `json:"relay_to"`
+		Relays  []string `json:"relays"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponse)).Decode(&body); err != nil {
 		return nil, fmt.Errorf("разбор списка: %w", err)
+	}
+	if body.RelayTo != "" {
+		if _, _, err := net.SplitHostPort(body.RelayTo); err != nil {
+			return nil, fmt.Errorf("неверный адрес выхода %q: %w", body.RelayTo, err)
+		}
 	}
 	c.upgradeTo = body.UpgradeTo
 	if _, err := users.NewRegistry(body.Users); err != nil {
 		return nil, fmt.Errorf("неверный список доступов: %w", err)
 	}
+	c.route.set(body.RelayTo, body.Relays)
 	if c.snapshotPath != "" {
 		now := time.Now()
 		c.snapshotErr = c.saveSnapshot(body.Users, now)

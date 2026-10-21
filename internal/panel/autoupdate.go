@@ -133,6 +133,11 @@ func (a *API) autoUpdateAt(ctx context.Context, now time.Time) error {
 
 	res, err := a.upgradeEverything(ctx, ActorAuto)
 	if err != nil {
+		// Просьба не легла — отметку снимаем: следующая проверка этого же
+		// часа попробует снова, а не отложит обновление на сутки.
+		a.auto.mu.Lock()
+		delete(a.auto.done, latest)
+		a.auto.mu.Unlock()
 		return err
 	}
 	if res.Asked > 0 || res.Panel {

@@ -78,3 +78,43 @@ func TestAutoUpdateAsksOnlyInItsHourAndOnlyOnce(t *testing.T) {
 		t.Fatalf("тот же выпуск попрошен второй раз за ночь: %v", err)
 	}
 }
+
+// TestAutoUpdateTriesAgainWhenTheRequestDidNotLand: просьба службе не легла
+// (диск полон, каталог не тот) — следующая проверка того же часа пробует
+// снова, а не считает выпуск попрошенным до следующей ночи.
+func TestAutoUpdateTriesAgainWhenTheRequestDidNotLand(t *testing.T) {
+	home := t.TempDir()
+	store, err := panel.Open(filepath.Join(t.TempDir(), "panel.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	api := panel.NewAPI(store, adminToken, "https://sub.example.com", t.TempDir()).WithHome(home).WithVersion("v0.11.0")
+	server := httptest.NewServer(api.Handler())
+	t.Cleanup(server.Close)
+	h := &harness{t: t, server: server}
+	defer h.fakeRelease("v0.12.0")()
+	was := updater.AgentPath
+	updater.AgentPath = filepath.Join(t.TempDir(), "agent.sh")
+	t.Cleanup(func() { updater.AgentPath = was })
+	_ = os.WriteFile(updater.AgentPath, []byte("#!/bin/sh\n"), 0o755)
+	h.do(http.MethodPut, "/api/v1/updates/auto", adminToken, map[string]any{"enabled": true, "hour": 4}, nil)
+
+	// Файл на месте каталога просьб — просьба не ляжет.
+	blocker := filepath.Dir(updater.RequestPath(home))
+	if err := os.WriteFile(blocker, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 10, 21, 4, 5, 0, 0, time.FixedZone("MSK", 3*60*60))
+	ctx := context.Background()
+	if err := api.AutoUpdateAt(ctx, at); err == nil {
+		t.Fatal("просьба не легла, а ошибки нет")
+	}
+	_ = os.Remove(blocker)
+	if err := api.AutoUpdateAt(ctx, at.Add(10*time.Minute)); err != nil {
+		t.Fatalf("повтор: %v", err)
+	}
+	if _, err := os.Stat(updater.RequestPath(home)); err != nil {
+		t.Fatal("после неудачи автообновление больше не пробовало")
+	}
+}

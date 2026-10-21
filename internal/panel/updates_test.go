@@ -5,7 +5,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jytt8u/marvia/internal/panel"
 	"github.com/jytt8u/marvia/internal/updater"
@@ -259,5 +261,48 @@ func TestUpgradeAllAsksNodesAndThePanelAtOnce(t *testing.T) {
 	}
 	if _, err := os.Stat(updater.RequestPath(home)); err != nil {
 		t.Fatalf("просьба панели не легла: %v", err)
+	}
+}
+
+// TestSlowGitHubDoesNotFreezeTheUpdatesPage: из России GitHub часто
+// отвечает по десять секунд или не отвечает вовсе. Пока одна проверка ждёт,
+// страница «Обновления» опрашивает панель каждые полторы секунды — и должна
+// получать запомненный номер сразу, а не стоять в очереди за той проверкой.
+func TestSlowGitHubDoesNotFreezeTheUpdatesPage(t *testing.T) {
+	h := newHarness(t)
+	release := make(chan struct{})
+	var calls atomic.Int32
+	gh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) > 1 {
+			<-release
+		}
+		http.Redirect(w, r, "https://github.com/jytt8u/marvia/releases/tag/v0.12.0", http.StatusFound)
+	}))
+	defer gh.Close()
+	defer close(release)
+	defer panel.SetReleaseURL(gh.URL + "/releases/latest")()
+	defer panel.SetFreshEvery(0)()
+
+	var view struct {
+		Latest string `json:"latest"`
+	}
+	h.do(http.MethodGet, "/api/v1/updates", adminToken, nil, &view)
+	if view.Latest != "v0.12.0" {
+		t.Fatalf("первая проверка: %+v", view)
+	}
+	go func() {
+		req, _ := http.NewRequest(http.MethodGet, h.server.URL+"/api/v1/updates?fresh=1", nil)
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+		if resp, err := h.server.Client().Do(req); err == nil {
+			_ = resp.Body.Close()
+		}
+	}()
+	for calls.Load() < 2 {
+		time.Sleep(5 * time.Millisecond)
+	}
+	start := time.Now()
+	h.do(http.MethodGet, "/api/v1/updates?fresh=1", adminToken, nil, &view)
+	if took := time.Since(start); took > time.Second || view.Latest != "v0.12.0" {
+		t.Fatalf("страница ждала чужую проверку %v и получила %q", took, view.Latest)
 	}
 }

@@ -58,6 +58,7 @@ var feedTag = regexp.MustCompile(`releases/tag/([^"<]+)`)
 // releaseCache помнит последний релиз своего канала.
 type releaseCache struct {
 	mu      sync.Mutex
+	asking  sync.Mutex // у того, кто сейчас ждёт GitHub
 	channel string
 	latest  string
 	err     string
@@ -87,11 +88,26 @@ func (c *releaseCache) get(ctx context.Context, fresh bool) (string, string) {
 	if !c.checked.IsZero() && time.Since(c.checked) < every {
 		return c.latest, c.err
 	}
+	// GitHub спрашиваем без замка на запомненном номере. Из России он бывает
+	// недоступен по десять секунд, а страница опрашивает панель каждые
+	// полторы: под замком каждый её запрос стоял бы в очереди за этой
+	// проверкой. Кто пришёл, пока проверка идёт, получает прежний номер
+	// сразу — свежий увидит следующим опросом.
+	if !c.asking.TryLock() {
+		return c.latest, c.err
+	}
+	defer c.asking.Unlock()
 	fetch := fetchLatest
 	if channel == "test" {
 		fetch = fetchNewestPublished
 	}
+	c.mu.Unlock()
 	latest, err := fetch(ctx)
+	c.mu.Lock()
+	if c.channel != channel {
+		// Канал переключили, пока мы ждали: ответ — про другой канал.
+		return c.latest, c.err
+	}
 	c.checked = time.Now()
 	if err != nil {
 		// Прежний известный номер не выбрасываем: он лучше, чем ничего.

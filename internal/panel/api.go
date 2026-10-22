@@ -52,6 +52,9 @@ type API struct {
 	// auto — что ночное автообновление уже попросило; см. autoupdate.go.
 	auto autoState
 
+	// geo — когда по какой ноде спрашивали страну по адресу; см. geo.go.
+	geo geoTries
+
 	// flood — пределы против потока запросов, floodNow — их часы; см.
 	// flood.go.
 	flood    floodLimits
@@ -99,6 +102,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("PATCH /api/v1/nodes/{id}", a.scoped(ScopeNodes, a.updateNode))
 	mux.HandleFunc("DELETE /api/v1/nodes/{id}", a.scoped(ScopeNodes, a.deleteNode))
 	mux.HandleFunc("POST /api/v1/nodes/{id}/check", a.scoped(ScopeNodes, a.checkNode))
+	mux.HandleFunc("GET /api/v1/nodes/{id}/geo", a.scoped(ScopeNodes, a.nodeGeo))
 	mux.HandleFunc("POST /api/v1/nodes/invite", a.admin(a.createNodeInvite))
 
 	// Ключи доступа. Только по админскому токену: ключ, умеющий выпускать
@@ -888,6 +892,9 @@ func (a *API) nodeUsage(w http.ResponseWriter, r *http.Request, n Node) {
 	}
 	if !decodeFromNode(w, r, &body) {
 		return
+	}
+	if n.Country == "" {
+		a.fillCountry(n.ID, n.Address)
 	}
 	if err := a.store.ReportNodeBuild(r.Context(), n.ID, clip(body.Version, 40), clip(body.Arch, 16)); err != nil {
 		log.Printf("версия ноды %d не сохранилась: %v", n.ID, err)

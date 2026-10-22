@@ -80,6 +80,7 @@ func (s *Store) CreateInvite(ctx context.Context, label string, exitID int64) (I
 // приглашению: обе увидели бы его свободным, обе завели бы ноду, и вторая
 // оказалась бы в панели без ведома продавца.
 func (s *Store) RedeemInvite(ctx context.Context, token string, p CreateNodeParams) (Node, string, error) {
+	p.Country = countryTitle(p.Country)
 	if p.PublicKey != "" {
 		if _, err := vp1.DecodeKey(p.PublicKey); err != nil {
 			return Node{}, "", fmt.Errorf("публичный ключ ноды: %w", err)

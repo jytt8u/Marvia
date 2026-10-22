@@ -103,12 +103,11 @@ type Node struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
 
-	// Country — страна и город словами, как их написал продавец.
-	//
-	// Определять по адресу нельзя: у хостеров адреса числятся то в
-	// Нидерландах, то в США, и покупатель, выбравший «Финляндию», попадает в
-	// Германию. Пишет человек, а флаг клиент подбирает по написанному — так же
-	// делают Happ и Hiddify, там страну тоже задаёт продавец.
+	// Country — страна словами. Пишет продавец; если не написал, панель
+	// подставляет страну по адресу (geo.go). Написанное продавцом главнее:
+	// у хостеров адреса числятся то в Нидерландах, то в США, и база адресов
+	// может отправить «Финляндию» в Германию. Флаг клиенты подбирают по
+	// написанному — так же делают Happ и Hiddify.
 	Country string `json:"country,omitempty"`
 	Address string `json:"address"`
 	SNI     string `json:"sni"`
@@ -417,6 +416,9 @@ func migrate(db *sql.DB) error {
 		}
 	}
 
+	if err := namedCountries(db); err != nil {
+		return err
+	}
 	if err := forgetWhoWentWhere(db); err != nil {
 		return err
 	}
@@ -943,6 +945,7 @@ type CreateNodeParams struct {
 // CreateNode регистрирует ноду и выдаёт ей токен.
 // Токен возвращается один раз, в базе лежит только его хеш.
 func (s *Store) CreateNode(ctx context.Context, p CreateNodeParams) (Node, string, error) {
+	p.Country = countryTitle(p.Country)
 	if p.PublicKey != "" {
 		if _, err := vp1.DecodeKey(p.PublicKey); err != nil {
 			return Node{}, "", fmt.Errorf("публичный ключ ноды: %w", err)
@@ -1106,7 +1109,7 @@ func (s *Store) UpdateNode(ctx context.Context, id int64, p UpdateNodeParams) (N
 	}
 	if p.Country != nil {
 		sets = append(sets, "country = ?")
-		args = append(args, strings.TrimSpace(*p.Country))
+		args = append(args, countryTitle(*p.Country))
 	}
 	if p.Enabled != nil {
 		sets = append(sets, "enabled = ?")

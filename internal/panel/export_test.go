@@ -2,6 +2,7 @@ package panel
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -80,8 +81,22 @@ func (a *API) AutoUpdateAt(ctx context.Context, now time.Time) error { return a.
 
 // Тесты пакета шлют сотни запросов с одного адреса, проверяя совсем другое,
 // и боевые пределы делали бы их зависимыми от скорости машины. Поэтому по
-// умолчанию пределов нет, а тесты самих пределов включают их явно.
-func init() { floodDefaults = floodLimits{} }
+// умолчанию пределов нет, а тесты самих пределов включают их явно. Страну
+// по адресу тоже не спрашивают: тест, который ходит во внешнюю базу, падает
+// без сети.
+func init() {
+	floodDefaults = floodLimits{}
+	geoLookup = func(context.Context, string) (string, error) {
+		return "", errors.New("в тестах без сети")
+	}
+}
+
+// SetGeoLookup подменяет базу стран.
+func SetGeoLookup(f func(ctx context.Context, host string) (string, error)) (restore func()) {
+	was := geoLookup
+	geoLookup = f
+	return func() { geoLookup = was }
+}
 
 // GuardAgainstFlood включает боевые пределы на часах now. Вызывается до
 // Handler: маршрутизатор берёт пределы при сборке.

@@ -944,6 +944,9 @@
   }
   #veil .own { display: flex; flex-direction: column; gap: 14px; }
   #veil .wizard, #veil .wizard-help { display: flex; flex-direction: column; gap: 8px; }
+  #veil .inline { display: flex; gap: 8px; align-items: stretch; }
+  #veil .inline input { flex: 1; min-width: 0; }
+  #veil .inline button { height: auto; flex: none; }
   #veil .sec { margin-top: 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim, #9aa3ad); }
   #veil .facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 12.5px; }
   #veil .facts dt { color: var(--dim, #9aa3ad); }
@@ -3052,7 +3055,7 @@ function newNodeSheet(exit) {
     // Имя и страну продавец пишет здесь, а не правит потом: они встают в
     // команду переменными, и нода записывается в панель уже названной.
     const name = el("input", { id: "nn-name", type: "text", value: "", maxlength: "40", autocomplete: "off", spellcheck: "false" });
-    const country = el("input", { id: "nn-country", type: "text", value: "", maxlength: "40", autocomplete: "off" });
+    const country = el("input", { id: "nn-country", type: "text", value: "", maxlength: "40", autocomplete: "off", placeholder: d.node.countryAuto });
     const pre = el("pre", {});
     const shown = titlePreview();
     let cmd = "";
@@ -3181,11 +3184,10 @@ function nodeSheet(node) {
   const entry = !!node.exit_id;
   const exit = entry ? (state.nodes || []).find((n) => n.id === node.exit_id) : null;
 
-  // Имя и страну пишет продавец, а не хостер и не панель. Хостер зовёт машину
-  // vm-4823917-ubuntu, и ровно это видит покупатель в списке серверов; а адреса
-  // у хостеров числятся то в Нидерландах, то в США, так что определять страну
-  // по адресу значит врать покупателю, выбравшему Финляндию. У входа поля
-  // страны нет: покупатель видит страну выхода, а вход — только в имени.
+  // Имя пишет продавец: хостер зовёт машину vm-4823917-ubuntu, и ровно это
+  // видел бы покупатель. Страну панель подставляет по адресу сама, но базы
+  // адресов ошибаются, поэтому поле правится, а «По IP» только предлагает. У
+  // входа поля страны нет: покупатель видит страну выхода, а вход — в имени.
   const name = el("input", { id: "nd-name", type: "text", value: node.name || "", maxlength: "60" });
   const country = el("input", { id: "nd-country", type: "text", value: node.country || "", maxlength: "60" });
   const preview = titlePreview();
@@ -3196,7 +3198,16 @@ function nodeSheet(node) {
   country.addEventListener("input", redraw);
   redraw();
   const form = [el("label", { text: entry ? d.node.entryName : d.node.name[0] }, name)];
-  if (!entry) form.push(el("label", { text: d.node.country[0] }, country));
+  if (!entry) {
+    // «По IP» подставляет страну адреса в поле, но не сохраняет: базы
+    // адресов ошибаются, и последнее слово за продавцом.
+    const byIP = btn(d.node.byIP, "", () => act(async () => {
+      const res = await api("/api/v1/nodes/" + node.id + "/geo");
+      country.value = res.country || "";
+      redraw();
+    }));
+    form.push(el("label", { text: d.node.country[0] }, el("div", { cls: "inline" }, country, byIP)));
+  }
   form.push(preview.box);
 
   // Отпечаток TLS выбирает продавец, а не клиент. Перебирать его самому
@@ -4135,6 +4146,7 @@ const TEXTS = {
       sniExtra: "Запасные имена прикрытия",
       fp: ["Отпечаток TLS", "Чьё приветствие изображает клиент. Меняй, только если на ноду массово не подключаются, и не чаще раза в несколько минут"],
       fpDefault: "chrome — по умолчанию",
+      byIP: "По IP", countryAuto: "Пусто — панель узнает по IP сама",
       secProto: "Протокол", secState: "Состояние",
       mask: "Маскировка", exitMask: "Маскировка выхода",
       maskRelay: (exit) => "вход каскада → " + exit,
@@ -4619,6 +4631,7 @@ const TEXTS = {
       sniExtra: "Spare cover names",
       fp: ["TLS fingerprint", "Whose hello the client imitates. Change it only if buyers massively fail to connect, and not more often than every few minutes"],
       fpDefault: "chrome — default",
+      byIP: "By IP", countryAuto: "Empty — the panel finds it by IP",
       secProto: "Protocol", secState: "State",
       mask: "Camouflage", exitMask: "Exit camouflage",
       maskRelay: (exit) => "cascade entry → " + exit,

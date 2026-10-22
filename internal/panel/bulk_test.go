@@ -128,3 +128,31 @@ func TestClientsCSVDoesNotLetLabelBecomeFormula(t *testing.T) {
 		t.Fatalf("метка ушла в CSV формулой: %q", rows[1][1])
 	}
 }
+
+// TestBulkDeleteNeedsTheCountRepeated: удалить выбранных разом можно, но
+// запрос обязан повторить их число — опечатка в списке номеров или старый
+// скрипт без подтверждения никого не стирает. Невыбранные остаются.
+func TestBulkDeleteNeedsTheCountRepeated(t *testing.T) {
+	h := newHarness(t)
+	a, b, c := h.createUser(0), h.createUser(0), h.createUser(0)
+	ids := []int64{a.User.ID, b.User.ID}
+
+	if code := h.do(http.MethodPost, "/api/v1/users/bulk", adminToken, map[string]any{"ids": ids, "action": "delete"}, nil); code != http.StatusBadRequest {
+		t.Fatalf("удаление без числа: код %d", code)
+	}
+	if code := h.do(http.MethodPost, "/api/v1/users/bulk", adminToken, map[string]any{"ids": ids, "action": "delete", "confirm": 3}, nil); code != http.StatusBadRequest {
+		t.Fatalf("удаление с неверным числом: код %d", code)
+	}
+	var out bulkResponse
+	if code := h.do(http.MethodPost, "/api/v1/users/bulk", adminToken, map[string]any{"ids": ids, "action": "delete", "confirm": 2}, &out); code != http.StatusOK || out.Done != 2 {
+		t.Fatalf("удаление: код %d, %+v", code, out)
+	}
+	for _, id := range ids {
+		if code := h.do(http.MethodGet, "/api/v1/users/"+itoa(id), adminToken, nil, nil); code != http.StatusNotFound {
+			t.Fatalf("покупатель %d не удалён: код %d", id, code)
+		}
+	}
+	if code := h.do(http.MethodGet, "/api/v1/users/"+itoa(c.User.ID), adminToken, nil, nil); code != http.StatusOK {
+		t.Fatalf("удалён невыбранный: код %d", code)
+	}
+}

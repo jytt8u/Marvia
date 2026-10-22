@@ -93,6 +93,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/nodes", a.admin(a.createNode))
 	mux.HandleFunc("PATCH /api/v1/nodes/{id}", a.scoped(ScopeNodes, a.updateNode))
 	mux.HandleFunc("DELETE /api/v1/nodes/{id}", a.scoped(ScopeNodes, a.deleteNode))
+	mux.HandleFunc("POST /api/v1/nodes/{id}/check", a.scoped(ScopeNodes, a.checkNode))
 	mux.HandleFunc("POST /api/v1/nodes/invite", a.admin(a.createNodeInvite))
 
 	// Ключи доступа. Только по админскому токену: ключ, умеющий выпускать

@@ -33,6 +33,12 @@
   @font-face { font-family: 'Chakra Petch'; src: url(fonts/chakra-petch-latin.woff2) format('woff2');
     font-weight: 700; font-display: swap; unicode-range: U+0000-00FF; }
 
+  /* Флаги стран. Windows не рисует флаги-эмодзи: вместо флага там две буквы.
+     Шрифт с флагами Twemoji вшит и подключён только к знакам флагов, так
+     что остальной текст его не трогает (лицензия — internal/look/FONTS-TWEMOJI.txt). */
+  @font-face { font-family: 'Twemoji Country Flags'; src: url(fonts/twemoji-flags.woff2) format('woff2');
+    font-display: swap; unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F; }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
@@ -288,6 +294,8 @@
   .btn-secondary:hover { background: var(--press); border-color: var(--line); }
   .btn-ghost { background: transparent; color: var(--dim); }
   .btn-ghost:hover { background: var(--hover); color: var(--fg); }
+  .btn-danger { background: var(--warnSoft); color: var(--warnInk); }
+  .btn-danger:hover { background: color-mix(in srgb, var(--warn) 24%, transparent); }
   .btn-sm { height: 30px; padding: 0 10px; font-size: var(--fs-sm); gap: 6px; }
   .btn-sm .ico { width: 15px; height: 15px; }
   .btn-icon { width: 34px; padding: 0; }
@@ -437,6 +445,10 @@
   .bar > i { display: block; height: 100%; border-radius: inherit; background: var(--acc); transform-origin: left; }
   .bar > i.warn { background: var(--warn); }
   .bar.thick { height: 6px; }
+  .bar > i.mix-fill.ok { background: var(--ok); }
+  .bar > i.mix-fill.dim { background: var(--dim); }
+  .plan-row[role=button] { cursor: pointer; border-radius: var(--r-sm); }
+  .plan-row[role=button]:hover .plan-name { color: var(--acc); }
 
   /*
     Точка «на связи». Пульс только у живого: у молчащей ноды ровная точка,
@@ -466,14 +478,8 @@
   .pill.acc { color: var(--fg); background: var(--accSoft); }
   .pill.acc::before { background: var(--acc); }
 
-  /* Флаг страны ноды. Где система рисует флаги, это эмодзи; где нет
-     (Windows рисует вместо флага две буквы) — код страны плашкой, чтобы
-     не выдавать букву за картинку. */
-  .flag { flex: none; font-size: 16px; line-height: 1; }
-  .flag.code {
-    display: inline-grid; place-items: center; height: 18px; min-width: 24px; padding: 0 4px; border-radius: 4px;
-    font: 600 10px/1 'JetBrains Mono', monospace; letter-spacing: .04em; color: var(--fg); background: var(--chip); border: 1px solid var(--hair);
-  }
+  /* Флаг страны ноды — вшитым шрифтом, одинаково на любой системе. */
+  .flag { flex: none; font-size: 18px; line-height: 1; font-family: 'Twemoji Country Flags', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif; }
 
   /* Списки внутри карточек: строки через тонкую черту, подсветка под курсором. */
   .rows { display: flex; flex-direction: column; margin: 0 calc(var(--s2) * -1); }
@@ -546,6 +552,27 @@
   .t-bar i { display: block; height: 100%; background: var(--acc); }
   .t-bar i.warn { background: var(--warn); }
   .skel-row { pointer-events: none; }
+  /* Галочка выбора строки. Своя, а не <input>: строка целиком — кнопка, и
+     нажатие на галочку не должно открывать карточку клиента (pickRow). */
+  .t-pick {
+    width: 18px; height: 18px; flex: none; border-radius: 5px; cursor: pointer;
+    border: 1.5px solid var(--line); background: transparent; position: relative;
+    transition: background .15s, border-color .15s;
+  }
+  .t-pick:hover { border-color: var(--dim); }
+  .t-pick[aria-checked=true] { background: var(--acc); border-color: var(--acc); }
+  .t-pick[aria-checked=true]::after {
+    content: ""; position: absolute; left: 5px; top: 1.5px; width: 5px; height: 10px;
+    border: solid var(--accFg); border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  .t-pick[aria-checked=mixed]::after { content: ""; position: absolute; left: 3px; right: 3px; top: 7px; height: 2px; background: var(--fg); border-radius: 1px; }
+  .t-row.picked { background: color-mix(in srgb, var(--acc) 8%, transparent); }
+  .pick-bar {
+    position: sticky; top: 8px; z-index: 3; display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap;
+    padding: 8px 10px 8px 14px; border-radius: var(--r); background: var(--surf); border: 1px solid var(--line);
+    box-shadow: var(--pop); animation: pop .18s var(--ease, ease-out);
+  }
+  .pick-count { font-weight: 600; margin-right: auto; font-variant-numeric: tabular-nums; }
   .pager { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding: var(--s3) var(--s4); border-top: 1px solid var(--hair); }
   .pager-info { font-size: var(--fs-sm); color: var(--dim); font-variant-numeric: tabular-nums; }
   .btn[aria-disabled=true] { opacity: .4; pointer-events: none; }
@@ -917,6 +944,34 @@
   }
   #veil .own { display: flex; flex-direction: column; gap: 14px; }
   #veil .wizard, #veil .wizard-help { display: flex; flex-direction: column; gap: 8px; }
+  #veil .sec { margin-top: 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim, #9aa3ad); }
+  #veil .facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 12.5px; }
+  #veil .facts dt { color: var(--dim, #9aa3ad); }
+  #veil .facts dd { color: var(--fg, #f1f4f7); min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  /* Предпросмотр названия — как строка в списке серверов приложения. */
+  #veil .title-preview {
+    display: flex; flex-direction: column; gap: 6px; padding: 10px 12px;
+    border-radius: var(--r-ctl, 9px); background: var(--chip, rgba(255,255,255,.05)); border: 1px solid var(--hair, transparent);
+  }
+  #veil .tp-head { font-size: 11px; color: var(--dim, #9aa3ad); }
+  #veil .tp-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  #veil .tp-app { flex: none; width: 104px; font-size: 11.5px; color: var(--dim, #9aa3ad); }
+  #veil .tp-name { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--fg, #f1f4f7); }
+  #veil .tp-name > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #veil .diag-list { display: flex; flex-direction: column; gap: 8px; }
+  #veil .diag { display: flex; gap: 10px; align-items: flex-start; animation: pop .18s var(--ease, ease-out) both; }
+  #veil .diag:nth-child(2) { animation-delay: .04s; } #veil .diag:nth-child(3) { animation-delay: .08s; }
+  #veil .diag:nth-child(4) { animation-delay: .12s; } #veil .diag:nth-child(5) { animation-delay: .16s; }
+  #veil .diag-mark {
+    flex: none; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%;
+    font-size: 11px; font-weight: 700; background: var(--chip, rgba(255,255,255,.06)); color: var(--dim, #9aa3ad);
+  }
+  #veil .diag.ok .diag-mark { background: var(--okSoft); color: var(--ok); }
+  #veil .diag.warn .diag-mark, #veil .diag.fail .diag-mark { background: var(--warnSoft); color: var(--warnInk); }
+  #veil .diag-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  #veil .diag-title { font-size: 13px; color: var(--fg, #f1f4f7); }
+  #veil .diag.fail .diag-title { font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) { #veil .diag { animation: none; } }
   #veil .step { font-size: 13px; color: var(--dim, #9aa3ad); }
   #veil .step.done { color: var(--fg, #f1f4f7); font-weight: 600; }
   #veil .step.done::before { content: "✓ "; color: var(--ok, #4cc38a); }
@@ -1351,15 +1406,25 @@
             а заголовок прилипает к её верху: overflow у карточки нет нарочно,
             иначе sticky держался бы за неё и уезжал вместе со страницей.
           -->
+          <sc-if value="{{ hasPicked }}">
+            <div class="pick-bar" role="region" aria-label="{{ pickedText }}">
+              <span class="pick-count">{{ pickedText }}</span>
+              <div class="btn btn-secondary btn-sm" data-focus="picked-actions" onClick="{{ pickedActions }}">{{ d18.bulk.actions }}</div>
+              <div class="btn btn-danger btn-sm" data-focus="picked-remove" onClick="{{ pickedRemove }}">{{ d18.bulk.remove }}</div>
+              <div class="btn btn-ghost btn-sm" data-focus="picked-clear" onClick="{{ pickClear }}">{{ d18.bulk.clear }}</div>
+            </div>
+          </sc-if>
           <div class="card tbl-card rise">
             <div style="{{ tableViewport }}">
               <div style="{{ tableHead }}">
+                <sc-if value="{{ pickable }}"><div class="t-pick" role="checkbox" aria-checked="{{ pageAllPicked }}" aria-label="{{ d18.bulk.pickAll }}" tabindex="0" onClick="{{ pickPage }}"></div></sc-if>
                 <sc-for list="{{ tableCols }}" as="col">
                   <div>{{ col }}</div>
                 </sc-for>
               </div>
               <sc-for list="{{ tableRows }}" as="row">
-                <div class="t-row" style="{{ row.style }}" onClick="{{ row.onClick }}">
+                <div class="{{ row.cls }}" style="{{ row.style }}" onClick="{{ row.onClick }}">
+                  <sc-if value="{{ pickable }}"><div class="t-pick" role="checkbox" aria-checked="{{ row.picked }}" aria-label="{{ d18.bulk.pickRow }}" tabindex="0" onClick="{{ row.onPick }}"></div></sc-if>
                   <sc-for list="{{ row.cells }}" as="cell">
                     <div class="{{ cell.cls }}" data-label="{{ cell.label }}" title="{{ cell.title }}">
                       <sc-if value="{{ cell.pill }}"><span class="{{ cell.pill }}">{{ cell.text }}</span></sc-if>
@@ -1492,11 +1557,37 @@
                 <div class="empty-line">{{ d18.statsPage.noShare }}</div>
               </sc-if>
             </div>
+            <div class="card rise">
+              <div class="card-title">{{ d18.statsPage.top }}</div>
+              <sc-for list="{{ topRows }}" as="tr">
+                <div class="plan-row lift" role="button" tabindex="0" onClick="{{ tr.onClick }}">
+                  <div class="plan-top">
+                    <span class="plan-name">{{ tr.name }}</span>
+                    <span class="num"><b>{{ tr.load }}</b></span>
+                  </div>
+                  <div class="bar"><i style="{{ tr.fill }}"></i></div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ noTop }}">
+                <div class="empty-line">{{ d18.statsPage.noTop }}</div>
+              </sc-if>
+            </div>
+            <div class="card rise">
+              <div class="card-title">{{ d18.statsPage.base }}</div>
+              <sc-for list="{{ mixRows }}" as="mx">
+                <div class="plan-row">
+                  <div class="plan-top">
+                    <span class="plan-name">{{ mx.label }}</span>
+                    <span class="num"><b>{{ mx.n }}</b> · {{ mx.pct }}</span>
+                  </div>
+                  <div class="bar thick"><i class="{{ mx.cls }}" style="{{ mx.fill }}"></i></div>
+                </div>
+              </sc-for>
+            </div>
           </div>
         </sc-if>
 
         <sc-if value="{{ isJournal }}">
-          <p class="lead">{{ d18.journal.what }}</p>
           <div class="card rise">
             <sc-if value="{{ journalEmpty }}">
               <div class="empty" style="padding: 4px 0;">
@@ -1524,7 +1615,6 @@
         -->
         <sc-if value="{{ isUpdates }}">
           <div class="p-flow">
-            <p class="lead">{{ d18.updates.what }}</p>
             <sc-if value="{{ updLatestErr }}">
               <div class="notice warn" role="alert">
                 <svg class="ico" aria-hidden="true"><use href="#i-alert"></use></svg>
@@ -1650,7 +1740,6 @@
             <div class="card form-card rise">
               <div>
                 <div class="card-title">{{ d18.alerts.title }}</div>
-                <div class="help" style="margin-top: 4px;">{{ d18.alerts.what }}</div>
               </div>
 
               <label>
@@ -1680,7 +1769,6 @@
             <div class="card form-card rise">
               <div>
                 <div class="card-title">{{ d18.bk.title }}</div>
-                <div class="help" style="margin-top: 4px;">{{ d18.bk.what }}</div>
               </div>
               <label><input id="bk-on" type="checkbox" /> {{ d18.bk.on }}</label>
               <div class="pair">
@@ -1747,7 +1835,6 @@
             <div class="card form-card rise">
               <div>
                 <div class="card-title">{{ d18.wh.title }}</div>
-                <div class="help" style="margin-top: 4px;">{{ d18.wh.what }}</div>
               </div>
               <label><input id="wh-on" type="checkbox" /> {{ d18.wh.on }}</label>
               <div class="field">
@@ -1769,7 +1856,6 @@
             <div class="card form-card rise">
               <div>
                 <div class="card-title">{{ d18.seller.title }}</div>
-                <div class="help" style="margin-top: 4px;">{{ d18.seller.what }}</div>
               </div>
 
               <div class="field">
@@ -2125,6 +2211,10 @@ const state = {
   // истекает, — и выбирать это заново каждый раз незачем.
   filter: (() => { try { return localStorage.getItem("marvia-filter") || "all"; } catch (_) { return "all"; } })(),
   rowsPage: 1,
+  // Отмеченные галочками клиенты — номера. Отметка живёт между листами
+  // таблицы: продавец набирает пострадавших с разных страниц и делает с ними
+  // одно действие.
+  picked: new Set(),
   loading: false,
   error: null,
 
@@ -2951,16 +3041,39 @@ function userSheet(user) {
 function newNodeSheet(exit) {
   act(async () => {
     const res = await api("/api/v1/nodes/invite", "POST", exit ? { label: "", exit_id: exit.id } : { label: "" });
-    const cmd = res.command;
+    const base = res.command.replace(/\| sh$/, "| ");
 
     const d = L();
     const before = new Set((state.nodes || []).map((n) => n.id));
     const steps = el("div", { cls: "wizard" });
     const help = el("div", { cls: "wizard-help" });
     help.hidden = true;
+
+    // Имя и страну продавец пишет здесь, а не правит потом: они встают в
+    // команду переменными, и нода записывается в панель уже названной.
+    const name = el("input", { id: "nn-name", type: "text", value: "", maxlength: "40", autocomplete: "off", spellcheck: "false" });
+    const country = el("input", { id: "nn-country", type: "text", value: "", maxlength: "40", autocomplete: "off" });
+    const pre = el("pre", {});
+    const shown = titlePreview();
+    let cmd = "";
+    const draw = () => {
+      const n = safeWord(name.value), c = safeWord(country.value);
+      const vars = (n ? "NAME=" + shellWord(n) + " " : "") + (c && !exit ? "COUNTRY=" + shellWord(c) + " " : "");
+      cmd = base + vars + "sh";
+      pre.textContent = cmd;
+      shown.draw(exit ? entryTitle(exit.name || exit.address, n) : n, exit ? exit.country : c);
+    };
+    name.addEventListener("input", draw);
+    country.addEventListener("input", draw);
+    draw();
+
+    const fields = [el("label", { text: exit ? d.node.entryName : d.node.name[0] }, name)];
+    if (!exit) fields.push(el("label", { text: d.node.country[0] }, country));
     sheet(exit ? d.node.entryTitle(exit.name || exit.address) : d.node.newTitle, [
+      ...fields,
+      shown.box,
       el("div", { cls: "note", text: exit ? d.node.entryPaste : d.node.paste }),
-      el("pre", { text: cmd }),
+      pre,
       btn(d.act.copy, "go", async () => {
         try {
           await navigator.clipboard.writeText(cmd);
@@ -2971,11 +3084,48 @@ function newNodeSheet(exit) {
       }),
       steps,
       help,
-      el("div", { cls: "note", text: d.node.invite }),
-      el("div", { cls: "note", text: exit ? d.node.entryVars : d.node.vars }),
     ], [btn(d.act.done, "", () => { closeSheet(); loadAll(); })]);
     watchNewNode(steps, help, before);
   });
+}
+
+// safeWord оставляет в имени и стране буквы, цифры, пробел и простые знаки.
+// Установщик кладёт их в JSON и строку запуска как есть, и кавычка или
+// обратная косая из поля сломали бы ему запись в панель.
+function safeWord(s) {
+  return String(s || "").replace(/[^\p{L}\p{N} ._·-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 40);
+}
+
+// shellWord — слово в одинарных кавычках для sh. После safeWord кавычек в
+// нём нет, так что этого достаточно.
+function shellWord(s) { return "'" + s + "'"; }
+
+// entryTitle — имя входа для покупателя, как его собирает панель
+// (entryTitle в cascade.go).
+function entryTitle(exit, entry) {
+  return entry ? exit + " · вход " + entry : exit + " · через вход";
+}
+
+// titlePreview — как ноду подпишут приложения покупателя. Повторяет
+// NodeTitle и StockLinks из links.go: в нашем приложении — «Страна · имя» с
+// флагом, в Happ, Hiddify и v2rayNG — то же с флагом впереди и меткой
+// покупателя в конце.
+function titlePreview() {
+  const d = L();
+  const box = el("div", { cls: "title-preview" });
+  const draw = (name, country) => {
+    const title = country && name ? country + " · " + name : (country || name || d.node.previewEmpty);
+    const fl = flagOf(country);
+    const flag = () => (fl.flag ? el("span", { cls: "flag", text: fl.flag }) : null);
+    box.replaceChildren(
+      el("div", { cls: "tp-head", text: d.node.previewTitle }),
+      el("div", { cls: "tp-row" }, el("span", { cls: "tp-app", text: "Marvia" }),
+        el("span", { cls: "tp-name" }, flag(), el("span", { text: title }))),
+      el("div", { cls: "tp-row" }, el("span", { cls: "tp-app", text: "Happ · Hiddify" }),
+        el("span", { cls: "tp-name" }, flag(), el("span", { text: title + " · " + d.node.previewBuyer }))),
+    );
+  };
+  return { box, draw };
 }
 
 // watchNewNode ведёт продавца по шагам, пока нода ставится: строка вставлена →
@@ -3029,75 +3179,109 @@ function nodeSheet(node) {
 
   const d = L();
   const entry = !!node.exit_id;
-  const facts = [
-    [d.node.address, node.address],
-    entry ? null : [d.node.cover, node.sni || "—"],
-    [d.node.state, node.enabled ? (alive ? d.node.online : d.node.silentOn) : d.node.offState],
-    [d.node.lastSeen, sinceLabel(node.last_seen)],
-  ].filter(Boolean).map(([k, v]) => el("div", { cls: "note", text: k + ": " + v }));
+  const exit = entry ? (state.nodes || []).find((n) => n.id === node.exit_id) : null;
 
   // Имя и страну пишет продавец, а не хостер и не панель. Хостер зовёт машину
   // vm-4823917-ubuntu, и ровно это видит покупатель в списке серверов; а адреса
   // у хостеров числятся то в Нидерландах, то в США, так что определять страну
-  // по адресу значит врать покупателю, выбравшему Финляндию.
-  // У входа страну покупатель не видит — он видит страну выхода, а вход
-  // только в имени. Поле страны там обещало бы то, чего нет.
-  const form = entry
-    ? [field(d.node.name[0], "nd-name", "text", node.name || "", d.node.entryName)]
-    : [
-      field(d.node.name[0], "nd-name", "text", node.name || "", d.node.name[1]),
-      field(d.node.country[0], "nd-country", "text", node.country || "", d.node.country[1]),
-    ];
+  // по адресу значит врать покупателю, выбравшему Финляндию. У входа поля
+  // страны нет: покупатель видит страну выхода, а вход — только в имени.
+  const name = el("input", { id: "nd-name", type: "text", value: node.name || "", maxlength: "60" });
+  const country = el("input", { id: "nd-country", type: "text", value: node.country || "", maxlength: "60" });
+  const preview = titlePreview();
+  const redraw = () => entry
+    ? preview.draw(entryTitle(exit ? exit.name || exit.address : "?", name.value.trim()), exit ? exit.country : "")
+    : preview.draw(name.value.trim(), country.value.trim());
+  name.addEventListener("input", redraw);
+  country.addEventListener("input", redraw);
+  redraw();
+  const form = [el("label", { text: entry ? d.node.entryName : d.node.name[0] }, name)];
+  if (!entry) form.push(el("label", { text: d.node.country[0] }, country));
+  form.push(preview.box);
 
   // Отпечаток TLS выбирает продавец, а не клиент. Перебирать его самому
   // клиенту нельзя: по наблюдениям 2026 года смена отпечатка сразу после
   // заморозки адреса её удлиняет. Пусто — Chrome, как было до выбора.
   const fp = el("select", { id: "nd-fp" });
-  for (const name of ["", ...FINGERPRINTS.filter((n) => n !== "chrome")]) {
-    const option = el("option", { value: name, text: name || d.node.fpDefault });
-    if ((node.fingerprint || "").replace("chrome", "") === name) option.setAttribute("selected", "");
+  for (const n of ["", ...FINGERPRINTS.filter((x) => x !== "chrome")]) {
+    const option = el("option", { value: n, text: n || d.node.fpDefault });
+    if ((node.fingerprint || "").replace("chrome", "") === n) option.setAttribute("selected", "");
     fp.append(option);
   }
-  // Отпечаток — тонкая настройка: в простом режиме поле не показываем, а
-  // сохраняем то, что уже выбрано, — fp.value берётся из списка и без него.
-  // У входа своего отпечатка нет: в подписку он уходит с отпечатком выхода.
-  if (!entry) form.push(el("label", { text: d.node.fp[0] }, fp, el("span", { cls: "note", text: d.node.fp[1] })));
 
   // Вход каскада: куда он ведёт, с выбором другого выхода. Выходом бывает
   // только обычная нода не за CDN — то же, что проверяет панель (checkExit).
   const exitPick = el("select", { id: "nd-exit" });
-  if (entry) {
-    for (const n of state.nodes || []) {
-      if (n.exit_id || n.ws_path || n.id === node.id) continue;
-      const option = el("option", { value: String(n.id), text: n.name || n.address });
-      if (n.id === node.exit_id) option.setAttribute("selected", "");
-      exitPick.append(option);
+  for (const n of entry ? state.nodes || [] : []) {
+    if (n.exit_id || n.ws_path || n.id === node.id) continue;
+    const option = el("option", { value: String(n.id), text: n.name || n.address });
+    if (n.id === node.exit_id) option.setAttribute("selected", "");
+    exitPick.append(option);
+  }
+
+  // Протокол — как нода работает на самом деле, по тому, что она сама
+  // сообщила панели. Имена прикрытия показаны, а не правятся: их задаёт
+  // флаг -reality-sni на самой ноде, и вписанное здесь не пережило бы её
+  // следующего отчёта.
+  const mask = entry ? exit || {} : node;
+  const port = (node.address.match(/:(\d+)$/) || [])[1] || "—";
+  const proto = [];
+  if (entry) proto.push([d.node.mask, d.node.maskRelay(exit ? exit.name || exit.address : "?")]);
+  const maskLabel = entry ? d.node.exitMask : d.node.mask;
+  if (mask.ws_path) proto.push([maskLabel, d.node.maskCDN(mask.ws_path)]);
+  else if (mask.reality_public_key) proto.push([maskLabel, d.node.maskReality(mask.sni || "—")]);
+  else proto.push([maskLabel, d.node.maskTLS(mask.sni || "—")]);
+  proto.push([d.node.port, port]);
+  if (mask.reality_public_key) {
+    const names = mask.sni_extra || [];
+    proto.push([d.node.sniExtra, names.length ? names.join(", ") : "—"]);
+    proto.push([d.node.realityKey, short(mask.reality_public_key)]);
+    proto.push([d.node.shortID, mask.reality_short_id || "—"]);
+  }
+  if (mask.public_key) proto.push([d.node.vp1Key, short(mask.public_key)]);
+  proto.push(["QUIC", !entry && node.quic ? d.node.yes : d.node.no]);
+  proto.push([d.node.links, mask.ws_path ? "VP1 · VLESS · Trojan (ws)" : "VP1 · VLESS · Trojan"]);
+
+  const stateFacts = [
+    [d.node.address, node.address],
+    [d.node.state, node.enabled ? (alive ? d.node.online : d.node.silentOn) : d.node.offState],
+    [d.node.lastSeen, sinceLabel(node.last_seen)],
+    [d.node.version, node.version ? node.version + (node.arch ? " · " + node.arch : "") : "—"],
+  ];
+  const hl = node.health || {};
+  if (hl.ok || hl.failed) stateFacts.push([d.node.reports, d.node.reportsText(hl.ok || 0, hl.failed || 0, hl.median_latency_ms || 0)]);
+
+  const checks = el("div", { cls: "diag-list" });
+  const runCheck = btn(d.node.check, "", () => act(async () => {
+    runCheck.disabled = true;
+    checks.replaceChildren(el("div", { cls: "note", text: d.node.checking }));
+    try {
+      const res = await api("/api/v1/nodes/" + node.id + "/check", "POST");
+      checks.replaceChildren(...(res.steps || []).map((s) => checkRow(s)), el("div", { cls: "note", text: d.node.checkFrom }));
+    } finally {
+      runCheck.disabled = false;
     }
-    form.push(el("label", { text: d.node.entryExit[0] }, exitPick, el("span", { cls: "note", text: d.node.entryExit[1] })));
-    form.push(el("div", { cls: "note", text: d.node.entryNote }));
-  }
+  }));
 
-  // Запасные имена прикрытия — только под REALITY: там ноду подтверждает её
-  // ключ, а не сертификат, и в SNI годится любое принимаемое имя. При обычном
-  // TLS и за CDN имя обязано совпадать с сертификатом, и поля здесь нет —
-  // нарисованное, оно обещало бы то, чего не будет.
-  // Имена прикрытия нода сообщает сама, вместе с расходом. Поэтому здесь
-  // они показаны, а не редактируются: поле для правки означало бы, что
-  // вписанное сюда переживёт следующий отчёт ноды, — а оно не переживёт.
-  // Менять их надо там, где они заданы: флагом -reality-sni на самой ноде.
-  if (node.reality_public_key) {
-    const names = (node.sni_extra || []);
-    facts.push(el("div", { cls: "note", text: d.node.sniExtra + ": " + (names.length ? names.join(", ") : "—") }));
-  }
-
-  sheet(node.name || node.address, facts.concat(form), [
+  sheet(node.name || node.address, [
+    ...form,
+    el("div", { cls: "sec", text: d.node.secProto }),
+    facts(proto),
+    entry
+      ? el("label", { text: d.node.entryExit }, exitPick)
+      : el("label", { text: d.node.fp[0] }, fp),
+    el("div", { cls: "sec", text: d.node.secState }),
+    facts(stateFacts),
+    runCheck,
+    checks,
+  ], [
     btn(d.node.save, "go", () => act(async () => {
-      const patch = { name: val("nd-name") };
+      const patch = { name: name.value.trim() };
       if (entry) {
         const to = Number(exitPick.value);
         if (to && to !== node.exit_id) patch.exit_id = to;
       } else {
-        patch.country = val("nd-country");
+        patch.country = country.value.trim();
         patch.fingerprint = fp.value;
       }
       await api("/api/v1/nodes/" + node.id, "PATCH", patch);
@@ -3126,6 +3310,28 @@ function nodeSheet(node) {
   ]);
 }
 
+// facts — пары «что — значение» сеткой в две колонки.
+function facts(pairs) {
+  return el("dl", { cls: "facts" }, ...pairs.flatMap(([k, v]) => [el("dt", { text: k }), el("dd", { text: String(v) })]));
+}
+
+// short — длинный ключ началом и концом: целиком он в окне не нужен, а
+// сверить с ключом на сервере по краям можно.
+function short(key) { return key.length > 16 ? key.slice(0, 8) + "…" + key.slice(-6) : key; }
+
+// checkRow — шаг проверки ноды: значок, что проверено и, если плохо, что
+// сделать. Тексты — здесь, сервер присылает только код шага и числа.
+function checkRow(step) {
+  const d = L();
+  const text = d.node.steps[step.id] ? d.node.steps[step.id](step.state, step.value || "") : [step.id, ""];
+  const mark = { ok: "✓", warn: "!", fail: "✕", skip: "–" }[step.state] || "·";
+  return el("div", { cls: "diag " + step.state },
+    el("span", { cls: "diag-mark", text: mark }),
+    el("div", { cls: "diag-body" },
+      el("div", { cls: "diag-title", text: text[0] }),
+      text[1] ? el("div", { cls: "note", text: text[1] }) : null));
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    Ключи для ботов
    ──────────────────────────────────────────────────────────────────────── */
@@ -3147,7 +3353,6 @@ function newKeySheet() {
   }
 
   const box = sheet(d.key.newTitle, [
-    el("div", { cls: "note", text: d.key.what }),
     field(d.key.name[0], "nk-name", "text", "", d.key.name[1]),
     scopes,
   ], [
@@ -3246,11 +3451,27 @@ function bulkSheet(list) {
   }
   parts.push(el("div", { cls: "row" },
     btn(d.bulk.enable, "", () => run(d.bulk.enable, { action: "enable" })),
-    btn(d.bulk.disable, "bad", () => run(d.bulk.disable, { action: "disable" })),
-    btn(d.bulk.reset, "", () => run(d.bulk.reset, { action: "reset" }))));
-  parts.push(el("div", { cls: "note", text: d.bulk.csvNote }));
+    btn(d.bulk.disable, "", () => run(d.bulk.disable, { action: "disable" })),
+    btn(d.bulk.reset, "", () => run(d.bulk.reset, { action: "reset" })),
+    btn(d.bulk.remove, "bad", () => bulkRemove(ids))));
   parts.push(btn(d.bulk.csv, "", () => downloadCSV()));
   sheet(d.bulk.title, parts, [btn(d.act.close, "", closeSheet)]);
+}
+
+// bulkRemove стирает выбранных разом. Подтверждение — отдельным окном с
+// числом, а сервер ещё требует повторить число: удалённых не вернуть, и
+// случайное нажатие не должно стоить продавцу базы.
+function bulkRemove(ids) {
+  const d = L();
+  act(async () => {
+    const [title, text, word] = d.bulk.askRemove(ids.length);
+    if (!await ask(title, text, word)) return;
+    const res = await api("/api/v1/users/bulk", "POST", { ids, action: "delete", confirm: ids.length });
+    state.picked = new Set();
+    closeSheet();
+    await loadAll();
+    toast(d.bulk.removed(res.done));
+  });
 }
 
 // downloadCSV — все клиенты таблицей, без токенов и ключей.
@@ -3346,33 +3567,13 @@ function countryCode(title) {
   return hit ? COUNTRIES.names.get(hit) : "";
 }
 
-// Рисует ли система флаги. Windows вместо флага пишет две буквы, и такой
-// «флаг» рядом с названием выглядит опечаткой — там показываем код плашкой.
-// Проверка по пикселям: у настоящего флага на холсте есть цвет.
-const FLAGS_DRAWN = (() => {
-  try {
-    const c = document.createElement("canvas");
-    c.width = c.height = 20;
-    const g = c.getContext("2d", { willReadFrequently: true });
-    g.font = "16px sans-serif";
-    g.textBaseline = "top";
-    g.fillText("\u{1F1EB}\u{1F1EE}", 0, 0);
-    const px = g.getImageData(0, 0, 20, 20).data;
-    for (let i = 0; i < px.length; i += 4) {
-      if (px[i + 3] > 100 && (Math.abs(px[i] - px[i + 1]) > 40 || Math.abs(px[i + 1] - px[i + 2]) > 40)) return true;
-    }
-  } catch (_) { /* холста нет — значит, и флага не нарисуем */ }
-  return false;
-})();
-
-// flagOf — что показать рядом с нодой: эмодзи, код плашкой или ничего.
+// flagOf — флаг рядом с нодой или ничего. Рисует его вшитый шрифт (.flag),
+// поэтому и в Windows это флаг, а не две буквы.
 function flagOf(country) {
   const code = countryCode(country);
   if (!code) return { flag: "", flagCls: "", country: country || "" };
   const emoji = String.fromCodePoint(...code.split("").map((ch) => 0x1F1E6 + ch.charCodeAt(0) - 97));
-  return FLAGS_DRAWN
-    ? { flag: emoji, flagCls: "flag", country }
-    : { flag: code.toUpperCase(), flagCls: "flag code", country };
+  return { flag: emoji, flagCls: "flag", country };
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -3611,14 +3812,18 @@ const TEXTS = {
     },
     bulk: {
       button: (n) => "Со списком · " + n, title: "Действие со списком",
-      intro: (n) => "Сделать одно действие сразу с " + n + " " + pluralRU(n, "клиентом", "клиентами", "клиентами")
-        + " — теми, кого сейчас показывает список. Сузь фильтром или поиском, если нужно не всех.",
+      intro: (n) => n + " " + pluralRU(n, "клиент", "клиента", "клиентов"),
       renew: "Продлить по тарифу", extend: "+30 дней всем", enable: "Включить", disable: "Отключить", reset: "Обнулить расход",
-      confirm: (n) => "Действие коснётся " + n + " " + pluralRU(n, "клиента", "клиентов", "клиентов") + ". Каждое попадёт в журнал.",
+      confirm: (n) => "Действие коснётся " + n + " " + pluralRU(n, "клиента", "клиентов", "клиентов") + ".",
       go: "Сделать",
       result: (done, failed) => "Готово: " + done + (failed ? ", не вышло у " + failed : ""),
       csv: "Выгрузить всех в CSV",
-      csvNote: "Таблица всех клиентов для учёта: имя, срок, тариф, расход. Ключей и ссылок в ней нет.",
+      picked: (n) => "Выбрано: " + n, actions: "Действия", clear: "Снять выбор",
+      pickAll: "Выбрать всех на странице", pickRow: "Выбрать клиента",
+      remove: "Удалить",
+      askRemove: (n) => ["Удалить выбранных клиентов: " + n + "?",
+        "Ключи и подписки перестанут работать сразу, расход и записи пропадут. Обратно не вернуть — если сомневаешься, отключи.", "Удалить"],
+      removed: (n) => "Удалено: " + n,
     },
     filters: { label: "Показать клиентов", all: "Все", expiring: "Истекают за 7 дней", traffic: "Кончается трафик", idle: "Не заходили неделю", off: "Отключены" },
 
@@ -3685,6 +3890,9 @@ const TEXTS = {
     statsPage: {
       byDay: "Трафик по дням", byNode: "Доля нод", noShare: "Трафика за период ещё нет.",
       down: "Скачано", up: "Отдано",
+      online: "Онлайн сейчас", nowLabel: "клиентов на связи", fresh: "Новых клиентов",
+      top: "Больше всех тратят", noTop: "Расхода ещё нет.", base: "Клиенты",
+      mix: { active: "Активны", expired: "Срок истёк", off: "Отключены" },
     },
 
     journal: {
@@ -3918,12 +4126,8 @@ const TEXTS = {
         ["Что пишет установка и служба ноды:", "journalctl -u marvia-node -n 50 --no-pager"],
         ["Если включён файрвол ufw — открой порт:", "ufw allow 443/tcp"],
       ],
-      paste: "Вставь эту строку на чистом сервере — от root. Всё остальное нода сделает сама: "
-        + "выпустит ключи, запишется в панель, поднимет службу и проверит себя.",
-      invite: "Приглашение живёт час и срабатывает один раз: оно даёт право только назваться нодой, "
-        + "не более. Дальше нода работает своим токеном.",
-      vars: "Порт, сайт прикрытия и имя можно задать переменными перед sh, например: "
-        + "PORT=8443 DEST=www.icloud.com:443 NAME=amsterdam-1 COUNTRY=Нидерланды",
+      paste: "Вставь на чистом сервере от root — нода поставит себя сама.",
+      previewTitle: "Так увидит покупатель", previewEmpty: "без имени", previewBuyer: "имя покупателя",
       address: "Адрес", cover: "Прикрытие", state: "Состояние", lastSeen: "Последний раз на связи",
       online: "на связи", silentOn: "включена, но молчит", offState: "выключена",
       name: ["Имя", "Видно покупателю в списке серверов"],
@@ -3931,17 +4135,46 @@ const TEXTS = {
       sniExtra: "Запасные имена прикрытия",
       fp: ["Отпечаток TLS", "Чьё приветствие изображает клиент. Меняй, только если на ноду массово не подключаются, и не чаще раза в несколько минут"],
       fpDefault: "chrome — по умолчанию",
+      secProto: "Протокол", secState: "Состояние",
+      mask: "Маскировка", exitMask: "Маскировка выхода",
+      maskRelay: (exit) => "вход каскада → " + exit,
+      maskCDN: (path) => "WebSocket за CDN, путь " + path,
+      maskReality: (sni) => "REALITY под " + sni,
+      maskTLS: (sni) => "TLS, сертификат на " + sni,
+      port: "Порт", realityKey: "Ключ REALITY", shortID: "Short ID", vp1Key: "Ключ VP1",
+      yes: "да", no: "нет", links: "В подписке", version: "Версия",
+      reports: "Отчёты покупателей",
+      reportsText: (okN, failN, msN) => okN + " подключились · " + failN + " не смогли" + (msN ? " · " + msN + " мс" : ""),
+      check: "Проверить ноду", checking: "Проверяю…",
+      checkFrom: "Проверка идёт с сервера панели: блокировку у провайдера покупателя видно только по их отчётам.",
+      steps: {
+        exit: (s, v) => s === "ok" ? ["Выход: " + v, ""] : ["Выход выключен или удалён", "Выбери другой выход выше или включи этот."],
+        tcp: (s, v) => s === "ok" ? ["Порт открыт · " + v + " мс", ""]
+          : s === "skip" ? ["Порт не проверялся", ""]
+          : ["Порт не отвечает (" + ({ timeout: "молчит", refused: "закрыт", unreachable: "сервер недоступен" }[v] || v) + ")",
+            "На сервере ноды: systemctl status marvia-node. Если включён файрвол: ufw allow 443/tcp."],
+        tls: (s, v) => s === "ok" ? ["TLS отвечает · " + v + " мс", ""]
+          : s === "skip" ? ["TLS не проверялся: порт закрыт", ""]
+          : s === "warn" ? ["TLS отвечает, но сертификат чужой", "Для REALITY сайт прикрытия должен отдавать настоящий сертификат на своё имя. Возьми другой: DEST=www.icloud.com:443."]
+          : ["Порт отвечает не TLS", "Похоже, порт занят другой программой: ss -ltnp | grep ':443 '."],
+        sync: (s, v) => s === "ok" ? ["Сверяется с панелью · " + v + " с назад", ""]
+          : s === "warn" ? ["Давно не сверялась: " + Math.round(Number(v) / 60) + " мин", "Если не пройдёт сама: journalctl -u marvia-node -n 50 на сервере ноды."]
+          : ["Не сверяется с панелью", "Нода не видит панель или её токен отозван: journalctl -u marvia-node -n 50."],
+        version: (s, v) => s === "ok" ? ["Версия " + v, ""]
+          : v ? ["Отстала: " + v, "«Обновления» → «Обновить всё»."] : ["Версия неизвестна", "Нода старая и версию не сообщает — обнови её командой upgrade.sh."],
+        reports: (s, v) => {
+          const [okN, failN] = v.split("/");
+          return s === "skip" ? ["Отчётов покупателей пока нет", ""]
+            : s === "ok" ? ["Покупатели подключаются: " + okN + " · не смогли " + failN, ""]
+            : ["Покупатели не могут подключиться: " + failN + " из " + (Number(okN) + Number(failN)),
+              "Панель ноду видит, а покупатели — нет: похоже на блокировку адреса. Поставь вход в России или смени адрес."];
+        },
+      },
       addEntry: "Вход в России",
       entryTitle: (exit) => "Вход к ноде " + exit,
-      entryPaste: "Вставь эту строку на сервере в российском облаке (Яндекс Облако, Selectel, VK Cloud) — от root. "
-        + "Вход примет покупателей там, куда их пускают и при белых списках, и переложит соединения на эту ноду. "
-        + "Ключей у входа нет, список покупателей он не получает: шифрование идёт насквозь до ноды.",
-      entryVars: "Порт и имя можно задать переменными перед sh, например: PORT=443 NAME=Москва. "
-        + "Имя увидит покупатель: «Хельсинки · вход Москва».",
-      entryName: "Видно покупателю после имени выхода: «Хельсинки · вход Москва». Страна — выхода",
-      entryExit: ["Выход", "Нода, на которую вход перекладывает соединения. Смена доезжает до входа за четверть минуты"],
-      entryNote: "Покупатель получит вход отдельной строкой в подписке: ключи выхода, адрес входа. "
-        + "Задержка вырастет на путь от входа до выхода, обычно на 20–50 мс.",
+      entryPaste: "Вставь на сервере в российском облаке (Яндекс Облако, Selectel, VK Cloud) от root.",
+      entryName: "Имя входа",
+      entryExit: "Выход",
       save: "Сохранить", saved: "Сохранено",
       disable: "Выключить", enable: "Включить",
       disabled: "Нода убрана из подписок", enabled: "Нода вернулась в подписки",
@@ -4063,14 +4296,18 @@ const TEXTS = {
     },
     bulk: {
       button: (n) => "With the list · " + n, title: "Action on the list",
-      intro: (n) => "Do one action for " + n + (n === 1 ? " client" : " clients")
-        + " at once — the ones the list shows now. Narrow it with a filter or search if not everyone.",
+      intro: (n) => n + (n === 1 ? " client" : " clients"),
       renew: "Renew by plan", extend: "+30 days for all", enable: "Enable", disable: "Disable", reset: "Reset usage",
-      confirm: (n) => "This touches " + n + (n === 1 ? " client" : " clients") + ". Each one goes into the log.",
+      confirm: (n) => "This touches " + n + (n === 1 ? " client" : " clients") + ".",
       go: "Do it",
       result: (done, failed) => "Done: " + done + (failed ? ", failed for " + failed : ""),
       csv: "Export everyone to CSV",
-      csvNote: "A table of all clients for bookkeeping: name, term, plan, usage. No keys or links in it.",
+      picked: (n) => "Selected: " + n, actions: "Actions", clear: "Clear selection",
+      pickAll: "Select everyone on the page", pickRow: "Select client",
+      remove: "Delete",
+      askRemove: (n) => ["Delete selected clients: " + n + "?",
+        "Keys and subscriptions stop working at once, usage and records are gone. This cannot be undone — if unsure, disable instead.", "Delete"],
+      removed: (n) => "Deleted: " + n,
     },
     filters: { label: "Show clients", all: "All", expiring: "Expire within 7 days", traffic: "Running out of traffic", idle: "Away for a week", off: "Disabled" },
 
@@ -4137,6 +4374,9 @@ const TEXTS = {
     statsPage: {
       byDay: "Traffic by day", byNode: "Share by node", noShare: "No traffic in this period yet.",
       down: "Downloaded", up: "Uploaded",
+      online: "Online now", nowLabel: "clients connected", fresh: "New clients",
+      top: "Biggest users", noTop: "No usage yet.", base: "Clients",
+      mix: { active: "Active", expired: "Expired", off: "Disabled" },
     },
 
     journal: {
@@ -4370,12 +4610,8 @@ const TEXTS = {
         ["What the installer and the node service say:", "journalctl -u marvia-node -n 50 --no-pager"],
         ["If the ufw firewall is on, open the port:", "ufw allow 443/tcp"],
       ],
-      paste: "Paste this on a clean server, as root. The node does the rest itself: issues keys, "
-        + "registers with the panel, starts the service and checks itself.",
-      invite: "The invitation lives for an hour and works once: it grants the right to register as a node, "
-        + "nothing more. After that the node works with its own token.",
-      vars: "Port, cover site and name can be set with variables before sh, for example: "
-        + "PORT=8443 DEST=www.icloud.com:443 NAME=amsterdam-1 COUNTRY=Netherlands",
+      paste: "Paste on a clean server as root — the node installs itself.",
+      previewTitle: "What the buyer sees", previewEmpty: "unnamed", previewBuyer: "buyer name",
       address: "Address", cover: "Cover site", state: "State", lastSeen: "Last seen",
       online: "online", silentOn: "enabled, but silent", offState: "disabled",
       name: ["Name", "The buyer sees it in the server list"],
@@ -4383,17 +4619,46 @@ const TEXTS = {
       sniExtra: "Spare cover names",
       fp: ["TLS fingerprint", "Whose hello the client imitates. Change it only if buyers massively fail to connect, and not more often than every few minutes"],
       fpDefault: "chrome — default",
+      secProto: "Protocol", secState: "State",
+      mask: "Camouflage", exitMask: "Exit camouflage",
+      maskRelay: (exit) => "cascade entry → " + exit,
+      maskCDN: (path) => "WebSocket behind a CDN, path " + path,
+      maskReality: (sni) => "REALITY as " + sni,
+      maskTLS: (sni) => "TLS, certificate for " + sni,
+      port: "Port", realityKey: "REALITY key", shortID: "Short ID", vp1Key: "VP1 key",
+      yes: "yes", no: "no", links: "In the subscription", version: "Version",
+      reports: "Buyer reports",
+      reportsText: (okN, failN, msN) => okN + " connected · " + failN + " failed" + (msN ? " · " + msN + " ms" : ""),
+      check: "Check the node", checking: "Checking…",
+      checkFrom: "The check runs from the panel's server: a block at the buyer's ISP shows only in their reports.",
+      steps: {
+        exit: (s, v) => s === "ok" ? ["Exit: " + v, ""] : ["The exit is disabled or deleted", "Pick another exit above or enable this one."],
+        tcp: (s, v) => s === "ok" ? ["Port is open · " + v + " ms", ""]
+          : s === "skip" ? ["Port not checked", ""]
+          : ["Port does not answer (" + ({ timeout: "silent", refused: "closed", unreachable: "server unreachable" }[v] || v) + ")",
+            "On the node's server: systemctl status marvia-node. If a firewall is on: ufw allow 443/tcp."],
+        tls: (s, v) => s === "ok" ? ["TLS answers · " + v + " ms", ""]
+          : s === "skip" ? ["TLS not checked: the port is closed", ""]
+          : s === "warn" ? ["TLS answers, but the certificate is foreign", "For REALITY the cover site must serve a real certificate for its name. Pick another: DEST=www.icloud.com:443."]
+          : ["The port does not speak TLS", "Another program likely holds the port: ss -ltnp | grep ':443 '."],
+        sync: (s, v) => s === "ok" ? ["Syncs with the panel · " + v + " s ago", ""]
+          : s === "warn" ? ["Has not synced for " + Math.round(Number(v) / 60) + " min", "If it does not recover: journalctl -u marvia-node -n 50 on the node's server."]
+          : ["Does not sync with the panel", "The node cannot reach the panel or its token was revoked: journalctl -u marvia-node -n 50."],
+        version: (s, v) => s === "ok" ? ["Version " + v, ""]
+          : v ? ["Behind: " + v, "Updates → Update everything."] : ["Version unknown", "The node is old and does not report its version — update it with upgrade.sh."],
+        reports: (s, v) => {
+          const [okN, failN] = v.split("/");
+          return s === "skip" ? ["No buyer reports yet", ""]
+            : s === "ok" ? ["Buyers connect: " + okN + " · failed " + failN, ""]
+            : ["Buyers cannot connect: " + failN + " of " + (Number(okN) + Number(failN)),
+              "The panel sees the node but buyers do not: looks like the address is blocked. Add an entry in Russia or change the address."];
+        },
+      },
       addEntry: "Entry in Russia",
       entryTitle: (exit) => "Entry to " + exit,
-      entryPaste: "Paste this on a server in a Russian cloud (Yandex Cloud, Selectel, VK Cloud), as root. "
-        + "The entry accepts buyers where even whitelists let them in and forwards their connections to this node. "
-        + "The entry has no keys and never gets the buyer list: encryption goes end to end to the node.",
-      entryVars: "Port and name can be set with variables before sh, for example: PORT=443 NAME=Moscow. "
-        + "The buyer sees the name: “Helsinki · entry Moscow”.",
-      entryName: "The buyer sees it after the exit name: “Helsinki · entry Moscow”. The country is the exit's",
-      entryExit: ["Exit", "The node the entry forwards connections to. A change reaches the entry within fifteen seconds"],
-      entryNote: "Buyers get the entry as a separate line in the subscription: exit keys, entry address. "
-        + "Latency grows by the path from entry to exit, usually 20–50 ms.",
+      entryPaste: "Paste on a server in a Russian cloud (Yandex Cloud, Selectel, VK Cloud) as root.",
+      entryName: "Entry name",
+      entryExit: "Exit",
       save: "Save", saved: "Saved",
       disable: "Disable", enable: "Enable",
       disabled: "Node removed from subscriptions", enabled: "Node is back in subscriptions",
@@ -5072,6 +5337,9 @@ function renderVals() {
       // Строка открывает карточку подписчика. Индекс тот же, что у rows:
       // список строится из shown одним проходом.
       onRow: (i) => () => userSheet(shown[i]),
+      // Галочки — только у клиентов и только у админа: ключ бота с правом
+      // «read» смотрит, но не трогает.
+      ids: state.admin ? shown.map((u) => u.id) : null,
     },
     keys: {
       cols: [d18.col.name, d18.col.rights, d18.col.created, d18.col.lastSeen, d18.col.status],
@@ -5090,6 +5358,9 @@ function renderVals() {
 
   const tbl = TABLES[page] || TABLES.clients;
   const tableCols = tbl.cols;
+  const pickable = !!tbl.ids && tbl.rows.length > 0;
+  // Колонка галочки — впереди сетки и шапки, иначе подписи съедут.
+  const grid = (pickable ? "18px " : "") + tbl.grid;
   // Ни высоты, ни своей прокрутки: таблица длиной в свои строки, а листает
   // её рабочая область целиком. Своя прокрутка здесь превращала пустую
   // таблицу в рамку во весь экран, а заголовок прилипал бы к ней, а не к
@@ -5098,7 +5369,7 @@ function renderVals() {
   // Над пустым списком шапка с колонками ничего не подписывает — прячем её,
   // остаётся одна строка о том, почему пусто и что сделать.
   const headHidden = state.known && tbl.rows.length === 0;
-  const tableHead = "position:sticky;top:0;z-index:1;flex:none;display:" + (headHidden ? "none" : "grid") + ";grid-template-columns:" + tbl.grid
+  const tableHead = "position:sticky;top:0;z-index:1;flex:none;display:" + (headHidden ? "none" : "grid") + ";grid-template-columns:" + grid
     + ";gap:16px;padding:0 16px;height:40px;align-items:center;font-size:12px;font-weight:500;color:var(--dim)"
     + ";background:var(--surf);border-radius:var(--r) var(--r) 0 0";
   // Постраничность. Рисовать тысячу строк разом браузер умеет, но человек их
@@ -5110,9 +5381,23 @@ function renderVals() {
   const from = (curPage - 1) * ROWS;
   const pageRows = tbl.rows.slice(from, from + ROWS);
 
+  const pageIDs = pickable ? tbl.ids.slice(from, from + ROWS) : [];
+  const picked = state.picked;
+  const togglePick = (ids, on) => {
+    const next = new Set(picked);
+    for (const id of ids) on ? next.add(id) : next.delete(id);
+    setState({ picked: next });
+  };
+  const shownPicked = pickable ? users.filter((u) => picked.has(u.id)) : [];
+  const pageAll = pageIDs.length > 0 && pageIDs.every((id) => picked.has(id));
+  const pageSome = pageIDs.some((id) => picked.has(id));
   const tableRows = pageRows.map((cells, i) => ({
     onClick: tbl.onRow ? tbl.onRow(from + i) : null,
-    style: "grid-template-columns:" + tbl.grid,
+    cls: "t-row" + (pickable && picked.has(pageIDs[i]) ? " picked" : ""),
+    picked: pickable && picked.has(pageIDs[i]) ? "true" : "false",
+    // Нажатие на галочку не открывает карточку: событие до строки не доходит.
+    onPick: pickable ? (e) => { e.stopPropagation(); togglePick([pageIDs[i]], !picked.has(pageIDs[i])); } : null,
+    style: "grid-template-columns:" + grid,
     // Подпись колонки — для телефона, где строка становится карточкой.
     cells: cells.map((c, j) => Object.assign({ label: tbl.cols[j] }, c)),
   }));
@@ -5132,6 +5417,8 @@ function renderVals() {
       [d18.col.traffic, size(total), d18.kpi.forPeriod, "", "traffic"],
       [d18.kpi.nodesWithTraffic, num(byNode.length), state.known ? d18.kpi.outOf(nodes.length) : d18.err.unknown, "", "nodes"],
       [d18.kpi.perDay, size(byDay.length ? total / byDay.length : 0), d18.kpi.onAverage, "", "stats"],
+      [d18.statsPage.online, num(users.filter((u) => u.online).length), d18.statsPage.nowLabel, "", "clients"],
+      [d18.statsPage.fresh, num(users.filter((u) => u.created_at && Date.now() - Date.parse(u.created_at) < 30 * 86400e3).length), d18.kpi.forPeriod, "", "plus"],
     ],
   };
   const pageKpis = (KPI[page] || []).map(kpi);
@@ -5180,6 +5467,26 @@ function renderVals() {
     h: "height:" + (sum ? Math.max(1.5, (sum / (seriesPeak || 1)) * 100) : 0) + "%",
     down: "height:" + (sum ? (down / sum) * 100 : 0) + "%",
     up: "height:" + (sum ? (up / sum) * 100 : 0) + "%",
+  }));
+
+  const nowMs = Date.now();
+  const topPeak = users.reduce((m, u) => Math.max(m, u.used || 0), 0) || 1;
+  const topRows = users.filter((u) => u.used > 0).sort((a, b) => b.used - a.used).slice(0, 8).map((u) => ({
+    name: u.label || ("#" + u.id),
+    load: bytes(u.used),
+    fill: "width:" + Math.round((u.used / topPeak) * 100) + "%",
+    onClick: () => userSheet(u),
+  }));
+  const base = { active: 0, expired: 0, off: 0 };
+  for (const u of users) {
+    if (!u.enabled) base.off++;
+    else if (u.expires_at && Date.parse(u.expires_at) < nowMs) base.expired++;
+    else base.active++;
+  }
+  const mixAll = users.length || 1;
+  const mixRows = [["active", "ok"], ["expired", "warn"], ["off", "dim"]].map(([k, cls]) => ({
+    label: d18.statsPage.mix[k], n: num(base[k]), pct: Math.round((base[k] / mixAll) * 100) + "%",
+    fill: "width:" + Math.round((base[k] / mixAll) * 100) + "%", cls: "mix-fill " + cls,
   }));
 
   const shareRows = byNode.map((x) => {
@@ -5584,6 +5891,16 @@ function renderVals() {
     // смотреть» кнопка обещала бы то, чего ему не дадут.
     hasBulk: page === "clients" && state.admin && shown.length > 0,
     bulkLabel: d18.bulk.button(shown.length),
+    pickable,
+    pageAllPicked: pageAll ? "true" : pageSome ? "mixed" : "false",
+    pickPage: (e) => { e.stopPropagation(); togglePick(pageIDs, !pageAll); },
+    // Отмеченные, которых уже нет (удалили с другого устройства), не
+    // считаем: действие над ними просто не выйдет.
+    hasPicked: pickable && shownPicked.length > 0,
+    pickedText: d18.bulk.picked(shownPicked.length),
+    pickedActions: () => bulkSheet(shownPicked),
+    pickedRemove: () => bulkRemove(shownPicked.map((u) => u.id)),
+    pickClear: () => setState({ picked: new Set() }),
     doBulk: () => bulkSheet(shown),
     q: state.q,
     doSearch: (e) => setState({ q: e.target.value }),
@@ -5637,6 +5954,8 @@ function renderVals() {
 
     nodeCards: waiting ? [] : nodeCards,
     dayBars: waiting ? [] : dayBars, shareRows,
+    topRows: waiting ? [] : topRows, noTop: state.known && topRows.length === 0,
+    mixRows: waiting ? [] : mixRows,
     noShare: state.known && shareRows.length === 0,
     accents, looks, tints, lampWrap, lampHint, lampZones, lightNote, kinds,
     depthPct, depthNote, setDepth, radii, densities, cards, glows, profiles, saveProfile, randomize,

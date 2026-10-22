@@ -15,9 +15,12 @@ const maxBulk = 5000
 // bulkUsers делает одно действие над списком покупателей.
 //
 // Нужно после аварии и для рутины: «продлить всем, кто истекает на этой
-// неделе», «отключить не заплативших». По одному это сотня нажатий. Удаления
-// здесь нет намеренно: стереть сотню покупателей одним запросом — слишком
-// дорогая опечатка, а отключение обратимо.
+// неделе», «отключить не заплативших». По одному это сотня нажатий.
+//
+// Удаление — с повтором числа: запрос обязан назвать в confirm, сколько
+// покупателей стирается. Стереть сотню одной опечаткой в списке номеров —
+// дорогая ошибка, а бот или скрипт, назвавший число, знал, что делает. Окно
+// панели вдобавок просит напечатать слово подтверждения.
 //
 // Каждый покупатель — отдельная правка: не вышло у одного (удалён, пока
 // продавец выбирал), остальные всё равно сделаны, а не вышедшие перечислены.
@@ -27,6 +30,7 @@ func (a *API) bulkUsers(w http.ResponseWriter, r *http.Request) {
 		Action   string  `json:"action"`
 		PlanID   int64   `json:"plan_id"`
 		ExtendBy string  `json:"extend_by"`
+		Confirm  int     `json:"confirm"`
 	}
 	if !decode(w, r, &body) {
 		return
@@ -65,8 +69,15 @@ func (a *API) bulkUsers(w http.ResponseWriter, r *http.Request) {
 	case "reset":
 		detail = "массово обнулён расход"
 		apply = func(id int64) error { _, err := a.store.ResetTraffic(r.Context(), id); return err }
+	case "delete":
+		if body.Confirm != len(body.IDs) {
+			fail(w, http.StatusBadRequest, "удаление: в confirm нужно повторить число покупателей")
+			return
+		}
+		detail = "удалён массово"
+		apply = func(id int64) error { return a.store.DeleteUser(r.Context(), id) }
 	default:
-		fail(w, http.StatusBadRequest, "действие — renew, extend, enable, disable или reset")
+		fail(w, http.StatusBadRequest, "действие — renew, extend, enable, disable, reset или delete")
 		return
 	}
 
@@ -84,7 +95,15 @@ func (a *API) bulkUsers(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		done++
+		if body.Action == "delete" {
+			// Запись о самом покупателе ушла бы вместе с ним (каскад), поэтому
+			// о стёртых — одна общая строка ниже.
+			continue
+		}
 		a.record(r, EventUserUpdate, Event{UserID: id, Detail: detail})
+	}
+	if body.Action == "delete" && done > 0 {
+		a.record(r, EventUserDelete, Event{Detail: detail + ": " + strconv.Itoa(done)})
 	}
 	answer := map[string]any{"done": done, "failed": failed}
 	a.remember(r, "bulk", 0, answer)

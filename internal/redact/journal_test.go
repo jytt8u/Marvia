@@ -26,6 +26,7 @@ func TestServerJournalsNeverTakeBuyerData(t *testing.T) {
 		"internal/panel", "internal/users", "internal/nodesync",
 		"internal/inbound", "internal/egress", "internal/transport",
 		"internal/fallback", "internal/mux", "internal/relay", "internal/vp1",
+		"internal/connguard",
 	}
 
 	// Имена, за которыми в этом коде стоят данные покупателя или секреты.

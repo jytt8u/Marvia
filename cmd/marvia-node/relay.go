@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jytt8u/marvia/internal/connguard"
 	"github.com/jytt8u/marvia/internal/proxyproto"
 	"github.com/jytt8u/marvia/internal/relay"
 )
@@ -64,6 +65,11 @@ func runRelay(opts serverOptions) error {
 	if err != nil {
 		return fmt.Errorf("прослушивание %s: %w", opts.listenAddr, err)
 	}
+	// Вход стоит в российском облаке на виду у всех, и простукивать его
+	// начнут первым. Предел частоты — по адресу покупателя, и освобождать от
+	// него некого: перед входом других входов нет. Число открытых у входа
+	// и так держит relayMaxConns в serveRelay, он строже общего.
+	ln = connguard.Listen(ln, connguard.Config{})
 	defer ln.Close()
 	go func() {
 		<-ctx.Done()

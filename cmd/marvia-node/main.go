@@ -26,6 +26,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jytt8u/marvia/internal/connguard"
 	"github.com/jytt8u/marvia/internal/envvar"
 	"github.com/jytt8u/marvia/internal/fallback"
 	"github.com/jytt8u/marvia/internal/nodesync"
@@ -189,6 +190,26 @@ func run(opts serverOptions) error {
 		return fmt.Errorf("прослушивание %s: %w", opts.listenAddr, err)
 	}
 	defer ln.Close()
+
+	// Пределы на приём стоят первыми, над сырым TCP: флуд соединениями
+	// отсекается раньше, чем нода потратит на него чтение заголовка или
+	// рукопожатие TLS. Входы каскада от предела частоты освобождены — за
+	// адресом входа приходят все его покупатели. Поэтому обёртка стоит до
+	// proxyproto: после него адрес входа уже подменён адресом покупателя, и
+	// вход было бы не узнать.
+	//
+	// За CDN (-ws-path) от предела частоты освобождены все: каждый покупатель
+	// приходит с адреса узла CDN, и предел одного адреса резал бы сотни людей
+	// за этим узлом. Флуд там принимает на себя CDN, а ноде остаётся общий
+	// предел открытых соединений.
+	var exempt func(net.IP) bool
+	switch {
+	case opts.wsPath != "":
+		exempt = func(net.IP) bool { return true }
+	case panel != nil:
+		exempt = panel.TrustsRelay
+	}
+	ln = connguard.Listen(ln, connguard.Config{Exempt: exempt})
 
 	// Адрес покупателя, пришедшего через вход каскада, нода узнаёт из
 	// заголовка, который вход шлёт первым (internal/proxyproto). Читается он

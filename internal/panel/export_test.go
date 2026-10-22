@@ -77,3 +77,18 @@ func SetFreshEvery(d time.Duration) (restore func()) {
 
 // AutoUpdateAt — одна проверка автообновления в момент now.
 func (a *API) AutoUpdateAt(ctx context.Context, now time.Time) error { return a.autoUpdateAt(ctx, now) }
+
+// Тесты пакета шлют сотни запросов с одного адреса, проверяя совсем другое,
+// и боевые пределы делали бы их зависимыми от скорости машины. Поэтому по
+// умолчанию пределов нет, а тесты самих пределов включают их явно.
+func init() { floodDefaults = floodLimits{} }
+
+// GuardAgainstFlood включает боевые пределы на часах now. Вызывается до
+// Handler: маршрутизатор берёт пределы при сборке.
+func (a *API) GuardAgainstFlood(now func() time.Time) {
+	a.flood = productionFlood
+	a.floodNow = now
+}
+
+// FloodFailures — сколько неудач за окно ведут к блокировке.
+func FloodFailures() int { return productionFlood.failures }

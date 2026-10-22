@@ -1,6 +1,6 @@
 # Что видит продавец и чего не видит
 
-Обновлено 5 октября 2026 года. English version below.
+Обновлено 22 октября 2026 года. English version below.
 
 Marvia — это программы, а не сервис. Панель и ноды ставит у себя тот, кто
 раздаёт или продаёт доступ (дальше — продавец), приложение ставит тот, кто
@@ -47,6 +47,12 @@ Marvia — это программы, а не сервис. Панель и но
 пометкой `<адрес>` вместо адреса). Если перед панелью стоит nginx, Caddy или
 Cloudflare, их журналы — отдельная история, и настраивает её продавец.
 
+Одно исключение — защита от флуда: чтобы отличить перебор токенов от
+покупателя, панель **в памяти** считает запросы и неудачи по адресам. Не
+больше 16 384 адресов, каждый забывается не позже чем через 11 минут после
+последнего запроса с него. На диск и в журнал адреса не идут — в журнал
+попадает только число отклонённых запросов.
+
 Удаление покупателя уносит всё про него: наборы доступа, расход, время связи,
 отчёты, записи журнала и сохранённые ответы. Остаётся только посуточный
 расход нод — в нём покупателя и не было.
@@ -68,6 +74,7 @@ Cloudflare, их журналы — отдельная история, и нас
 | Число соединений аккаунта | Лимит соединений | В памяти |
 | IP-адреса подключений | Лимит устройств: «один купил — раздал десятерым» иначе не увидеть | **Только у тех, кому лимит задан**, только в памяти, только час. Снятый лимит снимает адреса сразу. Наружу — в файл, в панель — уходит одно число |
 | Адрес назначения | Без него трафик не доставить | Пока открыто соединение |
+| Адреса, открывающие соединения | Предел частоты новых соединений против флуда | Только в памяти, не больше 65 536 адресов, забываются через минуту-две после последнего соединения. В журнал — только число отклонённых |
 
 Раз в 15 секунд нода отправляет панели: расход по номерам аккаунтов, число
 соединений и число адресов, свою версию и имена прикрытия. Больше ничего.
@@ -79,8 +86,9 @@ Cloudflare, их журналы — отдельная история, и нас
 **Вход в России** (каскад) знает ещё меньше ноды: только адрес своего выхода.
 Ключей, лимитов и списка покупателей у него нет, шифрование идёт насквозь.
 Адрес покупателя он видит, пока открыто соединение, и передаёт выходу
-заголовком — для лимита устройств, — но нигде его не хранит и не пишет в
-журнал. Панель помнит адрес, с которого вход с ней сверяется: это адрес
+заголовком — для лимита устройств, — но не пишет его ни на диск, ни в
+журнал; в памяти он остаётся только в счётчике частоты против флуда, как у
+ноды. Панель помнит адрес, с которого вход с ней сверяется: это адрес
 сервера продавца, по нему выход узнаёт свой вход.
 
 ## Что технически видит любая выходная нода
@@ -177,6 +185,7 @@ VPN и темы, выбор приложений для обхода тунне�
 | Панель не помнит, на какой ноде покупатель был когда | `TestPanelForgetsWhichNodeABuyerLeft`, `TestUsageKeepsNoTimeOfLastUseOnANode` |
 | Удаление покупателя уносит сохранённые ответы | `TestDeletedUserLeavesNoRememberedResponse` |
 | Нода держит адреса только ради лимита, только в памяти, только час | `internal/users/privacy_test.go` |
+| Пределы против флуда держат ограниченное число адресов и пишут в журнал только число отклонённых | `internal/connguard/connguard_test.go`: `TestAddressTableStaysBounded`, `TestJournalCountsRejectionsWithoutAddresses`; `internal/panel/flood_internal_test.go`: `TestAddressTableOfThePanelStaysBounded` |
 | Журналы панели и ноды не получают адрес, цель, токен, метку | `internal/redact/journal_test.go`, `cmd/marvia-node/serve_test.go`, `cmd/marvia-panel/server_test.go`, `internal/transport/ws_journal_test.go`, `internal/fallback/fallback_test.go` |
 | В посуточной истории нет людей | `internal/panel/usage_test.go`: `TestDailyHistoryKeepsNoOneCompany` |
 | Поле имени предлагает псевдоним, почту и телефон панель не спрашивает | `internal/panel/web_test.go`: `TestBuyerNameFieldSuggestsAPseudonym` |
@@ -188,7 +197,7 @@ VPN и темы, выбор приложений для обхода тунне�
 
 # What the seller sees and what they don't
 
-Updated 5 October 2026.
+Updated 22 October 2026.
 
 Marvia is software, not a service. Whoever gives out or sells access (the
 seller) runs the panel and nodes; whoever connects (the buyer) runs the app.
@@ -233,8 +242,12 @@ connection history or websites. It cannot accept an email or phone number:
 the API has no field for them. It does **see** the app's network address,
 like any server sees its clients, but writes it neither to the database nor
 to its log (net/http errors are logged with `<адрес>` in place of the
-address). Logs of nginx, Caddy or Cloudflare in front of the panel are the
-seller's own configuration. Database backups contain the same data; they are
+address). The one exception is flood protection: to tell token guessing
+from a buyer, the panel counts requests and failures per address **in
+memory** — at most 16,384 addresses, each forgotten no later than 11 minutes
+after its last request, never written to disk or the log (the log gets only
+the number of rejected requests). Logs of nginx, Caddy or Cloudflare in
+front of the panel are the seller's own configuration. Database backups contain the same data; they are
 encrypted when the seller sets `-backup-key`. Retention cleanup runs every
 six hours, not only on restart.
 
@@ -250,6 +263,9 @@ person is.
   only in memory, only for an hour**; removing the limit drops them at once.
   Only their count leaves the node.
 - Destination address — while the connection is open.
+- Addresses opening connections — for the flood limit on new connections:
+  only in memory, at most 65,536, forgotten a minute or two after the last
+  connection. The log gets only the number of rejected connections.
 
 Every 15 seconds the node reports to the panel: traffic per account number,
 connection count, number of addresses, its version and cover names. Its log

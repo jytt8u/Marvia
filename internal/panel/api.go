@@ -51,11 +51,16 @@ type API struct {
 	releases releaseCache
 	// auto — что ночное автообновление уже попросило; см. autoupdate.go.
 	auto autoState
+
+	// flood — пределы против потока запросов, floodNow — их часы; см.
+	// flood.go.
+	flood    floodLimits
+	floodNow func() time.Time
 }
 
 // NewAPI собирает обработчики панели.
 func NewAPI(store *Store, adminToken, subBase, distDir string) *API {
-	return &API{store: store, adminToken: adminToken, subBase: strings.TrimRight(subBase, "/"), distDir: distDir}
+	return &API{store: store, adminToken: adminToken, subBase: strings.TrimRight(subBase, "/"), distDir: distDir, flood: floodDefaults}
 }
 
 // Handler возвращает готовый маршрутизатор.
@@ -195,7 +200,9 @@ func (a *API) Handler() http.Handler {
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	return mux
+	// Пределы — перед всеми маршрутами сразу: флуд дешевле отсечь до
+	// разбора пути, чем учить каждый обработчик ему отказывать.
+	return newFloodGuard(mux, a.flood, a.floodNow)
 }
 
 // scoped пускает по админскому токену или по ключу с нужным правом.

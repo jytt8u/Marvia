@@ -7,6 +7,9 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"regexp"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -94,5 +97,29 @@ func TestSpeedIsCountedFromWhatArrived(t *testing.T) {
 	}
 	if _, err := (&Controller{state: StateIdle, log: newJournal()}).SpeedTest(context.Background()); err == nil {
 		t.Fatal("замер скорости без туннеля начался")
+	}
+}
+
+// TestWindowListsTheSameSitesTheProgramChecks: пока идёт проверка, окно
+// показывает названия сайтов заранее — это должен быть ровно тот список,
+// что проверяет программа, иначе строки «проверяю…» не совпадут с ответом.
+func TestWindowListsTheSameSitesTheProgramChecks(t *testing.T) {
+	raw, err := os.ReadFile("ui/app.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`const NC_SITES = \[([^\]]*)\]`).FindSubmatch(raw)
+	if m == nil {
+		t.Fatal("в окне нет NC_SITES")
+	}
+	var window, program []string
+	for _, q := range regexp.MustCompile(`"([^"]+)"`).FindAllSubmatch(m[1], -1) {
+		window = append(window, string(q[1]))
+	}
+	for _, s := range siteChecks {
+		program = append(program, s.Name)
+	}
+	if !slices.Equal(window, program) {
+		t.Fatalf("окно ждёт %v, программа проверяет %v", window, program)
 	}
 }

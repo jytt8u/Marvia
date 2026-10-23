@@ -97,3 +97,30 @@ func TestKeyRowNamesTheServerButNotTheSecret(t *testing.T) {
 		}
 	}
 }
+
+// Из буфера предлагается только ключ доступа, и только новый: ссылка на
+// видео или уже сохранённый ключ кнопкой «Вставить» не становятся.
+func TestClipboardOffersOnlyNewAccessKeys(t *testing.T) {
+	saved := withKey(nil, "", testKeyA)
+	cases := []struct {
+		text  string
+		offer bool
+		known bool
+	}{
+		{testKeyB, true, false},
+		{"  " + testKeyB + "\n", true, false},
+		{"https://panel.example/AbCdEf0123456789xyz", true, false},
+		{testKeyA, false, true},
+		{"https://www.youtube.com/watch?v=dQw4w9WgXcQ", false, false},
+		{"привет, как дела", false, false},
+		{"vless://битая", false, false},
+		{testKeyB + " " + testKeyA, false, false},
+		{"", false, false},
+	}
+	for _, c := range cases {
+		o := clipboardOffer(c.text, saved)
+		if (o.Link != "") != c.offer || o.Known != c.known {
+			t.Errorf("%q: предложено %q, уже есть %v", c.text, o.Link, o.Known)
+		}
+	}
+}

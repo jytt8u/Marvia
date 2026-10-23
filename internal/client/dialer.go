@@ -91,6 +91,13 @@ type Options struct {
 	// а не ядра: есть ли у его провайдера фильтр по имени, клиент узнать не
 	// может, а без фильтра дробление — лишняя примета.
 	Fragment bool
+
+	// NoQUIC — не ходить по UDP даже к ноде, которая его принимает. Откат на
+	// TCP ловит только сеть, где UDP не проходит вовсе; где он проходит, но
+	// его душат после первых мегабайт, QUIC дозванивается и потом еле
+	// тянет. Узнать это сам клиент не может — решает человек. Нулевое
+	// значение — как было: телефон этого поля не задаёт.
+	NoQUIC bool
 }
 
 // NewDialer готовит дозвон до ноды. Соединение поднимается лениво, при первом
@@ -154,7 +161,7 @@ func transportDialer(node Node, serverName string, opts Options, onConnect func(
 	// Только для обычного TLS: под REALITY нода не может держать QUIC (там
 	// нет своего сертификата), а за CDN адрес принадлежит не ноде, и UDP до
 	// неё не дойдёт.
-	if node.QUIC && node.Transport() == TransportTLS {
+	if node.QUIC && !opts.NoQUIC && node.Transport() == TransportTLS {
 		tcp, err := tcpDialer(node, serverName, opts, onConnect)
 		if err != nil {
 			return nil, err

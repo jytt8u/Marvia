@@ -119,6 +119,9 @@ func serveUI(ctl *Controller, log *journal, onWindow *func(windowRequest)) (stri
 	mux.HandleFunc("GET "+prefix+"/api/net/where", u.netWhere)
 	mux.HandleFunc("POST "+prefix+"/api/net/sites", u.netSites)
 	mux.HandleFunc("POST "+prefix+"/api/net/speed", u.netSpeed)
+	mux.HandleFunc("POST "+prefix+"/api/diag", u.diag)
+	mux.HandleFunc("POST "+prefix+"/api/reconnect", u.reconnect)
+	mux.HandleFunc("GET "+prefix+"/api/clipboard/key", u.clipboardKey)
 	mux.HandleFunc("POST "+prefix+"/api/update/open", u.openUpdate)
 	mux.HandleFunc("POST "+prefix+"/api/seller/open", u.openSeller)
 	mux.HandleFunc("POST "+prefix+"/api/seller/seen", u.seenReminder)
@@ -402,7 +405,7 @@ func (u *ui) window(w http.ResponseWriter, r *http.Request) {
 	// Вкладку проверяем по списку: она уходит в адрес страницы, и мусор в
 	// ней — это мусор в адресной строке движка.
 	switch body.Tab {
-	case "", "home", "nodes", "theme", "settings":
+	case "", "home", "nodes", "diag", "theme", "settings":
 	default:
 		body.Tab = ""
 	}
@@ -543,6 +546,48 @@ func (u *ui) netSites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"sites": sites})
+}
+
+// diagTimeout — потолок одного шага «Проверить всё»: самый долгий —
+// страница двумя путями, по probeTimeout на каждый.
+const diagTimeout = 2*probeTimeout + 4*time.Second
+
+// diag проходит один шаг «Проверить всё»; какой — по имени из diagSteps.
+func (u *ui) diag(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Step string `json:"step"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": say("badRequest")})
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), diagTimeout)
+	defer cancel()
+	step, err := u.ctl.Diagnose(ctx, body.Step)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, step)
+}
+
+// reconnect — «Переподключиться»: туннель заново с выбранными настройками.
+func (u *ui) reconnect(w http.ResponseWriter, _ *http.Request) {
+	if err := u.ctl.Reconnect(); err != nil {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, u.ctl.Status())
+}
+
+// clipboardKey — есть ли в буфере обмена ключ доступа; см. KeyOffer.
+func (u *ui) clipboardKey(w http.ResponseWriter, _ *http.Request) {
+	offer, err := u.ctl.ClipboardOffer()
+	if err != nil {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, offer)
 }
 
 // netSpeed меряет скорость приёма через туннель — только по кнопке.

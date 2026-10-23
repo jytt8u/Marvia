@@ -52,6 +52,12 @@ type pcSettings struct {
 	// провайдера это лишние пакеты и своя примета.
 	Fragment bool `json:"fragment,omitempty"`
 
+	// TCPOnly — к нодам Marvia только по TCP, без пробы QUIC. Нужен там, где
+	// UDP не режут, а душат: QUIC дозванивается и потом еле тянет, и сам
+	// клиент этого не отличит от медленной ноды (client.Options.NoQUIC).
+	// Выключено по умолчанию: где UDP живой, QUIC ровнее на потерях.
+	TCPOnly bool `json:"tcp_only,omitempty"`
+
 	// IPv6Off — не пускать IPv6 через туннель вовсе. Мимо он при этом тоже не
 	// уходит: маршрут IPv6 остаётся в туннеле, мост отвечает «адресов IPv6
 	// нет», и программы идут по IPv4 (tunbridge.Config.NoIPv6). Нужен, когда
@@ -203,6 +209,11 @@ type SettingsView struct {
 	Fragment      bool  `json:"fragment"`
 	FragmentInUse *bool `json:"fragment_in_use,omitempty"`
 
+	// TCPOnly — выбранное; TCPOnlyInUse — так ли поднят туннель. nil — туннеля
+	// нет или ключ чужой: у чужих протоколов QUIC от Marvia нет вовсе.
+	TCPOnly      bool  `json:"tcp_only"`
+	TCPOnlyInUse *bool `json:"tcp_only_in_use,omitempty"`
+
 	// IPv6 — пускать ли IPv6 через туннель; IPv6InUse — как у поднятого.
 	IPv6      bool  `json:"ipv6"`
 	IPv6InUse *bool `json:"ipv6_in_use,omitempty"`
@@ -228,6 +239,7 @@ type SettingsPatch struct {
 	DNS           *string `json:"dns"`
 	DNSSecure     *bool   `json:"dns_secure"`
 	Fragment      *bool   `json:"fragment"`
+	TCPOnly       *bool   `json:"tcp_only"`
 	IPv6          *bool   `json:"ipv6"`
 	Reports       *bool   `json:"reports"`
 	KillSwitch    *bool   `json:"kill_switch"`

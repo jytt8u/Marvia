@@ -116,6 +116,12 @@ type Status struct {
 	ProxyServer string `json:"proxy_server,omitempty"`
 	ProxyEnv    bool   `json:"proxy_env,omitempty"`
 
+	// Route — как именно идём до ноды: протокол, транспорт, имя прикрытия,
+	// отпечаток. Только то, с чем дозванивается ядро; без туннеля — пусто.
+	// «Диагностика» показывает это человеку, который спрашивает продавца
+	// «у меня не работает»: без этих слов продавец гадает.
+	Route *RouteView `json:"route,omitempty"`
+
 	// Seller — поддержка, «Продлить», объявление и напоминание о сроке; см.
 	// seller.go. Есть и без туннеля: нужнее всего, когда подключиться нельзя.
 	Seller SellerView `json:"seller"`
@@ -256,6 +262,10 @@ type Controller struct {
 	// fragmentInUse — режется ли приветствие у поднятого туннеля; nil, пока
 	// туннеля нет.
 	fragmentInUse *bool
+
+	// tcpOnlyInUse — без QUIC ли поднят туннель; nil, пока туннеля нет или ключ
+	// чужой.
+	tcpOnlyInUse *bool
 
 	// ipv6InUse — пускает ли поднятый туннель IPv6; nil, пока туннеля нет.
 	ipv6InUse *bool
@@ -475,7 +485,8 @@ func (c *Controller) Status() Status {
 		State:       state,
 		Node:        c.node.Title(),
 		Address:     c.node.Address,
-		Transport:   transportOf(c.node),
+		Transport:   transportOf(c.node, c.tcpOnlyInUse != nil && *c.tcpOnlyInUse),
+		Route:       c.routeLocked(),
 		PingMS:      pingMS,
 		Up:          max(0, c.up.Load()-c.baseUp),
 		Down:        max(0, c.down.Load()-c.baseDown),
@@ -506,11 +517,11 @@ func (c *Controller) Status() Status {
 
 // transportOf — способ связи с нодой для обзора. QUIC у ноды с TLS — первый
 // выбор дозвона; при закрытом UDP он сам уходит на TCP, и это видно в журнале.
-func transportOf(n client.Node) string {
+func transportOf(n client.Node, tcpOnly bool) string {
 	if n.Address == "" {
 		return ""
 	}
-	if n.QUIC && n.Transport() == client.TransportTLS {
+	if n.QUIC && !tcpOnly && n.Transport() == client.TransportTLS {
 		return "quic"
 	}
 	return string(n.Transport())
@@ -766,7 +777,7 @@ func (c *Controller) raiseMarvia(ctx context.Context, link string, set pcSetting
 		Account:   account,
 		Key:       key,
 		CachePath: cachePathFor(account.SubscriptionURL),
-		Dial:      client.Options{Fragment: set.Fragment},
+		Dial:      client.Options{Fragment: set.Fragment, NoQUIC: set.TCPOnly},
 		Log:       c.log.add,
 	}, c.events(ctx))
 
@@ -877,6 +888,9 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	c.mtuInUse = mtu
 	c.dnsSecureInUse = boolPtr(names != nil)
 	c.fragmentInUse = &set.Fragment
+	if _, theirs := dialer.(*foreign.Supervisor); !theirs {
+		c.tcpOnlyInUse = &set.TCPOnly
+	}
 	c.ipv6InUse = boolPtr(!set.IPv6Off)
 	c.until, c.limitBytes, c.leftBytes = subscriptionOf(dialer)
 	c.known = dialer.Subscription()
@@ -987,6 +1001,7 @@ func (c *Controller) teardown() {
 	c.mtuInUse = 0
 	c.dnsSecureInUse = nil
 	c.fragmentInUse = nil
+	c.tcpOnlyInUse = nil
 	c.ipv6InUse = nil
 	c.until, c.limitBytes, c.leftBytes = "", 0, 0
 	c.since = time.Time{}

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/jytt8u/marvia/internal/client"
@@ -196,4 +197,65 @@ func keySource(link string) (host, kind string) {
 		kind = scheme
 	}
 	return host, kind
+}
+
+// KeyOffer — ключ доступа, найденный в буфере обмена.
+//
+// Ключ продавец присылает в мессенджере, человек его копирует и идёт в окно
+// — а там надо ещё найти поле и вставить. Окно само видит, что в буфере
+// ключ, и предлагает его одной кнопкой. Сохраняет всё равно человек: молча
+// подменить рабочий ключ тем, что лежит в буфере, значило бы пустить трафик
+// через того, кто этот буфер наполнил.
+type KeyOffer struct {
+	// Link — сама ссылка: она уходит в поле формы. Пусто, если ключа нет или
+	// он уже сохранён.
+	Link string `json:"link,omitempty"`
+	Host string `json:"host,omitempty"`
+	Kind string `json:"kind,omitempty"`
+	// Known — этот ключ уже в списке: предлагать его второй раз незачем.
+	Known bool `json:"known,omitempty"`
+}
+
+// clipOfferMax — длиннее ключи не бывают; в буфере такого размера — текст,
+// а не ссылка.
+const clipOfferMax = 8 << 10
+
+// clipboardOffer — похож ли текст из буфера на ключ доступа.
+func clipboardOffer(text string, saved []savedKey) KeyOffer {
+	text = strings.TrimSpace(text)
+	if text == "" || len(text) > clipOfferMax || strings.ContainsAny(text, " \t\r\n") || !looksLikeKey(text) {
+		return KeyOffer{}
+	}
+	host, kind := keySource(text)
+	if findKey(saved, keyID(text)) >= 0 {
+		return KeyOffer{Host: host, Kind: kind, Known: true}
+	}
+	return KeyOffer{Link: text, Host: host, Kind: kind}
+}
+
+// subToken — последний кусок пути, похожий на токен подписки.
+var subToken = regexp.MustCompile(`^[A-Za-z0-9_-]{16,}$`)
+
+// looksLikeKey — та же проверка, что при сохранении (Controller.AddKey), и
+// ещё одна для http(s). Адрес подписки от ссылки на сайт по виду наверняка не
+// отличить, а предлагать в ключи каждую скопированную страницу — навязчиво.
+// Берём то, что похоже на подписку: «sub» в пути или длинный токен в конце —
+// так выглядят адреса 3x-ui, Marzban, Remnawave и панели Marvia. Остальное
+// человек вставит сам.
+func looksLikeKey(link string) bool {
+	if !foreign.IsForeign(link) {
+		_, err := client.ParseAccountLink(link)
+		return err == nil
+	}
+	if foreign.IsLink(link) {
+		_, err := foreign.Parse(link)
+		return err == nil
+	}
+	u, err := url.Parse(link)
+	if err != nil {
+		return false
+	}
+	path := strings.Trim(u.Path, "/")
+	parts := strings.Split(path, "/")
+	return strings.Contains(strings.ToLower(path), "sub") || subToken.MatchString(parts[len(parts)-1])
 }

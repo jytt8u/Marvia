@@ -34,23 +34,63 @@ const (
 	gmemMoveable  = 0x0002
 )
 
+var (
+	getClipboardData = user32.NewProc("GetClipboardData")
+	clipboardHasFmt  = user32.NewProc("IsClipboardFormatAvailable")
+	globalSize       = kernel32.NewProc("GlobalSize")
+)
+
+// openClip открывает буфер. Он бывает занят другой программой долю секунды
+// — менеджеры буфера открывают его на каждое изменение. Несколько попыток
+// вместо отказа.
+func openClip() bool {
+	for i := 0; i < 10; i++ {
+		if r, _, _ := openClipboard.Call(0); r != 0 {
+			return true
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+	return false
+}
+
+// pasteText — текст из буфера обмена Windows; пусто, если там не текст или
+// текст больше любого ключа. Читает программа, а не страница, по той же
+// причине, что и пишет: у WebView2 права на буфер бывают отняты.
+func pasteText() (string, error) {
+	if r, _, _ := clipboardHasFmt.Call(cfUnicodeText); r == 0 {
+		return "", nil
+	}
+	if !openClip() {
+		return "", errors.New(say("clipboardBusy"))
+	}
+	defer closeClipboard.Call()
+	h, _, _ := getClipboardData.Call(cfUnicodeText)
+	if h == 0 {
+		return "", nil
+	}
+	size, _, _ := globalSize.Call(h)
+	if size < 2 || size > 2*clipOfferMax+2 {
+		return "", nil
+	}
+	ptr, _, _ := globalLock.Call(h)
+	if ptr == 0 {
+		return "", nil
+	}
+	defer globalUnlock.Call(h)
+	buf := make([]uint16, size/2)
+	// Копирует система — как и при записи: адрес из GlobalLock в указатель Go
+	// не превращаем.
+	moveMemory.Call(uintptr(unsafe.Pointer(&buf[0])), ptr, uintptr(len(buf)*2))
+	return windows.UTF16ToString(buf), nil
+}
+
 // copyText кладёт текст в буфер обмена Windows.
 func copyText(text string) error {
 	utf16, err := windows.UTF16FromString(text)
 	if err != nil {
 		return err
 	}
-	// Буфер бывает занят другой программой долю секунды — менеджеры буфера
-	// открывают его на каждое изменение. Несколько попыток вместо отказа.
-	opened := false
-	for i := 0; i < 10 && !opened; i++ {
-		if r, _, _ := openClipboard.Call(0); r != 0 {
-			opened = true
-		} else {
-			time.Sleep(30 * time.Millisecond)
-		}
-	}
-	if !opened {
+	if !openClip() {
 		return errors.New(say("clipboardBusy"))
 	}
 	defer closeClipboard.Call()

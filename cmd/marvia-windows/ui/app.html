@@ -1,4 +1,4 @@
-  $("w-node").textContent = bare(s.node) || d.noNode;  $("oc-name").textContent = bare(s.node) || d.noNode;<!doctype html>
+<!doctype html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -392,6 +392,90 @@
   @keyframes ncShine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
   .nc-act { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .nc-speed { margin-left: auto; font: 700 16px var(--mono); color: var(--acc); }
+
+  /* ───── Диагностика ───── */
+  .diag-scroll { flex: 1; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--dim) transparent; }
+  .diag-grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); gap: var(--gap); align-items: start; padding-bottom: 14px; }
+  .diag-grid > .col > * { animation: arrive .45s var(--ease) both; }
+  .diag-grid > .col > *:nth-child(2) { animation-delay: .05s; }
+  .diag-grid > .col > *:nth-child(3) { animation-delay: .1s; }
+  .diag-grid > .col > *:nth-child(4) { animation-delay: .15s; }
+  @media (max-width: 1060px) { .diag-grid { grid-template-columns: minmax(0, 1fr); } }
+  .diag-run .card-head { align-items: flex-start; }
+  .diag-run .primary { flex: none; }
+  .diag-sum { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: min(var(--r), 12px); background: color-mix(in srgb, var(--fg) 5%, transparent); border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--fg); animation: ncIn .35s var(--ease) both; }
+  .diag-sum i { width: 10px; height: 10px; border-radius: 50%; background: var(--dim); flex: none; }
+  .diag-sum[data-st="ok"] i { background: var(--ok, #6fd39b); box-shadow: 0 0 10px var(--ok, #6fd39b); }
+  .diag-sum[data-st="warn"] i { background: var(--warn); }
+  .diag-sum[data-st="bad"] i { background: var(--fail); }
+  .diag-sum[data-st="run"] i { background: var(--acc); animation: ncPulse 1.4s ease-out infinite; }
+  .diag-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .diag-steps:empty { display: none; }
+  .dstep { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 9px 11px; border-radius: min(var(--r), 12px);
+    background: color-mix(in srgb, var(--fg) 4%, transparent); border: 1px solid var(--line); animation: ncIn .35s var(--ease) both; transition: border-color .3s; }
+  .dstep .ico { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 700 12px var(--mono); color: var(--accFg); background: var(--dim); }
+  .dstep[data-st="ok"] .ico { background: var(--ok, #6fd39b); color: #06210f; }
+  .dstep[data-st="warn"] .ico { background: var(--warn); color: #2a1700; }
+  .dstep[data-st="bad"] .ico { background: var(--fail); color: #2a0006; }
+  .dstep[data-st="off"] .ico { background: none; box-shadow: inset 0 0 0 1.5px var(--dim); color: var(--dim); }
+  .dstep[data-st="run"] .ico { background: none; box-shadow: inset 0 0 0 2px var(--line); border-top: 2px solid var(--acc); animation: spin .9s linear infinite; }
+  .dstep[data-st="bad"] { border-color: color-mix(in srgb, var(--fail) 45%, transparent); }
+  .dstep[data-st="warn"] { border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+  .dstep .t { font-size: 13px; font-weight: 600; color: var(--fg); min-width: 0; }
+  .dstep .v { font: 500 12px var(--mono); color: var(--dim); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+  .dstep .say { grid-column: 2 / 4; font-size: 12px; line-height: 1.45; color: var(--dim); }
+  .dstep .say:empty { display: none; }
+  .dstep .acts { grid-column: 2 / 4; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .dstep .acts:empty { display: none; }
+  .dstep .acts .chip { min-height: 30px; font-size: 12px; }
+  .dstep .acts .chip.lead-act { background: var(--accSoft); border-color: var(--acc); }
+  .dstep .acts .said { font-size: 12px; color: var(--acc); }
+  .speed-big { display: flex; align-items: baseline; gap: 8px; }
+  .speed-big b { font: 700 40px/1 var(--numFont, var(--mono)); color: var(--acc); letter-spacing: -.02em; }
+  .speed-big span { font: 500 13px var(--mono); color: var(--dim); }
+  .speed-hist { display: flex; align-items: flex-end; gap: 6px; min-height: 0; }
+  .speed-hist:empty { display: none; }
+  .speed-hist .sh { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: stretch; animation: ncIn .35s var(--ease) both; }
+  .speed-hist .sh i { display: block; height: 4px; border-radius: 3px; background: var(--acc); opacity: .55; transition: height .4s var(--ease); }
+  .speed-hist .sh:last-child i { opacity: 1; }
+  .speed-hist .sh small { font: 500 10.5px var(--mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+  .speed-hist .bars { display: flex; align-items: flex-end; height: 46px; }
+  .speed-hist .bars i { width: 100%; }
+  .dfacts { display: flex; flex-direction: column; gap: 0; }
+  .dfacts:empty { display: none; }
+  .dfacts div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 12.5px; min-width: 0; }
+  .dfacts span { color: var(--dim); flex: none; }
+  .dfacts b { font: 500 12.5px var(--mono); color: var(--fg); text-align: right; min-width: 0; overflow-wrap: anywhere; }
+  .dq-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .dq-nums div { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: min(var(--r), 12px); background: color-mix(in srgb, var(--fg) 5%, transparent); border: 1px solid var(--line); min-width: 0; }
+  .dq-nums b { font: 700 18px var(--numFont, var(--mono)); color: var(--fg); white-space: nowrap; }
+  .dq-nums b[data-bad] { color: var(--warn); }
+  .dq-bars { display: flex; align-items: flex-end; gap: 2px; height: 34px; }
+  .dq-bars:empty { display: none; }
+  .dq-bars i { flex: 1; min-width: 2px; border-radius: 1px; background: var(--acc); opacity: .55; transition: height .4s var(--ease); }
+  .dq-bars i:last-child { opacity: 1; }
+  .dq-bars i[data-lost] { background: var(--fail); opacity: .9; height: 34px !important; }
+  .where-mini { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; text-align: left; font: inherit; color: var(--fg); }
+  .where-mini[hidden] { display: none; }
+  .where-mini .flag { width: 28px; height: 20px; }
+  .where-mini .wm-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .where-mini b { font: 700 14px var(--mono); }
+  .where-mini small { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .where-mini .wm-go { font-size: 12px; font-weight: 600; color: var(--acc); flex: none; transition: transform .3s var(--ease); }
+  .where-mini:hover .wm-go { transform: translateX(3px); }
+  .add-key { background: var(--acc); border-color: var(--acc); color: var(--accFg); }
+  .add-key:hover { filter: brightness(1.08); }
+  .add-key[aria-expanded="true"] { background: var(--surf); color: var(--fg); border-color: var(--line); }
+  .key-offer { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: min(var(--r), 12px); background: var(--accSoft); border: 1px dashed var(--acc); animation: ncIn .35s var(--ease) both; }
+  .key-offer[hidden] { display: none; }
+  .key-offer .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .key-offer b { font-size: 13px; }
+  .key-offer small { font: 500 11.5px var(--mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (prefers-reduced-motion: reduce) {
+    .diag-grid > .col > *, .diag-sum, .dstep, .speed-hist .sh, .key-offer { animation: none; }
+    .diag-sum[data-st="run"] i, .dstep[data-st="run"] .ico { animation: none; }
+    .where-mini .wm-go, .dq-bars i, .speed-hist .sh i { transition: none; }
+  }
   /* Всплывающее «перешёл на другую ноду» */
   .toast { position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 60;
     padding: 10px 16px; border-radius: 12px; background: var(--surf2); color: var(--fg); border: 1px solid var(--line);
@@ -1452,6 +1536,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
         <span data-t="tabNodes">Серверы</span>
       </button>
+      <button class="tab" data-tab="diag">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><path d="M21 21l-4.6-4.6"/><path d="M6.5 11h2.2l1.3-2.6 2 5.2 1.3-2.6h2.2"/></svg>
+        <span data-t="tabDiag">Диагностика</span>
+      </button>
       <button class="tab" data-tab="theme">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-1-1.5-1-2.5S14 15 15 15h2a4 4 0 0 0 4-4 8 8 0 0 0-9-8z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15.5" cy="7.5" r="1"/></svg>
         <span data-t="tabTheme">Тема</span>
@@ -1658,25 +1746,15 @@
             </div>
 
             <!--
-              Проверка через туннель: под каким адресом человека видит
-              интернет, открываются ли главные сайты и какая скорость. Всё
-              идёт через ядро туннеля — ответ про сам туннель, а не про
-              браузер. Видна, только пока туннель поднят.
+              Где вас видит интернет — одной строкой; сайты, скорость и всё
+              остальное про проверку живут в «Диагностике», куда строка и
+              ведёт. Адрес спрашивается одним запросом на оба места.
             -->
-            <div class="card netcheck" id="netcheck" hidden>
-              <div class="card-head"><b data-t="ncTitle"></b><span class="nc-live" id="nc-live"></span></div>
-              <div class="nc-where">
-                <span class="nc-flag" id="nc-flag"></span>
-                <div class="nc-addr"><b id="nc-ip">—</b><small id="nc-country"></small></div>
-              </div>
-              <div class="nc-sites" id="nc-sites"></div>
-              <div class="nc-act">
-                <button class="chip" id="nc-sites-btn" type="button" data-t="ncSites"></button>
-                <button class="chip" id="nc-speed-btn" type="button" data-t="ncSpeed" data-t-title="ncSpeedHint"></button>
-                <span class="nc-speed" id="nc-speed"></span>
-              </div>
-              <span class="hint" id="nc-msg"></span>
-            </div>
+            <button class="card where-mini" id="where-mini" type="button" hidden>
+              <span class="nc-flag" id="wm-flag"></span>
+              <span class="wm-text"><b id="wm-ip">—</b><small id="wm-country"></small></span>
+              <span class="wm-go" data-t="wmGo"></span>
+            </button>
 
             <div class="card daily feature">
               <div class="card-head"><b data-t="todayTraffic"></b><span class="mono" id="today-total">—</span></div>
@@ -1754,7 +1832,12 @@
             <div class="card keycard">
               <div class="card-head">
                 <b data-t="keysTitle"></b>
-                <button class="chip" id="key-add" data-t="keyAdd" aria-expanded="false"></button>
+                <button class="chip add-key" id="key-add" data-t="keyAdd" aria-expanded="false"></button>
+              </div>
+              <!-- Ключ в буфере обмена — одной кнопкой в поле; сохраняет человек. -->
+              <div class="key-offer" id="key-offer" hidden>
+                <span class="grow"><b data-t="clipFound"></b><small id="key-offer-text"></small></span>
+                <button class="chip" id="key-offer-use" type="button" data-t="clipUse"></button>
               </div>
               <div class="keys" id="keys-list"></div>
               <span id="save-msg" class="hint"></span>
@@ -1774,6 +1857,128 @@
               <div class="row-fact"><span data-t="ruleStrategy"></span><span data-t="ruleStrategyV"></span></div>
               <div class="row-fact"><span data-t="ruleWatch"></span><span data-t="ruleWatchV"></span></div>
               <div class="row-fact"><span data-t="ruleNow"></span><span id="rule-now"></span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------- диагностика -->
+      <!--
+        Всё про проверку и исправление — в одном месте: где вас видит
+        интернет, как именно вы подключены, пошаговая проверка с кнопкой на
+        каждой беде, скорость, сайты, точные настройки протокола и журнал.
+        Раньше это было разбросано по главной и настройкам, и человек с «не
+        работает» не знал, с чего начать.
+      -->
+      <section class="page" data-tab="diag">
+        <div class="diag-scroll scroll">
+          <div class="diag-grid">
+            <div class="col">
+              <div class="card diag-run">
+                <div class="card-head">
+                  <div><b data-t="diagTitle"></b> <span class="hint" data-t="diagSub"></span></div>
+                  <button class="primary" id="diag-run" type="button" data-t="diagRun"></button>
+                </div>
+                <div class="diag-sum" id="diag-sum" hidden><i></i><span id="diag-sum-text"></span></div>
+                <ol class="diag-steps" id="diag-steps"></ol>
+                <div class="log-act" id="diag-after" hidden>
+                  <button class="chip" id="diag-report" type="button" data-t="diagReport"></button>
+                  <span class="said" id="diag-report-msg"></span>
+                </div>
+              </div>
+
+              <div class="card speed-card">
+                <div class="card-head"><b data-t="ncSpeed"></b><button class="chip" id="nc-speed-btn" type="button" data-t="speedRun" data-t-title="ncSpeedHint"></button></div>
+                <div class="speed-big"><b id="nc-speed">—</b><span data-t="mbps"></span></div>
+                <div class="speed-hist" id="speed-hist"></div>
+                <span class="hint" id="nc-speed-msg"></span>
+              </div>
+
+              <div class="card">
+                <div class="card-head"><b data-t="sitesTitle"></b><button class="chip" id="nc-sites-btn" type="button" data-t="ncSites"></button></div>
+                <div class="nc-sites" id="nc-sites"></div>
+                <span class="hint" id="nc-msg"></span>
+              </div>
+
+              <div class="card list">
+                <div class="card-head"><b data-t="secLogTitle"></b><button class="chip" id="log-copy" type="button" data-t="logCopy"></button></div>
+                <span class="said hint" id="log-copy-msg"></span>
+                <div class="log" id="log"></div>
+              </div>
+            </div>
+
+            <div class="col">
+              <div class="card netcheck" id="netcheck">
+                <div class="card-head"><b data-t="ncTitle"></b><span class="nc-live" id="nc-live"></span></div>
+                <div class="nc-where">
+                  <span class="nc-flag" id="nc-flag"></span>
+                  <div class="nc-addr"><b id="nc-ip">—</b><small id="nc-country"></small></div>
+                </div>
+                <div class="dfacts" id="dg-where"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-head"><b data-t="qTitle"></b><span class="hint" id="dq-when"></span></div>
+                <div class="dq-nums">
+                  <div><span class="k" data-t="qPing"></span><b id="dq-ping">—</b></div>
+                  <div><span class="k" data-t="qJitter"></span><b id="dq-jitter">—</b></div>
+                  <div><span class="k" data-t="qLoss"></span><b id="dq-loss">—</b></div>
+                </div>
+                <div class="q-bars dq-bars" id="dq-bars" aria-hidden="true"></div>
+                <div class="dfacts" id="dg-route"></div>
+              </div>
+
+              <!--
+                Точные настройки протокола и сети. Каждая строка меняет
+                дозвон, адаптер или резолвер; рядом видно, что сейчас в работе.
+              -->
+              <div class="group">
+                <div class="k" data-t="netTitle"></div>
+                <div class="rows">
+                  <div>
+                    <div class="grow"><span class="name" data-t="fragment"></span><span class="sub" data-t="fragmentHint"></span><span class="sub" id="fragment-msg"></span></div>
+                    <button class="chip" id="fragment" type="button" aria-pressed="false"></button>
+                  </div>
+                  <div id="tcp-only-row">
+                    <div class="grow"><span class="name" data-t="tcpOnly"></span><span class="sub" data-t="tcpOnlyHint"></span><span class="sub" id="tcp-only-msg"></span></div>
+                    <button class="chip" id="tcp-only" type="button" aria-pressed="false"></button>
+                  </div>
+                  <div class="stack">
+                    <div class="grow"><span class="name" data-t="dnsTitle"></span><span class="sub" data-t="dnsHint"></span><span class="sub" id="dns-msg"></span></div>
+                    <div class="pick" id="dns-pick">
+                      <button class="chip" type="button" data-dns="1.1.1.1" aria-pressed="false">Cloudflare</button>
+                      <button class="chip" type="button" data-dns="8.8.8.8" aria-pressed="false">Google</button>
+                      <button class="chip" type="button" data-dns="9.9.9.9" aria-pressed="false">Quad9</button>
+                      <button class="chip" type="button" data-dns="94.140.14.14" aria-pressed="false">AdGuard</button>
+                      <input type="text" class="code-in" id="dns-custom" autocomplete="off" spellcheck="false" inputmode="decimal" maxlength="15">
+                      <button class="chip" id="dns-save" type="button" data-t="dnsSave"></button>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="grow"><span class="name" data-t="dnsSecure"></span><span class="sub" data-t="dnsSecureHint"></span><span class="sub" id="dns-secure-msg"></span></div>
+                    <button class="chip" id="dns-secure" type="button" aria-pressed="false"></button>
+                  </div>
+                  <div class="stack">
+                    <div class="grow"><span class="name" data-t="mtuName"></span><span class="sub" data-t="mtuHint"></span><span class="sub" id="mtu-msg"></span></div>
+                    <div class="pick" id="mtu-pick">
+                      <button class="chip" type="button" data-mtu="0" aria-pressed="false"></button>
+                      <button class="chip" type="button" data-mtu="1420" aria-pressed="false">1420</button>
+                      <button class="chip" type="button" data-mtu="1380" aria-pressed="false">1380</button>
+                      <button class="chip" type="button" data-mtu="1280" aria-pressed="false">1280</button>
+                      <input type="text" class="code-in" id="mtu-custom" autocomplete="off" spellcheck="false" inputmode="numeric" maxlength="4">
+                      <button class="chip" id="mtu-save" type="button" data-t="mtuSave"></button>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="grow"><span class="name" data-t="ipv6"></span><span class="sub" data-t="ipv6Hint"></span><span class="sub" id="ipv6-msg"></span></div>
+                    <button class="chip" id="ipv6" type="button" aria-pressed="false"></button>
+                  </div>
+                  <div>
+                    <div class="grow"><span class="name" data-t="reconnectName"></span><span class="sub" data-t="reconnectHint"></span><span class="sub" id="reconnect-msg"></span></div>
+                    <button class="chip" id="reconnect" type="button" data-t="reconnectBtn"></button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1926,7 +2131,6 @@
             <button type="button" data-sec="conn"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="set-txt"><b data-t="secConnTitle"></b><small data-t="secConnSub"></small></span></button>
             <button type="button" data-sec="look"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/></svg></span><span class="set-txt"><b data-t="secLookTitle"></b><small data-t="secLookSub"></small></span></button>
             <button type="button" data-sec="app"><span class="set-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg></span><span class="set-txt"><b data-t="secAppTitle"></b><small data-t="secAppSub"></small></span></button>
-            <button type="button" data-sec="log"><span class="set-ico"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span class="set-txt"><b data-t="secLogTitle"></b><small data-t="secLogSub"></small></span></button>
             <button type="button" data-sec="about"><span class="set-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span><span class="set-txt"><b data-t="secAboutTitle"></b><small data-t="secAboutSub"></small></span></button>
           </nav>
           <div class="set-panes" id="set-panes">
@@ -1943,20 +2147,6 @@
               <div class="ov-grid" id="ov-grid"></div>
               <div class="set-head"><h2 class="h3" data-t="promTitle"></h2><p data-t="promDesc"></p></div>
               <div class="promises" id="promises"></div>
-            </div>
-
-            <div class="group" data-sec="log">
-              <div class="set-head"><h2 data-t="secLogTitle"></h2><p data-t="secLogDesc"></p></div>
-              <div class="card list">
-                <p class="lead" data-t="logLead"></p>
-                <div class="log" id="log"></div>
-                <!-- Отчёт для продавца: журнал и настройки без ключей и адресов, как на
-                     телефоне. Пересказывать журнал скриншотами никто не станет. -->
-                <div class="log-act">
-                  <button class="chip" id="log-copy" type="button" data-t="logCopy"></button>
-                  <span class="said" id="log-copy-msg"></span>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -2041,55 +2231,14 @@
                   <button class="chip" id="auto-fix" type="button" aria-pressed="false"></button>
                 </div>
                 <div>
-                  <div class="grow"><span class="name" data-t="ipv6"></span><span class="sub" data-t="ipv6Hint"></span><span class="sub" id="ipv6-msg"></span></div>
-                  <button class="chip" id="ipv6" type="button" aria-pressed="false"></button>
-                </div>
-                <div>
-                  <div class="grow"><span class="name" data-t="fragment"></span><span class="sub" data-t="fragmentHint"></span><span class="sub" id="fragment-msg"></span></div>
-                  <button class="chip" id="fragment" type="button" aria-pressed="false"></button>
-                </div>
-                <div>
                   <div class="grow"><span class="name" data-t="reports"></span><span class="sub" data-t="reportsHint"></span><span class="sub" id="reports-msg"></span></div>
                   <button class="chip" id="reports" type="button" aria-pressed="false"></button>
                 </div>
-                <!--
-                  Резолвер: те же четыре, что на телефоне, и свой адрес. Сами
-                  запросы имён идут через туннель при любом выборе.
-                -->
-                <!--
-                  MTU — размер пакета на адаптере. Помогает там, где снаружи
-                  режут крупные пакеты и сайты открываются наполовину.
-                -->
-                <div class="stack">
-                  <div class="grow"><span class="name" data-t="mtuName"></span><span class="sub" data-t="mtuHint"></span><span class="sub" id="mtu-msg"></span></div>
-                  <div class="pick" id="mtu-pick">
-                    <button class="chip" type="button" data-mtu="0" aria-pressed="false"></button>
-                    <button class="chip" type="button" data-mtu="1420" aria-pressed="false">1420</button>
-                    <button class="chip" type="button" data-mtu="1380" aria-pressed="false">1380</button>
-                    <button class="chip" type="button" data-mtu="1280" aria-pressed="false">1280</button>
-                    <input type="text" class="code-in" id="mtu-custom" autocomplete="off" spellcheck="false" inputmode="numeric" maxlength="4">
-                    <button class="chip" id="mtu-save" type="button" data-t="mtuSave"></button>
-                  </div>
-                </div>
-                <div class="stack">
-                  <div class="grow"><span class="name" data-t="dnsTitle"></span><span class="sub" data-t="dnsHint"></span><span class="sub" id="dns-msg"></span></div>
-                  <div class="pick" id="dns-pick">
-                    <button class="chip" type="button" data-dns="1.1.1.1" aria-pressed="false">Cloudflare</button>
-                    <button class="chip" type="button" data-dns="8.8.8.8" aria-pressed="false">Google</button>
-                    <button class="chip" type="button" data-dns="9.9.9.9" aria-pressed="false">Quad9</button>
-                    <button class="chip" type="button" data-dns="94.140.14.14" aria-pressed="false">AdGuard</button>
-                    <input type="text" class="code-in" id="dns-custom" autocomplete="off" spellcheck="false" inputmode="decimal" maxlength="15">
-                    <button class="chip" id="dns-save" type="button" data-t="dnsSave"></button>
-                  </div>
-                </div>
-                <!--
-                  Шифрование имён: к известному резолверу запросы уходят по
-                  HTTPS внутри туннеля, и нода видит только соединение с ним.
-                  «Выключено» — открытый DNS через туннель, как раньше.
-                -->
+                <!-- Протокол, DNS, MTU и IPv6 переехали в «Диагностику»: там
+                     их меняют, глядя на то, что в работе. Строка ведёт туда. -->
                 <div>
-                  <div class="grow"><span class="name" data-t="dnsSecure"></span><span class="sub" data-t="dnsSecureHint"></span><span class="sub" id="dns-secure-msg"></span></div>
-                  <button class="chip" id="dns-secure" type="button" aria-pressed="false"></button>
+                  <div class="grow"><span class="name" data-t="netMoved"></span><span class="sub" data-t="netMovedHint"></span></div>
+                  <button class="chip" id="net-moved" type="button" data-t="netMovedGo"></button>
                 </div>
               </div>
             </div>
@@ -2312,7 +2461,7 @@ const T = {
     welcomePrivateLimit: "Туннель защищает путь до ноды, но не гарантирует полной анонимности.",
     welcomeStart: "Продолжить", welcomeFoot: "MARVIA / WINDOWS CLIENT",
 
-    tabHome: "Туннель", tabKey: "Ключ доступа", tabLog: "Журнал", tabAbout: "О нас", tabNodes: "Серверы", tabTheme: "Тема", tabSettings: "Настройки",
+    tabHome: "Туннель", tabKey: "Ключ доступа", tabLog: "Журнал", tabAbout: "О нас", tabNodes: "Серверы", tabDiag: "Диагностика", tabTheme: "Тема", tabSettings: "Настройки",
     settingsApp: "Программа", settingsLang: "Язык интерфейса", settingsLangHint: "Русский или английский; окно переключается сразу.",
     wOpen: "Открыть окно", wHide: "Спрятать в трей",
     updateTitle: (v) => "Есть новая версия " + v, updateOpen: "Скачать", updateHint: "Ссылка ведёт на сервер того, кто дал вам доступ, а не в магазин: оттуда приложение качается и тогда, когда магазины не открываются. Скачали — закройте это окно и запустите новый файл.",
@@ -2330,19 +2479,20 @@ const T = {
     sellerExpiry: (n) => n <= 1 ? "Доступ кончится в ближайшие сутки" : "Доступ кончится через " + n + (n < 5 ? " дня" : " дней"),
     sellerTraffic: (p) => "Трафика осталось " + p + "%",
     dnsTitle: "Запросы имён (DNS)",
-    dnsHint: "Чей резолвер отвечает на запросы имён. Сами запросы при любом выборе идут через туннель: выбор только в том, кто на другом конце, — у AdGuard, например, есть фильтр рекламы.",
+    dnsHint: "Кто отвечает на запросы имён; сами запросы идут через туннель при любом выборе.",
     dnsSave: "Свой адрес", dnsCustom: "например 1.0.0.1",
     dnsNext: "Применится при следующем подключении",
     dnsSecure: "Шифровать запросы имён",
-    dnsSecureHint: "Запросы к Cloudflare, Google, Quad9 или AdGuard уходят по HTTPS внутри туннеля: нода продавца видит соединение с резолвером, но не то, какие сайты вы ищете. Адреса сайтов и имя в TLS-приветствии она видит по-прежнему. Выключено — открытый DNS через туннель, как раньше.",
+    dnsSecureHint: "По HTTPS внутри туннеля: нода не видит, какие имена вы ищете.",
     dnsSecureOwn: "Свой адрес шифровать нечем: имена к нему идут открытым DNS через туннель",
     reports: "Отчёты о доступности нод",
     reportsHint: "Для ключа Marvia: при подключении отправлять результаты замеров панели продавца — она ставит выше ноды, до которых люди доходят. На выбор ноды здесь не влияет.",
     reportsOn: "Отправлять", reportsOff: "Не отправлять",
     ipv6: "IPv6 через туннель",
-    ipv6Hint: "Выключите, если сайты путают страну. Мимо туннеля IPv6 и тогда не уходит: программы просто идут по IPv4.",
+    ipv6Hint: "Выключите, если сайты путают страну: программы пойдут по IPv4.",
     fragment: "Дробить приветствие",
-    fragmentHint: "Если провайдер режет по имени сайта: имя ноды в TLS-приветствии не лежит целиком ни в одном пакете. Без нужды не включай — это лишние пакеты и своя примета.",
+    fragmentHint: "Против фильтра по имени сайта. Без нужды не включайте.",
+    tcpOnly: "Только TCP", tcpOnlyHint: "Без QUIC — если UDP у провайдера душат.",
     fragmentNext: "Применится при следующем подключении",
     killSwitch: "Kill switch",
     killSwitchHint: "Если туннель упадёт не по вашей воле, интернет закроется, а не пойдёт напрямую, — до возвращения туннеля или «Отключить». Закрыта и своя подсеть, если домашняя сеть не выведена мимо туннеля. Если Marvia закроется аварийно, фильтр снимется вместе с ней.",
@@ -2360,7 +2510,8 @@ const T = {
       home: ["Туннель", "Состояние и трафик"],
       nodes: ["Серверы", "Через какой идти"],
       theme: ["Тема", "Окно красится сразу"],
-      settings: ["Настройки", "Ключи, подключение, запуск, журнал и о программе"],
+      diag: ["Диагностика", "Проверка, скорость и точные настройки"],
+      settings: ["Настройки", "Подключение, вид, запуск и о программе"],
     },
 
     pingUnknown: "Не измерен", setupLabel: "Подключение",
@@ -2447,14 +2598,15 @@ const T = {
       apps: ["Приложения мимо туннеля", "Выбрать программы, которые идут напрямую, на Windows пока нельзя; на телефоне можно."],
       qr: ["Ключ с картинки QR", "На Windows ключ вставляется ссылкой текстом; QR из галереи и камерой есть на телефоне."],
     },
-    mtuName: "MTU", mtuHint: "Размер пакета на адаптере. Меньше — если сайты открываются наполовину или зависают на загрузке.",
+    mtuName: "MTU", mtuHint: "Меньше — если сайты грузятся наполовину.",
     mtuSave: "Применить", mtuAuto: "Авто · {n}", mtuOwn: "своё", mtuNext: "в работе {n} — новое со следующего подключения", mtuBad: "нужно число от 1280 до 1500",
     inUse: "в работе",
     monthTraffic: "Трафик за месяц", spanWeek: "7 дней", spanMonth: "30 дней",
     secKeyTitle: "Ключ доступа", secKeySub: "срок, трафик, ключи",
     secKeyDesc: "Ключ от продавца: до какого числа он действует и сколько трафика осталось. Здесь же — запасные ключи.",
-    secConnTitle: "Подключение", secConnSub: "что идёт мимо туннеля, DNS",
-    secConnDesc: "Что идёт мимо туннеля и как: российские и свои сайты, домашняя сеть, kill switch, IPv6, дробление приветствия, DNS.",
+    secConnTitle: "Подключение", secConnSub: "что идёт мимо туннеля",
+    secConnDesc: "Российские и свои сайты, домашняя сеть, kill switch.",
+    netMoved: "Протокол, DNS, MTU, IPv6", netMovedHint: "Теперь в «Диагностике» — рядом с тем, что в работе.", netMovedGo: "Открыть",
     secLookTitle: "Вид и звук", secLookSub: "заставка, фон, отклик",
     secLookDesc: "То, что делает окно живым. Образ и цвета — во вкладке «Тема».",
     secAppTitle: "Программа", secAppSub: "автозапуск, трей, язык",
@@ -2509,7 +2661,7 @@ const T = {
     keyLead: "Ключ Marvia (marvia://), ссылка VLESS, VMess, Trojan, Shadowsocks, Hysteria2, WireGuard или адрес подписки — всё, что дал продавец.",
     keyHint: "В ссылке личный ключ. Она лежит в профиле пользователя и никуда не отправляется — кроме адреса подписки, который в ней же и записан.",
     keySave: "Сохранить", keySaveFirst: "Сохранить ключ", keySaved: "Сохранено",
-    keyNameHint: "имя, необязательно", keysTitle: "Ключи", keyAdd: "+ Добавить", keyAddClose: "Отмена",
+    keyNameHint: "имя, необязательно", keysTitle: "Ключи", keyAdd: "+ Добавить ключ", keyAddClose: "Отмена",
     keyActive: "рабочий", keyUse: "Сделать рабочим", keyRemove: "Убрать", keyRemoveSure: "Убрать?",
     keyKinds: { marvia: "Marvia", sub: "подписка", link: "ссылка" },
     keyNoLimits: "без срока и квоты",
@@ -2518,7 +2670,32 @@ const T = {
 
     logLead: "Что программа делала. Пригодится, если что-то не заработало.",
     logCopy: "Скопировать отчёт",
-    ncTitle: "Проверка через туннель", ncAsking: "узнаю адрес…", ncSeenAs: (c) => c ? "интернет видит вас здесь: " + c : "", ncChecking: "проверяю…", ncNo: "нет",
+    wmGo: "Диагностика →",
+    clipFound: "В буфере ключ доступа", clipUse: "Вставить", clipPasted: "Вставлено из буфера — проверьте и сохраните", clipKnown: "Ключ из буфера уже есть в списке",
+    diagTitle: "Проверить всё", diagSub: "по шагам, от провода до сайта", diagRun: "Проверить всё", diagAgain: "Проверить ещё раз",
+    diagRunning: "Проверяю…", diagAllOk: "Всё в порядке", diagFound: (n) => "Требуют внимания: " + n,
+    diagReport: "Скопировать отчёт продавцу", diagDone: "сделано", diagNeedUp: "нужно подключение",
+    diagSt: { ok: "✓", warn: "!", bad: "✕", off: "–", run: "" },
+    diagStep: {
+      net: { t: "Интернет без VPN", ok: "", bad: "Нет связи — проверьте кабель или Wi-Fi." },
+      dns: { t: "Запросы имён (DNS)", ok: "", bad: "Имена не отвечают." },
+      node: { t: "Серверы отвечают", ok: "", warn: "Есть ближе или живее — на «Серверах».", bad: "Ни один не ответил: адреса закрыты или серверы лежат.", off: "Нет ключа — проверять нечего." },
+      tunnel: { t: "Подключение", ok: "", warn: "Идёт…", bad: "Не поднялось.", off: "Не подключено." },
+      system: { t: "Браузер идёт через туннель", ok: "", bad: (s) => (s.act || []).includes("fix") ? "Нода работает, а трафик ПК мимо — мешает что-то на компьютере." : "Не открывается и через туннель — дело в ноде.", off: "" },
+      where: { t: "Вас видят как", ok: "", bad: "Адрес через туннель не узнать.", off: "" },
+      sites: { t: "Главные сайты", ok: "", warn: "Часть не открылась — попробуйте другой сервер.", bad: "Не открылся ни один.", off: "" },
+      interference: { t: "Помехи рядом", ok: "", warn: "", bad: "" },
+    },
+    diagAct: { fix: "Починить", nodes: "Сменить сервер", fragment: "Включить дробление", dns: "Сменить DNS", reconnect: "Переподключиться", connect: "Подключиться", proxy: "Убрать прокси" },
+    diagNone: "нет", diagOf: (n, of) => n + " из " + of, diagBest: (ms) => "лучший " + ms + " мс",
+    sitesTitle: "Сайты", speedRun: "Замерить", speedNone: "Замеров ещё не было",
+    qTitle: "Качество связи", qPing: "Отклик", qJitter: "Джиттер", qLoss: "Потери", qNoTunnel: "без подключения",
+    rServer: "Сервер", rProto: "Протокол", rTransport: "Транспорт", rSNI: "Имя прикрытия (SNI)", rFP: "Отпечаток TLS", rMTU: "MTU в работе", rDNS: "DNS в работе", rFrag: "Дробление", rIPv6: "IPv6", rSpare: (n) => " +" + n + " запасных",
+    rTransports: { tls: "TLS по TCP", reality: "REALITY по TCP", ws: "WebSocket за CDN", quic: "QUIC (UDP), запасной TCP", raw: "TCP", grpc: "gRPC", xhttp: "XHTTP", httpupgrade: "HTTPUpgrade", hysteria: "QUIC (UDP)" },
+    rFPSeller: " · выбрал продавец", rHTTPS: " · по HTTPS", rOn: "вкл", rOff: "выкл",
+    netTitle: "Протокол и сеть",
+    reconnectName: "Переподключиться", reconnectHint: "Применить выбранное здесь сейчас, не дожидаясь.", reconnectBtn: "Переподключить",
+    ncTitle: "Где вы в интернете", ncAsking: "узнаю адрес…", ncSeenAs: (c) => c ? "интернет видит вас здесь: " + c : "", ncChecking: "проверяю…", ncNo: "нет",
     ncSites: "Проверить сайты", ncSpeed: "Скорость", ncSpeedHint: "Скачает до 30 МБ через туннель — из трафика подписки", ncMeasuring: "меряю…",
     movedTo: (n) => "Нода сменилась: " + n,
     movedBecause: (from, to) => "Нода «" + from + "» не отвечала — теперь «" + to + "»",
@@ -2606,7 +2783,7 @@ const T = {
     welcomePrivateLimit: "The tunnel protects the path to the node, but cannot guarantee complete anonymity.",
     welcomeStart: "Continue", welcomeFoot: "MARVIA / WINDOWS CLIENT",
 
-    tabHome: "Tunnel", tabKey: "Access key", tabLog: "Log", tabAbout: "About us", tabNodes: "Servers", tabTheme: "Theme", tabSettings: "Settings",
+    tabHome: "Tunnel", tabKey: "Access key", tabLog: "Log", tabAbout: "About us", tabNodes: "Servers", tabDiag: "Diagnostics", tabTheme: "Theme", tabSettings: "Settings",
     settingsApp: "Program", settingsLang: "Interface language", settingsLangHint: "Russian or English; the window switches at once.",
     wOpen: "Open the window", wHide: "Hide to tray",
     updateTitle: (v) => "New version " + v + " available", updateOpen: "Download", updateHint: "The link goes to the server of whoever gave you access, not to a store: it works even when stores do not. Once downloaded, close this window and run the new file.",
@@ -2624,19 +2801,20 @@ const T = {
     sellerExpiry: (n) => n <= 1 ? "Access ends within a day" : "Access ends in " + n + " days",
     sellerTraffic: (p) => p + "% of traffic left",
     dnsTitle: "Name lookups (DNS)",
-    dnsHint: "Whose resolver answers name lookups. Whatever you choose, the lookups themselves go through the tunnel — the choice is only who is at the other end; AdGuard, for one, filters ads.",
+    dnsHint: "Who answers name lookups; the lookups go through the tunnel either way.",
     dnsSave: "Own address", dnsCustom: "e.g. 1.0.0.1",
     dnsNext: "Applies on the next connection",
     dnsSecure: "Encrypt name lookups",
-    dnsSecureHint: "Lookups to Cloudflare, Google, Quad9 or AdGuard go over HTTPS inside the tunnel: the seller's node sees a connection to the resolver, not which sites you look up. It still sees site addresses and the name in the TLS hello. Off means plain DNS through the tunnel, as before.",
+    dnsSecureHint: "Over HTTPS inside the tunnel: the node can't see which names you look up.",
     dnsSecureOwn: "A custom address cannot be encrypted: lookups to it go as plain DNS through the tunnel",
     reports: "Node availability reports",
     reportsHint: "For Marvia keys: send measurement results to the seller panel when connecting — it ranks higher the nodes people can reach. Node selection here is unaffected.",
     reportsOn: "Send", reportsOff: "Do not send",
     ipv6: "IPv6 through the tunnel",
-    ipv6Hint: "Turn it off if sites mix up your country. IPv6 still does not go around the tunnel: programs simply use IPv4.",
+    ipv6Hint: "Turn it off if sites mix up your country: programs will use IPv4.",
     fragment: "Split the TLS hello",
-    fragmentHint: "If your provider blocks by site name: the node's name in the TLS hello never sits whole in one packet. Leave it off otherwise — it means extra packets and a trait of its own.",
+    fragmentHint: "Against filters by site name. Leave it off unless needed.",
+    tcpOnly: "TCP only", tcpOnlyHint: "No QUIC — when your provider throttles UDP.",
     fragmentNext: "Applies on the next connection",
     killSwitch: "Kill switch",
     killSwitchHint: "If the tunnel drops without you asking, the internet closes instead of going direct — until the tunnel is back or you press Disconnect. Your own subnet closes too unless the home network goes around the tunnel. If Marvia crashes, the filter goes away with it.",
@@ -2654,7 +2832,8 @@ const T = {
       home: ["Tunnel", "State and traffic"],
       nodes: ["Servers", "Which one to go through"],
       theme: ["Theme", "The window repaints at once"],
-      settings: ["Settings", "Keys, connection, startup, log and about"],
+      diag: ["Diagnostics", "Checks, speed and fine settings"],
+      settings: ["Settings", "Connection, look, startup and about"],
     },
 
     pingUnknown: "Not measured", setupLabel: "Connection",
@@ -2740,14 +2919,15 @@ const T = {
       apps: ["Apps around the tunnel", "Choosing programs that go direct isn't possible on Windows yet; on the phone it is."],
       qr: ["Key from a QR image", "On Windows the key is pasted as a link; QR from the gallery and camera is on the phone."],
     },
-    mtuName: "MTU", mtuHint: "Packet size on the adapter. Lower it if sites load halfway or hang while loading.",
+    mtuName: "MTU", mtuHint: "Lower it if sites load halfway.",
     mtuSave: "Apply", mtuAuto: "Auto · {n}", mtuOwn: "custom", mtuNext: "{n} in use — the new one from the next connection", mtuBad: "a number from 1280 to 1500 is needed",
     inUse: "in use",
     monthTraffic: "Traffic this month", spanWeek: "7 days", spanMonth: "30 days",
     secKeyTitle: "Access key", secKeySub: "expiry, traffic, keys",
     secKeyDesc: "The key from your provider: until when it works and how much traffic is left. Spare keys live here too.",
-    secConnTitle: "Connection", secConnSub: "what bypasses the tunnel, DNS",
-    secConnDesc: "What goes around the tunnel and how: Russian and your own sites, home network, kill switch, IPv6, hello splitting, DNS.",
+    secConnTitle: "Connection", secConnSub: "what bypasses the tunnel",
+    secConnDesc: "Russian and your own sites, home network, kill switch.",
+    netMoved: "Protocol, DNS, MTU, IPv6", netMovedHint: "Now in Diagnostics — next to what is in use.", netMovedGo: "Open",
     secLookTitle: "Look and sound", secLookSub: "splash, background, response",
     secLookDesc: "What makes the window feel alive. Vibe and colours are on the Theme tab.",
     secAppTitle: "App", secAppSub: "autostart, tray, language",
@@ -2802,7 +2982,7 @@ const T = {
     keyLead: "A Marvia key (marvia://), a VLESS, VMess, Trojan, Shadowsocks, Hysteria2 or WireGuard link, or a subscription URL — whatever your provider gave you.",
     keyHint: "The link carries a private key. It stays in the user profile and is sent nowhere — except to the subscription address written in the link itself.",
     keySave: "Save", keySaveFirst: "Save the key", keySaved: "Saved",
-    keyNameHint: "name, optional", keysTitle: "Keys", keyAdd: "+ Add", keyAddClose: "Cancel",
+    keyNameHint: "name, optional", keysTitle: "Keys", keyAdd: "+ Add a key", keyAddClose: "Cancel",
     keyActive: "active", keyUse: "Make active", keyRemove: "Remove", keyRemoveSure: "Remove?",
     keyKinds: { marvia: "Marvia", sub: "subscription", link: "link" },
     keyNoLimits: "no expiry or quota",
@@ -2811,7 +2991,32 @@ const T = {
 
     logLead: "What the program did. Useful when something did not work.",
     logCopy: "Copy a report",
-    ncTitle: "Check through the tunnel", ncAsking: "asking the address…", ncSeenAs: (c) => c ? "the internet sees you in " + c : "", ncChecking: "checking…", ncNo: "no",
+    wmGo: "Diagnostics →",
+    clipFound: "An access key is in the clipboard", clipUse: "Paste", clipPasted: "Pasted from the clipboard — check it and save", clipKnown: "The key in the clipboard is already in the list",
+    diagTitle: "Check everything", diagSub: "step by step, from the wire to the site", diagRun: "Check everything", diagAgain: "Check again",
+    diagRunning: "Checking…", diagAllOk: "All good", diagFound: (n) => "Need attention: " + n,
+    diagReport: "Copy a report for the seller", diagDone: "done", diagNeedUp: "needs a connection",
+    diagSt: { ok: "✓", warn: "!", bad: "✕", off: "–", run: "" },
+    diagStep: {
+      net: { t: "Internet without VPN", ok: "", bad: "No connection — check the cable or Wi-Fi." },
+      dns: { t: "Name lookups (DNS)", ok: "", bad: "Names do not resolve." },
+      node: { t: "Servers answer", ok: "", warn: "A closer or livelier one is on Servers.", bad: "None answered: the addresses are blocked or the servers are down.", off: "No key — nothing to check." },
+      tunnel: { t: "Connection", ok: "", warn: "In progress…", bad: "Did not come up.", off: "Not connected." },
+      system: { t: "Browser goes through the tunnel", ok: "", bad: (s) => (s.act || []).includes("fix") ? "The node works, but PC traffic goes around — something on this PC is in the way." : "Does not open through the tunnel either — it is the node.", off: "" },
+      where: { t: "You are seen as", ok: "", bad: "Could not learn the address through the tunnel.", off: "" },
+      sites: { t: "Key sites", ok: "", warn: "Some did not open — try another server.", bad: "None opened.", off: "" },
+      interference: { t: "Interference nearby", ok: "", warn: "", bad: "" },
+    },
+    diagAct: { fix: "Fix", nodes: "Change server", fragment: "Turn on splitting", dns: "Change DNS", reconnect: "Reconnect", connect: "Connect", proxy: "Remove proxy" },
+    diagNone: "none", diagOf: (n, of) => n + " of " + of, diagBest: (ms) => "best " + ms + " ms",
+    sitesTitle: "Sites", speedRun: "Measure", speedNone: "No measurements yet",
+    qTitle: "Connection quality", qPing: "Response", qJitter: "Jitter", qLoss: "Loss", qNoTunnel: "not connected",
+    rServer: "Server", rProto: "Protocol", rTransport: "Transport", rSNI: "Cover name (SNI)", rFP: "TLS fingerprint", rMTU: "MTU in use", rDNS: "DNS in use", rFrag: "Splitting", rIPv6: "IPv6", rSpare: (n) => " +" + n + " spare",
+    rTransports: { tls: "TLS over TCP", reality: "REALITY over TCP", ws: "WebSocket via CDN", quic: "QUIC (UDP), TCP as backup", raw: "TCP", grpc: "gRPC", xhttp: "XHTTP", httpupgrade: "HTTPUpgrade", hysteria: "QUIC (UDP)" },
+    rFPSeller: " · chosen by the seller", rHTTPS: " · over HTTPS", rOn: "on", rOff: "off",
+    netTitle: "Protocol and network",
+    reconnectName: "Reconnect", reconnectHint: "Apply what you chose here right now.", reconnectBtn: "Reconnect",
+    ncTitle: "Where you are on the internet", ncAsking: "asking the address…", ncSeenAs: (c) => c ? "the internet sees you in " + c : "", ncChecking: "checking…", ncNo: "no",
     ncSites: "Check sites", ncSpeed: "Speed", ncSpeedHint: "Downloads up to 30 MB through the tunnel — from the subscription traffic", ncMeasuring: "measuring…",
     movedTo: (n) => "Node changed: " + n,
     movedBecause: (from, to) => "Node “" + from + "” stopped answering — now “" + to + "”",
@@ -2995,6 +3200,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
     // Список стран подтягиваем при открытии вкладки, а не постоянно: он
     // меняется редко, а лишний опрос стоит человеку батареи и трафика.
     if (openTab === "nodes") openNodes();
+    if (openTab === "diag") openDiag();
   });
 });
 
@@ -3002,7 +3208,7 @@ window.marviaView = ({mode, tab}) => {
   widgetMode = mode === "widget";
   document.body.classList.toggle("as-widget", widgetMode);
   if (vibe) paintGlass();
-  if (["home", "nodes", "theme", "settings"].includes(tab)) {
+  if (["home", "nodes", "diag", "theme", "settings"].includes(tab)) {
     document.querySelector('.tab[data-tab="' + tab + '"]').click();
   }
   if (!widgetMode && !welcomeSeen()) showWelcome();
@@ -3010,12 +3216,14 @@ window.marviaView = ({mode, tab}) => {
 };
 
 // Вкладка из адреса: так виджет открывает полное окно сразу на нужной.
-// Журнал и «о программе» живут в настройках, ключи — на «Серверах»; старые
-// имена из трея и ярлыков ведут туда же, чтобы ничего не открылось в пустоту.
+// «О программе» живёт в настройках, журнал — в «Диагностике», ключи — на
+// «Серверах»; старые имена из трея и ярлыков ведут туда же, чтобы ничего не
+// открылось в пустоту.
 {
   let want = pageParams.get("tab");
   if (want === "key") want = "nodes";
-  if (want === "log" || want === "about") { openSec(want); want = "settings"; }
+  if (want === "log") want = "diag";
+  if (want === "about") { openSec(want); want = "settings"; }
   const tab = want && document.querySelector('.tab[data-tab="' + want + '"]');
   if (tab) tab.click();
 }
@@ -3977,6 +4185,8 @@ async function measureNodes() {
 function openNodes() {
   if (lastStatus && lastStatus.state === "connected" && Date.now() - measuredAt > 120000) measureNodes();
   else loadNodes();
+  // Пришёл на «Серверы» со скопированным ключом — предложим его сразу.
+  offerClipboard(false);
 }
 
 async function chooseNode(id) {
@@ -4080,6 +4290,7 @@ function render(s) {
   lastStatus = s;
   paintNetcheck(s);
   paintQuality(s);
+  if (openTab === "diag") paintRoute(s);
   // Нода сменилась сама или по выбору — сказать вслух: в журнал никто не
   // смотрит, а страна в капсуле меняется незаметно.
   if (prevStatus && prevStatus.state === "connected" && s.state === "connected" && prevStatus.node && s.node && prevStatus.node !== s.node) {
@@ -4165,7 +4376,7 @@ function render(s) {
   // Сессия считается здесь, по моменту подъёма: секунды тикают сами, и
   // программе незачем слать готовую строку раз в секунду.
   const sessionText = up && s.since ? clock(Math.max(0, Math.floor(Date.now() / 1000) - s.since)) : "—";
-  $("oc-name").textContent = s.node || d.noNode;
+  $("oc-name").textContent = bare(s.node) || d.noNode;
   $("oc-addr").textContent = s.node ? s.address || "" : d.noNodeSub;
   $("oc-ping").textContent = s.node ? pingText : "";
   $("k-session").textContent = sessionText;
@@ -4227,7 +4438,7 @@ function render(s) {
   if (up && s.since) wmeta.push(clock(Math.max(0, Math.floor(Date.now() / 1000) - s.since)));
   if (up) wmeta.push($("s-down").textContent);
   $("w-meta").textContent = wmeta.length ? wmeta.join(" · ") : (!s.has_account ? d.wNoKey : $("detail").textContent);
-  $("w-node").textContent = s.node || d.noNode;
+  $("w-node").textContent = bare(s.node) || d.noNode;
   $("w-ping").textContent = $("node-ping").textContent;
   $("w-session").textContent = sessionText;
   $("w-down").textContent = $("s-down").textContent;
@@ -4539,6 +4750,15 @@ function paintConn() {
   frag.setAttribute("aria-pressed", String(!!conn.fragment));
   $("fragment-msg").textContent = conn.fragment_in_use !== undefined && conn.fragment_in_use !== conn.fragment ? d.fragmentNext : "";
 
+  // «Только TCP» — про QUIC нод Marvia; у чужого ключа его нет, и строка
+  // с переключателем, который ничего не меняет, была бы обещанием впустую.
+  const tcp = $("tcp-only");
+  tcp.textContent = conn.tcp_only ? d.toggleOn : d.toggleOff;
+  tcp.setAttribute("aria-pressed", String(!!conn.tcp_only));
+  $("tcp-only-msg").textContent = conn.tcp_only_in_use !== undefined && conn.tcp_only_in_use !== conn.tcp_only ? d.fragmentNext : "";
+  const active = keys.find((k) => k.active);
+  $("tcp-only-row").hidden = !!(active && active.foreign);
+
   // Свой адрес, которого нет среди четырёх, показываем в поле: иначе
   // человек не увидел бы, что выбрано.
   let known = false;
@@ -4607,7 +4827,12 @@ function paintOverview() {
     const dur = on && s.since ? Math.max(0, Math.floor(Date.now() / 1000) - s.since) : 0;
     const hms = String(Math.floor(dur / 3600)).padStart(2, "0") + ":" + String(Math.floor(dur / 60) % 60).padStart(2, "0") + ":" + String(dur % 60).padStart(2, "0");
     tiles.push(ovTile(o.tunnel, d.state[s.state] || s.state, on ? (s.node || "—") + " · " + hms : o.tunnelOff, on ? "ok" : s.state === "failed" || s.state === "stalled" ? "warn" : "idle"));
-    tiles.push(ovTile(o.proto, "VP1" + (on && s.transport ? " · " + (TRANSPORTS[s.transport] || s.transport) : ""), on && s.transport ? o.protoOn : o.protoOff, on ? "ok" : "idle"));
+    // Протокол — по описанию соединения от программы: у чужого ключа это
+    // VLESS или Trojan, а не «VP1 · TLS», как окно писало раньше.
+    const r = on && s.route;
+    const proto = !r ? "VP1" : r.protocol === "vp1" ? "VP1 · " + (TRANSPORTS[r.transport] || r.transport)
+      : r.protocol.toUpperCase() + (r.security && r.security !== "none" ? " · " + (TRANSPORTS[r.security] || r.security) : "");
+    tiles.push(ovTile(o.proto, proto, r ? o.protoOn : o.protoOff, on ? "ok" : "idle"));
     tiles.push(ovTile(o.crypto, "Noise IK", "X25519 · ChaCha20-Poly1305 · BLAKE2s", on ? "ok" : "idle"));
     tiles.push(ovTile(o.ping, on && s.ping_ms ? s.ping_ms + d.ms : "—", on ? o.pingOn : o.pingOff, !on ? "idle" : s.ping_ms > 300 ? "warn" : "ok"));
   }
@@ -4707,6 +4932,9 @@ on("auto-fix", "click", () => changeConn($("auto-fix"), { auto_fix: !conn.auto_f
 on("reports", "click", () => changeConn($("reports"), { reports: !conn.reports }, "reports-msg"));
 on("ipv6", "click", () => changeConn($("ipv6"), { ipv6: !conn.ipv6 }, "ipv6-msg"));
 on("fragment", "click", () => changeConn($("fragment"), { fragment: !conn.fragment }, "fragment-msg"));
+on("tcp-only", "click", () => changeConn($("tcp-only"), { tcp_only: !conn.tcp_only }, "tcp-only-msg"));
+on("net-moved", "click", () => document.querySelector('.tab[data-tab="diag"]').click());
+on("reconnect", "click", () => reconnectNow($("reconnect"), "reconnect-msg"));
 on("dns-secure", "click", () => changeConn($("dns-secure"), { dns_secure: !conn.dns_secure }, "dns-secure-msg"));
 for (const b of document.querySelectorAll("#dns-pick [data-dns]")) {
   b.addEventListener("click", () => changeConn(b, { dns: b.dataset.dns }, "dns-msg"));
@@ -4845,6 +5073,7 @@ async function loadKeys() {
   try {
     keys = (await api("GET", "api/keys")).keys || [];
     paintKeys();
+    paintConn();
   } catch (_) { /* покажем при следующем заходе */ }
 }
 // keyAction — сменить рабочий или убрать. Туннель мог переподняться:
@@ -4876,7 +5105,39 @@ function showKeyForm(open) {
   if (open) $("account").focus();
   else { $("account").value = ""; $("key-name").value = ""; }
 }
-on("key-add", "click", () => showKeyForm($("key-form").hidden));
+on("key-add", "click", () => {
+  const open = $("key-form").hidden;
+  showKeyForm(open);
+  if (open) offerClipboard(true);
+});
+
+// offerClipboard — ключ из буфера обмена. Буфер читает программа: у страницы
+// WebView2 права на него бывают отняты. Сама ссылка идёт только в поле
+// формы; сохраняет её человек кнопкой, как и вписанную руками.
+let clipLink = "";
+async function offerClipboard(asked) {
+  let o = {};
+  try { o = await api("GET", "api/clipboard/key"); } catch (_) { return; }
+  clipLink = o.link || "";
+  const d = L();
+  $("key-offer").hidden = !clipLink;
+  if (clipLink) $("key-offer-text").textContent = [keyKind(o), o.host].filter(Boolean).join(" · ");
+  if (asked && o.known) {
+    const msg = $("save-msg");
+    msg.className = "hint";
+    msg.textContent = d.clipKnown;
+  }
+}
+on("key-offer-use", "click", () => {
+  if (!clipLink) return;
+  showKeyForm(true);
+  $("account").value = clipLink;
+  $("key-offer").hidden = true;
+  const msg = $("save-msg");
+  msg.className = "hint";
+  msg.textContent = L().clipPasted;
+  $("save").focus();
+});
 
 on("save", "click", async () => {
   const msg = $("save-msg");
@@ -4885,6 +5146,8 @@ on("save", "click", async () => {
     await api("POST", "api/account", { link: $("account").value, name: $("key-name").value.trim() });
     msg.textContent = L().keySaved;
     showKeyForm(false);
+    clipLink = "";
+    $("key-offer").hidden = true;
     await loadKeys();
     await tick();
   } catch (err) {
@@ -4916,30 +5179,38 @@ on("first-save", "click", async () => {
 
 // Адрес спрашиваем раз за сессию: он меняется только с нодой, а окно
 // рисуется каждую секунду. Ключ сессии — время подключения и нода.
+// Один запрос на два места: строку на главной и карточку в «Диагностике».
 let ncSession = "", ncBusy = false;
+function showWhere(ip, code, note) {
+  const country = code ? L().ncSeenAs(regionName(code) || code) : note || "";
+  for (const [ipEl, cEl, fEl] of [["nc-ip", "nc-country", "nc-flag"], ["wm-ip", "wm-country", "wm-flag"]]) {
+    $(ipEl).textContent = ip;
+    $(cEl).textContent = country;
+    if (code) $(fEl).replaceChildren(flagEl(code));
+    else $(fEl).replaceChildren();
+  }
+}
 function paintNetcheck(s) {
-  const card = $("netcheck");
   const up = s.state === "connected";
-  card.hidden = !up;
-  if (!up) { ncSession = ""; return; }
+  $("where-mini").hidden = !up;
+  $("nc-live").hidden = !up;
+  if (!up) {
+    if (ncSession !== "") { ncSession = ""; showWhere("—", "", L().qNoTunnel); $("nc-sites").replaceChildren(); }
+    return;
+  }
   const key = (s.since || 0) + "|" + (s.node || "");
   if (key === ncSession) return;
   ncSession = key;
-  $("nc-ip").textContent = L().ncAsking;
-  $("nc-country").textContent = "";
-  $("nc-flag").replaceChildren();
+  showWhere(L().ncAsking, "", "");
   $("nc-sites").replaceChildren();
-  $("nc-speed").textContent = "";
   $("nc-msg").textContent = "";
   api("GET", "api/net/where").then((w) => {
     if (ncSession !== key) return;
-    if (!w.ip) { $("nc-ip").textContent = "—"; $("nc-country").textContent = w.error || ""; return; }
-    $("nc-ip").textContent = w.ip;
-    const code = (w.country || "").toUpperCase();
-    $("nc-country").textContent = L().ncSeenAs(regionName(code) || code);
-    if (code) $("nc-flag").replaceChildren(flagEl(code));
+    if (!w.ip) { showWhere("—", "", w.error || ""); return; }
+    showWhere(w.ip, (w.country || "").toUpperCase(), "");
   }).catch(() => {});
 }
+on("where-mini", "click", () => document.querySelector('.tab[data-tab="diag"]').click());
 
 function siteRow(name, state, ms) {
   const row = document.createElement("div");
@@ -4979,20 +5250,57 @@ on("nc-sites-btn", "click", async () => {
 // человек видит, что именно проверяется.
 const NC_SITES = ["YouTube", "Instagram", "Discord", "Roblox", "Telegram", "ChatGPT", "GitHub"];
 
+// Скорость — крупно, и рядом последние замеры: одно число ничего не говорит,
+// пока не с чем сравнить. История — на этом компьютере, в localStorage:
+// программе она не нужна, а потерять её не жалко.
+const SPEED_KEY = "marvia-speed-history";
+function speedHistory() {
+  try {
+    const list = JSON.parse(localStorage.getItem(SPEED_KEY));
+    return Array.isArray(list) ? list.filter((x) => x && typeof x.mbps === "number").slice(-8) : [];
+  } catch (_) { return []; }
+}
+function mbpsText(v) {
+  return v.toLocaleString(lang === "en" ? "en-US" : "ru-RU", { maximumFractionDigits: v < 10 ? 1 : 0 });
+}
+function paintSpeedHistory() {
+  const list = speedHistory();
+  const box = $("speed-hist");
+  if (!list.length) {
+    box.replaceChildren();
+    if (!$("nc-speed-msg").textContent) $("nc-speed-msg").textContent = L().speedNone;
+    return;
+  }
+  const top = Math.max(1, ...list.map((x) => x.mbps));
+  box.replaceChildren(...list.map((x) => {
+    const col = el("div", "sh");
+    col.title = new Date(x.t).toLocaleString(lang === "en" ? "en-GB" : "ru-RU") + (x.node ? " · " + x.node : "");
+    const bars = el("div", "bars");
+    const bar = document.createElement("i");
+    bar.style.height = Math.max(4, Math.round(46 * x.mbps / top)) + "px";
+    bars.append(bar);
+    col.append(bars, el("small", "", mbpsText(x.mbps)));
+    return col;
+  }));
+}
 on("nc-speed-btn", "click", async () => {
   if (ncBusy) return;
   ncBusy = true;
   const btn = $("nc-speed-btn");
   btn.disabled = true;
-  $("nc-msg").textContent = "";
+  $("nc-speed-msg").textContent = "";
   const out = $("nc-speed");
   out.textContent = L().ncMeasuring;
   try {
     const r = await api("POST", "api/net/speed");
-    countUp(out, r.mbps, (v) => v.toLocaleString(lang === "en" ? "en-US" : "ru-RU", { maximumFractionDigits: v < 10 ? 1 : 0 }) + " " + L().mbps);
+    countUp(out, r.mbps, mbpsText);
+    const list = speedHistory();
+    list.push({ t: Date.now(), mbps: r.mbps, node: lastStatus && lastStatus.node ? bare(lastStatus.node) : "" });
+    try { localStorage.setItem(SPEED_KEY, JSON.stringify(list.slice(-8))); } catch (_) { /* не запомнится — не беда */ }
+    paintSpeedHistory();
   } catch (e) {
-    out.textContent = "";
-    $("nc-msg").textContent = e.message;
+    out.textContent = "—";
+    $("nc-speed-msg").textContent = e.message;
   } finally {
     btn.disabled = false;
     ncBusy = false;
@@ -5026,22 +5334,215 @@ function toast(text) {
 // paintQuality — отклик последних минут: полоска на каждый замер, высота —
 // время ответа, красная — ответа не было. Под ней джиттер и потери: ровная
 // ли связь, а не только быстрая ли.
-function paintQuality(s) {
-  const q = s.quality || {};
-  const bars = $("q-bars"), sub = $("q-sub");
-  const up = s.state === "connected" || s.state === "stalled";
-  const samples = up ? (q.samples || []).slice(-30) : [];
-  if (!samples.length) { bars.replaceChildren(); sub.textContent = ""; sub.removeAttribute("data-bad"); return; }
+function paintQBars(bars, samples, height) {
   const top = Math.max(60, ...samples);
   while (bars.children.length < samples.length) bars.append(document.createElement("i"));
   while (bars.children.length > samples.length) bars.firstChild.remove();
   samples.forEach((ms, i) => {
     const bar = bars.children[i];
-    if (ms > 0) { bar.removeAttribute("data-lost"); bar.style.height = Math.max(3, Math.round(22 * ms / top)) + "px"; }
+    if (ms > 0) { bar.removeAttribute("data-lost"); bar.style.height = Math.max(3, Math.round(height * ms / top)) + "px"; }
     else bar.setAttribute("data-lost", "");
   });
-  sub.textContent = L().qLine(q.jitter_ms || 0, q.loss_pct || 0);
-  sub.toggleAttribute("data-bad", (q.loss_pct || 0) >= 10 || (q.jitter_ms || 0) >= 50);
+}
+function paintQuality(s) {
+  const q = s.quality || {};
+  const bars = $("q-bars"), sub = $("q-sub");
+  const up = s.state === "connected" || s.state === "stalled";
+  const samples = up ? (q.samples || []).slice(-30) : [];
+  const d = L();
+  // В «Диагностике» — те же замеры числами покрупнее и за все пять минут.
+  const jitterBad = (q.jitter_ms || 0) >= 50, lossBad = (q.loss_pct || 0) >= 10;
+  $("dq-ping").textContent = up && q.ping_ms ? q.ping_ms + d.ms : "—";
+  $("dq-jitter").textContent = up && samples.length ? "±" + (q.jitter_ms || 0) + d.ms : "—";
+  $("dq-loss").textContent = up && samples.length ? (q.loss_pct || 0) + "%" : "—";
+  $("dq-jitter").toggleAttribute("data-bad", up && jitterBad);
+  $("dq-loss").toggleAttribute("data-bad", up && lossBad);
+  $("dq-when").textContent = up ? "" : d.qNoTunnel;
+  if (openTab === "diag") paintQBars($("dq-bars"), up ? (q.samples || []) : [], 34);
+  if (!samples.length) { bars.replaceChildren(); sub.textContent = ""; sub.removeAttribute("data-bad"); return; }
+  paintQBars(bars, samples, 22);
+  sub.textContent = d.qLine(q.jitter_ms || 0, q.loss_pct || 0);
+  sub.toggleAttribute("data-bad", lossBad || jitterBad);
+}
+
+// paintRoute — как именно подключено: только то, что знает программа. Нет
+// туннеля — строк нет, а не прошлое подключение.
+function paintRoute(s) {
+  const d = L(), c = conn || {};
+  const up = s.state === "connected" || s.state === "stalled";
+  const r = up ? s.route : null;
+  const row = (k, v) => { const x = el("div", ""); x.append(el("span", "", k), el("b", "", v)); return x; };
+  $("dg-where").replaceChildren(...(up && s.node ? [row(d.rServer, bare(s.node))] : []));
+  if (!r) { $("dg-route").replaceChildren(); return; }
+  const rows = [];
+  const tname = (t) => d.rTransports[t] || (t || "").toUpperCase();
+  if (r.protocol === "vp1") {
+    rows.push(row(d.rProto, "VP1"), row(d.rTransport, tname(r.transport)));
+  } else {
+    rows.push(row(d.rProto, r.protocol.toUpperCase()));
+    rows.push(row(d.rTransport, [tname(r.transport), r.security && r.security !== "none" ? (TRANSPORTS[r.security] || r.security.toUpperCase()) : ""].filter(Boolean).join(" · ")));
+  }
+  if (r.sni) rows.push(row(d.rSNI, r.sni + (r.spare_sni ? d.rSpare(r.spare_sni) : "")));
+  if (r.fingerprint) rows.push(row(d.rFP, r.fingerprint + (r.protocol === "vp1" ? d.rFPSeller : "")));
+  if (c.mtu_in_use) rows.push(row(d.rMTU, String(c.mtu_in_use)));
+  if (c.dns_in_use) rows.push(row(d.rDNS, c.dns_in_use + (c.dns_secure_in_use ? d.rHTTPS : "")));
+  if (c.fragment_in_use !== undefined) rows.push(row(d.rFrag, c.fragment_in_use ? d.rOn : d.rOff));
+  if (c.ipv6_in_use !== undefined) rows.push(row(d.rIPv6, c.ipv6_in_use ? d.rOn : d.rOff));
+  const box = $("dg-route");
+  // Перерисовываем, только когда что-то поменялось: строки опрашиваются раз в
+  // секунду, а выделять текст адреса человек может посреди опроса.
+  const sig = rows.map((x) => x.textContent).join("|");
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  box.replaceChildren(...rows);
+}
+
+/* ------------------------------------------------------- «Проверить всё» */
+
+// Шаги — в том же порядке, что у программы (diagSteps в diag.go); тест
+// сверяет оба списка. Спрашиваем по одному: каждый шаг виден, как только
+// ответил, а не все разом через полминуты.
+const DIAG_STEPS = ["net", "dns", "node", "tunnel", "system", "where", "sites", "interference"];
+const DIAG_DNS = ["1.1.1.1", "8.8.8.8", "9.9.9.9", "94.140.14.14"];
+const upNow = () => !!lastStatus && (lastStatus.state === "connected" || lastStatus.state === "stalled");
+
+// reconnectNow — туннель заново с выбранным сейчас. Без туннеля — просто
+// подключиться: «переподключать» нечего.
+async function reconnectNow(button, said) {
+  button.disabled = true;
+  $(said).textContent = "…";
+  try {
+    if (upNow()) render(await api("POST", "api/reconnect"));
+    else await api("POST", "api/connect");
+    $(said).textContent = L().diagDone;
+    await tick();
+  } catch (e) {
+    $(said).textContent = e.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+// DIAG_DO — что делает каждая кнопка шага. Ключи — те же коды, что отдаёт
+// программа (diagActs); кода без действия здесь быть не должно, и тест это
+// сверяет: нарисованная кнопка — это обещание.
+const DIAG_DO = {
+  fix: async (b, said) => {
+    const r = await api("POST", "api/fix");
+    render(r.state);
+    $(said).textContent = (r.done || []).join("; ");
+  },
+  nodes: async () => { document.querySelector('.tab[data-tab="nodes"]').click(); },
+  fragment: async (b, said) => {
+    if (await changeConn(b, { fragment: true }, said) && upNow()) await reconnectNow(b, said);
+    else $(said).textContent = L().diagDone;
+  },
+  dns: async (b, said) => {
+    const now = conn && conn.dns, next = DIAG_DNS[(DIAG_DNS.indexOf(now) + 1) % DIAG_DNS.length];
+    if (await changeConn(b, { dns: next }, said) && upNow()) await reconnectNow(b, said);
+    $(said).textContent = "DNS " + next + " · " + L().diagDone;
+  },
+  reconnect: (b, said) => reconnectNow(b, said),
+  connect: async (b, said) => { await api("POST", "api/connect"); $(said).textContent = L().diagDone; await tick(); },
+  proxy: async (b, said) => {
+    const after = await api("POST", "api/proxy/off");
+    render(after);
+    $(said).textContent = after.proxy ? L().proxyEnv : L().proxyGone;
+  },
+};
+
+function diagValue(s) {
+  const d = L();
+  switch (s.id) {
+    case "net": case "dns": return s.ms ? s.ms + d.ms : "";
+    case "node": return s.of ? d.diagOf(s.n || 0, s.of) + (s.ms ? " · " + d.diagBest(s.ms) : "") : "";
+    case "where": return s.ip ? s.ip + (s.country ? " · " + (regionName(s.country.toUpperCase()) || s.country.toUpperCase()) : "") : "";
+    case "sites": return s.of ? d.diagOf(s.n || 0, s.of) : "";
+    case "interference": return s.st === "ok" ? d.diagNone : "";
+  }
+  return "";
+}
+
+let diagSeq = 0;
+function diagRow(id) {
+  const li = el("li", "dstep");
+  li.dataset.st = "run";
+  li.dataset.id = id;
+  li.append(el("span", "ico"), el("span", "t", L().diagStep[id].t), el("span", "v", ""), el("span", "say", ""), el("span", "acts", ""));
+  return li;
+}
+function paintDiagStep(li, s) {
+  const d = L(), words = d.diagStep[s.id];
+  li.dataset.st = s.st;
+  li.querySelector(".ico").textContent = d.diagSt[s.st] || "";
+  li.querySelector(".v").textContent = diagValue(s) || (s.st === "off" && ["system", "where", "sites"].includes(s.id) ? d.diagNeedUp : "");
+  const said = words[s.st];
+  const lines = [typeof said === "function" ? said(s) : said || ""].concat(s.detail || []).filter(Boolean);
+  li.querySelector(".say").textContent = lines.join(" · ");
+  const acts = li.querySelector(".acts");
+  const msg = el("span", "said", "");
+  msg.id = "dg-msg-" + s.id;
+  acts.replaceChildren(...(s.act || []).filter((a) => DIAG_DO[a]).map((a, i) => {
+    const b = el("button", "chip" + (i === 0 ? " lead-act" : ""), d.diagAct[a]);
+    b.type = "button";
+    b.addEventListener("click", async () => {
+      b.disabled = true;
+      try { await DIAG_DO[a](b, msg.id); } catch (e) { msg.textContent = e.message; } finally { b.disabled = false; }
+    });
+    return b;
+  }));
+  if (acts.children.length) acts.append(msg);
+}
+
+async function runDiag() {
+  const d = L(), seq = ++diagSeq;
+  const btn = $("diag-run"), list = $("diag-steps"), sum = $("diag-sum");
+  btn.disabled = true;
+  $("diag-after").hidden = true;
+  sum.hidden = false;
+  sum.dataset.st = "run";
+  $("diag-sum-text").textContent = d.diagRunning;
+  list.replaceChildren();
+  const results = [];
+  for (const id of DIAG_STEPS) {
+    const li = diagRow(id);
+    list.append(li);
+    let s;
+    try { s = await api("POST", "api/diag", { step: id }); } catch (e) { s = { id, st: "bad", detail: [e.message] }; }
+    if (seq !== diagSeq) return;
+    results.push(s);
+    paintDiagStep(li, s);
+  }
+  const bad = results.filter((s) => s.st === "bad" || s.st === "warn").length;
+  sum.dataset.st = results.some((s) => s.st === "bad") ? "bad" : bad ? "warn" : "ok";
+  $("diag-sum-text").textContent = bad ? d.diagFound(bad) : d.diagAllOk;
+  btn.textContent = d.diagAgain;
+  btn.disabled = false;
+  $("diag-after").hidden = false;
+}
+on("diag-run", "click", runDiag);
+on("diag-report", "click", async () => {
+  try {
+    await api("POST", "api/report/copy");
+    $("diag-report-msg").textContent = L().logCopied;
+  } catch (e) {
+    $("diag-report-msg").textContent = e.message;
+  }
+});
+
+// openDiag — при заходе на вкладку: настройки и ключи свежие (строка «Только
+// TCP» зависит от вида рабочего ключа), журнал и история скорости на месте.
+// Через задачу, а не сразу: вкладку из адреса страница открывает раньше,
+// чем доходит до объявлений ниже.
+function openDiag() {
+  setTimeout(() => {
+    loadConn();
+    loadKeys();
+    paintSpeedHistory();
+    lastLogPoll = 0;
+    if (lastStatus) { paintRoute(lastStatus); paintQuality(lastStatus); }
+    tick();
+  }, 0);
 }
 
 /* ----------------------------------------------------------------- опрос */
@@ -5053,7 +5554,7 @@ async function tick() {
   pollBusy = true;
   try {
     render(await api("GET", "api/state"));
-    if (!widgetMode && openTab === "settings" && Date.now() - lastLogPoll > 3000) {
+    if (!widgetMode && openTab === "diag" && Date.now() - lastLogPoll > 3000) {
       const log = await api("GET", "api/log");
       paintLog(log.lines);
       lastLogPoll = Date.now();
@@ -6428,7 +6929,7 @@ document.querySelector('.tab[data-tab="settings"]').addEventListener("click", ()
 // Переключатели вместо кнопок «Включено / Выключено»: состояние видно
 // формой, а не надписью. Надпись остаётся внутри — для экранного диктора.
 // Нажатие на саму строку тоже переключает: в узкую кнопку не надо целиться.
-const SWITCHES = ["vibe-splash", "vibe-sound", "bypass-ru", "lan", "kill-switch", "auto-fix", "ipv6", "fragment", "reports", "dns-secure", "autostart"];
+const SWITCHES = ["vibe-splash", "vibe-sound", "bypass-ru", "lan", "kill-switch", "auto-fix", "ipv6", "fragment", "tcp-only", "reports", "dns-secure", "autostart"];
 for (const id of SWITCHES) {
   const b = $(id);
   if (!b) continue;

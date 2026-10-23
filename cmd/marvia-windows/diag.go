@@ -17,11 +17,11 @@ package main
 // зависит. Окно спрашивает их по одному и показывает каждый, как только он
 // ответил: проверка сайтов идёт секунды, и пустой экран всё это время
 // выглядел бы зависанием.
-var diagSteps = []string{"net", "dns", "node", "tunnel", "system", "where", "sites", "interference"}
+var diagSteps = []string{"net", "dns", "node", "tunnel", "system", "where", "leak", "sites", "interference"}
 
 // diagActs — что окно умеет сделать по плохому шагу. За каждым кодом в окне
 // стоит кнопка с настоящим действием; код без неё тест не пропустит.
-var diagActs = []string{"fix", "nodes", "fragment", "dns", "reconnect", "connect", "proxy"}
+var diagActs = []string{"fix", "nodes", "fragment", "dns", "reconnect", "connect", "proxy", "killswitch"}
 
 // Состояние шага. Off — проверять нечего: сайты через туннель, пока туннеля
 // нет, — это не беда, а пропуск.
@@ -54,6 +54,11 @@ type DiagStep struct {
 	Detail []string `json:"detail,omitempty"`
 	// Act — коды кнопок из diagActs; у хорошего шага их нет.
 	Act []string `json:"act,omitempty"`
+	// Leak — какой путь мимо туннеля нашёлся: v4 — браузер виден под другим
+	// адресом, v6 — по IPv6 соединение уходит наружу, хотя в туннеле IPv6
+	// выключен. Самого адреса здесь нет: снимок окна человек пересылает
+	// продавцу, и его настоящий адрес туда попадать не должен.
+	Leak string `json:"leak,omitempty"`
 }
 
 // judgeNet — интернет мимо VPN. Нет его — Marvia тут ничего не починит, и
@@ -159,6 +164,30 @@ func judgeWhere(up bool, ip, country string) DiagStep {
 	default:
 		return DiagStep{ID: "where", St: diagOK, IP: ip, Country: country}
 	}
+}
+
+// judgeLeak — не виден ли человек под своим адресом. Сравниваются два
+// ответа: как видит интернет обычную программу (маршруты Windows) и как —
+// туннель. Разные адреса значат, что часть трафика идёт мимо VPN, и сайт
+// видит настоящий адрес. Отдельно — IPv6: если в туннеле он выключен, а
+// соединение по нему наружу всё же открылось, это та же утечка другим путём.
+// Чинит обе kill switch: пока туннель включён, мимо него не выпускается
+// ничего.
+func judgeLeak(up bool, tunnelIP, systemIP string, v6Leak bool) DiagStep {
+	s := DiagStep{ID: "leak"}
+	switch {
+	case !up:
+		s.St = diagOff
+	case v6Leak:
+		s.St, s.Leak, s.Act = diagBad, "v6", []string{"killswitch", "fix"}
+	case systemIP == "" || tunnelIP == "":
+		s.St, s.Act = diagWarn, []string{"reconnect"}
+	case systemIP != tunnelIP:
+		s.St, s.Leak, s.Act = diagBad, "v4", []string{"killswitch", "fix"}
+	default:
+		s.St = diagOK
+	}
+	return s
 }
 
 // judgeSites — сколько главных сайтов открылось через туннель. Туннель

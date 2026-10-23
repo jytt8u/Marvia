@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -155,6 +156,20 @@ func (c *Controller) Diagnose(ctx context.Context, id string) (DiagStep, error) 
 		w := c.Where(ctx)
 		return judgeWhere(true, w.IP, w.Country), nil
 
+	case "leak":
+		if !up {
+			return judgeLeak(false, "", "", false), nil
+		}
+		c.mu.Lock()
+		v6Off := c.settings.IPv6Off
+		c.mu.Unlock()
+		tunnel := c.Where(ctx)
+		// Обычным путём Windows, как браузер. Пока утечки нет, этот запрос
+		// уходит в туннель, и Cloudflare видит адрес ноды; виден настоящий —
+		// только если утечка есть, а её мы и ищем.
+		system := fetchWhere(ctx, &http.Client{Transport: &http.Transport{Proxy: nil}})
+		return judgeLeak(true, tunnel.IP, system.IP, v6Off && v6Outside(ctx)), nil
+
 	case "sites":
 		if !up {
 			return judgeSites(false, 0, 0), nil
@@ -186,6 +201,25 @@ func (c *Controller) Diagnose(ctx context.Context, id string) (DiagStep, error) 
 		return judgeInterference(conflictTexts(found), p.Describe(), p.FromEnv), nil
 	}
 	return DiagStep{}, errors.New(say("badRequest"))
+}
+
+// v6Target — адрес для проверки IPv6: DNS Cloudflare по v6, порт 443.
+// Голый адрес — чтобы шаг не зависел от запросов имён.
+const v6Target = "[2606:4700:4700::1111]:443"
+
+// v6Outside — открывается ли соединение по IPv6 обычным путём Windows.
+// Туннель с выключенным IPv6 такие соединения сбрасывает сам (tunbridge),
+// так что открывшееся ушло мимо него.
+func v6Outside(ctx context.Context) bool {
+	ctx, cancel := context.WithTimeout(ctx, diagDialTimeout)
+	defer cancel()
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(ctx, "tcp6", v6Target)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
 }
 
 // Reconnect — «Переподключиться» из «Диагностики»: туннель заново, с тем,

@@ -168,3 +168,28 @@ func TestPageStartsWithDoctype(t *testing.T) {
 		t.Errorf("страница начинается не с <!doctype html>: %q", head)
 	}
 }
+
+// TestLeakIsCalledAndFixedWithoutShowingTheRealAddress: браузер, видный не
+// под адресом туннеля, и IPv6 мимо выключенного IPv6 туннеля — утечка с
+// кнопкой kill switch. Настоящего адреса в ответе нет: снимок окна
+// пересылают продавцу. Совпали адреса — всё хорошо и кнопок нет.
+func TestLeakIsCalledAndFixedWithoutShowingTheRealAddress(t *testing.T) {
+	ok := judgeLeak(true, "203.0.113.1", "203.0.113.1", false)
+	if ok.St != diagOK || len(ok.Act) != 0 {
+		t.Fatalf("без утечки: %+v", ok)
+	}
+	v4 := judgeLeak(true, "203.0.113.1", "198.51.100.7", false)
+	if v4.St != diagBad || v4.Leak != "v4" || !slices.Contains(v4.Act, "killswitch") {
+		t.Fatalf("утечка по IPv4: %+v", v4)
+	}
+	if v4.IP != "" || slices.Contains(v4.Detail, "198.51.100.7") {
+		t.Fatalf("настоящий адрес попал в ответ: %+v", v4)
+	}
+	v6 := judgeLeak(true, "203.0.113.1", "203.0.113.1", true)
+	if v6.St != diagBad || v6.Leak != "v6" {
+		t.Fatalf("утечка по IPv6: %+v", v6)
+	}
+	if off := judgeLeak(false, "", "", false); off.St != diagOff {
+		t.Fatalf("без туннеля: %+v", off)
+	}
+}

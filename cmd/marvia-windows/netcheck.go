@@ -41,18 +41,22 @@ const (
 	speedBudget = 5 * time.Second
 )
 
-// siteChecks — что проверять. Те сайты, о которых спрашивают первыми:
-// видео, соцсети, игры, мессенджеры. Домен — тот, что открывает браузер.
+// siteChecks — что проверять. То, без чего человек считает интернет
+// сломанным: поиск, видео, мессенджеры, соцсети, ChatGPT и GitHub. Игры
+// здесь были, но игра, не открывшаяся через VPN, ничего не говорит о связи —
+// только о том, что её сервер не любит адреса хостеров. Домен — тот, что
+// открывает браузер.
 // siteScheme — подменяется в тестах: у тестового сервера нет сертификата.
 var siteScheme = "https://"
 
 var siteChecks = []struct{ Name, Host string }{
+	{"Google", "www.google.com"},
 	{"YouTube", "www.youtube.com"},
-	{"Instagram", "www.instagram.com"},
-	{"Discord", "discord.com"},
-	{"Roblox", "www.roblox.com"},
 	{"Telegram", "web.telegram.org"},
+	{"WhatsApp", "web.whatsapp.com"},
+	{"Instagram", "www.instagram.com"},
 	{"ChatGPT", "chatgpt.com"},
+	{"X", "x.com"},
 	{"GitHub", "github.com"},
 }
 

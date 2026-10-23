@@ -14,6 +14,10 @@
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [فارسی](README.fa.md)
 
+<a href="https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.26"><img alt="دانلود آخرین نسخه" src="https://img.shields.io/github/v/release/jytt8u/marvia?include_prereleases&display_name=tag&style=for-the-badge&label=%D8%AF%D8%A7%D9%86%D9%84%D9%88%D8%AF%20%D8%A2%D8%AE%D8%B1%DB%8C%D9%86%20%D9%86%D8%B3%D8%AE%D9%87&labelColor=30353b&color=c3ccd6" height="40"></a>
+
+<sub>APK اندروید · نصب‌کنندهٔ ویندوز · بسته‌های سرور · چک‌سام‌ها</sub>
+
 [![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.26/marvia-android.apk)
 [![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.26)
 [![Panel](https://img.shields.io/badge/PANEL-INSTALL-687482?style=for-the-badge&labelColor=30353b)](#نصب-پنل)

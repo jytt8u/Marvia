@@ -10,6 +10,10 @@
 
 [Русский](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [فارسی](README.fa.md)
 
+<a href="https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.26"><img alt="Скачать последний выпуск" src="https://img.shields.io/github/v/release/jytt8u/marvia?include_prereleases&display_name=tag&style=for-the-badge&label=%D0%A1%D0%9A%D0%90%D0%A7%D0%90%D0%A2%D0%AC%20%D0%9F%D0%9E%D0%A1%D0%9B%D0%95%D0%94%D0%9D%D0%98%D0%99%20%D0%92%D0%AB%D0%9F%D0%A3%D0%A1%D0%9A&labelColor=30353b&color=c3ccd6" height="40"></a>
+
+<sub>APK для Android · установщик Windows · архивы для серверов · контрольные суммы</sub>
+
 [![Android APK](https://img.shields.io/badge/ANDROID-APK-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/download/v0.13.0-alpha.26/marvia-android.apk)
 [Обновлять через Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.marvia.android%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fjytt8u%2Fmarvia%22%2C%22author%22%3A%22jytt8u%22%2C%22name%22%3A%22Marvia%22%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Atrue%2C%5C%22verifyLatestTag%5C%22%3Afalse%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22%5Emarvia-android%5C%5C%5C%5C.apk%24%5C%22%7D%22%7D)
 [![Windows test](https://img.shields.io/badge/WINDOWS-TEST-687482?style=for-the-badge&labelColor=30353b)](https://github.com/jytt8u/marvia/releases/tag/v0.13.0-alpha.26)

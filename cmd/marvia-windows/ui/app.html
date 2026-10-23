@@ -455,31 +455,6 @@
   .dq-bars i { flex: 1; min-width: 2px; border-radius: 1px; background: var(--acc); opacity: .55; transition: height .4s var(--ease); }
   .dq-bars i:last-child { opacity: 1; }
   .dq-bars i[data-lost] { background: var(--fail); opacity: .9; height: 34px !important; }
-  .guard[hidden] { display: none; }
-  .guard-sum { font-size: 12px; font-weight: 600; color: var(--ok, var(--acc)); }
-  .guard-sum[data-bad] { color: var(--warn); }
-  .guard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .gtile {
-    position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; column-gap: 10px; row-gap: 1px;
-    align-items: center; padding: 10px 12px; border-radius: min(var(--r), 12px); text-align: left; font: inherit; color: var(--fg); cursor: pointer;
-    background: color-mix(in srgb, var(--fg) 4%, transparent); border: 1px solid var(--line);
-    transition: transform .25s var(--ease), border-color .2s, background .2s;
-    animation: ncIn .35s var(--ease) both;
-  }
-  .gtile:nth-child(2) { animation-delay: .05s; } .gtile:nth-child(3) { animation-delay: .1s; } .gtile:nth-child(4) { animation-delay: .15s; }
-  .gtile:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--acc) 45%, var(--line)); background: color-mix(in srgb, var(--acc) 7%, transparent); }
-  .gtile:active { transform: translateY(0); }
-  .gtile .gi { grid-row: 1 / span 3; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: var(--accSoft, color-mix(in srgb, var(--acc) 14%, transparent)); color: var(--acc); }
-  .gtile .gi svg { width: 17px; height: 17px; }
-  .gtile .gk { font-size: 11.5px; color: var(--dim); }
-  .gtile b { font: 700 15px var(--numFont, var(--mono)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .gtile small { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .gtile[data-st="ok"] .gi { background: color-mix(in srgb, var(--ok, #3fb950) 16%, transparent); color: var(--ok, #3fb950); }
-  .gtile[data-st="bad"] { border-color: color-mix(in srgb, var(--fail, #e5534b) 55%, var(--line)); }
-  .gtile[data-st="bad"] .gi, .gtile[data-st="warn"] .gi { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-  .gtile[data-st="bad"] b { color: var(--fail, var(--warn)); }
-  .gtile[data-st="run"] .gi { animation: gPulse 1.1s ease-in-out infinite; }
-  @keyframes gPulse { 50% { opacity: .45; } }
   .add-key { background: var(--acc); border-color: var(--acc); color: var(--accFg); }
   .add-key:hover { filter: brightness(1.08); }
   .add-key[aria-expanded="true"] { background: var(--surf); color: var(--fg); border-color: var(--line); }
@@ -491,8 +466,7 @@
   @media (prefers-reduced-motion: reduce) {
     .diag-grid > .col > *, .diag-sum, .dstep, .speed-hist .sh, .key-offer { animation: none; }
     .diag-sum[data-st="run"] i, .dstep[data-st="run"] .ico { animation: none; }
-    .gtile, .dq-bars i, .speed-hist .sh i { transition: none; animation: none; }
-    .gtile[data-st="run"] .gi { animation: none; }
+    .dq-bars i, .speed-hist .sh i { transition: none; }
   }
   /* Всплывающее «перешёл на другую ноду» */
   .toast { position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 60;
@@ -1763,34 +1737,6 @@
               </div>
             </div>
 
-            <!--
-              Защита и связь — четыре плитки, на каждую можно нажать: скрыт ли
-              адрес (нажатие проверяет утечку), сколько сайтов открывается,
-              последняя скорость и сервер с откликом. Подробности — в
-              «Диагностике» и на «Серверах», куда плитки и ведут.
-            -->
-            <div class="card guard" id="guard" hidden>
-              <div class="card-head"><b data-t="guardTitle"></b><span class="guard-sum" id="guard-sum"></span></div>
-              <div class="guard-grid">
-                <button class="gtile" id="g-leak" type="button" data-st="ask">
-                  <span class="gi" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
-                  <span class="gk" data-t="gLeak"></span><b id="g-leak-v">—</b><small id="g-leak-s"></small>
-                </button>
-                <button class="gtile" id="g-sites" type="button" data-st="ask">
-                  <span class="gi" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>
-                  <span class="gk" data-t="gSites"></span><b id="g-sites-v">—</b><small id="g-sites-s"></small>
-                </button>
-                <button class="gtile" id="g-speed" type="button" data-st="ask">
-                  <span class="gi" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18a8 8 0 1 1 16 0"/><path d="m12 18 4-6"/></svg></span>
-                  <span class="gk" data-t="gSpeed"></span><b id="g-speed-v">—</b><small id="g-speed-s"></small>
-                </button>
-                <button class="gtile" id="g-node" type="button" data-st="ok">
-                  <span class="gi" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/><path d="M8 7.5h.01M8 16.5h.01"/></svg></span>
-                  <span class="gk" data-t="gNode"></span><b id="g-node-v">—</b><small id="g-node-s"></small>
-                </button>
-              </div>
-            </div>
-
             <div class="card daily feature">
               <div class="card-head"><b data-t="todayTraffic"></b><span class="mono" id="today-total">—</span></div>
               <div class="daily-bars" id="day-bars" role="img" data-t-title="todayTraffic"></div>
@@ -2706,11 +2652,6 @@ const T = {
     logLead: "Что программа делала. Пригодится, если что-то не заработало.",
     logCopy: "Скопировать отчёт",
     leakNone: "IPv4 и IPv6 — через туннель",
-    guardTitle: "Защита и связь", guardAll: "Всё в порядке", guardSome: (n) => "Внимание: " + n, guardOff: "не подключено",
-    gLeak: "Адрес", gLeakOk: "скрыт", gLeakBad: "утечка", gLeakAsk: "проверить", gLeakRun: "проверяю…",
-    gSites: "Сайты", gSitesSub: "открываются", gSitesAsk: "проверить",
-    gSpeed: "Скорость", gSpeedAsk: "замерить",
-    gNode: "Сервер", gSeen: (ip) => "виден как " + ip,
     clipFound: "В буфере ключ доступа", clipUse: "Вставить", clipPasted: "Вставлено из буфера — проверьте и сохраните", clipKnown: "Ключ из буфера уже есть в списке",
     diagTitle: "Проверить всё", diagSub: "по шагам, от провода до сайта", diagRun: "Проверить всё", diagAgain: "Проверить ещё раз",
     diagRunning: "Проверяю…", diagAllOk: "Всё в порядке", diagFound: (n) => "Требуют внимания: " + n,
@@ -3033,11 +2974,6 @@ const T = {
     logLead: "What the program did. Useful when something did not work.",
     logCopy: "Copy a report",
     leakNone: "IPv4 and IPv6 — through the tunnel",
-    guardTitle: "Protection and link", guardAll: "All good", guardSome: (n) => "Attention: " + n, guardOff: "not connected",
-    gLeak: "Address", gLeakOk: "hidden", gLeakBad: "leak", gLeakAsk: "check", gLeakRun: "checking…",
-    gSites: "Sites", gSitesSub: "open", gSitesAsk: "check",
-    gSpeed: "Speed", gSpeedAsk: "measure",
-    gNode: "Server", gSeen: (ip) => "seen as " + ip,
     clipFound: "An access key is in the clipboard", clipUse: "Paste", clipPasted: "Pasted from the clipboard — check it and save", clipKnown: "The key in the clipboard is already in the list",
     diagTitle: "Check everything", diagSub: "step by step, from the wire to the site", diagRun: "Check everything", diagAgain: "Check again",
     diagRunning: "Checking…", diagAllOk: "All good", diagFound: (n) => "Need attention: " + n,
@@ -5239,7 +5175,6 @@ function showWhere(ip, code, note) {
 }
 function paintNetcheck(s) {
   const up = s.state === "connected";
-  $("guard").hidden = !up;
   $("nc-live").hidden = !up;
   if (!up) {
     if (ncSession !== "") { ncSession = ""; showWhere("—", "", L().qNoTunnel); $("nc-sites").replaceChildren(); }
@@ -5255,75 +5190,9 @@ function paintNetcheck(s) {
     if (ncSession !== key) return;
     if (!w.ip) { showWhere("—", "", w.error || ""); return; }
     showWhere(w.ip, (w.country || "").toUpperCase(), "");
-    guard.seen = w.ip + (w.country ? " · " + (regionName(w.country.toUpperCase()) || w.country.toUpperCase()) : "");
-    paintGuard();
   }).catch(() => {});
-  // Утечку проверяем сами раз на подключение: «адрес скрыт» — первое, что
-  // человек хочет знать, и спрашивать его об этом кнопкой незачем.
-  guard.leak = null;
-  checkLeak();
 }
 
-/* ---------------------------------------------------- защита и связь на главной */
-
-// guard — то, что показывают плитки: итог проверки утечки, последний
-// результат сайтов и скорости. Сайты и скорость обновляются там же, где их
-// меряют («Диагностика»), утечка — сама при подключении и по нажатию.
-const guard = { leak: null, leakBusy: false, sites: null, seen: "" };
-
-async function checkLeak() {
-  if (guard.leakBusy) return;
-  guard.leakBusy = true;
-  paintGuard();
-  try {
-    guard.leak = await api("POST", "api/diag", { step: "leak" });
-  } catch (_) {
-    guard.leak = null;
-  } finally {
-    guard.leakBusy = false;
-    paintGuard();
-  }
-}
-
-function paintGuard() {
-  const d = L();
-  const tile = (id, st, v, s) => {
-    $(id).dataset.st = st;
-    $(id + "-v").textContent = v;
-    $(id + "-s").textContent = s;
-  };
-  const lk = guard.leak;
-  if (guard.leakBusy) tile("g-leak", "run", d.gLeakRun, guard.seen ? d.gSeen(guard.seen) : "");
-  else if (!lk || lk.st === "off") tile("g-leak", "ask", d.gLeakAsk, guard.seen ? d.gSeen(guard.seen) : "");
-  else if (lk.st === "ok") tile("g-leak", "ok", d.gLeakOk, guard.seen ? d.gSeen(guard.seen) : d.leakNone);
-  else tile("g-leak", lk.st === "bad" ? "bad" : "warn", lk.st === "bad" ? d.gLeakBad : d.gLeakAsk, d.diagStep.leak[lk.st] instanceof Function ? d.diagStep.leak[lk.st](lk) : d.diagStep.leak[lk.st] || "");
-
-  const st = guard.sites;
-  if (!st) tile("g-sites", "ask", d.gSitesAsk, "");
-  else tile("g-sites", st.n === st.of ? "ok" : st.n === 0 ? "bad" : "warn", st.n + " / " + st.of, d.gSitesSub);
-
-  const hist = speedHistory(), last = hist[hist.length - 1];
-  if (!last) tile("g-speed", "ask", d.gSpeedAsk, "");
-  else tile("g-speed", "ok", mbpsText(last.mbps) + " " + d.mbps, new Date(last.t).toLocaleString(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }));
-
-  const s = lastStatus || {};
-  tile("g-node", s.node ? "ok" : "ask", bare(s.node) || "—", s.node && s.ping_ms ? s.ping_ms + d.ms : "");
-
-  const bad = ["g-leak", "g-sites"].filter((id) => ["bad", "warn"].includes($(id).dataset.st)).length;
-  $("guard-sum").textContent = bad ? d.guardSome(bad) : (lk && lk.st === "ok" ? d.guardAll : "");
-  if (bad) $("guard-sum").setAttribute("data-bad", ""); else $("guard-sum").removeAttribute("data-bad");
-}
-
-// goDiag — перейти в «Диагностику» и сразу нажать нужное: плитка —
-// короткий путь к делу, а не к странице, где его ещё искать.
-function goDiag(button) {
-  document.querySelector('.tab[data-tab="diag"]').click();
-  if (button) setTimeout(() => { const b = $(button); b.scrollIntoView({ behavior: "smooth", block: "center" }); if (!b.disabled) b.click(); }, 120);
-}
-on("g-leak", "click", () => checkLeak());
-on("g-sites", "click", () => goDiag("nc-sites-btn"));
-on("g-speed", "click", () => goDiag("nc-speed-btn"));
-on("g-node", "click", () => document.querySelector('.tab[data-tab="nodes"]').click());
 
 function siteRow(name, state, ms) {
   const row = document.createElement("div");
@@ -5346,9 +5215,6 @@ on("nc-sites-btn", "click", async () => {
   $("nc-sites").replaceChildren(...NC_SITES.map((n) => siteRow(n, "wait")));
   try {
     const r = await api("POST", "api/net/sites");
-    const all = r.sites || [];
-    guard.sites = { n: all.filter((x) => x.ok).length, of: all.length };
-    paintGuard();
     $("nc-sites").replaceChildren(...(r.sites || []).map((x, i) => {
       const row = siteRow(x.name, x.ok, x.ms);
       row.style.animationDelay = (i * 40) + "ms";
@@ -5414,7 +5280,6 @@ on("nc-speed-btn", "click", async () => {
     list.push({ t: Date.now(), mbps: r.mbps, node: lastStatus && lastStatus.node ? bare(lastStatus.node) : "" });
     try { localStorage.setItem(SPEED_KEY, JSON.stringify(list.slice(-8))); } catch (_) { /* не запомнится — не беда */ }
     paintSpeedHistory();
-    paintGuard();
   } catch (e) {
     out.textContent = "—";
     $("nc-speed-msg").textContent = e.message;

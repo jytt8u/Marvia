@@ -1,0 +1,3 @@
+0.13.0-alpha.27 — test release.
+The app tells the seller how fast a node serves a test download, so the panel can see when a node is throttled.
+The VP1 wire format is unchanged.

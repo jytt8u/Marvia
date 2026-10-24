@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jytt8u/marvia/internal/client"
@@ -32,9 +33,19 @@ import (
 // probeURLs — страницы с пустым ответом 204: их держат ровно для проверки
 // связи, они крошечные и не ставят куки. Два разных хозяина — чтобы
 // недоступность одного не выглядела поломкой у человека.
+//
+// И по HTTP, и по HTTPS. Открытый HTTP по пути трогают все, кому не лень:
+// гостиничные порталы подменяют ответ, а на некоторых сетях он просто
+// висит. Сайты при этом по HTTPS открываются, и проверка только по HTTP
+// говорила «не открывается и через туннель — дело в ноде» человеку, у
+// которого всё работало. HTTPS-страницу по пути подменить нельзя, поэтому
+// там годится любой ответ, а у HTTP — только 204: иначе портал выдал бы
+// себя за интернет.
 var probeURLs = []string{
 	"http://connectivitycheck.gstatic.com/generate_204",
 	"http://cp.cloudflare.com/generate_204",
+	"https://www.google.com/generate_204",
+	"https://cp.cloudflare.com/generate_204",
 }
 
 // probeTimeout — сколько ждать одну страницу. Нода на другом конце света
@@ -76,27 +87,43 @@ var probeTunnel = func(ctx context.Context, d client.Backend) error {
 	})
 }
 
+// probeWith открывает проверочные страницы разом и отвечает, как только
+// открылась хоть одна. По очереди было нельзя: зависшая первая съедала весь
+// срок, и до второй дело не доходило.
 func probeWith(ctx context.Context, transport *http.Transport) error {
 	defer transport.CloseIdleConnections()
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
 	hc := &http.Client{Transport: transport, Timeout: probeTimeout}
-	var last error
+	results := make(chan error, len(probeURLs))
 	for _, url := range probeURLs {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		if err != nil {
-			return err
-		}
-		resp, err := hc.Do(req)
-		if err != nil {
-			last = err
-			continue
-		}
-		resp.Body.Close()
-		if resp.StatusCode == http.StatusNoContent {
+		go func() { results <- probeOne(ctx, hc, url) }()
+	}
+	var last error
+	for range probeURLs {
+		err := <-results
+		if err == nil {
 			return nil
 		}
-		last = fmt.Errorf("ответ %d", resp.StatusCode)
+		last = err
 	}
 	return last
+}
+
+func probeOne(ctx context.Context, hc *http.Client, url string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := hc.Do(req)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	if resp.StatusCode == http.StatusNoContent || strings.HasPrefix(url, "https://") {
+		return nil
+	}
+	return fmt.Errorf("ответ %d", resp.StatusCode)
 }
 
 // selfCheck проверяет подключение и запоминает вывод для окна.

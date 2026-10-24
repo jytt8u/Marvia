@@ -18,7 +18,7 @@ const ExampleConfig = `{
 
   "downloads": {
     "android": "https://github.com/jytt8u/marvia/releases/latest/download/marvia-android.apk",
-    "windows": "https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows.exe"
+    "windows": "https://github.com/jytt8u/marvia/releases/latest/download/marvia-windows-setup.exe"
   },
 
   "tariffs": [

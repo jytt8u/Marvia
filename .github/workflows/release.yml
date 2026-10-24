@@ -245,7 +245,7 @@ jobs:
           if [ -f marvia-android.apk ]; then apps=(marvia-android.apk marvia-android.aab); fi
           # Без ./ перед именами: служба обновления ищет в суммах строку
           # «сумма  имя», и префикс пути её бы сломал.
-          sha256sum -- *.tar.gz install-panel.sh upgrade.sh marvia-windows.exe marvia-windows.zip marvia-windows-setup.exe "${apps[@]}" > SHA256SUMS
+          sha256sum -- *.tar.gz install-panel.sh upgrade.sh marvia-windows.zip marvia-windows-setup.exe "${apps[@]}" > SHA256SUMS
           cat SHA256SUMS
 
       - name: Подписать контрольные суммы сборки
@@ -282,7 +282,6 @@ jobs:
             dist/marvia_linux_arm64.tar.gz
             dist/install-panel.sh
             dist/upgrade.sh
-            dist/marvia-windows.exe
             dist/marvia-windows.zip
             dist/marvia-windows-setup.exe
             dist/marvia-android.apk
@@ -295,10 +294,12 @@ jobs:
             подключение и обновление на реальных устройствах по
             [плану](https://github.com/jytt8u/marvia/blob/main/docs/development-plan.md).
 
-            Windows-клиент: запустите `marvia-windows-setup.exe` и установите
-            приложение. Драйвер и ярлык уже в комплекте, ключи при обновлении сохраняются.
-            Для переносимого запуска распакуйте весь `marvia-windows.zip`.
-            Отдельный EXE требует `wintun.dll` рядом с ним.
+            **Windows:** скачайте `marvia-windows-setup.exe` — в нём всё: приложение,
+            драйвер, ярлык; ключи при обновлении сохраняются. `marvia-windows.zip` —
+            то же без установки, распакуйте папку целиком.
+            Если Windows пишет «Система Windows защитила ваш компьютер» — это
+            SmartScreen, а не антивирус: нажмите «Подробнее» → «Выполнить в любом
+            случае». Спросит один раз, на установщике.
 
             Android: `marvia-android.apk` собран здесь же из этой метки и подписан
             ключом приложения — SHA-256 сертификата

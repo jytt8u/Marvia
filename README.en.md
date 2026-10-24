@@ -141,6 +141,16 @@ releases, and selects `marvia-android.apk`. To add it manually, use
 `https://github.com/jytt8u/marvia`, enable prereleases and set the APK filter
 to `^marvia-android\.apk$`. [Configuration](docs/obtainium.json).
 
+**Windows: which file.** `marvia-windows-setup.exe` is the installer with
+everything inside — the app and the driver; keys survive updates. Download
+this one. `marvia-windows.zip` is the same without installing: unpack the
+whole folder.
+
+**Windows says “Windows protected your PC”?** That is SmartScreen, not an
+antivirus: it greets any file without a paid publisher signature until the
+file has enough downloads. Click **More info** → **Run anyway**. It asks once,
+on the installer; the installed app does not ask again.
+
 The public alpha.27 is a test release.
 Verification on real devices is not complete. Known limitations are in the
 [changelog (Russian)](CHANGELOG.md).

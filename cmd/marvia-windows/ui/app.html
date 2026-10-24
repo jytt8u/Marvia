@@ -568,11 +568,16 @@
   .nc.auto .city { white-space: normal; }
 
   /* Вид «Marvia»: страны строками — точка, имя, полоска качества, отклик. */
+  /* flex: none — строка не сжимается ниже своего текста: в столбце со своей
+     прокруткой сжатые строки наезжали друг на друга. Имя и подпись — в одну
+     строку с многоточием, полностью — в подсказке. */
   .row-node {
-    display: grid; grid-template-columns: 28px 1fr 120px 92px; gap: 12px; align-items: center;
+    flex: none; display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(56px, 100px) 64px; gap: 12px; align-items: center;
     padding: 10px; min-height: 52px; border: 0; border-radius: min(var(--r), 10px); cursor: pointer; text-align: left;
     background: transparent; color: var(--fg); font: inherit; transition: background .3s;
   }
+  .row-node > :nth-child(2) { min-width: 0; }
+  .row-node .name, .row-node .sub { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .nodes[data-view="marvia"] { gap: 2px; }
   .row-node:hover { background: rgba(var(--accRgb), .06); }
   .row-node[data-current] { background: var(--accSoft); }
@@ -590,7 +595,7 @@
   .row-node .name { font-size: 14px; font-weight: 600; }
   .row-node[data-chosen] .name::after { content: " ✓"; color: var(--acc); }
   .row-node .sub { font-size: 12px; color: var(--dim); }
-  .row-node .bar { height: 5px; border-radius: 999px; background: var(--shade); overflow: hidden; }
+  .row-node .bar { height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--fg) 12%, transparent); overflow: hidden; }
   .row-node .bar i { display: block; height: 100%; border-radius: 999px; background: var(--acc); }
   .row-node .ms { font-family: var(--mono); font-size: 13px; font-weight: 700; text-align: right; white-space: nowrap; color: var(--fg); }
   .row-node[data-current] .ms { color: var(--acc); }
@@ -652,26 +657,52 @@
   .rows .sub { font-size: 12px; color: var(--dim); }
   .rows .stack { flex-direction: column; align-items: stretch; gap: 10px; }
   .pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .keys { display: flex; flex-direction: column; gap: 6px; }
-  .keys .key { display: flex; align-items: stretch; border-radius: min(var(--r), 12px); background: var(--shade); border: 1px solid var(--line); overflow: hidden; }
-  .keys .key[data-active] { border-color: var(--acc); }
-  .keys .key .pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 9px 10px;
-    background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-  .keys .key .pick:hover { background: color-mix(in srgb, var(--fg) 5%, transparent); }
-  .keys .key[data-active] .pick { cursor: default; }
-  .keys .key[data-active] .pick:hover { background: none; }
-  .keys .key .radio { flex: none; width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--dim); }
-  .keys .key[data-active] .radio { box-shadow: inset 0 0 0 1.5px var(--acc), inset 0 0 0 4px var(--shade), inset 0 0 0 8px var(--acc); }
-  .keys .key .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .keys .key b { font-size: 13px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .keys .key small { font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .keys .key .quota { color: var(--fg); font-family: var(--mono); white-space: normal; }
-  .keys .key .track { display: block; margin-top: 4px; height: 4px; }
+  .keys { display: flex; flex-direction: column; gap: 8px; }
+  /* Ключ — строкой: значок вида, имя и адрес, справа дело. Фон — едва светлее
+     карточки: на чёрной плашке --shade строки выглядели дырами. */
+  .keys .key {
+    display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 12px;
+    border-radius: min(var(--r), 12px); border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--fg) 4%, transparent);
+    transition: border-color .2s, background .2s; animation: ncIn .3s var(--ease) both;
+  }
+  .keys .key:hover { border-color: color-mix(in srgb, var(--acc) 35%, var(--line)); }
+  .keys .key[data-active] { border-color: var(--acc); background: var(--accSoft); }
+  .keys .key .kbadge {
+    flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px;
+    background: color-mix(in srgb, var(--acc) 16%, transparent); color: var(--acc);
+    font: 800 14px var(--mono); letter-spacing: .02em;
+  }
+  .keys .key[data-active] .kbadge { background: var(--acc); color: var(--accFg, var(--bg)); }
+  .keys .key .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .keys .key .kname { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .keys .key b { font-size: 14px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .keys .key .kwork { flex: none; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: var(--acc); color: var(--accFg, var(--bg)); }
+  .keys .key small { font-size: 11.5px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .keys .key .quota { color: var(--fg); white-space: normal; }
+  .keys .key .track { display: block; margin-top: 3px; height: 4px; }
   .keys .key .track[hidden], .keys .key .quota[hidden] { display: none; }
-  .keys .key .drop { flex: none; min-width: 36px; padding: 0 10px; background: none; border: 0; border-left: 1px solid var(--line);
-    color: var(--dim); font-size: 12px; font-weight: 600; cursor: pointer; }
-  .keys .key .drop:hover { color: var(--fail); background: color-mix(in srgb, var(--fg) 5%, transparent); }
-  .keys .key .drop[data-sure="1"] { color: var(--fail); }
+  .keys .key .kacts { flex: none; display: flex; align-items: center; gap: 6px; }
+  .keys .key .kuse { height: 28px; padding: 0 10px; font-size: 12px; }
+  .keys .key .kdrop {
+    width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; border: 0; cursor: pointer;
+    background: none; color: var(--dim); transition: color .15s, background .15s;
+  }
+  .keys .key .kdrop svg { width: 16px; height: 16px; }
+  .keys .key .kdrop:hover { color: var(--fail); background: color-mix(in srgb, var(--fail) 12%, transparent); }
+  .keys .key .kdrop[data-sure="1"] { width: auto; padding: 0 10px; color: var(--fail); background: color-mix(in srgb, var(--fail) 14%, transparent); font-size: 12px; font-weight: 700; }
+  /* «Сейчас» — к какому серверу и почему, без абзаца пояснений. */
+  .now-card .now-main { display: flex; align-items: center; gap: 12px; padding: 4px 0 2px; }
+  .now-card .now-flag .flag { width: 40px; height: 28px; border-radius: 6px; }
+  .now-card .now-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .now-card .now-text b { font-size: 17px; font-weight: 700; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .now-card .now-text small { font: 600 12px var(--mono); color: var(--dim); }
+  .now-card .now-mode { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--accSoft); color: var(--acc); }
+  .now-card .now-mode[data-manual] { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  .now-card .now-rules { display: flex; flex-wrap: wrap; gap: 6px; }
+  .now-card .now-rules > span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; font-size: 11.5px; color: var(--dim); border: 1px solid var(--line); }
+  .now-card .now-rules svg { width: 13px; height: 13px; color: var(--acc); }
+  @media (prefers-reduced-motion: reduce) { .keys .key { animation: none; transition: none; } }
   .key-form { display: flex; flex-direction: column; gap: 10px; }
   .key-form[hidden] { display: none; }
   .key-form .row .grow { flex: 1; min-width: 0; }
@@ -1832,12 +1863,22 @@
                 <p class="hint" data-t="keyHint"></p>
               </div>
             </div>
-            <div class="card">
-              <b data-t="nodesAutoTitle"></b>
-              <p class="lead" data-t="nodesLead"></p>
-              <div class="row-fact"><span data-t="ruleStrategy"></span><span data-t="ruleStrategyV"></span></div>
-              <div class="row-fact"><span data-t="ruleWatch"></span><span data-t="ruleWatchV"></span></div>
-              <div class="row-fact"><span data-t="ruleNow"></span><span id="rule-now"></span></div>
+            <!--
+              Сейчас — к какому серверу подключено и выбран ли он сам или
+              руками. Раньше здесь был абзац о том, как работает автовыбор, и
+              три строки моноширинным: читали его один раз, а место занимал
+              всегда.
+            -->
+            <div class="card now-card">
+              <div class="card-head"><b data-t="nowTitle"></b><span class="now-mode" id="now-mode"></span></div>
+              <div class="now-main">
+                <span class="now-flag" id="now-flag"></span>
+                <div class="now-text"><b id="rule-now">—</b><small id="now-sub"></small></div>
+              </div>
+              <div class="now-rules">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span data-t="nowRuleFast"></span></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span data-t="nowRuleWatch"></span></span>
+              </div>
             </div>
           </div>
         </div>
@@ -2630,6 +2671,8 @@ const T = {
     ruleStrategy: "Как выбирает", ruleStrategyV: "самая быстрая по замеру",
     ruleWatch: "Как следит", ruleWatchV: "по трафику, не по расписанию",
     ruleNow: "Сейчас",
+    nowTitle: "Сейчас", nowAuto: "Автовыбор", nowManual: "Выбран вручную", nowNone: "не подключено",
+    nowRuleFast: "самый быстрый с этого ПК", nowRuleWatch: "замолчал — переходит сам",
     nodesMeasure: "Перемерить",
     nodesAuto: "Автовыбор", nodesAutoSub: "самая быстрая прямо сейчас", nodesAutoOn: "включён",
     nodesQuality: { fast: "быстро", mid: "средне", slow: "медленно" },
@@ -2661,6 +2704,7 @@ const T = {
     keySave: "Сохранить", keySaveFirst: "Сохранить ключ", keySaved: "Сохранено",
     keyNameHint: "имя, необязательно", keysTitle: "Ключи", keyAdd: "+ Добавить ключ", keyAddClose: "Отмена",
     keyActive: "рабочий", keyUse: "Сделать рабочим", keyRemove: "Убрать", keyRemoveSure: "Убрать?",
+    keyWorking: "Рабочий", keyUseShort: "Использовать",
     keyKinds: { marvia: "Marvia", sub: "подписка", link: "ссылка" },
     keyNoLimits: "без срока и квоты",
     keyLeftOf: (left, all) => left + " из " + all,
@@ -2953,6 +2997,8 @@ const T = {
     ruleStrategy: "How it picks", ruleStrategyV: "the fastest by measurement",
     ruleWatch: "How it watches", ruleWatchV: "by traffic, not by schedule",
     ruleNow: "Now",
+    nowTitle: "Now", nowAuto: "Automatic", nowManual: "Chosen by hand", nowNone: "not connected",
+    nowRuleFast: "fastest from this PC", nowRuleWatch: "goes silent — switches by itself",
     nodesMeasure: "Measure again",
     nodesAuto: "Automatic", nodesAutoSub: "the fastest one right now", nodesAutoOn: "on",
     nodesQuality: { fast: "fast", mid: "fair", slow: "slow" },
@@ -2984,6 +3030,7 @@ const T = {
     keySave: "Save", keySaveFirst: "Save the key", keySaved: "Saved",
     keyNameHint: "name, optional", keysTitle: "Keys", keyAdd: "+ Add a key", keyAddClose: "Cancel",
     keyActive: "active", keyUse: "Make active", keyRemove: "Remove", keyRemoveSure: "Remove?",
+    keyWorking: "Active", keyUseShort: "Use",
     keyKinds: { marvia: "Marvia", sub: "subscription", link: "link" },
     keyNoLimits: "no expiry or quota",
     keyLeftOf: (left, all) => left + " of " + all,
@@ -4082,6 +4129,7 @@ function paintNodeRows(box, list, d) {
     const sub = document.createElement("div");
     sub.className = "sub";
     sub.textContent = opts.sub;
+    b.title = bare(opts.name) + (opts.sub ? " — " + opts.sub : "");
     grow.append(name, sub);
 
     // Полоска качества: замер в миллисекундах на глаз не сравнить, а длина —
@@ -4363,7 +4411,9 @@ function render(s) {
     $("node-ping").textContent = pingText;
     place.dataset.q = q;
     place.title = s.address || "";
-    $("rule-now").textContent = bare(s.node);
+    $("rule-now").textContent = head;
+    $("now-sub").textContent = [rest.join(" · "), s.ping_ms ? pingText : ""].filter(Boolean).join(" · ");
+    $("now-flag").replaceChildren(flagEl(countryCode(s.node, "")));
   } else {
     $("place-code").textContent = "··";
     place.dataset.q = "";
@@ -4372,7 +4422,13 @@ function render(s) {
     $("node-ping").textContent = "";
     $("node-q").textContent = "";
     $("rule-now").textContent = "—";
+    $("now-sub").textContent = d.nowNone;
+    $("now-flag").replaceChildren();
   }
+  // Выбран ли сервер руками — по списку стран: у выбранного там отметка.
+  const manual = (lastNodes || []).some((n) => n.chosen);
+  $("now-mode").textContent = manual ? d.nowManual : d.nowAuto;
+  if (manual) $("now-mode").setAttribute("data-manual", ""); else $("now-mode").removeAttribute("data-manual");
 
   // Сессия считается здесь, по моменту подъёма: секунды тикают сами, и
   // программе незачем слать готовую строку раз в секунду.
@@ -5006,26 +5062,35 @@ function paintKeys() {
     box.replaceChildren();
     return;
   }
-  box.replaceChildren(...keys.map((k) => {
+  box.replaceChildren(...keys.map((k, i) => {
     const row = document.createElement("div");
     row.className = "key";
+    row.style.animationDelay = (i * 40) + "ms";
     if (k.active) row.setAttribute("data-active", "");
 
-    const pick = document.createElement("button");
-    pick.type = "button";
-    pick.className = "pick";
-    pick.setAttribute("aria-pressed", String(!!k.active));
-    pick.title = k.active ? d.keyActive : d.keyUse;
-    const mark = document.createElement("span");
-    mark.className = "radio";
+    // Значок вида: у ключа Marvia — M, у подписки и чужой ссылки — первые
+    // буквы вида. По нему ключи различаются, не читая строк.
+    const badge = document.createElement("span");
+    badge.className = "kbadge";
+    badge.textContent = k.kind === "marvia" ? "M" : (keyKind(k) || "?").slice(0, 3).toUpperCase();
+
     const grow = document.createElement("span");
     grow.className = "grow";
+    const line = document.createElement("span");
+    line.className = "kname";
     const name = document.createElement("b");
     name.textContent = k.name;
     name.title = k.name;
+    line.append(name);
+    if (k.active) {
+      const work = document.createElement("span");
+      work.className = "kwork";
+      work.textContent = d.keyWorking;
+      line.append(work);
+    }
     const kind = document.createElement("small");
-    kind.textContent = [k.active ? d.keyActive : "", keyKind(k), k.host && k.host !== k.name ? k.host : ""].filter(Boolean).join(" · ");
-    grow.append(name, kind);
+    kind.textContent = [keyKind(k), k.host && k.host !== k.name ? k.host : ""].filter(Boolean).join(" · ");
+    grow.append(line, kind);
     if (k.active) {
       const quota = document.createElement("small");
       quota.className = "quota";
@@ -5034,27 +5099,38 @@ function paintKeys() {
       track.append(document.createElement("i"));
       grow.append(quota, track);
     }
-    pick.append(mark, grow);
-    if (!k.active) pick.addEventListener("click", () => keyAction(pick, "api/keys/use", k.id));
 
+    const acts = document.createElement("span");
+    acts.className = "kacts";
+    if (!k.active) {
+      const use = document.createElement("button");
+      use.type = "button";
+      use.className = "chip kuse";
+      use.textContent = d.keyUseShort;
+      use.title = d.keyUse;
+      use.addEventListener("click", () => keyAction(use, "api/keys/use", k.id));
+      acts.append(use);
+    }
     // Убрать — в два нажатия: ссылки может уже не быть под рукой, и
     // промах мышью не должен стоить ключа.
     const drop = document.createElement("button");
     drop.type = "button";
-    drop.className = "drop";
+    drop.className = "kdrop";
     drop.title = d.keyRemove;
     drop.setAttribute("aria-label", d.keyRemove);
-    drop.textContent = "✕";
+    const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+    drop.innerHTML = trash;
     drop.addEventListener("click", () => {
       if (drop.dataset.sure !== "1") {
         drop.dataset.sure = "1";
         drop.textContent = L().keyRemoveSure;
-        setTimeout(() => { drop.dataset.sure = ""; drop.textContent = "✕"; }, 4000);
+        setTimeout(() => { if (drop.isConnected) { drop.dataset.sure = ""; drop.innerHTML = trash; } }, 4000);
         return;
       }
       keyAction(drop, "api/keys/remove", k.id);
     });
-    row.append(pick, drop);
+    acts.append(drop);
+    row.append(badge, grow, acts);
     return row;
   }));
   paintKeyQuota(lastStatus);

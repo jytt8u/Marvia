@@ -742,14 +742,16 @@ func (a *API) listNodes(w http.ResponseWriter, r *http.Request) {
 
 	type view struct {
 		Node
-		Health   Health `json:"health"`
-		Degraded bool   `json:"degraded"`
+		Health    Health `json:"health"`
+		Degraded  bool   `json:"degraded"`
+		Throttled bool   `json:"throttled"`
+		FetchKbps int64  `json:"fetch_kbps,omitempty"`
 	}
 
 	views := make([]view, 0, len(list))
 	for _, n := range list {
 		h := health[n.ID]
-		views = append(views, view{Node: n, Health: h, Degraded: h.Degraded()})
+		views = append(views, view{Node: n, Health: h, Degraded: h.Degraded(), Throttled: h.Throttled(), FetchKbps: h.FetchKbps()})
 	}
 
 	ok(w, map[string]any{"nodes": views})

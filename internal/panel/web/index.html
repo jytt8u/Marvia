@@ -970,7 +970,7 @@
     font-size: 11px; font-weight: 700; background: var(--chip, rgba(255,255,255,.06)); color: var(--dim, #9aa3ad);
   }
   #veil .diag.ok .diag-mark { background: var(--okSoft); color: var(--ok); }
-  #veil .diag.warn .diag-mark, #veil .diag.fail .diag-mark { background: var(--warnSoft); color: var(--warnInk); }
+  #veil .diag.warn .diag-mark, #veil .diag.slow .diag-mark, #veil .diag.fail .diag-mark { background: var(--warnSoft); color: var(--warnInk); }
   #veil .diag-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   #veil .diag-title { font-size: 13px; color: var(--fg, #f1f4f7); }
   #veil .diag.fail .diag-title { font-weight: 600; }
@@ -3261,6 +3261,9 @@ function nodeSheet(node) {
   ];
   const hl = node.health || {};
   if (hl.ok || hl.failed) stateFacts.push([d.node.reports, d.node.reportsText(hl.ok || 0, hl.failed || 0, hl.median_latency_ms || 0)]);
+  // Скорость — только у зарезанной: число занижено (в порцию входит путь до
+  // ноды), и у здоровой «3 Мбит/с» выглядело бы бедой, которой нет.
+  if (node.throttled && node.fetch_kbps) stateFacts.push([d.node.buyerSpeed, d.node.buyerSpeedText(node.fetch_kbps, true)]);
 
   const checks = el("div", { cls: "diag-list" });
   const runCheck = btn(d.node.check, "", () => act(async () => {
@@ -3335,7 +3338,7 @@ function short(key) { return key.length > 16 ? key.slice(0, 8) + "…" + key.sli
 function checkRow(step) {
   const d = L();
   const text = d.node.steps[step.id] ? d.node.steps[step.id](step.state, step.value || "") : [step.id, ""];
-  const mark = { ok: "✓", warn: "!", fail: "✕", skip: "–" }[step.state] || "·";
+  const mark = { ok: "✓", warn: "!", slow: "!", fail: "✕", skip: "–" }[step.state] || "·";
   return el("div", { cls: "diag " + step.state },
     el("span", { cls: "diag-mark", text: mark }),
     el("div", { cls: "diag-body" },
@@ -3896,6 +3899,7 @@ const TEXTS = {
       online: "НА СВЯЗИ", silent: "МОЛЧИТ", off: "ВЫКЛЮЧЕНА",
       silentShort: "молчит", offShort: "выкл",
       via: (exit) => "вход → " + exit,
+      slow: "РЕЖУТ", kbps: (k) => "~" + k + " кбит/с",
     },
 
     statsPage: {
@@ -4156,6 +4160,7 @@ const TEXTS = {
       port: "Порт", realityKey: "Ключ REALITY", shortID: "Short ID", vp1Key: "Ключ VP1",
       yes: "да", no: "нет", links: "В подписке", version: "Версия",
       reports: "Отчёты покупателей",
+      buyerSpeed: "Скорость у покупателей", buyerSpeedText: (k, slow) => "~" + k + " кбит/с" + (slow ? " — режут" : ""),
       reportsText: (okN, failN, msN) => okN + " подключились · " + failN + " не смогли" + (msN ? " · " + msN + " мс" : ""),
       check: "Проверить ноду", checking: "Проверяю…",
       checkFrom: "Проверка идёт с сервера панели: блокировку у провайдера покупателя видно только по их отчётам.",
@@ -4175,9 +4180,11 @@ const TEXTS = {
         version: (s, v) => s === "ok" ? ["Версия " + v, ""]
           : v ? ["Отстала: " + v, "«Обновления» → «Обновить всё»."] : ["Версия неизвестна", "Нода старая и версию не сообщает — обнови её командой upgrade.sh."],
         reports: (s, v) => {
-          const [okN, failN] = v.split("/");
+          const [okN, failN, kbps] = v.split("/");
           return s === "skip" ? ["Отчётов покупателей пока нет", ""]
             : s === "ok" ? ["Покупатели подключаются: " + okN + " · не смогли " + failN, ""]
+            : s === "slow" ? ["Ноду режут: у покупателей ~" + kbps + " кбит/с",
+              "Подключиться дают, а тянуть — нет: так замедляют адрес. Поставь вход в России или смени адрес ноды."]
             : ["Покупатели не могут подключиться: " + failN + " из " + (Number(okN) + Number(failN)),
               "Панель ноду видит, а покупатели — нет: похоже на блокировку адреса. Поставь вход в России или смени адрес."];
         },
@@ -4381,6 +4388,7 @@ const TEXTS = {
       online: "ONLINE", silent: "SILENT", off: "DISABLED",
       silentShort: "silent", offShort: "off",
       via: (exit) => "entry → " + exit,
+      slow: "THROTTLED", kbps: (k) => "~" + k + " kbit/s",
     },
 
     statsPage: {
@@ -4641,6 +4649,7 @@ const TEXTS = {
       port: "Port", realityKey: "REALITY key", shortID: "Short ID", vp1Key: "VP1 key",
       yes: "yes", no: "no", links: "In the subscription", version: "Version",
       reports: "Buyer reports",
+      buyerSpeed: "Speed for buyers", buyerSpeedText: (k, slow) => "~" + k + " kbit/s" + (slow ? " — throttled" : ""),
       reportsText: (okN, failN, msN) => okN + " connected · " + failN + " failed" + (msN ? " · " + msN + " ms" : ""),
       check: "Check the node", checking: "Checking…",
       checkFrom: "The check runs from the panel's server: a block at the buyer's ISP shows only in their reports.",
@@ -4660,9 +4669,11 @@ const TEXTS = {
         version: (s, v) => s === "ok" ? ["Version " + v, ""]
           : v ? ["Behind: " + v, "Updates → Update everything."] : ["Version unknown", "The node is old and does not report its version — update it with upgrade.sh."],
         reports: (s, v) => {
-          const [okN, failN] = v.split("/");
+          const [okN, failN, kbps] = v.split("/");
           return s === "skip" ? ["No buyer reports yet", ""]
             : s === "ok" ? ["Buyers connect: " + okN + " · failed " + failN, ""]
+            : s === "slow" ? ["The node is throttled: buyers get ~" + kbps + " kbit/s",
+              "They can connect but cannot pull — this is how an address gets slowed down. Add an entry in Russia or change the node's address."]
             : ["Buyers cannot connect: " + failN + " of " + (Number(okN) + Number(failN)),
               "The panel sees the node but buyers do not: looks like the address is blocked. Add an entry in Russia or change the address."];
         },
@@ -5450,6 +5461,7 @@ function renderVals() {
   const nodeName = new Map(nodes.map((n) => [n.id, n.name || n.address]));
   const nodeCards = nodes.map((n) => {
     const alive = nodeAlive(n);
+    const slow = alive && !!n.throttled;
     const traffic = nodeTraffic.get(n.id) || 0;
     const fl = flagOf(n.country);
     // Вход каскада сам трафика не считает — его считает выход, — поэтому
@@ -5463,11 +5475,13 @@ function renderVals() {
       host: via + n.address + (n.country && !fl.flag ? " · " + n.country : "") + (n.version ? " · " + n.version : ""),
       load: bytes(traffic),
       share: total ? Math.round((traffic / total) * 100) + "%" : "0%",
-      seen: alive ? sinceLabel(n.last_seen) : n.enabled ? d18.nodesPage.silentShort : d18.nodesPage.offShort,
-      seenCls: "stat-value " + (alive ? "ok" : n.enabled ? "warn" : ""),
-      state: alive ? d18.nodesPage.online : n.enabled ? d18.nodesPage.silent : d18.nodesPage.off,
-      cls: "card node-card rise lift" + (alive ? "" : " warn"),
-      badgeCls: "pill " + (alive ? "ok" : n.enabled ? "warn" : ""),
+      // «Режут» — нода на связи, но покупатели тянут с неё еле-еле (отчёты
+      // приложений). «На связи» этого не видит, а продавцу это важнее всего.
+      seen: slow ? d18.nodesPage.kbps(n.fetch_kbps) : alive ? sinceLabel(n.last_seen) : n.enabled ? d18.nodesPage.silentShort : d18.nodesPage.offShort,
+      seenCls: "stat-value " + (slow ? "warn" : alive ? "ok" : n.enabled ? "warn" : ""),
+      state: slow ? d18.nodesPage.slow : alive ? d18.nodesPage.online : n.enabled ? d18.nodesPage.silent : d18.nodesPage.off,
+      cls: "card node-card rise lift" + (alive && !slow ? "" : " warn"),
+      badgeCls: "pill " + (alive && !slow ? "ok" : n.enabled ? "warn" : ""),
       fillCls: alive ? "" : "warn",
       fill: "width:" + Math.round((traffic / nodePeak) * 100) + "%",
     });

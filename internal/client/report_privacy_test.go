@@ -16,11 +16,13 @@ import (
 )
 
 // TestReportCarriesOnlyNodeSuccessAndLatency — отчёт приложения о нодах не
-// несёт ничего, кроме номера ноды, успеха и задержки.
+// несёт ничего, кроме номера ноды, успеха, задержки и времени пробной
+// загрузки.
 //
 // Замер на устройстве знает куда больше: адрес ноды, текст ошибки, время
-// установки соединения, скорость скачивания. Всё это остаётся на телефоне и
-// компьютере — продавцу для порядка нод в подписке хватает трёх полей.
+// установки соединения. Всё это остаётся на телефоне и компьютере. Время
+// пробной загрузки уходит — это число про ноду, а не про человека, и по нему
+// продавец видит, что ноду режут.
 func TestReportCarriesOnlyNodeSuccessAndLatency(t *testing.T) {
 	var (
 		body    []byte
@@ -61,8 +63,8 @@ func TestReportCarriesOnlyNodeSuccessAndLatency(t *testing.T) {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		if got := strings.Join(keys, ","); got != "latency_ms,node_id,ok" {
-			t.Errorf("в отчёте о ноде поля %s, обещаны только latency_ms,node_id,ok", got)
+		if got := strings.Join(keys, ","); got != "fetch_ms,latency_ms,node_id,ok" && got != "latency_ms,node_id,ok" {
+			t.Errorf("в отчёте о ноде поля %s, обещаны только fetch_ms,latency_ms,node_id,ok", got)
 		}
 	}
 	for _, leak := range []string{"198.51.100", "192.168.1.23", "fi-1", "Финляндия", "refused"} {

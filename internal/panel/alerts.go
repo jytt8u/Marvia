@@ -170,6 +170,8 @@ func (a *Alerts) checkNodes(ctx context.Context, cfg AlertSettings) {
 	if err != nil {
 		return
 	}
+	// Сводка отчётов не прочиталась — молчащие ноды всё равно проверяем.
+	health, _ := a.store.NodeHealth(ctx)
 
 	now := time.Now().UTC()
 	active := make(map[string]struct{}, len(nodes))
@@ -193,6 +195,21 @@ func (a *Alerts) checkNodes(ctx context.Context, cfg AlertSettings) {
 			a.mark(key, false)
 			a.say(ctx, cfg, "Нода «"+n.Name+"» снова на связи.")
 		}
+
+		// Режут — когда нода на связи, а покупатели тянут с неё еле-еле.
+		// Молчащую не считаем: о ней уже сказано выше.
+		slowKey := fmt.Sprintf("node-slow-%d", n.ID)
+		active[slowKey] = struct{}{}
+		h := health[n.ID]
+		slow := !silent && h.Throttled()
+		switch {
+		case slow && !a.already(slowKey):
+			a.mark(slowKey, true)
+			a.say(ctx, cfg, fmt.Sprintf("Ноду «%s» режут: у покупателей около %d кбит/с. Поставь к ней вход в России или смени адрес.", n.Name, h.FetchKbps()))
+		case !slow && a.already(slowKey) && h.Fetched >= minReporters:
+			a.mark(slowKey, false)
+			a.say(ctx, cfg, "Нода «"+n.Name+"» снова тянет нормально.")
+		}
 	}
 	a.forgetMissingNodeAlerts(active)
 }
@@ -203,7 +220,7 @@ func (a *Alerts) forgetMissingNodeAlerts(active map[string]struct{}) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for key := range a.told {
-		if !strings.HasPrefix(key, "node-silent-") {
+		if !strings.HasPrefix(key, "node-silent-") && !strings.HasPrefix(key, "node-slow-") {
 			continue
 		}
 		if _, ok := active[key]; !ok {

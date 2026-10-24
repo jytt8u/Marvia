@@ -14,6 +14,7 @@ import (
 	"github.com/jytt8u/marvia/internal/foreign"
 	"github.com/jytt8u/marvia/internal/netpath"
 	"github.com/jytt8u/marvia/internal/routes"
+	"github.com/jytt8u/marvia/internal/transport"
 	"github.com/jytt8u/marvia/internal/tunbridge"
 	"github.com/jytt8u/marvia/internal/vp1"
 )
@@ -131,31 +132,33 @@ func (c *Controller) Settings() SettingsView {
 		killInUse = boolPtr(c.guard != nil)
 	}
 	return SettingsView{
-		BypassRussian:   c.settings.BypassRussian,
-		RuCount:         c.bypass.Load().Len(),
-		RuError:         c.ruErr,
-		LANOutside:      c.settings.LANOutside,
-		SitesDirect:     displaySites(c.settings.SitesDirect),
-		SitesTunnel:     displaySites(c.settings.SitesTunnel),
-		DNS:             dnsHost(c.settings.resolver(c.dns)),
-		DNSInUse:        c.dnsInUse,
-		DNSSecure:       !c.settings.DNSPlain,
-		DNSSecureNow:    c.settings.encrypted(c.settings.resolver(c.dns)),
-		DNSSecureInUse:  c.dnsSecureInUse,
-		Fragment:        c.settings.Fragment,
-		FragmentInUse:   c.fragmentInUse,
-		TCPOnly:         c.settings.TCPOnly,
-		TCPOnlyInUse:    c.tcpOnlyInUse,
-		IPv6:            !c.settings.IPv6Off,
-		IPv6InUse:       c.ipv6InUse,
-		Reports:         !c.settings.ReportsOff,
-		MTU:             c.settings.MTU,
-		MTUDefault:      c.mtu,
-		MTUInUse:        c.mtuInUse,
-		KillSwitch:      c.settings.KillSwitch,
-		KillSwitchInUse: killInUse,
-		KillSwitchError: c.guardErr,
-		AutoFix:         !c.settings.AutoFixOff,
+		BypassRussian:    c.settings.BypassRussian,
+		RuCount:          c.bypass.Load().Len(),
+		RuError:          c.ruErr,
+		LANOutside:       c.settings.LANOutside,
+		SitesDirect:      displaySites(c.settings.SitesDirect),
+		SitesTunnel:      displaySites(c.settings.SitesTunnel),
+		DNS:              dnsHost(c.settings.resolver(c.dns)),
+		DNSInUse:         c.dnsInUse,
+		DNSSecure:        !c.settings.DNSPlain,
+		DNSSecureNow:     c.settings.encrypted(c.settings.resolver(c.dns)),
+		DNSSecureInUse:   c.dnsSecureInUse,
+		Fragment:         c.settings.Fragment,
+		FragmentInUse:    c.fragmentInUse,
+		TCPOnly:          c.settings.TCPOnly,
+		TCPOnlyInUse:     c.tcpOnlyInUse,
+		Fingerprint:      c.settings.Fingerprint,
+		FingerprintInUse: c.fingerprintInUse,
+		IPv6:             !c.settings.IPv6Off,
+		IPv6InUse:        c.ipv6InUse,
+		Reports:          !c.settings.ReportsOff,
+		MTU:              c.settings.MTU,
+		MTUDefault:       c.mtu,
+		MTUInUse:         c.mtuInUse,
+		KillSwitch:       c.settings.KillSwitch,
+		KillSwitchInUse:  killInUse,
+		KillSwitchError:  c.guardErr,
+		AutoFix:          !c.settings.AutoFixOff,
 	}
 }
 
@@ -182,6 +185,15 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	}
 	if p.TCPOnly != nil {
 		next.TCPOnly = *p.TCPOnly
+	}
+	if p.Fingerprint != nil {
+		// Только из списка, который знает ядро: опечатка иначе молча стала
+		// бы Chrome, и человек думал бы, что выбрал другое.
+		if _, known := transport.Fingerprint(*p.Fingerprint); *p.Fingerprint != "" && !known {
+			c.mu.Unlock()
+			return c.Settings(), errors.New(say("badRequest"))
+		}
+		next.Fingerprint = *p.Fingerprint
 	}
 	if p.IPv6 != nil {
 		next.IPv6Off = !*p.IPv6

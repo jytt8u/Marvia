@@ -15,6 +15,7 @@ import (
 	"github.com/jytt8u/marvia/internal/transport"
 	"github.com/jytt8u/marvia/internal/tunnel"
 	"github.com/jytt8u/marvia/internal/vp1"
+	utls "github.com/refraction-networking/utls"
 )
 
 // Dialer держит соединение до одной ноды и раздаёт потоки до целей.
@@ -98,6 +99,26 @@ type Options struct {
 	// тянет. Узнать это сам клиент не может — решает человек. Нулевое
 	// значение — как было: телефон этого поля не задаёт.
 	NoQUIC bool
+
+	// Fingerprint — чьё TLS-приветствие изображать вместо того, что выбрал
+	// продавец для ноды. Пусто — как у продавца. Выбирает человек, руками:
+	// сам клиент отпечаток не перебирает — смена сразу после заморозки адреса
+	// её удлиняет (panel.Fingerprints). Но бывает сеть, где фильтр режет
+	// именно приветствие Chrome, и продавец этого не видит, а человек —
+	// видит, что с другим отпечатком открывается.
+	Fingerprint string
+}
+
+// fingerprintFor — какой отпечаток изображать: выбранный человеком, иначе
+// продавцом. Незнакомое имя оставляет Chrome: панель могла выучить новое
+// раньше, чем клиент обновился, и подключиться важнее, чем изобразить.
+func fingerprintFor(node Node, opts Options) utls.ClientHelloID {
+	name := node.Fingerprint
+	if opts.Fingerprint != "" {
+		name = opts.Fingerprint
+	}
+	id, _ := transport.Fingerprint(name)
+	return id
 }
 
 // NewDialer готовит дозвон до ноды. Соединение поднимается лениво, при первом
@@ -211,9 +232,7 @@ func quicFirst(node Node, serverName string, opts Options, tcp func(context.Cont
 
 // tcpDialer собирает дозвон по TCP — тот, что был до появления QUIC.
 func tcpDialer(node Node, serverName string, opts Options, onConnect func(time.Duration)) (func(context.Context) (net.Conn, error), error) {
-	// Незнакомое имя отпечатка оставляет Chrome: панель могла выучить новое
-	// раньше, чем клиент обновился, и подключиться важнее, чем изобразить.
-	fingerprint, _ := transport.Fingerprint(node.Fingerprint)
+	fingerprint := fingerprintFor(node, opts)
 	tlsCfg := transport.ClientConfig{
 		ServerName:         serverName,
 		RootCAs:            opts.RootCAs,

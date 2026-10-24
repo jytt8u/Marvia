@@ -37,6 +37,18 @@ const (
 	// minReporters — сколько разных подписчиков должны пожаловаться, прежде
 	// чем нода считается проблемной.
 	minReporters = 3
+
+	// throttleFetchMS — медленнее этого пробную порцию (128 КБ) нода отдаёт,
+	// только когда её режут: 128 КБ за 2,5 секунды — около 400 кбит/с. Живая
+	// нода отдаёт её за доли секунды даже с другого конца света, а ТСПУ,
+	// замедляя адрес, опускает его до сотни-другой килобит. Порог грубый
+	// нарочно: «медленно» у одного покупателя бывает от его вайфая, а
+	// «режут» — это медиана нескольких.
+	throttleFetchMS = 2500
+
+	// maxFetchMS — дольше этого порцию не ждёт ни один клиент; больше в
+	// базу не пишем: число приходит от покупателя и доверять ему нельзя.
+	maxFetchMS = 10 * 60 * 1000
 )
 
 // Report — отчёт одного подписчика об одной ноде.
@@ -44,6 +56,10 @@ type Report struct {
 	NodeID    int64 `json:"node_id"`
 	OK        bool  `json:"ok"`
 	LatencyMS int64 `json:"latency_ms"`
+
+	// FetchMS — за сколько нода отдала покупателю пробную порцию; ноль — не
+	// мерили. Приложения постарше поля не шлют.
+	FetchMS int64 `json:"fetch_ms,omitempty"`
 }
 
 // Health — сводка по ноде.
@@ -58,6 +74,29 @@ type Health struct {
 	// среднее: один подписчик с очень плохой связью не должен утаскивать
 	// оценку ноды вниз.
 	MedianLatencyMS int64 `json:"median_latency_ms"`
+
+	// MedianFetchMS — медиана времени пробной порции у тех, кто её мерил;
+	// Fetched — сколько таких. По ним видно, что ноду режут: подключиться
+	// дают, а тянуть — нет.
+	MedianFetchMS int64 `json:"median_fetch_ms,omitempty"`
+	Fetched       int   `json:"fetched,omitempty"`
+}
+
+// Throttled — ноду режут: несколько разных покупателей тянут с неё пробную
+// порцию дольше throttleFetchMS. Отличается от Degraded: туда не пускают
+// вовсе, здесь пускают, но еле-еле — и «нода на связи» в панели этого не
+// показывает.
+func (h Health) Throttled() bool {
+	return h.Fetched >= minReporters && h.MedianFetchMS >= throttleFetchMS
+}
+
+// FetchKbps — скорость, которую видят покупатели, в килобитах в секунду.
+// Заниженная (в порцию входит круг до ноды), но для «режут или нет» хватает.
+func (h Health) FetchKbps() int64 {
+	if h.MedianFetchMS <= 0 {
+		return 0
+	}
+	return int64(128*8*1000) / h.MedianFetchMS
 }
 
 // Degraded сообщает, считается ли нода проблемной.
@@ -90,11 +129,11 @@ func (s *Store) SaveReports(ctx context.Context, userID int64, reports []Report)
 		}
 
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO node_reports (node_id, user_id, ok, latency_ms, reported_at)
-			VALUES (?, ?, ?, ?, ?)
+			INSERT INTO node_reports (node_id, user_id, ok, latency_ms, fetch_ms, reported_at)
+			VALUES (?, ?, ?, ?, ?, ?)
 			ON CONFLICT (node_id, user_id) DO UPDATE SET
-				ok = excluded.ok, latency_ms = excluded.latency_ms, reported_at = excluded.reported_at`,
-			r.NodeID, userID, boolInt(r.OK), r.LatencyMS, now); err != nil {
+				ok = excluded.ok, latency_ms = excluded.latency_ms, fetch_ms = excluded.fetch_ms, reported_at = excluded.reported_at`,
+			r.NodeID, userID, boolInt(r.OK), r.LatencyMS, min(max(r.FetchMS, 0), maxFetchMS), now); err != nil {
 			return fmt.Errorf("запись отчёта: %w", err)
 		}
 	}
@@ -106,7 +145,7 @@ func (s *Store) NodeHealth(ctx context.Context) (map[int64]Health, error) {
 	since := format(time.Now().UTC().Add(-healthWindow))
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT node_id, ok, latency_ms FROM node_reports
+		SELECT node_id, ok, latency_ms, fetch_ms FROM node_reports
 		WHERE reported_at >= ?
 		ORDER BY node_id`, since)
 	if err != nil {
@@ -115,6 +154,7 @@ func (s *Store) NodeHealth(ctx context.Context) (map[int64]Health, error) {
 	defer rows.Close()
 
 	latencies := map[int64][]int64{}
+	fetches := map[int64][]int64{}
 	out := map[int64]Health{}
 
 	for rows.Next() {
@@ -122,8 +162,9 @@ func (s *Store) NodeHealth(ctx context.Context) (map[int64]Health, error) {
 			nodeID  int64
 			okFlag  int
 			latency int64
+			fetch   int64
 		)
-		if err := rows.Scan(&nodeID, &okFlag, &latency); err != nil {
+		if err := rows.Scan(&nodeID, &okFlag, &latency, &fetch); err != nil {
 			return nil, err
 		}
 
@@ -133,6 +174,9 @@ func (s *Store) NodeHealth(ctx context.Context) (map[int64]Health, error) {
 			h.OK++
 			if latency > 0 {
 				latencies[nodeID] = append(latencies[nodeID], latency)
+			}
+			if fetch > 0 {
+				fetches[nodeID] = append(fetches[nodeID], fetch)
 			}
 		} else {
 			h.Failed++
@@ -146,6 +190,12 @@ func (s *Store) NodeHealth(ctx context.Context) (map[int64]Health, error) {
 	for nodeID, values := range latencies {
 		h := out[nodeID]
 		h.MedianLatencyMS = median(values)
+		out[nodeID] = h
+	}
+	for nodeID, values := range fetches {
+		h := out[nodeID]
+		h.Fetched = len(values)
+		h.MedianFetchMS = median(values)
 		out[nodeID] = h
 	}
 	return out, nil
@@ -174,6 +224,12 @@ func RankNodes(nodes []Node, health map[int64]Health) []Node {
 
 		if ha.Degraded() != hb.Degraded() {
 			return hb.Degraded()
+		}
+		// Зарезанная — после здоровых: подключиться к ней можно, но тянуть
+		// с неё нечего. Приложение всё равно меряет само; порядок помогает
+		// тем, кто выбирает руками и смотрит в верх списка.
+		if ha.Throttled() != hb.Throttled() {
+			return hb.Throttled()
 		}
 
 		// Задержку учитываем по тому же правилу, что и жалобы: от трёх

@@ -32,7 +32,7 @@ Marvia — это программы, а не сервис. Панель и но
 | Расход по каждой ноде, накопительный | Общая квота на все ноды: каждая нода должна знать, сколько потрачено на других. Побочный эффект — видно, на каких нодах покупатель бывал. Дат в этой таблице нет | Пока покупатель не удалён |
 | Время последней связи | «Он вообще подключался?» — первый вопрос в поддержке. Одно время на покупателя, без ноды | Перезаписывается |
 | Кто на связи сейчас: соединений и **число** адресов за час | Продавцу — видеть раздачу ключа. Только по живым нодам; ушедший с ноды исчезает из таблицы | Пока на связи |
-| Отчёты приложений о нодах: нода, успех, задержка, чей отчёт | Поставить в подписке выше ноды, до которых люди доходят. «Чей» — чтобы один человек не накрутил жалобы количеством | 6 часов |
+| Отчёты приложений о нодах: нода, успех, задержка, время пробной загрузки, чей отчёт | Поставить в подписке выше ноды, до которых люди доходят. «Чей» — чтобы один человек не накрутил жалобы количеством | 6 часов |
 | Журнал действий продавца: кто (админ или имя ключа бота), что сделал, с каким покупателем | Спор «я платил» | 90 дней, удаляется вместе с покупателем |
 | Сохранённые ответы на повторы оплаты | Повтор уведомления не продлевает дважды. Это карточка покупателя, как её видит бот, — без приватного ключа VP1 | 7 дней, удаляются вместе с покупателем |
 | Посуточный расход по нодам | Графики. **Людей в нём нет**: день, нода, объём | 400 дней |
@@ -119,7 +119,8 @@ Cloudflare, их журналы — отдельная история, и нас
 Приложение отправляет панели:
 
 - запрос подписки по токену — за списком нод, сроком и квотой;
-- отчёт о нодах после подключения: **номер ноды, успех и задержку** — ни
+- отчёт о нодах после подключения: **номер ноды, успех, задержку и время
+  пробной загрузки** (по нему продавец видит, что ноду режут) — ни
   адресов, ни текста ошибок, ни данных устройства. Отчёты выключаются: на
   Android — в дополнительных настройках VPN, в Windows — в настройках.
 
@@ -195,7 +196,7 @@ VPN и темы, выбор приложений для обхода тунне�
 |---|---|
 | В базе панели нет столбца для адреса, устройства, почты, телефона | `internal/panel/privacy_test.go`: `TestPanelSchemaHasNoPlaceForBuyerAddresses` |
 | Адрес покупателя не оседает ни в базе, ни в журнале панели | `TestBuyerAddressReachesNeitherDatabaseNorJournal` |
-| Отчёт о нодах хранит только ноду, успех, задержку | `TestAvailabilityReportStoresOnlyNodeSuccessAndLatency`, `internal/client`: `TestReportCarriesOnlyNodeSuccessAndLatency` |
+| Отчёт о нодах хранит только ноду, успех, задержку, время пробной загрузки | `TestAvailabilityReportStoresOnlyNodeSuccessAndLatency`, `internal/client`: `TestReportCarriesOnlyNodeSuccessAndLatency` |
 | Отчёты живут 6 часов, уборка идёт без перезапуска | `TestAvailabilityReportsAreForgottenAfterTheWindow`, `TestOldRecordsAreForgottenWithoutRestart` |
 | Панель не помнит, на какой ноде покупатель был когда | `TestPanelForgetsWhichNodeABuyerLeft`, `TestUsageKeepsNoTimeOfLastUseOnANode` |
 | Удаление покупателя уносит сохранённые ответы | `TestDeletedUserLeavesNoRememberedResponse` |
@@ -245,7 +246,7 @@ passes through it.
 - **Overwritten:** a single last-seen time per buyer, without the node.
 - **While connected only:** connection count and the **number** of addresses
   in the last hour, per live node.
-- **6 hours:** app reports about nodes — node, success, latency, whose report.
+- **6 hours:** app reports about nodes — node, success, latency, test download time, whose report.
 - **90 days:** the seller's action log (who acted, what, on which buyer);
   deleted together with the buyer.
 - **7 days:** stored replies for payment retries — the buyer card as the bot
@@ -304,7 +305,7 @@ its operator can observe it with system tools, bypassing Marvia's code:
 ## App
 
 The app sends the panel a subscription request by token, and after
-connecting a node report with **node number, success and latency only**.
+connecting a node report with **node number, success, latency and test download time only**.
 Reports can be turned off (Android: advanced VPN settings; Windows: settings).
 Exit-country detection sometimes queries `ipapi.co` through the node, so the
 service sees the node's address, not the phone's.

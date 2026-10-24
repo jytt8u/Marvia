@@ -131,12 +131,15 @@ func (a *API) diagnose(ctx context.Context, node Node) []diagStep {
 	// Отчёты покупателей — единственный шаг, который видит сеть покупателя.
 	if health, err := a.store.NodeHealth(ctx); err == nil {
 		h := health[node.ID]
-		value := strconv.Itoa(h.OK) + "/" + strconv.Itoa(h.Failed)
+		value := strconv.Itoa(h.OK) + "/" + strconv.Itoa(h.Failed) + "/" + strconv.FormatInt(h.FetchKbps(), 10)
 		switch {
 		case h.OK+h.Failed == 0:
 			add("reports", "skip", "")
-		case h.Failed >= 3 && h.Failed > h.OK:
+		case h.Degraded():
 			add("reports", "warn", value)
+		case h.Throttled():
+			// Пускают, но режут: «нода на связи» этого не покажет.
+			add("reports", "slow", value)
 		default:
 			add("reports", "ok", value)
 		}

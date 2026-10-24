@@ -1924,6 +1924,22 @@
                     <div class="grow"><span class="name" data-t="tcpOnly"></span><span class="sub" data-t="tcpOnlyHint"></span><span class="sub" id="tcp-only-msg"></span></div>
                     <button class="chip" id="tcp-only" type="button" aria-pressed="false"></button>
                   </div>
+                  <!--
+                    Отпечаток TLS — только руками и только к нодам Marvia: у
+                    чужой ссылки он записан в ней самой.
+                  -->
+                  <div class="stack" id="fp-row">
+                    <div class="grow"><span class="name" data-t="fpName"></span><span class="sub" data-t="fpHint"></span><span class="sub" id="fp-msg"></span></div>
+                    <div class="pick" id="fp-pick">
+                      <button class="chip" type="button" data-fp="" aria-pressed="false" data-t="fpSeller"></button>
+                      <button class="chip" type="button" data-fp="chrome" aria-pressed="false">Chrome</button>
+                      <button class="chip" type="button" data-fp="firefox" aria-pressed="false">Firefox</button>
+                      <button class="chip" type="button" data-fp="safari" aria-pressed="false">Safari</button>
+                      <button class="chip" type="button" data-fp="ios" aria-pressed="false">iOS</button>
+                      <button class="chip" type="button" data-fp="android" aria-pressed="false">Android</button>
+                      <button class="chip" type="button" data-fp="edge" aria-pressed="false">Edge</button>
+                    </div>
+                  </div>
                   <div class="stack">
                     <div class="grow"><span class="name" data-t="dnsTitle"></span><span class="sub" data-t="dnsHint"></span><span class="sub" id="dns-msg"></span></div>
                     <div class="pick" id="dns-pick">
@@ -2474,6 +2490,7 @@ const T = {
     fragment: "Дробить приветствие",
     fragmentHint: "Против фильтра по имени сайта. Без нужды не включайте.",
     tcpOnly: "Только TCP", tcpOnlyHint: "Без QUIC — если UDP у провайдера душат.",
+    fpName: "Отпечаток TLS", fpHint: "Чьим браузером представляться. Меняйте, только если с выбранным продавцом не открывается.", fpSeller: "Как у продавца",
     fragmentNext: "Применится при следующем подключении",
     killSwitch: "Kill switch",
     killSwitchHint: "Если туннель упадёт не по вашей воле, интернет закроется, а не пойдёт напрямую, — до возвращения туннеля или «Отключить». Закрыта и своя подсеть, если домашняя сеть не выведена мимо туннеля. Если Marvia закроется аварийно, фильтр снимется вместе с ней.",
@@ -2674,7 +2691,7 @@ const T = {
     qTitle: "Качество связи", qPing: "Отклик", qJitter: "Джиттер", qLoss: "Потери", qNoTunnel: "без подключения",
     rServer: "Сервер", rProto: "Протокол", rTransport: "Транспорт", rSNI: "Имя прикрытия (SNI)", rFP: "Отпечаток TLS", rMTU: "MTU в работе", rDNS: "DNS в работе", rFrag: "Дробление", rIPv6: "IPv6", rSpare: (n) => " +" + n + " запасных",
     rTransports: { tls: "TLS по TCP", reality: "REALITY по TCP", ws: "WebSocket за CDN", quic: "QUIC (UDP), запасной TCP", raw: "TCP", grpc: "gRPC", xhttp: "XHTTP", httpupgrade: "HTTPUpgrade", hysteria: "QUIC (UDP)" },
-    rFPSeller: " · выбрал продавец", rHTTPS: " · по HTTPS", rOn: "вкл", rOff: "выкл",
+    rFPSeller: " · выбрал продавец", rFPMine: " · выбрали вы", rHTTPS: " · по HTTPS", rOn: "вкл", rOff: "выкл",
     netTitle: "Протокол и сеть",
     reconnectName: "Переподключиться", reconnectHint: "Применить выбранное здесь сейчас, не дожидаясь.", reconnectBtn: "Переподключить",
     ncTitle: "Где вы в интернете", ncAsking: "узнаю адрес…", ncSeenAs: (c) => c ? "интернет видит вас здесь: " + c : "", ncChecking: "проверяю…", ncNo: "нет",
@@ -2797,6 +2814,7 @@ const T = {
     fragment: "Split the TLS hello",
     fragmentHint: "Against filters by site name. Leave it off unless needed.",
     tcpOnly: "TCP only", tcpOnlyHint: "No QUIC — when your provider throttles UDP.",
+    fpName: "TLS fingerprint", fpHint: "Which browser to look like. Change it only if the seller's choice does not open.", fpSeller: "Seller's",
     fragmentNext: "Applies on the next connection",
     killSwitch: "Kill switch",
     killSwitchHint: "If the tunnel drops without you asking, the internet closes instead of going direct — until the tunnel is back or you press Disconnect. Your own subnet closes too unless the home network goes around the tunnel. If Marvia crashes, the filter goes away with it.",
@@ -2996,7 +3014,7 @@ const T = {
     qTitle: "Connection quality", qPing: "Response", qJitter: "Jitter", qLoss: "Loss", qNoTunnel: "not connected",
     rServer: "Server", rProto: "Protocol", rTransport: "Transport", rSNI: "Cover name (SNI)", rFP: "TLS fingerprint", rMTU: "MTU in use", rDNS: "DNS in use", rFrag: "Splitting", rIPv6: "IPv6", rSpare: (n) => " +" + n + " spare",
     rTransports: { tls: "TLS over TCP", reality: "REALITY over TCP", ws: "WebSocket via CDN", quic: "QUIC (UDP), TCP as backup", raw: "TCP", grpc: "gRPC", xhttp: "XHTTP", httpupgrade: "HTTPUpgrade", hysteria: "QUIC (UDP)" },
-    rFPSeller: " · chosen by the seller", rHTTPS: " · over HTTPS", rOn: "on", rOff: "off",
+    rFPSeller: " · chosen by the seller", rFPMine: " · your choice", rHTTPS: " · over HTTPS", rOn: "on", rOff: "off",
     netTitle: "Protocol and network",
     reconnectName: "Reconnect", reconnectHint: "Apply what you chose here right now.", reconnectBtn: "Reconnect",
     ncTitle: "Where you are on the internet", ncAsking: "asking the address…", ncSeenAs: (c) => c ? "the internet sees you in " + c : "", ncChecking: "checking…", ncNo: "no",
@@ -4741,6 +4759,11 @@ function paintConn() {
   $("tcp-only-msg").textContent = conn.tcp_only_in_use !== undefined && conn.tcp_only_in_use !== conn.tcp_only ? d.fragmentNext : "";
   const active = keys.find((k) => k.active);
   $("tcp-only-row").hidden = !!(active && active.foreign);
+  $("fp-row").hidden = !!(active && active.foreign);
+  for (const b of document.querySelectorAll("#fp-pick [data-fp]")) {
+    b.setAttribute("aria-pressed", String(b.dataset.fp === (conn.fingerprint || "")));
+  }
+  $("fp-msg").textContent = conn.fingerprint_in_use !== undefined && conn.fingerprint_in_use !== (conn.fingerprint || "") ? d.fragmentNext : "";
 
   // Свой адрес, которого нет среди четырёх, показываем в поле: иначе
   // человек не увидел бы, что выбрано.
@@ -4916,6 +4939,9 @@ on("reports", "click", () => changeConn($("reports"), { reports: !conn.reports }
 on("ipv6", "click", () => changeConn($("ipv6"), { ipv6: !conn.ipv6 }, "ipv6-msg"));
 on("fragment", "click", () => changeConn($("fragment"), { fragment: !conn.fragment }, "fragment-msg"));
 on("tcp-only", "click", () => changeConn($("tcp-only"), { tcp_only: !conn.tcp_only }, "tcp-only-msg"));
+for (const b of document.querySelectorAll("#fp-pick [data-fp]")) {
+  b.addEventListener("click", () => changeConn(b, { fingerprint: b.dataset.fp }, "fp-msg"));
+}
 on("net-moved", "click", () => document.querySelector('.tab[data-tab="diag"]').click());
 on("reconnect", "click", () => reconnectNow($("reconnect"), "reconnect-msg"));
 on("dns-secure", "click", () => changeConn($("dns-secure"), { dns_secure: !conn.dns_secure }, "dns-secure-msg"));
@@ -5365,7 +5391,7 @@ function paintRoute(s) {
     rows.push(row(d.rTransport, [tname(r.transport), r.security && r.security !== "none" ? (TRANSPORTS[r.security] || r.security.toUpperCase()) : ""].filter(Boolean).join(" · ")));
   }
   if (r.sni) rows.push(row(d.rSNI, r.sni + (r.spare_sni ? d.rSpare(r.spare_sni) : "")));
-  if (r.fingerprint) rows.push(row(d.rFP, r.fingerprint + (r.protocol === "vp1" ? d.rFPSeller : "")));
+  if (r.fingerprint) rows.push(row(d.rFP, r.fingerprint + (r.protocol === "vp1" ? (r.fp_chosen ? d.rFPMine : d.rFPSeller) : "")));
   if (c.mtu_in_use) rows.push(row(d.rMTU, String(c.mtu_in_use)));
   if (c.dns_in_use) rows.push(row(d.rDNS, c.dns_in_use + (c.dns_secure_in_use ? d.rHTTPS : "")));
   if (c.fragment_in_use !== undefined) rows.push(row(d.rFrag, c.fragment_in_use ? d.rOn : d.rOff));

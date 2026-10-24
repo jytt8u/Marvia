@@ -58,6 +58,11 @@ type pcSettings struct {
 	// Выключено по умолчанию: где UDP живой, QUIC ровнее на потерях.
 	TCPOnly bool `json:"tcp_only,omitempty"`
 
+	// Fingerprint — чьё TLS-приветствие изображать к нодам Marvia вместо
+	// выбранного продавцом (client.Options.Fingerprint). Пусто — как у
+	// продавца. Только руками: сам клиент отпечаток не перебирает.
+	Fingerprint string `json:"fingerprint,omitempty"`
+
 	// IPv6Off — не пускать IPv6 через туннель вовсе. Мимо он при этом тоже не
 	// уходит: маршрут IPv6 остаётся в туннеле, мост отвечает «адресов IPv6
 	// нет», и программы идут по IPv4 (tunbridge.Config.NoIPv6). Нужен, когда
@@ -214,6 +219,11 @@ type SettingsView struct {
 	TCPOnly      bool  `json:"tcp_only"`
 	TCPOnlyInUse *bool `json:"tcp_only_in_use,omitempty"`
 
+	// Fingerprint — выбранное («» — как у продавца); FingerprintInUse — с
+	// каким поднят туннель (nil — туннеля нет или ключ чужой).
+	Fingerprint      string  `json:"fingerprint"`
+	FingerprintInUse *string `json:"fingerprint_in_use,omitempty"`
+
 	// IPv6 — пускать ли IPv6 через туннель; IPv6InUse — как у поднятого.
 	IPv6      bool  `json:"ipv6"`
 	IPv6InUse *bool `json:"ipv6_in_use,omitempty"`
@@ -240,6 +250,7 @@ type SettingsPatch struct {
 	DNSSecure     *bool   `json:"dns_secure"`
 	Fragment      *bool   `json:"fragment"`
 	TCPOnly       *bool   `json:"tcp_only"`
+	Fingerprint   *string `json:"fingerprint"`
 	IPv6          *bool   `json:"ipv6"`
 	Reports       *bool   `json:"reports"`
 	KillSwitch    *bool   `json:"kill_switch"`

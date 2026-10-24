@@ -20,6 +20,11 @@ type Report struct {
 	NodeID    int64 `json:"node_id"`
 	OK        bool  `json:"ok"`
 	LatencyMS int64 `json:"latency_ms"`
+
+	// FetchMS — за сколько нода отдала пробную порцию (Measurement.Fetch).
+	// По нему панель видит то, чего не видит по «ответила или нет»: ноду не
+	// закрыли, а режут — подключается, но тянет еле-еле. Ноль — не мерили.
+	FetchMS int64 `json:"fetch_ms,omitempty"`
 }
 
 // ReportsFrom превращает замеры в отчёты.
@@ -36,6 +41,9 @@ func ReportsFrom(measurements []Measurement) []Report {
 		report := Report{NodeID: m.Node.ID, OK: m.OK()}
 		if m.OK() {
 			report.LatencyMS = m.Latency.Milliseconds()
+			if m.Fetch > 0 {
+				report.FetchMS = max(1, m.Fetch.Milliseconds())
+			}
 		}
 		out = append(out, report)
 	}
@@ -51,14 +59,32 @@ func SendReports(ctx context.Context, subURL string, reports []Report) error {
 	if len(reports) == 0 {
 		return nil
 	}
+	ctx, cancel := context.WithTimeout(ctx, reportTimeout)
+	defer cancel()
 
+	err := sendReports(ctx, subURL, reports)
+	if !errors.Is(err, errReportRejected) {
+		return err
+	}
+	// Панель старше поля fetch_ms разбирает отчёт строго и отвечает 400 на
+	// незнакомое поле. Отчёт без него ей понятен — лучше половина сведений,
+	// чем ни одного: по «ответила или нет» она ещё ставит ноды по порядку.
+	plain := make([]Report, len(reports))
+	for i, r := range reports {
+		r.FetchMS = 0
+		plain[i] = r
+	}
+	return sendReports(ctx, subURL, plain)
+}
+
+// errReportRejected — панель не разобрала отчёт (400).
+var errReportRejected = errors.New("панель не разобрала отчёт")
+
+func sendReports(ctx context.Context, subURL string, reports []Report) error {
 	payload, err := json.Marshal(map[string]any{"reports": reports})
 	if err != nil {
 		return err
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, reportTimeout)
-	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, subURL+"/report", bytes.NewReader(payload))
 	if err != nil {
@@ -73,6 +99,9 @@ func SendReports(ctx context.Context, subURL string, reports []Report) error {
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 
+	if resp.StatusCode == http.StatusBadRequest {
+		return errReportRejected
+	}
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("панель ответила %s", resp.Status)
 	}

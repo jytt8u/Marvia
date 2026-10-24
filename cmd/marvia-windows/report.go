@@ -51,7 +51,7 @@ func (c *Controller) Report() string {
 	}
 	line("reportSettings",
 		yesNo(set.BypassRussian), yesNo(set.LANOutside), yesNo(set.KillSwitch),
-		set.DNS, yesNo(set.DNSSecure), yesNo(set.IPv6), yesNo(set.Fragment), yesNo(set.TCPOnly), mtu, yesNo(set.AutoFix))
+		set.DNS, yesNo(set.DNSSecure), yesNo(set.IPv6), yesNo(set.Fragment), yesNo(set.TCPOnly), fingerprintName(set.Fingerprint), mtu, yesNo(set.AutoFix))
 	// Сколько, а не какие: отчёт уходит продавцу, а список сайтов — это
 	// список того, куда человек ходит. Для разбора «почему сайт видит не ту
 	// страну» хватает знать, что правила есть.
@@ -85,4 +85,14 @@ func yesNo(v bool) string {
 		return say("reportYes")
 	}
 	return say("reportNo")
+}
+
+// fingerprintName — отпечаток для отчёта: выбранный человеком или «как у
+// продавца». Продавцу важно отличить второе от первого: свой отпечаток он
+// видит в панели, а заменённый — только здесь.
+func fingerprintName(chosen string) string {
+	if chosen == "" {
+		return say("reportFPSeller")
+	}
+	return chosen
 }

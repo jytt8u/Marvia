@@ -134,15 +134,17 @@ func TestBuyerAddressReachesNeitherDatabaseNorJournal(t *testing.T) {
 }
 
 // TestAvailabilityReportStoresOnlyNodeSuccessAndLatency — от отчёта клиента
-// о нодах в базе остаётся номер ноды, успех, задержка, чей отчёт и когда.
+// о нодах в базе остаётся номер ноды, успех, задержка, время пробной порции,
+// чей отчёт и когда.
 //
 // «Чей» нужен, чтобы один покупатель не мог накрутить жалобы количеством, —
-// он заменяет свой прошлый отчёт, а не добавляет новый. Больше ничего: ни
-// адреса, ни сети, ни устройства.
+// он заменяет свой прошлый отчёт, а не добавляет новый. Время порции — число
+// про ноду, а не про человека: по нему видно, что ноду режут. Больше ничего:
+// ни адреса, ни сети, ни устройства.
 func TestAvailabilityReportStoresOnlyNodeSuccessAndLatency(t *testing.T) {
 	store, _, _ := usageStore(t)
 	got := strings.Join(store.Columns(context.Background(), "node_reports"), ",")
-	if want := "node_id,user_id,ok,latency_ms,reported_at"; got != want {
+	if want := "node_id,user_id,ok,latency_ms,reported_at,fetch_ms"; got != want {
 		t.Fatalf("в отчётах о доступности столбцы %s, обещаны %s", got, want)
 	}
 }

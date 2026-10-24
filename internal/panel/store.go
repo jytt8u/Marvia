@@ -403,6 +403,8 @@ func migrate(db *sql.DB) error {
 		// relay_ip — откуда вход сверяется с панелью: от этого адреса выход
 		// верит заголовку с адресом покупателя.
 		`ALTER TABLE nodes ADD COLUMN exit_id INTEGER REFERENCES nodes(id) ON DELETE CASCADE`,
+		// fetch_ms — за сколько нода отдала покупателю пробную порцию (health.go).
+		`ALTER TABLE node_reports ADD COLUMN fetch_ms INTEGER NOT NULL DEFAULT 0`,
 		`ALTER TABLE nodes ADD COLUMN relay_ip TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE node_invites ADD COLUMN exit_id INTEGER REFERENCES nodes(id) ON DELETE CASCADE`,
 	}

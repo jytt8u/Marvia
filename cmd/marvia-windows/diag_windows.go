@@ -263,8 +263,10 @@ type RouteView struct {
 	SNI      string `json:"sni,omitempty"`
 	SpareSNI int    `json:"spare_sni,omitempty"`
 	// Fingerprint — чьё TLS-приветствие изображается. Выбирает его продавец
-	// для ноды; у QUIC своего приветствия uTLS нет, и поле пустое.
+	// для ноды, а человек может заменить своим (Chosen); у QUIC своего
+	// приветствия uTLS нет, и поле пустое.
 	Fingerprint string `json:"fingerprint,omitempty"`
+	Chosen      bool   `json:"fp_chosen,omitempty"`
 }
 
 // routeLocked — описание текущего соединения; зовётся под c.mu.
@@ -276,13 +278,17 @@ func (c *Controller) routeLocked() *RouteView {
 		r := s.Route()
 		return &RouteView{Protocol: r.Protocol, Transport: r.Network, Security: r.Security, SNI: r.SNI, Fingerprint: r.Fingerprint}
 	}
-	return vp1Route(c.node, c.tcpOnlyInUse != nil && *c.tcpOnlyInUse)
+	chosen := ""
+	if c.fingerprintInUse != nil {
+		chosen = *c.fingerprintInUse
+	}
+	return vp1Route(c.node, c.tcpOnlyInUse != nil && *c.tcpOnlyInUse, chosen)
 }
 
 // vp1Route — то же для ноды Marvia, теми же правилами, что у дозвона
 // (client.NewDialer): без SNI имя — хост адреса, незнакомый отпечаток —
 // Chrome.
-func vp1Route(n client.Node, tcpOnly bool) *RouteView {
+func vp1Route(n client.Node, tcpOnly bool, chosen string) *RouteView {
 	r := &RouteView{Protocol: "vp1", Transport: transportOf(n, tcpOnly), SNI: n.SNI, SpareSNI: len(n.SNIExtra)}
 	if r.SNI == "" {
 		r.SNI, _, _ = net.SplitHostPort(n.Address)
@@ -294,6 +300,9 @@ func vp1Route(n client.Node, tcpOnly bool) *RouteView {
 		r.Fingerprint = "chrome"
 		if _, known := transport.Fingerprint(n.Fingerprint); known {
 			r.Fingerprint = n.Fingerprint
+		}
+		if _, known := transport.Fingerprint(chosen); known {
+			r.Fingerprint, r.Chosen = chosen, true
 		}
 	}
 	return r

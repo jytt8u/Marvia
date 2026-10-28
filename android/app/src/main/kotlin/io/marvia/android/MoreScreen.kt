@@ -268,6 +268,11 @@ class MoreScreen(
             renderConnection()
             onNextConnect()
         }
+        ui.rowGame.setOnClickListener {
+            store.game = !store.game
+            renderConnection()
+            onNextConnect()
+        }
         ui.rowFragment.setOnClickListener {
             store.fragment = !store.fragment
             renderConnection()
@@ -319,6 +324,7 @@ class MoreScreen(
         ui.switchRussian.isChecked = store.bypassRussian
         ui.switchIpv6.isChecked = store.ipv6
         ui.switchFragment.isChecked = store.fragment
+        ui.switchGame.isChecked = store.game
         // Под переключателем — правда о списке: включённый тумблер без
         // скачанных подсетей ничего не уводит, и человек должен это видеть,
         // а не гадать, почему Яндекс всё ещё идёт через туннель.

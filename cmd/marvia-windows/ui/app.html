@@ -2236,6 +2236,11 @@
             <div class="group" data-sec="conn">
               <div class="set-head"><h2 data-t="secConnTitle"></h2><p data-t="secConnDesc"></p></div>
               <div class="rows">
+                <!-- Игровой режим — первым: его включают перед игрой. Только для ключей Marvia. -->
+                <div id="game-row">
+                  <div class="grow"><span class="name" data-t="gameMode"></span><span class="sub" data-t="gameModeHint"></span><span class="sub" id="game-msg"></span></div>
+                  <button class="chip" id="game" type="button" aria-pressed="false"></button>
+                </div>
                 <div>
                   <div class="grow"><span class="name" data-t="bypassRu"></span><span class="sub" data-t="bypassRuHint"></span><span class="sub" id="bypass-ru-msg"></span></div>
                   <button class="chip" id="bypass-ru" type="button" aria-pressed="false"></button>
@@ -2581,6 +2586,7 @@ const T = {
     fragment: "Дробить приветствие",
     fragmentHint: "Против фильтра по имени сайта. Без нужды не включайте.",
     tcpOnly: "Только TCP", tcpOnlyHint: "Без QUIC — если UDP у провайдера душат.",
+    gameMode: "Игровой режим", gameModeHint: "Пинг в играх не скачет, пока рядом что-то качается.",
     fpName: "Отпечаток TLS", fpHint: "Чьим браузером представляться. Меняйте, только если с выбранным продавцом не открывается.", fpSeller: "Как у продавца",
     fragmentNext: "Применится при следующем подключении",
     killSwitch: "Kill switch",
@@ -2920,6 +2926,7 @@ const T = {
     fragment: "Split the TLS hello",
     fragmentHint: "Against filters by site name. Leave it off unless needed.",
     tcpOnly: "TCP only", tcpOnlyHint: "No QUIC — when your provider throttles UDP.",
+    gameMode: "Game mode", gameModeHint: "Steady game ping while something downloads alongside.",
     fpName: "TLS fingerprint", fpHint: "Which browser to look like. Change it only if the seller's choice does not open.", fpSeller: "Seller's",
     fragmentNext: "Applies on the next connection",
     killSwitch: "Kill switch",
@@ -4932,8 +4939,13 @@ function paintConn() {
   tcp.textContent = conn.tcp_only ? d.toggleOn : d.toggleOff;
   tcp.setAttribute("aria-pressed", String(!!conn.tcp_only));
   $("tcp-only-msg").textContent = conn.tcp_only_in_use !== undefined && conn.tcp_only_in_use !== conn.tcp_only ? d.fragmentNext : "";
+  const game = $("game");
+  game.textContent = conn.game ? d.toggleOn : d.toggleOff;
+  game.setAttribute("aria-pressed", String(!!conn.game));
+  $("game-msg").textContent = conn.game_in_use !== undefined && conn.game_in_use !== conn.game ? d.fragmentNext : "";
   const active = keys.find((k) => k.active);
   $("tcp-only-row").hidden = !!(active && active.foreign);
+  $("game-row").hidden = !!(active && active.foreign);
   $("fp-row").hidden = !!(active && active.foreign);
   for (const b of document.querySelectorAll("#fp-pick [data-fp]")) {
     b.setAttribute("aria-pressed", String(b.dataset.fp === (conn.fingerprint || "")));
@@ -5145,6 +5157,7 @@ on("reports", "click", () => changeConn($("reports"), { reports: !conn.reports }
 on("ipv6", "click", () => changeConn($("ipv6"), { ipv6: !conn.ipv6 }, "ipv6-msg"));
 on("fragment", "click", () => changeConn($("fragment"), { fragment: !conn.fragment }, "fragment-msg"));
 on("tcp-only", "click", () => changeConn($("tcp-only"), { tcp_only: !conn.tcp_only }, "tcp-only-msg"));
+on("game", "click", () => changeConn($("game"), { game: !conn.game }, "game-msg"));
 for (const b of document.querySelectorAll("#fp-pick [data-fp]")) {
   b.addEventListener("click", () => changeConn(b, { fingerprint: b.dataset.fp }, "fp-msg"));
 }
@@ -7177,7 +7190,7 @@ document.querySelector('.tab[data-tab="settings"]').addEventListener("click", ()
 // Переключатели вместо кнопок «Включено / Выключено»: состояние видно
 // формой, а не надписью. Надпись остаётся внутри — для экранного диктора.
 // Нажатие на саму строку тоже переключает: в узкую кнопку не надо целиться.
-const SWITCHES = ["vibe-splash", "vibe-sound", "bypass-ru", "lan", "kill-switch", "auto-fix", "ipv6", "fragment", "tcp-only", "reports", "dns-secure", "autostart"];
+const SWITCHES = ["vibe-splash", "vibe-sound", "game", "bypass-ru", "lan", "kill-switch", "auto-fix", "ipv6", "fragment", "tcp-only", "reports", "dns-secure", "autostart"];
 for (const id of SWITCHES) {
   const b = $(id);
   if (!b) continue;

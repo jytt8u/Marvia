@@ -313,6 +313,18 @@ class Store(context: Context) {
         set(value) { prefs.edit().putBoolean(KEY_COMPACT_NOTIFICATION, value).apply() }
 
     /**
+     * game — игровой режим: UDP игр идёт своим соединением до ноды и не
+     * ждёт в очереди за закачками (client.Options.Game в ядре). Пинг ниже
+     * пути до ноды он не делает — убирает скачки. Выключен по умолчанию:
+     * лишнее соединение к ноде нужно только тем, кто играет.
+     */
+    var game: Boolean
+        get() = prefs.getBoolean(KEY_GAME, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_GAME, value).apply()
+        }
+
+    /**
      * tunnelSettings — настройки туннеля для ядра (Mobile.start и
      * Mobile.measureNodes), одной строкой JSON. Замер нод получает те же:
      * нода, до которой доходит только разрезанное приветствие, без
@@ -324,6 +336,7 @@ class Store(context: Context) {
             .put("no_ipv6", !ipv6)
             .put("disable_reports", !sendNodeReports)
             .put("plain_dns", !dnsSecure)
+            .put("game", game)
             .toString()
 
     /**
@@ -824,6 +837,7 @@ class Store(context: Context) {
         private const val KEY_DNS = "dns"
         private const val KEY_DNS_SECURE = "dns_secure"
         private const val KEY_FRAGMENT = "fragment"
+        private const val KEY_GAME = "game"
         private const val KEY_IPV6 = "ipv6"
         private const val KEY_VPN_MTU = "vpn_mtu"
         private const val KEY_LIVE_REFRESH = "live_refresh_seconds"

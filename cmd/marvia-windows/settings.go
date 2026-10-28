@@ -58,6 +58,10 @@ type pcSettings struct {
 	// Выключено по умолчанию: где UDP живой, QUIC ровнее на потерях.
 	TCPOnly bool `json:"tcp_only,omitempty"`
 
+	// Game — игровой режим: UDP игр идёт своим соединением до ноды Marvia
+	// и не ждёт в очереди за закачками (client.Options.Game).
+	Game bool `json:"game,omitempty"`
+
 	// Fingerprint — чьё TLS-приветствие изображать к нодам Marvia вместо
 	// выбранного продавцом (client.Options.Fingerprint). Пусто — как у
 	// продавца. Только руками: сам клиент отпечаток не перебирает.
@@ -226,6 +230,11 @@ type SettingsView struct {
 	TCPOnly      bool  `json:"tcp_only"`
 	TCPOnlyInUse *bool `json:"tcp_only_in_use,omitempty"`
 
+	// Game — выбранное; GameInUse — так ли поднят туннель (nil — туннеля
+	// нет или ключ чужой: у чужих протоколов своя очередь).
+	Game      bool  `json:"game"`
+	GameInUse *bool `json:"game_in_use,omitempty"`
+
 	// Fingerprint — выбранное («» — как у продавца); FingerprintInUse — с
 	// каким поднят туннель (nil — туннеля нет или ключ чужой).
 	Fingerprint      string  `json:"fingerprint"`
@@ -257,6 +266,7 @@ type SettingsPatch struct {
 	DNSSecure     *bool   `json:"dns_secure"`
 	Fragment      *bool   `json:"fragment"`
 	TCPOnly       *bool   `json:"tcp_only"`
+	Game          *bool   `json:"game"`
 	Fingerprint   *string `json:"fingerprint"`
 	IPv6          *bool   `json:"ipv6"`
 	Reports       *bool   `json:"reports"`

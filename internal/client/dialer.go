@@ -9,6 +9,7 @@ import (
 	"io"
 	mrand "math/rand/v2"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -22,6 +23,14 @@ import (
 type Dialer struct {
 	node Node
 	pool *tunnel.Pool
+
+	// Игровой режим (Options.Game): своя сессия до ноды под игровой UDP.
+	// session — тот же дозвон с рукопожатием, что у пула; lane заводится
+	// лениво, при первой игровой датаграмме, и до тех пор соединения нет.
+	game    bool
+	session tunnel.DialFunc
+	laneMu  sync.Mutex
+	lane    *tunnel.Pool
 
 	// sub — подписка, с которой выбрана эта нода: срок и остаток трафика.
 	//
@@ -107,6 +116,12 @@ type Options struct {
 	// именно приветствие Chrome, и продавец этого не видит, а человек —
 	// видит, что с другим отпечатком открывается.
 	Fingerprint string
+
+	// Game — игровой режим: UDP игр идёт отдельной сессией до ноды, не
+	// деля очередь с закачками (Dialer.laneFor). Пинг ниже пути до ноды
+	// это не делает — убирает скачки, когда рядом что-то качается. Цена —
+	// одно лишнее соединение к ноде, пока идёт игра.
+	Game bool
 }
 
 // fingerprintFor — какой отпечаток изображать: выбранный человеком, иначе
@@ -150,7 +165,7 @@ func NewDialer(node Node, key vp1.KeyPair, opts Options) (*Dialer, error) {
 		return nil, err
 	}
 
-	pool := tunnel.NewPool(func(ctx context.Context) (net.Conn, error) {
+	session := func(ctx context.Context) (net.Conn, error) {
 		raw, err := dial(ctx)
 		if err != nil {
 			return nil, err
@@ -169,10 +184,37 @@ func NewDialer(node Node, key vp1.KeyPair, opts Options) (*Dialer, error) {
 			return nil, ctx.Err()
 		}
 		return conn, nil
-	}, 0, 0)
+	}
 
-	d.pool = pool
+	d.pool = tunnel.NewPool(session, 0, 0)
+	d.game, d.session = opts.Game, session
 	return d, nil
+}
+
+// laneFor — через какой пул открыть поток. Игровой UDP в игровом режиме
+// идёт своей сессией, всё остальное — общим пулом.
+//
+// Зачем своя сессия. Все потоки одной сессии делят одно TCP-соединение:
+// кадры игры встают в очередь за кадрами закачки, а потерянный сегмент
+// закачки держит и их, пока не придёт повтор. Отсюда скачки пинга на
+// 100–300 мс, когда рядом что-то качается, — хотя путь до ноды тот же.
+// Отдельное соединение с этой очередью не делится.
+//
+// UDP на 443 и 80 — не игра, а QUIC: видео YouTube, TikTok, Instagram.
+// Пусти его в полосу — и закачка переедет туда же вместе со своими
+// скачками. Поэтому полоса — для UDP на всех портах, кроме этих.
+func (d *Dialer) laneFor(target vp1.Address, kind vp1.Kind) *tunnel.Pool {
+	if !d.game || kind != vp1.KindUDP || target.Port == 443 || target.Port == 80 {
+		return d.pool
+	}
+	d.laneMu.Lock()
+	defer d.laneMu.Unlock()
+	if d.lane == nil {
+		// Одна сессия: две для игры не нужны, а лишнее рукопожатие к ноде —
+		// примета (см. tunnel.DefaultMaxSessions).
+		d.lane = tunnel.NewPool(d.session, 1, 0)
+	}
+	return d.lane
 }
 
 // transportDialer выбирает внешний слой под то, как настроена нода.
@@ -455,7 +497,7 @@ func (d *Dialer) open(ctx context.Context, target vp1.Address, kind vp1.Kind, ta
 	// ноды. Дальше по этому признаку принимают два решения: надзор — менять
 	// ли ноду немедленно, мост — выключать ли датаграммы навсегда. Оба до
 	// появления признака ошибались, и оба дорого.
-	stream, err := d.pool.Open(ctx)
+	stream, err := d.laneFor(target, kind).Open(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", vp1.ErrNodeUnreachable, err)
 	}
@@ -501,7 +543,19 @@ func (d *Dialer) open(ctx context.Context, target vp1.Address, kind vp1.Kind, ta
 func (d *Dialer) Node() Node { return d.node }
 
 // Close закрывает все соединения до ноды.
-func (d *Dialer) Close() error { return d.pool.Close() }
+func (d *Dialer) Close() error {
+	d.laneMu.Lock()
+	lane := d.lane
+	d.lane = nil
+	// Полосу после закрытия заново не заводим: поток, пришедший в
+	// закрытый дозвон, должен упасть, а не поднять соединение к ноде.
+	d.game = false
+	d.laneMu.Unlock()
+	if lane != nil {
+		_ = lane.Close()
+	}
+	return d.pool.Close()
+}
 
 // Subscription — срок и квота, с которыми выбрана нода.
 func (d *Dialer) Subscription() Subscription { return d.sub }

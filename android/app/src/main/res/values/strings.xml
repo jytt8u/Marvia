@@ -555,6 +555,8 @@
     <string name="conn_lan_sub">printer, TV, router</string>
     <string name="conn_ipv6">IPv6 through the tunnel</string>
     <string name="conn_ipv6_sub">turn off if sites mix up your country</string>
+    <string name="conn_game">Game mode</string>
+    <string name="conn_game_sub">steady ping while something downloads in the background</string>
     <string name="conn_fragment">Split the TLS hello</string>
     <string name="conn_fragment_sub">if your provider blocks by site name; leave off otherwise</string>
     <string name="dns_custom">Custom address…</string>

@@ -448,6 +448,8 @@
     <string name="conn_lan_sub">принтер, теледидар, роутер</string>
     <string name="conn_ipv6">IPv6 туннель арқылы</string>
     <string name="conn_ipv6_sub">сайттар еліңізді шатастырса, өшіріңіз</string>
+    <string name="conn_game">Ойын режимі</string>
+    <string name="conn_game_sub">фонда бірдеңе жүктелсе де, пинг секірмейді</string>
     <string name="conn_fragment">TLS сәлемдесуін бөлу</string>
     <string name="conn_fragment_sub">провайдер сайт атауы бойынша бұғаттаса; әйтпесе өшірулі қалдырыңыз</string>
     <string name="dns_custom">Өз мекенжайым…</string>

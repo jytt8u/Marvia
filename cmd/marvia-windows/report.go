@@ -51,7 +51,7 @@ func (c *Controller) Report() string {
 	}
 	line("reportSettings",
 		yesNo(set.BypassRussian), yesNo(set.LANOutside), yesNo(set.KillSwitch),
-		set.DNS, yesNo(set.DNSSecure), yesNo(set.IPv6), yesNo(set.Fragment), yesNo(set.TCPOnly), fingerprintName(set.Fingerprint), mtu, yesNo(set.AutoFix))
+		set.DNS, yesNo(set.DNSSecure), yesNo(set.IPv6), yesNo(set.Fragment), yesNo(set.TCPOnly), fingerprintName(set.Fingerprint), mtu, yesNo(set.AutoFix), yesNo(set.Game))
 	// Сколько, а не какие: отчёт уходит продавцу, а список сайтов — это
 	// список того, куда человек ходит. Для разбора «почему сайт видит не ту
 	// страну» хватает знать, что правила есть.

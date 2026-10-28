@@ -270,6 +270,9 @@ type Controller struct {
 	// чужой.
 	tcpOnlyInUse *bool
 
+	// gameInUse — в игровом ли режиме поднят туннель; nil, как у tcpOnlyInUse.
+	gameInUse *bool
+
 	// fingerprintInUse — с каким отпечатком поднят туннель («» — как у
 	// продавца); nil, пока туннеля нет или ключ чужой.
 	fingerprintInUse *string
@@ -785,7 +788,7 @@ func (c *Controller) raiseMarvia(ctx context.Context, link string, set pcSetting
 		Account:   account,
 		Key:       key,
 		CachePath: cachePathFor(account.SubscriptionURL),
-		Dial:      client.Options{Fragment: set.Fragment, NoQUIC: set.TCPOnly, Fingerprint: set.Fingerprint},
+		Dial:      client.Options{Fragment: set.Fragment, NoQUIC: set.TCPOnly, Fingerprint: set.Fingerprint, Game: set.Game},
 		Log:       c.log.add,
 	}, c.events(ctx))
 
@@ -899,6 +902,7 @@ func (c *Controller) raiseTunnel(ctx context.Context, dialer client.Backend, mea
 	if _, theirs := dialer.(*foreign.Supervisor); !theirs {
 		c.tcpOnlyInUse = &set.TCPOnly
 		c.fingerprintInUse = &set.Fingerprint
+		c.gameInUse = &set.Game
 	}
 	c.ipv6InUse = boolPtr(!set.IPv6Off)
 	c.until, c.limitBytes, c.leftBytes = subscriptionOf(dialer)
@@ -1012,6 +1016,7 @@ func (c *Controller) teardown() {
 	c.fragmentInUse = nil
 	c.tcpOnlyInUse = nil
 	c.fingerprintInUse = nil
+	c.gameInUse = nil
 	c.ipv6InUse = nil
 	c.until, c.limitBytes, c.leftBytes = "", 0, 0
 	c.since = time.Time{}

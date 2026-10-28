@@ -522,6 +522,8 @@
     <string name="conn_lan_sub">принтер, телевизор, роутер</string>
     <string name="conn_ipv6">IPv6 через туннель</string>
     <string name="conn_ipv6_sub">выключите, если сайты путают страну</string>
+    <string name="conn_game">Игровой режим</string>
+    <string name="conn_game_sub">пинг не скачет, пока рядом что-то качается</string>
     <string name="conn_fragment">Дробить приветствие</string>
     <string name="conn_fragment_sub">если провайдер режет по имени сайта; без нужды не включайте</string>
     <string name="dns_custom">Свой адрес…</string>

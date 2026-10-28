@@ -85,6 +85,18 @@
 
         <TextView style="@style/ThemeK" android:layout_marginTop="18dp" android:layout_marginStart="4dp" android:text="@string/more_group_conn" />
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="@drawable/bg_card" android:orientation="vertical" android:tag="card">
+            <!-- Игровой режим — первым: его включают перед игрой, искать некогда. -->
+            <LinearLayout android:id="@+id/rowGame" style="@style/VeilRow">
+                <FrameLayout android:layout_width="34dp" android:layout_height="34dp" android:layout_marginEnd="12dp" android:tag="icon.box">
+                    <ImageView android:layout_width="18dp" android:layout_height="18dp" android:layout_gravity="center" android:contentDescription="@null" android:src="@drawable/ic_gauge" android:tag="icon:acc" />
+                </FrameLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView style="@style/VeilRowTitle" android:text="@string/conn_game" android:id="@+id/switchGameTitle" />
+                    <TextView style="@style/VeilRowSub" android:layout_marginTop="2dp" android:text="@string/conn_game_sub" />
+                </LinearLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchGame" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:clickable="false" android:focusable="false" android:tag="switch" />
+            </LinearLayout>
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:tag="line" />
             <LinearLayout android:id="@+id/rowAutostart" style="@style/VeilRow">
                 <FrameLayout android:layout_width="34dp" android:layout_height="34dp" android:layout_marginEnd="12dp" android:tag="icon.box">
                     <ImageView android:layout_width="18dp" android:layout_height="18dp" android:layout_gravity="center" android:contentDescription="@null" android:src="@drawable/ic_bolt" android:tag="icon:acc" />

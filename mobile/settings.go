@@ -36,6 +36,11 @@ type tunnelSettings struct {
 	// чтобы умолчание — шифровать — было нулём и у приложений, которые этого
 	// поля ещё не присылают.
 	PlainDNS bool `json:"plain_dns"`
+
+	// Game — игровой режим: UDP игр идёт своим соединением до ноды и не
+	// встаёт в очередь за закачками (client.Options.Game). Только для VP1:
+	// чужие протоколы держит свой движок со своей очередью.
+	Game bool `json:"game"`
 }
 
 // parseSettings разбирает настройки. Сломанная строка — не повод не
@@ -55,7 +60,7 @@ func parseSettings(raw string) tunnelSettings {
 
 // dial — настройки дозвона до нод VP1.
 func (s tunnelSettings) dial() client.Options {
-	return client.Options{Fragment: s.Fragment}
+	return client.Options{Fragment: s.Fragment, Game: s.Game}
 }
 
 // foreign — настройки движков чужих протоколов. Свои у каждого движка, а не

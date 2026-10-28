@@ -448,6 +448,8 @@
     <string name="conn_lan_sub">printer, televizor, router</string>
     <string name="conn_ipv6">IPv6 tunnel orqali</string>
     <string name="conn_ipv6_sub">saytlar mamlakatingizni chalkashtirsa, oʻchiring</string>
+    <string name="conn_game">Oʻyin rejimi</string>
+    <string name="conn_game_sub">fonda nimadir yuklanayotganda ham ping sakramaydi</string>
     <string name="conn_fragment">TLS salomlashuvini boʻlish</string>
     <string name="conn_fragment_sub">provayder sayt nomi boʻyicha bloklasa; aks holda oʻchiq qoldiring</string>
     <string name="dns_custom">Oʻz manzilim…</string>

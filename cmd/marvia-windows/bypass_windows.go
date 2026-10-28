@@ -149,6 +149,8 @@ func (c *Controller) Settings() SettingsView {
 		FragmentInUse:    c.fragmentInUse,
 		TCPOnly:          c.settings.TCPOnly,
 		TCPOnlyInUse:     c.tcpOnlyInUse,
+		Game:             c.settings.Game,
+		GameInUse:        c.gameInUse,
 		Fingerprint:      c.settings.Fingerprint,
 		FingerprintInUse: c.fingerprintInUse,
 		IPv6:             !c.settings.IPv6Off,
@@ -187,6 +189,9 @@ func (c *Controller) UpdateSettings(p SettingsPatch) (SettingsView, error) {
 	}
 	if p.TCPOnly != nil {
 		next.TCPOnly = *p.TCPOnly
+	}
+	if p.Game != nil {
+		next.Game = *p.Game
 	}
 	if p.Fingerprint != nil {
 		// Только из списка, который знает ядро: опечатка иначе молча стала

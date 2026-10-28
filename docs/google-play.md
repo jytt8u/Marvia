@@ -10,8 +10,8 @@
 | Пакет | `io.marvia.android` |
 | Версия | `1.0.1`, `versionCode` 10001 |
 | Android | `minSdk` 24, `targetSdk` 36; ARM64 и ARMv7 |
-| Пакет для Play | [marvia-android.aab](https://github.com/jytt8u/marvia/releases/download/v1.0.1/marvia-android.aab) |
-| APK для панели | [marvia-android.apk](https://github.com/jytt8u/marvia/releases/download/v1.0.1/marvia-android.apk) |
+| Пакет для Play | [marvia-android.aab](https://github.com/jytt8u/Marvia-old/releases/download/v1.0.1/marvia-android.aab) |
+| APK для панели | [marvia-android.apk](https://github.com/jytt8u/Marvia-old/releases/download/v1.0.1/marvia-android.apk) |
 | SHA-256 сертификата APK | `53eb5bd44a381cbae19b7606ef20919e33dffb260d49f2d4ad868885364d7e82` |
 
 `targetSdk` 36 соответствует [текущему требованию Play](https://support.google.com/googleplay/android-developer/answer/11926878?hl=en).

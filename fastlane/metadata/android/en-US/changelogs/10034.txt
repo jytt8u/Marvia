@@ -1,0 +1,3 @@
+0.13.0-alpha.30 — test release.
+The app speaks Kazakh and Uzbek and runs on Android TV with a remote. Move your key to a new phone with a QR code. Connect and Disconnect shortcuts on the icon. A warning when traffic will last only a couple of days at your current usage, and a notification for new seller announcements. Polls the node less often in battery saver.
+The VP1 wire format is unchanged.

@@ -1,0 +1,238 @@
+//go:build windows
+
+// Команда marvia-windows — клиент для Windows с системным туннелем.
+//
+// В отличие от marvia-client, который поднимает SOCKS5 и требует настроить
+// каждое приложение отдельно, этот забирает весь трафик компьютера целиком —
+// так же, как приложение на телефоне. Ядро под ними одно и то же, включая
+// выбор ноды по замерам с самой машины.
+//
+// Показывает окно. Внутри окна обычная страница, которую отдаёт сама
+// программа: так не нужен ни сторонний набор виджетов, ни компилятор C, а
+// выглядит она одинаково на любой машине.
+package main
+
+import (
+	"errors"
+	"flag"
+	"fmt"
+	"net"
+	"net/netip"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"syscall"
+
+	"golang.org/x/sys/windows"
+
+	"github.com/jytt8u/marvia/internal/tunbridge"
+)
+
+const (
+	// adapterName — как интерфейс будет называться в настройках сети.
+	adapterName = "Marvia"
+
+	// tunnelAddress — адрес компьютера внутри туннеля. Наружу не выходит.
+	tunnelAddress = "10.19.84.2/32"
+
+	// defaultDNS — куда уходят перехваченные запросы имён.
+	defaultDNS = "1.1.1.1:53"
+)
+
+func main() {
+	if running, err := forwardToRunning(); running || err != nil {
+		if err != nil {
+			instanceError(err)
+		}
+		return
+	}
+	dns := flag.String("dns", defaultDNS, "адрес для запросов имён внутри туннеля")
+	mtu := flag.Uint("mtu", tunbridge.DefaultMTU, "MTU интерфейса")
+	noElevate := flag.Bool("no-elevate", false, "не просить прав администратора (окно откроется, туннель не поднимется)")
+	urlFile := flag.String("url-file", "", "записать адрес интерфейса в файл (для отладки и поддержки)")
+	inTray := flag.Bool("tray", false, "начать в трее, без окна, и подключиться, если ключ есть (так запускает автозапуск)")
+	flag.Parse()
+
+	if savedLang := readUISetting("language"); savedLang != "" {
+		setUILang(savedLang)
+	}
+	if err := checkWebViewRuntime(readRuntimeVersion); err != nil {
+		if confirm(say("webViewTitle"), say("webViewMissing")) {
+			if err := openLink(webViewDownloadURL); err != nil {
+				alert("Marvia", err.Error())
+			}
+		}
+		os.Exit(1)
+	}
+
+	// Без прав администратора Windows не даст ни создать адаптер, ни трогать
+	// маршруты. Просим их сразу и обычным путём — через то самое окно, которое
+	// человек видит при установке любой программы. Запускать что-то из
+	// командной строки от администратора он не обязан.
+	if !elevated() && !*noElevate {
+		if err := relaunchElevated(); err != nil {
+			alert("Marvia", "Не получилось запросить права администратора:\n"+err.Error()+
+				"\n\nБез них Windows не даст создать сетевой адаптер.")
+			os.Exit(1)
+		}
+		return
+	}
+
+	if err := run(*dns, uint32(*mtu), *urlFile, *inTray); err != nil {
+		text := err.Error()
+		if errors.Is(err, errWebViewWindow) {
+			text = say("webViewFailed")
+		}
+		alert("Marvia", text)
+		os.Exit(1)
+	}
+}
+
+func run(dns string, mtu uint32, urlFile string, inTray bool) error {
+	name, err := instanceName()
+	if err != nil {
+		return err
+	}
+	guard, first, err := acquireInstance(name)
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(guard)
+	if !first {
+		_, err := forwardToRunning()
+		return err
+	}
+	log := newJournal()
+	ctl := NewController(dns, mtu, log)
+	if savedLang := readUISetting("language"); savedLang != "" {
+		setUILang(savedLang)
+	}
+
+	if !elevated() {
+		log.add("прав администратора нет: туннель поднять не выйдет")
+	}
+
+	// Схему регистрируем на каждом запуске, а ссылку из аргументов принимаем
+	// сразу: покупатель нажал её в телеграме, и это первое, что он делает
+	// после оплаты. Подробности в scheme_windows.go.
+	//
+	// Замена уже стоящего ключа — с вопросом, как на телефоне: ссылку
+	// marvia:// открывает любая страница в браузере, и подменённая увела бы
+	// весь трафик на серверы того, кто её подсунул, а заметить это нечем.
+	if link := setupScheme(log); link != "" {
+		old := ctl.Account()
+		if old != "" && old != link && !confirm(say("replaceKeyTitle"), say("replaceKeyBody")) {
+			log.add("%s", say("logKeyKept"))
+		} else if err := ctl.SetAccount(link); err != nil {
+			log.add("ссылка из телеграма не подошла: %v", err)
+		} else {
+			log.add("ключ доступа взят из ссылки")
+		}
+	}
+
+	log.add("готов к работе")
+
+	// Окно ещё не создано, а страница уже может попросить его переключить;
+	// ручка заполняется, когда окно появится.
+	var onWindow func(windowRequest)
+	url, server, err := serveUI(ctl, log, &onWindow)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = server.Close()
+	}()
+
+	// Адрес содержит одноразовый ключ доступа к локальному интерфейсу.
+	// Не показываем его в журнале приложения; для диагностики есть url-file.
+	log.add("интерфейс готов")
+	if urlFile != "" {
+		_ = os.WriteFile(urlFile, []byte(url), 0o600)
+	}
+
+	// Что бы ни случилось дальше — маршруты снимутся. Человек закроет окно
+	// крестиком, а не кнопкой, и это нормально: убирать за собой должна
+	// программа, а не он.
+	defer ctl.Disconnect()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-stop
+		ctl.Disconnect()
+		os.Exit(0)
+	}()
+
+	// Запуск вместе с Windows: окна нет, значок есть, и туннель поднимается
+	// сам — ради этого автозапуск и включают. Ошибка подключения не роняет
+	// программу: она в журнале и на значке, а человек увидит её, открыв окно.
+	if inTray && ctl.Account() != "" {
+		go func() {
+			if err := ctl.Connect(); err != nil {
+				log.add("автоподключение: %v", err)
+			}
+		}()
+	}
+
+	return showWindow(url, ctl, log, inTray, &onWindow)
+}
+
+// openLink открывает адрес через проводник обычного пользователя: браузер,
+// запущенный напрямую из повышенного процесса, унаследовал бы его права.
+func openLink(url string) error {
+	if err := exec.Command("explorer.exe", explorerArg(url)).Start(); err != nil {
+		return fmt.Errorf("не удалось открыть браузер: %w", err)
+	}
+	return nil
+}
+
+// explorerArg готовит адрес для командной строки проводника. Запятая для
+// него — разделитель ключей: ссылка продавца вида «https://x/,/select,C:\…»
+// открыла бы не страницу, а папку. В адресе запятая и %2C значат одно и то
+// же, так что кодируем её и не гадаем, как проводник поймёт остальное.
+func explorerArg(url string) string {
+	return strings.ReplaceAll(url, ",", "%2C")
+}
+
+// elevated сообщает, запущены ли мы с правами администратора.
+func elevated() bool { return windows.GetCurrentProcessToken().IsElevated() }
+
+// relaunchElevated перезапускает программу с запросом прав.
+//
+// Windows не умеет повышать права работающему процессу — можно только
+// запустить новый. Поэтому мы просим права, запускаем себя заново и тихо
+// выходим: человек видит привычное окно согласия, а не совет открыть
+// PowerShell.
+func relaunchElevated() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := elevatedArguments(os.Args[1:])
+
+	verb, _ := syscall.UTF16PtrFromString("runas")
+	file, _ := syscall.UTF16PtrFromString(exe)
+	dir, _ := syscall.UTF16PtrFromString(filepath.Dir(exe))
+
+	var params *uint16
+	if args != "" {
+		params, _ = syscall.UTF16PtrFromString(args)
+	}
+
+	return windows.ShellExecute(0, verb, file, params, dir, windows.SW_NORMAL)
+}
+
+// dnsAddress достаёт адрес из записи вида host:port.
+func dnsAddress(hostPort string) (netip.Addr, error) {
+	host, _, err := net.SplitHostPort(hostPort)
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("адрес для запросов имён %q: нужен вид 1.1.1.1:53", hostPort)
+	}
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("адрес для запросов имён %q: %w", host, err)
+	}
+	return addr, nil
+}

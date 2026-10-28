@@ -1,0 +1,32 @@
+name: Предложение
+description: Чего не хватает покупателю или тому, кто раздаёт доступ
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Сначала загляните в раздел README «Что пока не готово» — возможно, это уже в очереди. Панель на телефоне, свой платёжный шлюз и хостинг нод проект не делает намеренно.
+
+        English is welcome.
+  - type: dropdown
+    id: who
+    attributes:
+      label: Для кого
+      options:
+        - Для того, кто подключается
+        - Для того, кто раздаёт или продаёт доступ
+        - Для обоих
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Что мешает сейчас
+      description: Опишите задачу, а не готовое решение. Как вы обходитесь без этого сегодня?
+    validations:
+      required: true
+  - type: textarea
+    id: elsewhere
+    attributes:
+      label: Как это сделано у других
+      description: Необязательно. Ссылка на Marzban, 3x-ui, Remnawave, Hiddify или другой проект, где это уже есть

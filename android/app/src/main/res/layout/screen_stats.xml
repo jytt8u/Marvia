@@ -1,0 +1,455 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    «Расход» по макету: период справа в заголовке, циферблат с итогом и три
+    факта, линия по дням, страны, неделя по часам. Диаграммы рисуются кодом
+    (StatsViews), остальное — вьюхи, которые красит Paint по тегам.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:paddingStart="22dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="@dimen/header_pad"
+        android:paddingBottom="12dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/stats_title"
+                android:tag="fg title"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:letterSpacing="-0.01" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/stats_subtitle"
+                android:tag="dim"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Период: таблетки в общей капсуле, активная залита акцентом. -->
+        <LinearLayout
+            android:id="@+id/rangeBox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="3dp">
+
+            <TextView
+                android:id="@+id/rangeWeek"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:minHeight="48dp"
+                android:gravity="center"
+                android:paddingHorizontal="12dp"
+                android:text="@string/stats_range_week"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/rangeMonth"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:minHeight="48dp"
+                android:gravity="center"
+                android:paddingHorizontal="12dp"
+                android:text="@string/stats_range_month"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="16dp">
+
+            <!-- Итог и факты; подробные графики раскрываются отдельно. -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical"
+                android:tag="card"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="14dp">
+
+                <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+
+                        android:gravity="start"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/dialLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/mono"
+                            android:letterSpacing="0.18"
+                            android:tag="dim"
+                            android:textSize="9.5sp" />
+
+                        <TextView
+                            android:id="@+id/dialTotal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:fontFamily="@font/mono"
+                            android:letterSpacing="-0.02"
+                            android:tag="fg"
+                            android:textSize="34sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/dialPerDay"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:gravity="center"
+
+                            android:tag="dim"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/factPeak"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/mono"
+                            android:tag="fg"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/factPeakWhen"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:tag="dim"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="30dp"
+                        android:tag="line" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/factQuota"
+                            android:gravity="center"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:fontFamily="@font/mono"
+                            android:tag="fg"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/factQuotaNote"
+                            android:gravity="center"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:tag="dim"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="30dp"
+                        android:tag="line" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/factDays"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/mono"
+                            android:tag="fg"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/stats_days_observed"
+                            android:tag="dim"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Линия по дням. -->
+            <LinearLayout android:id="@+id/statsEmpty" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginTop="12dp" android:tag="card">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/appearance_stats_empty" android:textStyle="bold" android:textSize="18sp" android:tag="fg" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/appearance_stats_empty_sub" android:textSize="14sp" android:tag="dim" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/trendCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical"
+                android:tag="card gap"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="14dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:gravity="top">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/trendTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:tag="fg"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/trendPeak"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:tag="dim"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/trendTotal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/mono"
+                        android:tag="fg"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <io.marvia.android.TrendLine
+                    android:id="@+id/trendLine"
+                    android:layout_width="match_parent"
+                    android:layout_height="120dp"
+                    android:layout_marginTop="10dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp">
+
+                    <TextView
+                        android:id="@+id/daysFrom"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="@font/mono"
+                        android:letterSpacing="0.1"
+                        android:tag="dim"
+                        android:textSize="9.5sp" />
+
+                    <TextView
+                        android:id="@+id/daysMid"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="@font/mono"
+                        android:gravity="center"
+                        android:letterSpacing="0.1"
+                        android:tag="dim"
+                        android:textSize="9.5sp" />
+
+                    <TextView
+                        android:id="@+id/daysTo"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="@font/mono"
+                        android:gravity="end"
+                        android:letterSpacing="0.1"
+                        android:tag="dim"
+                        android:text="@string/stats_today_caps"
+                        android:textSize="9.5sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Страны: одна полоса долями и список. -->
+            <LinearLayout
+                android:id="@+id/placesCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical"
+                android:tag="card gap"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/stats_places"
+                    android:tag="fg"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <io.marvia.android.ShareBar
+                    android:id="@+id/placesBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="8dp"
+                    android:layout_marginTop="12dp" />
+
+                <LinearLayout
+                    android:id="@+id/placeList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
+            <!-- Неделя по часам. -->
+            <TextView android:id="@+id/statsDetailsToggle" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:minHeight="52dp" android:gravity="center" android:text="@string/appearance_stats_details" android:tag="action" android:textSize="15sp" />
+            <LinearLayout android:id="@+id/statsDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+<FrameLayout
+                    android:layout_width="236dp"
+                    android:layout_height="236dp"
+                    android:layout_gravity="center_horizontal">
+
+                    <io.marvia.android.RangeDial
+                        android:id="@+id/rangeDial"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+
+
+                </FrameLayout>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/appearance_dial_legend" android:tag="dim" android:textSize="13sp" />
+<LinearLayout android:id="@+id/weekCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical"
+                android:tag="card gap"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="14dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="true">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/stats_week"
+                        android:tag="fg"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/weekPeak"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:tag="dim"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/weekRows"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="vertical" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:paddingStart="30dp"
+                    android:paddingEnd="0dp">
+
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="@font/mono" android:tag="dim" android:text="0" android:textSize="9.5sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="@font/mono" android:gravity="center" android:tag="dim" android:text="6" android:textSize="9.5sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="@font/mono" android:gravity="center" android:tag="dim" android:text="12" android:textSize="9.5sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="@font/mono" android:gravity="center" android:tag="dim" android:text="18" android:textSize="9.5sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="@font/mono" android:gravity="end" android:tag="dim" android:text="23" android:textSize="9.5sp" />
+                </LinearLayout>
+            </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:gravity="center"
+                android:lineSpacingExtra="3dp"
+                android:paddingHorizontal="8dp"
+                android:text="@string/stats_note"
+                android:tag="dim"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

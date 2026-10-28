@@ -1,0 +1,163 @@
+package wintun
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"golang.org/x/sys/windows/registry"
+)
+
+// Системный прокси меняет путь приложений, которые его используют.
+// Внешнее соединение самого прокси может попасть в VPN-адаптер или идти
+// напрямую по исключению другого клиента. По одной настройке этого не узнать.
+//
+// Ставят такой прокси другие клиенты обхода блокировок и оставляют после себя,
+// когда их закрывают не той кнопкой. А приходят к нам ровно те люди, у кого
+// такой клиент уже стоял, — то есть случай не редкий, а типичный.
+//
+// Показываем наличие и владельца прокси, но не выдаём это за измеренную утечку.
+
+// Proxy — что нашлось в системных настройках.
+type Proxy struct {
+	// Server — адрес прокси, как его видит система.
+	Server string
+
+	// Owner — чья это программа, если удалось выяснить по слушающему порту.
+	// Пусто, если прокси не на этой машине или процесс не нашёлся.
+	Owner string
+
+	// FromEnv — прокси задан переменными окружения, а не настройками системы.
+	// Такой снимается иначе, и сказать об этом надо честно.
+	FromEnv bool
+
+	// AutoConfig — адрес файла автонастройки. Его правила мы не выполняем
+	// и не знаем, какой прокси они выбирают для конкретного запроса.
+	AutoConfig string
+
+	// Listening — на порту прокси кто-то слушает. Для прокси на другой
+	// машине не проверяется и остаётся false.
+	Listening bool
+}
+
+// Found сообщает, нашлось ли что-нибудь.
+func (p Proxy) Found() bool {
+	return p.Server != "" || p.AutoConfig != ""
+}
+
+// Dead — прокси на этой машине, который никто не слушает: его оставила
+// закрытая программа, и браузер через него не открывает ничего. Прокси из
+// переменных окружения сюда не входит — его снимают не в реестре.
+func (p Proxy) Dead() bool {
+	_, local := parseProxyPort(p.Server)
+	return p.Server != "" && local && !p.FromEnv && !p.Listening
+}
+
+// Describe — одна фраза для окна, без технических подробностей.
+func (p Proxy) Describe() string {
+	if !p.Found() {
+		return ""
+	}
+	_, local := parseProxyPort(p.Server)
+	switch {
+	case p.AutoConfig != "" && p.Server == "":
+		return "В системе включена автонастройка прокси — выбранный ею маршрут не проверен"
+	// Прокси на этой же машине — почти всегда след другого клиента обхода.
+	// Человек видит «нет интернета» в браузере при живом туннеле, поэтому
+	// говорим прямо, через кого идут браузеры и что нажать. Куда та
+	// программа шлёт дальше, мы не знаем и об утечке не заявляем.
+	case local && !p.FromEnv && p.Owner != "":
+		return fmt.Sprintf("Браузеры идут через %s (прокси %s), а не прямо в туннель Marvia. "+
+			"Выключите %s — и сайты в браузере перестанут открываться, пока прокси не убрать: "+
+			"нажмите «Убрать прокси» или снимите его в самой %s",
+			p.Owner, p.Server, p.Owner, p.Owner)
+	case local && !p.FromEnv:
+		return fmt.Sprintf("Браузеры шлют запросы на прокси %s, а там никто не отвечает — "+
+			"сайты в браузере не откроются, хотя туннель работает. Нажмите «Убрать прокси»", p.Server)
+	case p.Owner != "":
+		return fmt.Sprintf("В системе прописан прокси %s (%s) — маршрут его внешнего трафика не проверен",
+			p.Server, p.Owner)
+	default:
+		return fmt.Sprintf("В системе прописан прокси %s — маршрут его внешнего трафика не проверен", p.Server)
+	}
+}
+
+const proxyKey = `Software\Microsoft\Windows\CurrentVersion\Internet Settings`
+
+// SystemProxy ищет прокси там, где его смотрят сами программы.
+//
+// Порядок важен: переменные окружения перекрывают настройки системы для части
+// программ, а настройки системы действуют на браузеры. Сообщать надо про
+// первый найденный — иначе окно превратится в перечисление.
+func SystemProxy() Proxy {
+	if server := envProxy(); server != "" {
+		owner, listening := ownerOf(server)
+		return Proxy{Server: server, Owner: owner, FromEnv: true, Listening: listening}
+	}
+
+	key, err := registry.OpenKey(registry.CURRENT_USER, proxyKey, registry.QUERY_VALUE)
+	if err != nil {
+		return Proxy{}
+	}
+	defer key.Close()
+
+	var found Proxy
+
+	if auto, _, err := key.GetStringValue("AutoConfigURL"); err == nil && strings.TrimSpace(auto) != "" {
+		found.AutoConfig = strings.TrimSpace(auto)
+	}
+
+	enabled, _, err := key.GetIntegerValue("ProxyEnable")
+	if err != nil || enabled == 0 {
+		return found
+	}
+
+	server, _, err := key.GetStringValue("ProxyServer")
+	if err != nil || strings.TrimSpace(server) == "" {
+		return found
+	}
+
+	found.Server = strings.TrimSpace(server)
+	found.Owner, found.Listening = ownerOf(found.Server)
+	return found
+}
+
+// envProxy читает переменные окружения. Пустая строка — ничего не задано.
+func envProxy() string {
+	for _, name := range []string{"HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"} {
+		if v := strings.TrimSpace(os.Getenv(name)); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// DisableSystemProxy снимает прокси из настроек системы.
+//
+// Только настройки системы: переменные окружения живут в чужих процессах и
+// чужих ярлыках, и лезть туда мы не будем — оттуда их убирает тот, кто
+// поставил.
+//
+// Живой чужой прокси снимается только по нажатию человека: его могли
+// поставить осознанно — рабочим, родительским контролем, чем угодно, — и снять
+// его молча значило бы сломать то, чего мы не понимаем. Сама программа снимает
+// лишь мёртвый (Proxy.Dead): на нём никого нет, и ломать там уже нечего.
+func DisableSystemProxy() error {
+	key, err := registry.OpenKey(registry.CURRENT_USER, proxyKey, registry.SET_VALUE)
+	if err != nil {
+		return fmt.Errorf("настройки прокси: %w", err)
+	}
+	defer key.Close()
+
+	if err := key.SetDWordValue("ProxyEnable", 0); err != nil {
+		return fmt.Errorf("выключение прокси: %w", err)
+	}
+
+	// Автонастройка — отдельная запись, и выключение прокси её не касается.
+	// Без этой строки кнопка «убрать» на такой системе не делала ничего, а
+	// программа рапортовала об успехе: трафик как шёл мимо, так и шёл.
+	if err := key.DeleteValue("AutoConfigURL"); err != nil && err != registry.ErrNotExist {
+		return fmt.Errorf("выключение автонастройки прокси: %w", err)
+	}
+	return nil
+}

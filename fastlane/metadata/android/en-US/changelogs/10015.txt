@@ -1,0 +1,4 @@
+0.13.0-alpha.11 — test release.
+The theme changes colours only again. The home screen view is chosen separately: Theme → More → Home screen. The default is Marvia, as before alpha.10; country and subscription cards come with Stage, and there are also Deck and Console.
+The country card no longer calls a node your pick when traffic moved there on its own.
+The VP1 wire format is unchanged.

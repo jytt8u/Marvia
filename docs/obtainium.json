@@ -1,0 +1,7 @@
+{
+  "id": "io.marvia.android",
+  "url": "https://github.com/jytt8u/marvia",
+  "author": "jytt8u",
+  "name": "Marvia",
+  "additionalSettings": "{\"includePrereleases\":true,\"verifyLatestTag\":false,\"apkFilterRegEx\":\"^marvia-android\\\\.apk$\"}"
+}

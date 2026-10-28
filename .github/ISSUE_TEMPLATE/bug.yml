@@ -1,0 +1,83 @@
+# Форма, а не пустое поле: пустое поле люди заполняют ссылкой marvia://
+# целиком — а это рабочий ключ, выложенный на публичную страницу. Форма
+# предупреждает об этом до первого символа и просит подтвердить, что ключей
+# в тексте нет.
+name: Что-то не работает
+description: Ошибка в приложении, панели, ноде или установке
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Не вставляйте сюда ссылку `marvia://…`, адрес подписки, админский токен и ключ бота.** Это публичная страница: по такой ссылке подключится любой. Если ключ уже попал сюда — отзовите его в панели.
+
+        Уязвимость или способ отличить ноду от сайта-прикрытия — не сюда, а [закрытым отчётом](https://github.com/jytt8u/marvia/security/advisories/new).
+
+        English is welcome.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Где
+      options:
+        - Android
+        - Windows
+        - Панель
+        - Нода
+        - Установка или обновление сервера
+        - Другое
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия
+      description: "Android — подпись под заголовком «Настройки»; Windows — «Настройки» → «О нас»; панель — страница «Обновления»"
+      placeholder: 0.13.0-alpha.1
+    validations:
+      required: true
+  - type: dropdown
+    id: key
+    attributes:
+      label: Чем подключаетесь
+      options:
+        - Ключ Marvia (marvia://)
+        - Чужой ключ — VLESS, VMess, Trojan, Shadowsocks, Hysteria2, WireGuard
+        - Подписка 3x-ui, Marzban или Remnawave
+        - Не про подключение
+  - type: dropdown
+    id: network
+    attributes:
+      label: Сеть
+      description: Блокировки и задержки сильно зависят от сети, поэтому её стоит знать
+      options:
+        - Домашний Wi-Fi
+        - Мобильный интернет
+        - Проводной
+        - Сеть сменилась во время работы
+        - Не знаю
+  - type: input
+    id: operator
+    attributes:
+      label: Оператор и страна
+      description: Необязательно. Только если ошибка похожа на блокировку
+      placeholder: МегаФон, Россия
+  - type: textarea
+    id: what
+    attributes:
+      label: Что произошло
+      description: Что делали, что ожидали увидеть и что увидели вместо этого
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Журнал
+      description: "Android — «Настройки» → «Журнал соединений» → «Копировать»; Windows — «Настройки» → «Журнал». Просмотрите текст перед вставкой: ключей и адресов подписок в нём быть не должно"
+      render: text
+  - type: checkboxes
+    id: secrets
+    attributes:
+      label: Проверка
+      options:
+        - label: В тексте и журнале нет ссылки marvia://, адреса подписки и токенов
+          required: true

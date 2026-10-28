@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Главная: состояние подключения, где вы и сколько осталось по подписке.
+  Раскладку выбирает образ (см. HomeLayout): сцена с большой кнопкой, панель
+  со статусом слева и плитками, точечное табло или консоль. Вьюхи одни на
+  все раскладки — HomeLayout переставляет их, а не рисует вторую главную.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/connectRoot" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
+    android:clipChildren="false">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical" android:paddingStart="22dp" android:paddingEnd="16dp"
+        android:paddingTop="@dimen/header_pad" android:paddingBottom="0dp">
+        <FrameLayout android:id="@+id/heroMarkButton" android:layout_width="40dp" android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless" android:clickable="true" android:focusable="true"
+            android:contentDescription="@string/app_name">
+            <io.marvia.android.MarviaLogoView android:id="@+id/heroMark" android:layout_width="40dp" android:layout_height="34dp"
+                android:layout_gravity="center" android:contentDescription="@null" />
+            <!-- Своя картинка вместо знака — из темы, «Ещё → Значок в шапке». -->
+            <ImageView android:id="@+id/heroCustom" android:layout_width="34dp" android:layout_height="34dp"
+                android:layout_gravity="center" android:scaleType="centerCrop" android:contentDescription="@null" android:visibility="gone" />
+        </FrameLayout>
+        <io.marvia.android.DotWordmark android:id="@+id/heroDots" android:layout_width="104dp" android:layout_height="20dp" android:visibility="gone"
+            android:layout_marginStart="8dp" />
+        <LinearLayout android:id="@+id/heroName" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:layout_marginStart="12dp" android:orientation="vertical" android:visibility="gone">
+            <TextView android:id="@+id/heroWord" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:fontFamily="@font/unbounded" android:textStyle="bold" android:textSize="18sp"
+                android:letterSpacing="0.10" android:includeFontPadding="false" android:text="@string/app_name_caps" android:tag="fg" />
+            <TextView android:id="@+id/heroTagline" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textSize="11sp"
+                android:text="@string/hero_subtitle" android:tag="dim" />
+        </LinearLayout>
+        <Space android:id="@+id/heroSpacer" android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+        <TextView android:id="@+id/connectionBadge" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:fontFamily="@font/mono" android:textSize="9sp" android:letterSpacing="0.05" android:tag="dim"
+            android:text="@string/connect_badge_off" android:accessibilityLiveRegion="polite" android:visibility="gone" />
+    </LinearLayout>
+
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:fillViewport="true" android:clipToPadding="false" android:clipChildren="false">
+        <LinearLayout android:id="@+id/homeColumn" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:gravity="center_horizontal" android:paddingHorizontal="16dp"
+            android:paddingBottom="16dp" android:clipChildren="false">
+
+            <!-- Кнопка над ореолом: пятно и кольца уходят за края диска и дальше — за
+                 сцену, под шапку. Ни один родитель их не режет: ровный срез
+                 кольца читался как обрезанный экран. -->
+            <FrameLayout
+                android:id="@+id/stageFrame"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/hero_stage_height"
+                android:clipChildren="false">
+
+                <io.marvia.android.HaloView
+                    android:id="@+id/halo"
+                    android:layout_width="match_parent"
+                    android:layout_height="360dp"
+                    android:layout_gravity="center" />
+
+                <io.marvia.android.PowerButton
+                    android:id="@+id/powerAction"
+                    android:layout_width="@dimen/hero_button_size"
+                    android:layout_height="@dimen/hero_button_size"
+                    android:layout_gravity="center"
+                    android:contentDescription="@string/action_connect" />
+            </FrameLayout>
+
+            <!-- Шапка «панели»: слово состояния слева, кнопка справа. Пустая, пока
+                 раскладка другая: HomeLayout переносит сюда statusBox и кнопку. -->
+            <LinearLayout android:id="@+id/deckRow" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="18dp" android:layout_marginBottom="6dp" android:gravity="center_vertical"
+                android:orientation="horizontal" android:visibility="gone">
+                <FrameLayout android:id="@+id/deckLeft" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+                <FrameLayout android:id="@+id/deckSlot" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:clipChildren="false" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/statusBox" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:gravity="center_horizontal">
+                <TextView
+                    android:id="@+id/statusText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:gravity="center"
+                    android:text="@string/status_off"
+                    android:textSize="30sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="-0.01"
+                    android:accessibilityLiveRegion="polite" />
+
+                <TextView android:id="@+id/powerHint" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp" android:gravity="center" android:tag="dim"
+                    android:text="@string/power_hint_start" android:textSize="13sp" />
+            </LinearLayout>
+
+            <!-- Нода одной строкой: страна · город · отклик. Нажатие ведёт к выбору.
+                 Это вид Marvia; «Сцена» и «Панель» показывают «где вы» карточкой.
+                 Не больше двух строк: длинное имя ноды на узком экране иначе
+                 растягивает главную и сдвигает расход под нижний край. -->
+            <TextView
+                android:id="@+id/nodeLine"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:minHeight="48dp"
+                android:paddingHorizontal="18dp"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:fontFamily="@font/mono"
+                android:letterSpacing="0.04"
+                android:tag="node"
+                android:textSize="13sp" />
+
+            <TextView android:id="@+id/nodeNote" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="10dp" android:gravity="center" android:tag="dim" android:textSize="13sp" android:lineSpacingExtra="3dp" />
+            <TextView android:id="@+id/techText" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" android:gravity="center" android:textIsSelectable="true" android:textSize="12sp" android:visibility="gone" />
+
+            <TextView android:id="@+id/accessAction" android:layout_width="match_parent" android:layout_height="48dp"
+                android:layout_marginTop="18dp" android:layout_marginBottom="4dp" android:gravity="center"
+                android:text="@string/connect_add_key" android:textSize="15sp" android:textStyle="bold"
+                android:tag="btn" android:clickable="true" android:focusable="true" android:visibility="gone" />
+
+            <!-- Консоль: показания строками вместо карточек и кнопка во всю ширину.
+                 Строки собирает HomeBlocks — из тех же данных, что карточки. -->
+            <LinearLayout android:id="@+id/readout" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="18dp" android:orientation="vertical" android:tag="card" android:visibility="gone" />
+            <TextView android:id="@+id/consoleAction" android:layout_width="match_parent" android:layout_height="56dp"
+                android:layout_marginTop="12dp" android:gravity="center" android:fontFamily="@font/mono"
+                android:letterSpacing="0.12" android:textSize="15sp" android:textStyle="bold" android:tag="btn"
+                android:clickable="true" android:focusable="true" android:visibility="gone" />
+
+            <Space android:id="@+id/statsGap" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:minHeight="18dp" />
+
+            <!-- Где вы и что по подписке. На сцене — друг под другом, на панели —
+                 рядом плитками. -->
+            <LinearLayout android:id="@+id/infoRow" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:baselineAligned="false">
+
+                <LinearLayout android:id="@+id/placeCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical" android:tag="card"
+                    android:clickable="true" android:focusable="true" android:visibility="gone">
+                    <!-- Флаг страны, а для автовыбора — значок: смайлик молнии смотрелся
+                         чужим среди строгих значков приложения. -->
+                    <FrameLayout android:id="@+id/placeBadge" android:layout_width="44dp" android:layout_height="44dp" android:tag="icon.box">
+                        <TextView android:id="@+id/placeFlag" android:layout_width="match_parent" android:layout_height="match_parent"
+                            android:gravity="center" android:textSize="22sp" android:importantForAccessibility="no" />
+                        <ImageView android:id="@+id/placeIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center"
+                            android:src="@drawable/ic_bolt" android:tag="icon:acc" android:importantForAccessibility="no" android:visibility="gone" />
+                    </FrameLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:layout_marginStart="12dp" android:orientation="vertical">
+                        <TextView android:id="@+id/placeName" android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:textSize="15sp" android:textStyle="bold" android:tag="fg" android:maxLines="1" android:ellipsize="end" />
+                        <TextView android:id="@+id/placeSub" android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp" android:textSize="12sp" android:tag="dim" android:maxLines="2" android:ellipsize="end" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/placeMs" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" android:fontFamily="@font/mono" android:textSize="13sp" android:textStyle="bold" android:tag="acc" />
+                    <ImageView android:id="@+id/placeChevron" android:layout_width="18dp" android:layout_height="18dp"
+                        android:layout_marginStart="8dp" android:src="@drawable/ic_chevron_right" android:tag="icon:dim" android:importantForAccessibility="no" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/planCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp" android:orientation="vertical" android:tag="card"
+                    android:clickable="true" android:focusable="true" android:visibility="gone">
+                    <TextView android:id="@+id/planName" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:textSize="13sp" android:tag="dim" android:maxLines="1" android:ellipsize="end" />
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp" android:gravity="bottom" android:baselineAligned="true">
+                        <TextView android:id="@+id/planDays" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:fontFamily="@font/mono" android:textSize="30sp" android:textStyle="bold" android:tag="fg" android:includeFontPadding="false" />
+                        <TextView android:id="@+id/planDaysWord" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                            android:layout_marginStart="8dp" android:textSize="13sp" android:tag="dim" android:maxLines="2" />
+                    </LinearLayout>
+                    <FrameLayout android:id="@+id/planTrack" android:layout_width="match_parent" android:layout_height="6dp"
+                        android:layout_marginTop="12dp" android:tag="track">
+                        <View android:id="@+id/planFill" android:layout_width="0dp" android:layout_height="match_parent" android:tag="fill" />
+                    </FrameLayout>
+                    <TextView android:id="@+id/planLeft" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp" android:textSize="13sp" android:tag="dim" android:maxLines="2" />
+                    <TextView android:id="@+id/planRenew" android:layout_width="match_parent" android:layout_height="44dp"
+                        android:layout_marginTop="12dp" android:gravity="center" android:text="@string/seller_renew" android:textSize="14sp"
+                        android:textStyle="bold" android:tag="btn" android:clickable="true" android:focusable="true" android:visibility="gone" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Сегодня по часам. -->
+            <LinearLayout
+                android:id="@+id/todayCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical"
+                android:tag="card"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="14dp">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:baselineAligned="true">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="@string/stats_today" android:tag="dim" android:textSize="14sp" />
+                    <TextView android:id="@+id/todayTotal" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:fontFamily="@font/mono" android:textStyle="bold" android:tag="acc" android:textSize="22sp" />
+                </LinearLayout>
+                <io.marvia.android.HourBars android:id="@+id/todayBars" android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginTop="12dp" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:fontFamily="@font/mono" android:text="00" android:tag="dim" android:textSize="10sp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:fontFamily="@font/mono" android:text="23" android:tag="dim" android:textSize="10sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Скорость в обе стороны: цифра сейчас и бегущая линия за полминуты. -->
+            <LinearLayout android:id="@+id/tilesRow" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:orientation="horizontal" android:baselineAligned="false" android:tag="gap">
+                <LinearLayout android:id="@+id/downCard" android:clickable="true" android:focusable="true" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                    android:layout_marginEnd="6dp" android:background="@drawable/bg_card" android:orientation="vertical"
+                    android:tag="card" android:paddingHorizontal="16dp" android:paddingTop="14dp" android:paddingBottom="12dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/stats_download" android:tag="dim" android:textSize="13sp" />
+                    <TextView android:id="@+id/downValue" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp" android:fontFamily="@font/mono" android:textStyle="bold" android:tag="fg"
+                        android:textSize="20sp" android:maxLines="1"
+                        app:autoSizeTextType="uniform" app:autoSizeMinTextSize="13sp" app:autoSizeMaxTextSize="20sp" app:autoSizeStepGranularity="1sp" />
+                    <io.marvia.android.SpeedSpark android:id="@+id/downSpark" android:layout_width="match_parent" android:layout_height="30dp" android:layout_marginTop="8dp" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/upCard" android:clickable="true" android:focusable="true" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                    android:layout_marginStart="6dp" android:background="@drawable/bg_card" android:orientation="vertical"
+                    android:tag="card" android:paddingHorizontal="16dp" android:paddingTop="14dp" android:paddingBottom="12dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/stats_upload" android:tag="dim" android:textSize="13sp" />
+                    <TextView android:id="@+id/upValue" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp" android:fontFamily="@font/mono" android:textStyle="bold" android:tag="fg"
+                        android:textSize="20sp" android:maxLines="1"
+                        app:autoSizeTextType="uniform" app:autoSizeMinTextSize="13sp" app:autoSizeMaxTextSize="20sp" app:autoSizeStepGranularity="1sp" />
+                    <io.marvia.android.SpeedSpark android:id="@+id/upSpark" android:layout_width="match_parent" android:layout_height="30dp" android:layout_marginTop="8dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

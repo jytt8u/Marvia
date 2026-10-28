@@ -1,0 +1,3 @@
+0.13.0-alpha.26 — test release.
+Changes for Windows; the phone app works as before.
+The VP1 wire format is unchanged.

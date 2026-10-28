@@ -1,0 +1,431 @@
+package client
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/netip"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/jytt8u/marvia/internal/httpguard"
+	"github.com/jytt8u/marvia/internal/seller"
+	"github.com/jytt8u/marvia/internal/version"
+)
+
+const (
+	subscriptionTimeout = 20 * time.Second
+
+	// pinnedDialTimeout — сколько ждём один адрес панели из подсказки, прежде
+	// чем взяться за следующий.
+	pinnedDialTimeout = 5 * time.Second
+
+	// maxSubscription — верхняя граница ответа. Список на сотню нод занимает
+	// десятки килобайт; мегабайт — уже повод не доверять источнику.
+	maxSubscription = 1 << 20
+)
+
+// Node — точка входа в том виде, в каком её отдаёт панель.
+type Node struct {
+	// ID нужен, чтобы отчёты о доступности ссылались на ноду точно, а не по
+	// имени, которое продавец может переименовать.
+	ID int64 `json:"id"`
+
+	Name string `json:"name"`
+
+	// Country — страна словами, как её написал продавец. По ней клиент
+	// подбирает флажок и группирует список: имя сервера покупателю ни о чём не
+	// говорит, страна говорит. Пока продавец поле не заполнил, оно пустое, и
+	// показывается одно имя.
+	Country   string `json:"country,omitempty"`
+	Address   string `json:"address"`
+	SNI       string `json:"sni,omitempty"`
+	PublicKey string `json:"public_key"`
+
+	// SNIExtra — запасные имена прикрытия, кроме SNI. Работают только под
+	// REALITY: там подлинность ноды подтверждает ключ, а не сертификат, и в
+	// SNI годится любое из имён, которые нода принимает.
+	//
+	// Поле добавочное, а не замена SNI: подписку читают уже установленные
+	// клиенты, и они про набор не знают. Им достаётся SNI, как и раньше.
+	SNIExtra []string `json:"sni_extra,omitempty"`
+
+	// WSPath не пуст, когда нода стоит за CDN: тогда Address — адрес CDN,
+	// а не самой ноды.
+	WSPath string `json:"ws_path,omitempty"`
+
+	// RealityPublicKey не пуст, когда нода работает под маскировкой REALITY.
+	RealityPublicKey string `json:"reality_public_key,omitempty"`
+	RealityShortID   string `json:"reality_short_id,omitempty"`
+
+	// Fingerprint — чьё TLS-приветствие изображать: chrome, firefox, safari,
+	// ios, android, edge, qq, 360. Пусто или незнакомое имя — Chrome. Выбирает
+	// продавец для каждой ноды; клиент сам его не перебирает, см. panel.Fingerprints.
+	Fingerprint string `json:"fingerprint,omitempty"`
+
+	// QUIC означает, что нода принимает ещё и по UDP на том же порту.
+	//
+	// Это не замена TCP, а вторая дорога. На сети с потерями она заметно
+	// ровнее: весь трафик человека идёт одним соединением, и по TCP один
+	// потерянный пакет тормозит сразу всё. Плюс переход из вайфая в мобильный
+	// интернет соединение переживает, а не умирает.
+	//
+	// Где UDP режут — а режут его целыми сетями и вырезают в белых списках —
+	// клиент просто не дозвонится по нему и пойдёт обычным путём.
+	QUIC bool `json:"quic,omitempty"`
+}
+
+// Transport — каким способом подключаться к ноде.
+type Transport string
+
+const (
+	TransportTLS     Transport = "tls"
+	TransportWS      Transport = "ws"
+	TransportReality Transport = "reality"
+	TransportQUIC    Transport = "quic"
+)
+
+// Transport определяет способ подключения по заполненным полям.
+func (n Node) Transport() Transport {
+	switch {
+	case n.WSPath != "":
+		return TransportWS
+	case n.RealityPublicKey != "":
+		return TransportReality
+	default:
+		return TransportTLS
+	}
+}
+
+// serverNames собирает имена прикрытия, из которых клиент выбирает на каждое
+// соединение: основное плюс запасные.
+//
+// Пустые и повторы отбрасываются: продавец вводит имена руками, а повтор в
+// наборе молча перекосил бы выбор в его сторону. Основное идёт первым, и если
+// запасных нет, набор из него одного — тогда поведение ровно прежнее.
+func (n Node) serverNames(primary string) []string {
+	out := make([]string, 0, 1+len(n.SNIExtra))
+	seen := make(map[string]bool, 1+len(n.SNIExtra))
+	for _, name := range append([]string{primary}, n.SNIExtra...) {
+		name = strings.TrimSpace(name)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	if len(out) == 0 {
+		return []string{primary}
+	}
+	return out
+}
+
+// Subscription — ответ панели для нашего клиента.
+type Subscription struct {
+	Nodes        []Node `json:"nodes"`
+	TrafficLimit int64  `json:"traffic_limit"`
+	Used         int64  `json:"used"`
+	ExpiresAt    string `json:"expires_at,omitempty"`
+
+	// Apps — что панель выложила для скачивания, по платформам: android,
+	// windows. Версия может быть пустой — тогда сравнивать не с чем.
+	Apps map[string]AppOffer `json:"apps,omitempty"`
+
+	// SupportURL, RenewURL и Announce — куда писать, где продлить и что
+	// продавец хочет сказать всем сразу. Пусто — продавец не задал.
+	//
+	// Панели клиент не доверяет: поля перепроверяются при каждом приёме, и
+	// из сети, и из кэша, — см. distrust. Ссылку приложение отдаёт системе,
+	// и схема, которую панель «забыла» проверить, открылась бы у человека.
+	SupportURL string `json:"support_url,omitempty"`
+	RenewURL   string `json:"renew_url,omitempty"`
+	Announce   string `json:"announce,omitempty"`
+}
+
+// Seller — поддержка, продление и объявление одним значением.
+func (s Subscription) Seller() seller.Info {
+	return seller.Info{SupportURL: s.SupportURL, RenewURL: s.RenewURL, Announce: s.Announce}
+}
+
+// WithSeller кладёт в подписку поддержку, продление и объявление, вычистив
+// их по тем же правилам, что и ответ панели.
+func (s Subscription) WithSeller(info seller.Info) Subscription {
+	info = seller.Clean(info)
+	s.SupportURL, s.RenewURL, s.Announce = info.SupportURL, info.RenewURL, info.Announce
+	return s
+}
+
+// distrust вычищает то, что пришло от панели и пойдёт человеку на экран
+// или в систему: негодные ссылки выбрасываются, из объявления уходят
+// управляющие символы и символы направления письма, длинное обрезается.
+func (s Subscription) distrust() Subscription {
+	return s.WithSeller(s.Seller())
+}
+
+// AppOffer — ссылка на приложение с домена панели и его версия.
+type AppOffer struct {
+	URL     string `json:"url"`
+	Version string `json:"version,omitempty"`
+}
+
+// Update говорит, лежит ли на панели версия новее той, что запущена.
+//
+// Новее, а не «другая»: продавец мог выложить старую сборку, и звать
+// человека на неё — значит звать назад. Сравниваем и основной номер, и
+// хвост тестового выпуска по тем же правилам, что панель. Сборка dev
+// не обновляется никогда — это разработчик, он знает, что
+// запустил.
+func (s Subscription) Update(platform, current string) (AppOffer, bool) {
+	offer, ok := s.Apps[platform]
+	if !ok || offer.Version == "" || offer.URL == "" || current == "" || current == "dev" {
+		return AppOffer{}, false
+	}
+	if !version.Newer(offer.Version, current) {
+		return AppOffer{}, false
+	}
+	// Ссылку клиент отдаёт системе: на Windows — explorer.exe, на Android —
+	// ACTION_VIEW. Панель для покупателя — чужой сервер, и `file:`, UNC-путь
+	// или `intent:` оттуда открывать нельзя: только страница в браузере.
+	if !webLink(offer.URL) {
+		return AppOffer{}, false
+	}
+	return offer, true
+}
+
+// webLink — ссылка, которую безопасно отдать браузеру: http или https с
+// именем хоста.
+func webLink(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return u.Scheme == "http" || u.Scheme == "https"
+}
+
+// Remaining возвращает остаток квоты. Ноль лимита означает «без ограничения».
+func (s Subscription) Remaining() int64 {
+	if s.TrafficLimit <= 0 {
+		return 0
+	}
+	if left := s.TrafficLimit - s.Used; left > 0 {
+		return left
+	}
+	return 0
+}
+
+// FetchSubscription забирает список нод у панели.
+//
+// pinned — адреса панели из ссылки доступа. Когда они заданы, имя домена у
+// резолвера не спрашивается вовсе: соединение идёт прямо по адресу, а имя
+// уходит в SNI и по нему проверяется сертификат. Пусто — обычный путь через
+// системный резолвер.
+func FetchSubscription(ctx context.Context, subURL string, pinned []netip.Addr) (Subscription, error) {
+	return FetchSubscriptionWithClient(ctx, subURL, subscriptionClient(pinned))
+}
+
+// FetchSubscriptionWithClient сохраняет разбор и защиту перенаправлений,
+// когда мобильный клиент задаёт транспорт через уже работающий туннель.
+func FetchSubscriptionWithClient(ctx context.Context, subURL string, httpClient *http.Client) (Subscription, error) {
+	ctx, cancel := context.WithTimeout(ctx, subscriptionTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, subURL+"?format=json", nil)
+	if err != nil {
+		return Subscription{}, withoutSecret(err)
+	}
+
+	resp, err := httpguard.SubscriptionClient(httpClient).Do(req)
+	if err != nil {
+		return Subscription{}, fmt.Errorf("запрос подписки: %w", withoutSecret(err))
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return Subscription{}, fmt.Errorf("панель ответила %s", resp.Status)
+	}
+
+	var sub Subscription
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxSubscription)).Decode(&sub); err != nil {
+		return Subscription{}, fmt.Errorf("разбор подписки: %w", err)
+	}
+	if len(sub.Nodes) == 0 {
+		return Subscription{}, errors.New("в подписке нет ни одной ноды")
+	}
+	return sub.distrust(), nil
+}
+
+// FetchBypass забирает у панели российские подсети, которые идут мимо туннеля.
+//
+// Тем же клиентом, что подписку: с адресами панели из ссылки. Раньше список
+// качало приложение своим HTTP, мимо этих адресов, и там, где имя панели не
+// разрешалось, список не скачивался никогда — российские сайты шли через
+// ноду за границей и не открывались.
+func FetchBypass(ctx context.Context, subURL string, pinned []netip.Addr) ([]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, subscriptionTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(subURL, "/")+"/bypass", nil)
+	if err != nil {
+		return nil, withoutSecret(err)
+	}
+	resp, err := subscriptionClient(pinned).Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("запрос списка: %w", withoutSecret(err))
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("панель ответила %s", resp.Status)
+	}
+	var body struct {
+		Prefixes []string `json:"prefixes"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxBypass)).Decode(&body); err != nil {
+		return nil, fmt.Errorf("разбор списка: %w", err)
+	}
+	out := body.Prefixes[:0]
+	for _, p := range body.Prefixes {
+		// Кривая строка не должна ронять весь список: берём то, что разбирается.
+		if _, err := netip.ParsePrefix(strings.TrimSpace(p)); err == nil {
+			out = append(out, strings.TrimSpace(p))
+		}
+	}
+	if len(out) == 0 {
+		return nil, errors.New("панель отдала пустой список")
+	}
+	return out, nil
+}
+
+// maxBypass — предел ответа со списком: десятки тысяч подсетей — это
+// мегабайт с небольшим, дальше уже не список, а чья-то ошибка.
+const maxBypass = 8 << 20
+
+// subscriptionClient собирает клиента, который ходит по заданным адресам.
+//
+// Подменяется только адрес соединения. Имя из ссылки остаётся в запросе, и
+// стандартный транспорт сам подставляет его в SNI и в проверку сертификата —
+// поэтому подменить панель, зная лишь адрес, всё равно не выйдет.
+func subscriptionClient(pinned []netip.Addr) *http.Client {
+	if len(pinned) == 0 {
+		return httpguard.SubscriptionClient(http.DefaultClient)
+	}
+
+	// Перебираем адреса целым запросом, а не одним TCP: адрес, который принял
+	// соединение и тут же его оборвал, — мёртвый узел CDN или фильтр, режущий
+	// после приветствия TLS, — тоже не ответил. Раньше перебор останавливался
+	// на первом принявшем TCP, и такой адрес оставлял покупателя без списка нод.
+	// Запрос подписки — GET без тела, повторять его на другом адресе безопасно.
+	try := make([]http.RoundTripper, 0, len(pinned)+1)
+	for _, ip := range pinned {
+		try = append(try, pinnedTransport(ip))
+	}
+	return httpguard.SubscriptionClient(&http.Client{Transport: pinnedRoundTripper{pinned: try, plain: pinnedTransport(netip.Addr{})}})
+}
+
+// pinnedTransport — транспорт, который идёт на этот адрес, что бы ни
+// говорило имя; нулевой адрес — обычный поход по имени.
+func pinnedTransport(ip netip.Addr) *http.Transport {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+
+	// Прокси из настроек системы отключаем намеренно. Он разрешил бы имя сам
+	// и увидел бы его — то есть подсказка перестала бы что-либо значить.
+	// Продавец, вписавший адреса в ссылку, рассчитывает на прямое соединение.
+	transport.Proxy = nil
+	if !ip.IsValid() {
+		return transport
+	}
+
+	// Срок на каждую попытку отдельно. Без него первый же неотвечающий
+	// адрес съедал бы весь срок запроса, и до живого мы бы не дошли — а у
+	// панели за CDN мёртвый адрес в списке дело обычное.
+	dialer := net.Dialer{Timeout: pinnedDialTimeout}
+	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		_, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+		return dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+	}
+	return transport
+}
+
+// pinnedRoundTripper пробует подсказанные адреса по очереди, а затем имя.
+type pinnedRoundTripper struct {
+	pinned []http.RoundTripper
+	plain  http.RoundTripper
+}
+
+func (p pinnedRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	for _, t := range p.pinned {
+		resp, err := t.RoundTrip(req)
+		if err == nil {
+			return resp, nil
+		}
+		if req.Context().Err() != nil {
+			return nil, err
+		}
+	}
+
+	// Все подсказанные адреса молчат — спрашиваем имя как обычно.
+	//
+	// Подсказку вписывают один раз и живёт она годами, а адреса панели за
+	// это время меняются: продавец переехал, CDN сменил диапазон. Упереться
+	// в устаревшую подсказку и оставить покупателя без списка нод — хуже,
+	// чем один запрос имени в редком случае. Ради этого запроса всё и
+	// затевалось, но затевалось ради обычного дня, а не ради поломки.
+	resp, err := p.plain.RoundTrip(req)
+	if err != nil {
+		return nil, fmt.Errorf("адреса панели из ссылки не отвечают, и по имени тоже не вышло: %w", err)
+	}
+	return resp, nil
+}
+
+// Until — до какого момента оплачена подписка.
+//
+// false означает «без ограничения по сроку»: так панель отвечает, когда
+// продавец не поставил срок вовсе.
+func (s Subscription) Until() (time.Time, bool) {
+	if strings.TrimSpace(s.ExpiresAt) == "" {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(time.RFC3339, s.ExpiresAt)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
+// Allows проверяет, есть ли смысл вообще звонить нодам.
+//
+// Без этой проверки кончившаяся подписка выглядит как «ни один сервер не
+// отвечает»: ноды честно отказывают, а человек читает, что сломались мы. Он
+// идёт к продавцу с «у вас всё лежит» вместо «продли», и платит за это
+// продавец — своим временем на каждого такого.
+func (s Subscription) Allows() error {
+	if until, set := s.Until(); set && time.Now().After(until) {
+		return fmt.Errorf("%w: %s", ErrExpired, until.Local().Format("02.01.2006"))
+	}
+	if s.TrafficLimit > 0 && s.Used >= s.TrafficLimit {
+		return ErrQuota
+	}
+	return nil
+}
+
+// Title — как ноду называть человеку.
+//
+// Страна первой: покупателю «Нидерланды» говорит всё, а vm-4823917-ubuntu от
+// хостера — ничего. Пустая страна ничего не портит, остаётся одно имя.
+func (n Node) Title() string {
+	switch {
+	case n.Country == "":
+		return n.Name
+	case n.Name == "":
+		return n.Country
+	default:
+		return n.Country + " · " + n.Name
+	}
+}

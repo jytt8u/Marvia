@@ -1,0 +1,485 @@
+package tunnel_test
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/jytt8u/marvia/internal/mux"
+	"github.com/jytt8u/marvia/internal/tunnel"
+	"github.com/jytt8u/marvia/internal/vp1"
+)
+
+// testServer — нода без маскировки: только VP1 и мультиплексирование.
+// Маскировка проверяется отдельно, в internal/transport.
+type testServer struct {
+	addr string
+	pub  []byte
+}
+
+func startServer(t *testing.T, handle func(stream net.Conn)) *testServer {
+	t.Helper()
+
+	key, err := vp1.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("ключи: %v", err)
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("слушатель: %v", err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+
+	guard := vp1.NewReplayGuard(vp1.ClockSkew)
+
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				tun, _, err := vp1.ServerHandshake(conn, key, guard, vp1.AllowAll)
+				if err != nil {
+					_ = conn.Close()
+					return
+				}
+				defer tun.Close()
+
+				session, err := mux.Server(tun)
+				if err != nil {
+					return
+				}
+				defer session.Close()
+
+				for {
+					stream, err := mux.Accept(session)
+					if err != nil {
+						return
+					}
+					go handle(stream)
+				}
+			}()
+		}
+	}()
+
+	return &testServer{addr: ln.Addr().String(), pub: key.Public}
+}
+
+// dialer собирает функцию дозвона для пула и считает вызовы.
+func dialer(t *testing.T, srv *testServer, calls *atomic.Int32) tunnel.DialFunc {
+	t.Helper()
+	clientKey, err := vp1.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("ключи клиента: %v", err)
+	}
+
+	return func(ctx context.Context) (net.Conn, error) {
+		if calls != nil {
+			calls.Add(1)
+		}
+		var d net.Dialer
+		raw, err := d.DialContext(ctx, "tcp", srv.addr)
+		if err != nil {
+			return nil, err
+		}
+		conn, err := vp1.ClientHandshake(raw, clientKey, srv.pub)
+		if err != nil {
+			_ = raw.Close()
+			return nil, err
+		}
+		return conn, nil
+	}
+}
+
+// echoHandler читает до конца, потом отвечает. Именно такой обработчик
+// требует корректного полузакрытия: пока клиент не скажет «я всё сказал»,
+// ответа не будет.
+func echoHandler(stream net.Conn) {
+	defer stream.Close()
+	data, err := io.ReadAll(stream)
+	if err != nil {
+		return
+	}
+	_, _ = stream.Write(append([]byte("ответ: "), data...))
+}
+
+// TestHalfCloseThroughStream — проверка того, что клиент, закрывший свою
+// половину потока, всё ещё может прочитать ответ.
+//
+// Без этого свойства ломается всё, где запрос заканчивается закрытием записи:
+// HTTP-запрос без keep-alive, отправка письма по SMTP, загрузка файла.
+// Проявляется как «страница загрузилась наполовину» — самый неприятный класс
+// багов в прокси, потому что он плавающий.
+func TestHalfCloseThroughStream(t *testing.T) {
+	srv := startServer(t, echoHandler)
+	pool := tunnel.NewPool(dialer(t, srv, nil), 0, 0)
+	defer pool.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	stream, err := pool.Open(ctx)
+	if err != nil {
+		t.Fatalf("открытие потока: %v", err)
+	}
+	defer stream.Close()
+
+	if _, err := stream.Write([]byte("запрос")); err != nil {
+		t.Fatalf("запись: %v", err)
+	}
+
+	// Говорим «я всё сказал», не закрывая приём.
+	type closeWriter interface{ CloseWrite() error }
+	cw, ok := stream.(closeWriter)
+	if !ok {
+		t.Fatal("поток не умеет закрывать только исходящую половину")
+	}
+	if err := cw.CloseWrite(); err != nil {
+		t.Fatalf("полузакрытие: %v", err)
+	}
+
+	_ = stream.SetReadDeadline(time.Now().Add(10 * time.Second))
+	got, err := io.ReadAll(stream)
+	if err != nil {
+		t.Fatalf("чтение ответа после полузакрытия: %v", err)
+	}
+	if string(got) != "ответ: запрос" {
+		t.Fatalf("получено %q", got)
+	}
+}
+
+// TestPoolConcurrentStreams: много одновременных потоков должны работать
+// независимо и не путать данные между собой.
+func TestPoolConcurrentStreams(t *testing.T) {
+	srv := startServer(t, func(stream net.Conn) {
+		defer stream.Close()
+		buf := make([]byte, 64)
+		n, err := stream.Read(buf)
+		if err != nil {
+			return
+		}
+		_, _ = stream.Write(buf[:n])
+	})
+
+	pool := tunnel.NewPool(dialer(t, srv, nil), 0, 0)
+	defer pool.Close()
+
+	const streams = 40
+	var wg sync.WaitGroup
+	errs := make(chan error, streams)
+
+	for i := 0; i < streams; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+
+			stream, err := pool.Open(ctx)
+			if err != nil {
+				errs <- fmt.Errorf("поток %d: открытие: %w", i, err)
+				return
+			}
+			defer stream.Close()
+
+			want := fmt.Sprintf("поток номер %d", i)
+			if _, err := stream.Write([]byte(want)); err != nil {
+				errs <- fmt.Errorf("поток %d: запись: %w", i, err)
+				return
+			}
+			buf := make([]byte, len(want))
+			if _, err := io.ReadFull(stream, buf); err != nil {
+				errs <- fmt.Errorf("поток %d: чтение: %w", i, err)
+				return
+			}
+			if string(buf) != want {
+				errs <- fmt.Errorf("поток %d: получено %q, ожидалось %q", i, buf, want)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Error(err)
+	}
+}
+
+// TestPoolReusesSessions: пул не должен открывать новое соединение до ноды
+// на каждый запрос — ровно от этого мы и уходили.
+func TestPoolReusesSessions(t *testing.T) {
+	srv := startServer(t, func(stream net.Conn) {
+		defer stream.Close()
+		_, _ = io.Copy(stream, stream)
+	})
+
+	var calls atomic.Int32
+	const maxSessions, maxStreams = 4, 16
+	pool := tunnel.NewPool(dialer(t, srv, &calls), maxSessions, maxStreams)
+	defer pool.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// Открываем ровно столько потоков, сколько помещается в одну сессию.
+	opened := make([]net.Conn, 0, maxStreams)
+	for i := 0; i < maxStreams; i++ {
+		stream, err := pool.Open(ctx)
+		if err != nil {
+			t.Fatalf("поток %d: %v", i, err)
+		}
+		opened = append(opened, stream)
+	}
+	defer func() {
+		for _, s := range opened {
+			_ = s.Close()
+		}
+	}()
+
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("на %d потоков открыто %d соединений до ноды, ожидалось 1", maxStreams, got)
+	}
+}
+
+// TestPoolDoesNotBurstHandshakes — прямое следствие того, как ТСПУ ловит
+// туннели в 2026 году: несколько параллельных TLS-хендшейков к одному имени
+// в коротком окне сами по себе служат признаком, и соединения после этого
+// молча дропаются на пару минут.
+//
+// Поэтому пул обязан, во-первых, никогда не вести два хендшейка одновременно,
+// а во-вторых, не открывать новое соединение, если в уже поднятом есть место.
+func TestPoolDoesNotBurstHandshakes(t *testing.T) {
+	srv := startServer(t, func(stream net.Conn) {
+		defer stream.Close()
+		_, _ = io.Copy(stream, stream)
+	})
+
+	var (
+		inFlight atomic.Int32
+		peak     atomic.Int32
+		total    atomic.Int32
+	)
+
+	base := dialer(t, srv, nil)
+	counting := func(ctx context.Context) (net.Conn, error) {
+		now := inFlight.Add(1)
+		for {
+			best := peak.Load()
+			if now <= best || peak.CompareAndSwap(best, now) {
+				break
+			}
+		}
+		defer inFlight.Add(-1)
+
+		total.Add(1)
+		// Задержка делает гонку заметной: без сериализации сюда влетели бы
+		// все горутины разом.
+		time.Sleep(50 * time.Millisecond)
+		return base(ctx)
+	}
+
+	pool := tunnel.NewPool(counting, 4, 32)
+	defer pool.Close()
+
+	const streams = 20
+	var wg sync.WaitGroup
+	opened := make(chan net.Conn, streams)
+
+	for i := 0; i < streams; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			stream, err := pool.Open(ctx)
+			if err != nil {
+				t.Errorf("открытие потока: %v", err)
+				return
+			}
+			opened <- stream
+		}()
+	}
+	wg.Wait()
+	close(opened)
+	for s := range opened {
+		_ = s.Close()
+	}
+
+	if got := peak.Load(); got > 1 {
+		t.Fatalf("одновременных хендшейков: %d, допускается не больше одного", got)
+	}
+	if got := total.Load(); got != 1 {
+		t.Fatalf("на %d потоков открыто %d соединений, хватало одного", streams, got)
+	}
+}
+
+// TestPoolRotatesIdleSessionAfterDeadline — сессия живёт не вечно: перешагнув
+// свой срок и опустев, она закрывается, а следующий поток открывает свежую.
+// Так эфемерный ключ не живёт сутками, а картина соединений остаётся
+// браузерной.
+func TestPoolRotatesIdleSessionAfterDeadline(t *testing.T) {
+	srv := startServer(t, echoHandler)
+
+	var calls atomic.Int32
+	pool := tunnel.NewPool(dialer(t, srv, &calls), 4, 32)
+	defer pool.Close()
+
+	// Часы под нашим управлением; срок смены — минута условного времени.
+	now := time.Now()
+	clock := &now
+	var mu sync.Mutex
+	pool.SetClock(func() time.Time { mu.Lock(); defer mu.Unlock(); return *clock }, time.Minute)
+
+	ctx := context.Background()
+
+	// Первый поток поднимает первую сессию. Закроем его — сессия пуста.
+	s1, err := pool.Open(ctx)
+	if err != nil {
+		t.Fatalf("первый поток: %v", err)
+	}
+	_ = s1.Close()
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("соединений после первого потока: %d, ожидалось 1", got)
+	}
+
+	// Пока срок не вышел, следующий поток берёт ту же сессию.
+	s2, err := pool.Open(ctx)
+	if err != nil {
+		t.Fatalf("второй поток: %v", err)
+	}
+	_ = s2.Close()
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("до срока смены открыто соединений: %d, должна была переиспользоваться одна", got)
+	}
+
+	// Перешагиваем срок. Пустая старая сессия закрывается, новый поток
+	// поднимает свежую — второе соединение до ноды.
+	mu.Lock()
+	*clock = now.Add(2 * time.Minute)
+	mu.Unlock()
+
+	s3, err := pool.Open(ctx)
+	if err != nil {
+		t.Fatalf("третий поток: %v", err)
+	}
+	defer s3.Close()
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("после срока смены открыто соединений: %d, ожидалось 2 (свежая сессия)", got)
+	}
+}
+
+// TestPoolKeepsRetiredSessionWithLiveStream — уходящую сессию с живым потоком
+// не рвём: закачка не должна прерваться ради ротации. Смена случится, только
+// когда поток договорит.
+func TestPoolKeepsRetiredSessionWithLiveStream(t *testing.T) {
+	srv := startServer(t, echoHandler)
+
+	var calls atomic.Int32
+	pool := tunnel.NewPool(dialer(t, srv, &calls), 4, 32)
+	defer pool.Close()
+
+	now := time.Now()
+	clock := &now
+	var mu sync.Mutex
+	pool.SetClock(func() time.Time { mu.Lock(); defer mu.Unlock(); return *clock }, time.Minute)
+
+	ctx := context.Background()
+
+	// Поток открыт и не закрыт — сессия занята.
+	busy, err := pool.Open(ctx)
+	if err != nil {
+		t.Fatalf("занятый поток: %v", err)
+	}
+
+	// Срок вышел, но поток жив: старую сессию не закрываем. А вот новый поток
+	// пойдёт уже в свежую, потому что старая на покое.
+	mu.Lock()
+	*clock = now.Add(2 * time.Minute)
+	mu.Unlock()
+
+	next, err := pool.Open(ctx)
+	if err != nil {
+		t.Fatalf("новый поток: %v", err)
+	}
+	defer next.Close()
+
+	// Старый поток всё ещё работает: пишем, говорим «я всё сказал» и читаем
+	// ответ. Обработчик отвечает только после конца запроса — потому и
+	// полузакрытие, а не просто чтение.
+	if _, err := busy.Write([]byte("живой поток не оборван")); err != nil {
+		t.Fatalf("запись в старый поток: %v", err)
+	}
+	type closeWriter interface{ CloseWrite() error }
+	cw, ok := busy.(closeWriter)
+	if !ok {
+		t.Fatal("поток не умеет закрывать только исходящую половину")
+	}
+	if err := cw.CloseWrite(); err != nil {
+		t.Fatalf("полузакрытие старого потока: %v", err)
+	}
+
+	_ = busy.SetReadDeadline(time.Now().Add(10 * time.Second))
+	got, err := io.ReadAll(busy)
+	if err != nil {
+		t.Fatalf("чтение из старого потока: %v", err)
+	}
+	if string(got) != "ответ: живой поток не оборван" {
+		t.Fatalf("эхо: %q", got)
+	}
+	_ = busy.Close()
+
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("соединений: %d, ожидалось 2 (старая доработала, новая поднялась)", got)
+	}
+}
+
+// TestPoolClosesIdleSessionWithoutBeingAsked — молчащий туннель не держит
+// соединение до ноды вечно.
+//
+// Смена сессии, которая случается только при открытии следующего потока,
+// оставила бы простаивающий туннель с одним соединением на много часов — ровно
+// той картиной, от которой смена и уводит. Поэтому пул оглядывается на свои
+// сессии сам, без обращений снаружи.
+func TestPoolClosesIdleSessionWithoutBeingAsked(t *testing.T) {
+	srv := startServer(t, echoHandler)
+
+	pool := tunnel.NewPoolForTest(dialer(t, srv, nil), 4, 32, 10*time.Millisecond)
+	defer pool.Close()
+
+	now := time.Now()
+	clock := &now
+	var mu sync.Mutex
+	pool.SetClock(func() time.Time { mu.Lock(); defer mu.Unlock(); return *clock }, time.Minute)
+
+	// Поднимаем сессию и освобождаем её.
+	stream, err := pool.Open(context.Background())
+	if err != nil {
+		t.Fatalf("поток: %v", err)
+	}
+	_ = stream.Close()
+	if got := pool.Sessions(); got != 1 {
+		t.Fatalf("сессий после первого потока: %d, ожидалась 1", got)
+	}
+
+	// Срок вышел. Больше никто ничего не открывает — пул должен убрать
+	// сессию сам.
+	mu.Lock()
+	*clock = now.Add(2 * time.Minute)
+	mu.Unlock()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for pool.Sessions() != 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("простаивающая сессия осталась открытой: пул не убрал её сам")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}

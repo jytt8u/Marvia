@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Пять вкладок. Подписи подстраиваются под ширину и размер шрифта. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="12dp"
+    android:layout_marginBottom="8dp"
+    android:background="@color/veil_surface"
+    android:orientation="vertical"
+    android:tag="navbar">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:tag="line"
+        android:background="@color/veil_border" />
+
+    <GridLayout
+        android:id="@+id/navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="5"
+        android:paddingHorizontal="8dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="6dp">
+
+        <LinearLayout
+            android:id="@+id/navConnect"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:background="@null" android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingVertical="4dp">
+
+            <FrameLayout
+                android:id="@+id/navConnectPill"
+                android:layout_width="44dp"
+                android:layout_height="28dp">
+
+                <ImageView
+                    android:id="@+id/navConnectIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_nav_tunnel" />
+            </FrameLayout>
+
+            <androidx.appcompat.widget.AppCompatTextView style="@style/VeilNavLabel"
+                android:id="@+id/navConnectLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/nav_connect"
+                />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navServers"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:background="@null" android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingVertical="4dp">
+
+            <FrameLayout
+                android:id="@+id/navServersPill"
+                android:layout_width="44dp"
+                android:layout_height="28dp">
+
+                <ImageView
+                    android:id="@+id/navServersIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_nav_servers" />
+            </FrameLayout>
+
+            <androidx.appcompat.widget.AppCompatTextView style="@style/VeilNavLabel"
+                android:id="@+id/navServersLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/nav_servers"
+                />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navStats"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:background="@null" android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingVertical="4dp">
+
+            <FrameLayout
+                android:id="@+id/navStatsPill"
+                android:layout_width="44dp"
+                android:layout_height="28dp">
+
+                <ImageView
+                    android:id="@+id/navStatsIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_nav_stats" />
+            </FrameLayout>
+
+            <androidx.appcompat.widget.AppCompatTextView style="@style/VeilNavLabel"
+                android:id="@+id/navStatsLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/nav_stats"
+                />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navTheme"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:background="@null" android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingVertical="4dp">
+
+            <FrameLayout
+                android:id="@+id/navThemePill"
+                android:layout_width="44dp"
+                android:layout_height="28dp">
+
+                <ImageView
+                    android:id="@+id/navThemeIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_nav_theme" />
+            </FrameLayout>
+
+            <androidx.appcompat.widget.AppCompatTextView style="@style/VeilNavLabel"
+                android:id="@+id/navThemeLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/nav_theme"
+                />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navMore"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:background="@null" android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingVertical="4dp">
+
+            <FrameLayout
+                android:id="@+id/navMorePill"
+                android:layout_width="44dp"
+                android:layout_height="28dp">
+
+                <ImageView
+                    android:id="@+id/navMoreIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_nav_more" />
+            </FrameLayout>
+
+            <androidx.appcompat.widget.AppCompatTextView style="@style/VeilNavLabel"
+                android:id="@+id/navMoreLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/nav_more"
+                />
+        </LinearLayout>
+    </GridLayout>
+</LinearLayout>

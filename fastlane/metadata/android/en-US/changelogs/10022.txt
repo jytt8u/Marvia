@@ -1,0 +1,3 @@
+0.13.0-alpha.18 — test release.
+Connecting no longer waits for dead nodes: once a live one answers, the rest get a second and a half instead of eight.
+The VP1 wire format is unchanged.

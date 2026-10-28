@@ -1,0 +1,256 @@
+package panel
+
+import (
+	"reflect"
+	"regexp"
+	"strings"
+	"testing"
+
+	"github.com/jytt8u/marvia/internal/look"
+)
+
+// Страница несёт метку, на место которой встаёт общая тема, и не несёт
+// своей копии таблицы.
+//
+// Без метки страница отдастся целой и упадёт на первой же строке, где
+// спросят Look: панель окажется пустой, а ошибка — только в консоли браузера.
+// Своя копия таблицы страшнее: она работает, и именно поэтому расходится с
+// окном на компьютере незаметно.
+func TestPageCarriesSharedLook(t *testing.T) {
+	raw, err := webFS.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	page := string(raw)
+
+	if n := strings.Count(page, look.Marker); n != 1 {
+		t.Fatalf("метка темы встречается %d раз, нужна ровно одна", n)
+	}
+	if strings.Contains(page, "const PRESETS = {") {
+		t.Error("в странице своя таблица пресетов — она должна быть только в internal/look/look.js")
+	}
+
+	// После вшивания метки не остаётся, а тема на месте.
+	served := look.Inline(page)
+	if strings.Contains(served, look.Marker) || !strings.Contains(served, "const Look = ") {
+		t.Error("тема не встала на место метки")
+	}
+}
+
+// Названий видов в словаре столько же, сколько видов в таблице, — на обоих
+// языках. Названия лежат по номерам, и лишний или недостающий вид подписал
+// бы карточки со сдвигом: «Изумруд» стал бы «Нефритом».
+func TestEveryLookHasANameInBothLanguages(t *testing.T) {
+	raw, err := webFS.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+
+	want := len(look.Looks())
+	if want == 0 {
+		t.Fatal("в таблице нет ни одного вида")
+	}
+
+	// Список названий: themes: [ "…", "…", ], по одному на язык.
+	lists := regexp.MustCompile(`themes: \[([^\]]*)\]`).FindAllStringSubmatch(string(raw), -1)
+	if len(lists) != 2 {
+		t.Fatalf("списков названий %d, ожидалось два — по одному на язык", len(lists))
+	}
+	for i, l := range lists {
+		got := strings.Count(l[1], `"`) / 2
+		if got != want {
+			t.Errorf("словарь %d: названий %d, видов в таблице %d", i+1, got, want)
+		}
+	}
+}
+
+// Страница обязана начинаться с DOCTYPE.
+//
+// Проверка выглядит нелепой ровно до первого раза, когда она срабатывает.
+// Правка скриптом дважды вписалась в начало файла вместо нужного места, и
+// строка кода уехала на страницу продавца — он увидел её над панелью. Браузер
+// при этом молчит: документ без DOCTYPE он не отвергает, а переключается в
+// режим совместимости, и вёрстка едет незаметно.
+func TestPageStartsWithDoctype(t *testing.T) {
+	raw, err := webFS.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+
+	const want = "<!DOCTYPE html>"
+	if !strings.HasPrefix(string(raw), want) {
+		head := string(raw)
+		if len(head) > 120 {
+			head = head[:120]
+		}
+		t.Fatalf("страница начинается не с %s, а с %q", want, head)
+	}
+
+	// И ровно один раз: второй DOCTYPE означает, что в файл что-то вклеилось.
+	if n := strings.Count(string(raw), want); n != 1 {
+		t.Errorf("DOCTYPE встречается %d раз, ожидался один", n)
+	}
+}
+
+// Словарь d18 живёт только внутри renderVals.
+//
+// Это не вкусовщина, а единственное место, где такую ошибку можно поймать
+// заранее. JavaScript не жалуется на неизвестное имя при загрузке файла: он
+// падает в тот миг, когда до строки дошло исполнение. Функция sinceLabel
+// обращалась к d18 снаружи и вызывалась только при живой ноде — на пустой
+// панели всё выглядело здоровым, а у продавца с нодами страница навсегда
+// замирала на «Обновляю…», потому что render() падал целиком.
+//
+// В разметке шаблона d18.* законен: туда его подставляет сам renderVals.
+// Поэтому смотрим только на текст скрипта.
+func TestDictionaryStaysInsideRenderVals(t *testing.T) {
+	raw, err := webFS.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	lines := strings.Split(string(raw), "\n")
+
+	scriptAt, valsAt, renderAt := -1, -1, -1
+	for i, l := range lines {
+		switch {
+		case scriptAt < 0 && strings.HasPrefix(l, "<script"):
+			scriptAt = i
+		case valsAt < 0 && strings.HasPrefix(l, "function renderVals()"):
+			valsAt = i
+		case valsAt >= 0 && renderAt < 0 && strings.HasPrefix(l, "function render()"):
+			renderAt = i
+		}
+	}
+	if scriptAt < 0 || valsAt < 0 || renderAt < 0 {
+		t.Fatalf("не нашёл границы: script=%d renderVals=%d render=%d", scriptAt, valsAt, renderAt)
+	}
+
+	// \b перед d18 отсекает шестнадцатеричные цвета вида #1fd18d, точка
+	// после — обращение к полю, а не совпадение внутри другого слова.
+	use := regexp.MustCompile(`\bd18\.`)
+
+	for i := scriptAt; i < len(lines); i++ {
+		if i >= valsAt && i < renderAt {
+			continue // законная область
+		}
+		if use.MatchString(lines[i]) {
+			t.Errorf("строка %d обращается к d18 вне renderVals — снаружи такого имени нет: %s",
+				i+1, strings.TrimSpace(lines[i]))
+		}
+	}
+}
+
+// Каждое поле, которое читает код страницы, на странице есть.
+//
+// Опечатка в id не видна ни при загрузке, ни на пустой панели: getElementById
+// молча отдаёт null, и сохранение падает только у продавца, когда он нажал
+// кнопку. Поле бывает в разметке (id="…"), а бывает собрано кодом окна —
+// через field(…, "id", …) или el(…, { id: "…" }).
+func TestEveryFieldTheCodeReadsExistsOnThePage(t *testing.T) {
+	raw, err := webFS.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	page := string(raw)
+
+	reads := regexp.MustCompile(`(?:getElementById|\bval|\bnum)\("([a-z][\w-]*)"\)`).FindAllStringSubmatch(page, -1)
+	if len(reads) == 0 {
+		t.Fatal("не нашёл ни одного чтения поля — проверка ничего не проверяет")
+	}
+	seen := map[string]bool{}
+	for _, m := range reads {
+		id := m[1]
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		built := regexp.MustCompile(`field\([^,]+, "` + regexp.QuoteMeta(id) + `"|\{ id: "` + regexp.QuoteMeta(id) + `"`)
+		if !strings.Contains(page, `id="`+id+`"`) && !built.MatchString(page) {
+			t.Errorf("код читает поле %q, а на странице его нет", id)
+		}
+	}
+	for _, id := range []string{"sl-support", "sl-renew", "sl-announce"} {
+		if !seen[id] {
+			t.Errorf("поле %q есть на странице, но сохранение его не читает", id)
+		}
+	}
+}
+
+// TestBuyerNameFieldSuggestsAPseudonym — поле имени покупателя прямо говорит,
+// что хватит псевдонима, а почты и телефона панель не спрашивает вовсе.
+//
+// Имя покупателя — подсказка продавцу в списке, ни на что больше оно не
+// влияет. Пустое поле «Имя» продавец заполняет фамилией по привычке, и тогда
+// изъятая панель выдаёт список людей. Подсказка стоит дешевле.
+func TestBuyerNameFieldSuggestsAPseudonym(t *testing.T) {
+	raw, err := webFS.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	page := string(raw)
+
+	hints := regexp.MustCompile(`newLabel: \[[^\]]*\]`).FindAllString(page, -1)
+	if len(hints) != 2 {
+		t.Fatalf("подсказок к имени покупателя %d, ждали по одной на язык", len(hints))
+	}
+	if !strings.Contains(hints[0], "псевдоним") {
+		t.Errorf("русская подсказка не предлагает псевдоним: %s", hints[0])
+	}
+	if !strings.Contains(hints[1], "nickname") {
+		t.Errorf("английская подсказка не предлагает псевдоним: %s", hints[1])
+	}
+
+	for _, bad := range []string{`type="email"`, `type="tel"`, `"email"`, `"phone"`, `email:`, `phone:`} {
+		if strings.Contains(page, bad) {
+			t.Errorf("панель спрашивает о покупателе лишнее: на странице %s", bad)
+		}
+	}
+	for _, params := range []any{CreateUserParams{}, UpdateUserParams{}} {
+		fields := reflect.TypeOf(params)
+		for i := 0; i < fields.NumField(); i++ {
+			tag := strings.ToLower(fields.Field(i).Tag.Get("json"))
+			for _, bad := range []string{"mail", "phone", "tel"} {
+				if strings.Contains(tag, bad) {
+					t.Errorf("%s принимает %s: панель не собирает почту и телефон", fields.Name(), tag)
+				}
+			}
+		}
+	}
+}
+
+// В разделе клиентов счётчики уже живут в подзаголовке и фильтрах: ещё один
+// ряд карточек отнимает у списка высоту, но ничего продавцу не сообщает.
+// У ключей такого повтора нет, поэтому их единственная карточка остаётся.
+// Заголовок помещён именно в прокручиваемую область: sticky снаружи неё
+// выглядел бы правильно в исходнике, но уезжал бы вместе со всей страницей.
+func TestClientsTableStartsAtFiltersAndKeepsHeaderVisible(t *testing.T) {
+	raw, err := webFS.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatalf("страница не читается: %v", err)
+	}
+	page := string(raw)
+
+	kpiAt := strings.Index(page, "const KPI = {")
+	kpiEnd := strings.Index(page, "const pageKpis =")
+	if kpiAt < 0 || kpiEnd <= kpiAt {
+		t.Fatalf("не нашёл таблицу показателей: начало=%d конец=%d", kpiAt, kpiEnd)
+	}
+	kpis := page[kpiAt:kpiEnd]
+	if strings.Contains(kpis, "\n    clients: [") {
+		t.Error("раздел клиентов всё ещё формирует повторяющие показатели")
+	}
+	if !strings.Contains(kpis, "\n    keys: [") {
+		t.Error("у раздела ключей пропал его показатель")
+	}
+
+	if !strings.Contains(page, `<sc-if value="{{ hasTableKpis }}">`) {
+		t.Error("место над таблицей остаётся даже когда показателей у раздела нет")
+	}
+	viewportAndHead := regexp.MustCompile(`<div style="\{\{ tableViewport \}\}">\s*<div style="\{\{ tableHead \}\}">`)
+	if !viewportAndHead.MatchString(page) {
+		t.Error("заголовок таблицы находится вне прокручиваемой области")
+	}
+	if !strings.Contains(page, "position:sticky;top:0;z-index:1") {
+		t.Error("заголовок таблицы не закреплён сверху прокручиваемой области")
+	}
+}

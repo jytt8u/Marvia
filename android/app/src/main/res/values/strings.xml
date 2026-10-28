@@ -1,0 +1,684 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Английский лежит в values по умолчанию, русский — в values-ru.
+
+    Так задумано в Android: values — запасной вариант для всех, у кого нет
+    своей папки. Держать в нём русский значило бы показывать русские надписи
+    человеку с турецким или персидским телефоном — а это ровно те, ради кого
+    приложение и делается.
+
+    Апостроф в английском тексте ломает сборку ресурсов, а номер строки aapt
+    показывает не тот — поэтому фразы здесь построены без него.
+-->
+<resources>
+    <string name="hero_subtitle">Your personal connection</string>
+    <string name="power_hint_start">Tap the button to connect</string>
+    <string name="power_hint_cancel">Establishing your connection</string>
+    <string name="power_hint_stop">Tap the button to disconnect</string>
+    <string name="app_name">Marvia</string>
+
+    <!-- Нижняя панель: три экрана и ничего больше. -->
+    <string name="nav_connect">Tunnel</string>
+    <string name="nav_servers">Servers</string>
+    <string name="nav_more">Settings</string>
+    <string name="app_name_caps" translatable="false">MARVIA</string>
+    <string name="hero_tagline">VP1 · OWN TUNNEL · %1$s</string>
+    <string name="connect_choosing">picking the fastest node</string>
+    <string name="nav_stats">Usage</string>
+    <string name="nav_theme">Theme</string>
+
+    <!--
+        Экран выбора языка двуязычный и не переводится: пока язык не выбран,
+        он обязан читаться на обоих. Под каждым языком — его название на
+        другом; кнопка «Продолжить» одна на два языка и переключается выбором.
+    -->
+    <string name="language_title" translatable="false">Выберите язык</string>
+    <string name="language_subtitle" translatable="false">Choose your language</string>
+    <string name="language_ru" translatable="false">Русский</string>
+    <string name="language_ru_other" translatable="false">Russian</string>
+    <string name="language_en" translatable="false">English</string>
+    <string name="language_en_other" translatable="false">Английский</string>
+    <string name="language_continue_ru" translatable="false">Продолжить</string>
+    <string name="language_continue_en" translatable="false">Continue</string>
+    <string name="language_kk" translatable="false">Қазақша</string>
+    <string name="language_kk_other" translatable="false">Казахский · Kazakh</string>
+    <string name="language_continue_kk" translatable="false">Жалғастыру</string>
+    <string name="language_uz" translatable="false">Oʻzbekcha</string>
+    <string name="language_uz_other" translatable="false">Узбекский · Uzbek</string>
+    <string name="language_continue_uz" translatable="false">Davom etish</string>
+    <string name="settings_language">Language</string>
+
+    <string name="perms_title">What you will need</string>
+    <string name="perms_subtitle">Three permissions from Android. Without the first one the tunnel cannot work; the other two keep it awake and let it tell you what is going on.</string>
+    <string name="perms_vpn">Create a VPN connection</string>
+    <string name="perms_vpn_why">routes selected apps through an encrypted tunnel to your chosen node</string>
+    <string name="perms_vpn_disclosure_title">Before you allow VPN access</string>
+    <string name="perms_vpn_disclosure">Marvia will route traffic from the apps you include through an encrypted tunnel to the node supplied by your access key. The node operator can see your connection IP address, key identifier and traffic volume, and may see destination addresses after traffic exits the tunnel. If you use a subscription, its panel may receive your access token and node measurements. Apps and routes you exclude connect directly. Continue to Android’s VPN permission request?</string>
+    <string name="perms_vpn_accept">Continue</string>
+    <string name="perms_vpn_decline">Not now</string>
+    <string name="perms_notify">Show notifications</string>
+    <string name="perms_notify_why">country and speed in the shade, a warning if the node goes silent</string>
+    <string name="perms_battery">Do not put to sleep in the background</string>
+    <string name="perms_battery_why">otherwise the system may kill the tunnel in an hour</string>
+    <string name="perms_allow">Allow</string>
+    <string name="perms_note">Android will show its own prompt. Notifications and battery can be skipped and enabled later in the phone settings.</string>
+    <string name="perms_continue">Continue</string>
+    <string name="perms_vpn_first">Allow the VPN first</string>
+    <string name="status_off">Disconnected</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_on">Connected</string>
+    <string name="status_offline">No network</string>
+    <string name="status_failed">Could not connect</string>
+
+    <string name="detail_connecting">Picking the fastest node</string>
+    <string name="detail_no_key">Paste your access key</string>
+    <string name="detail_node">Node: %1$s</string>
+
+    <!-- Круг на главном экране и есть выключатель, и это стоит сказать словами. -->
+    <string name="connect_no_key">no access key yet</string>
+
+    <!--
+        Выбор и текущая нода — разные вещи. Выбранная страна могла замолчать, и
+        ядро уехало на живую: показывать в этом случае только выбор значило бы
+        врать о том, куда идёт трафик.
+    -->
+    <string name="connect_manual">this country you picked yourself</string>
+    <string name="connect_manual_moved">you picked %1$s, it went silent — traffic goes through this one</string>
+
+    <!-- Подписка: до какого числа и сколько трафика осталось. -->
+    <string name="header_until">until %1$s</string>
+    <string name="traffic_left">Left</string>
+    <string name="traffic_of">%1$s of %2$s</string>
+    <string name="sub_until_days">Access until %1$s — that is %2$s</string>
+    <string name="sub_until_only">Access until %1$s</string>
+    <plurals name="days_left">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <string name="size_gb">%1$s GB</string>
+    <string name="size_mb">%1$d MB</string>
+
+    <string name="action_connect">Connect</string>
+    <string name="action_save">Save the key</string>
+
+    <!-- Экран расхода. Считает сам телефон: панель подённых чисел не знает. -->
+    <string name="stats_title">Usage</string>
+    <string name="stats_subtitle">this phone, through the tunnel</string>
+    <string name="stats_range_week">7 d</string>
+    <string name="stats_range_month">30 d</string>
+    <string name="stats_dial_week">TOTAL THIS WEEK</string>
+    <string name="stats_dial_month">TOTAL, 30 DAYS</string>
+    <string name="stats_per_day">%1$s a day on average</string>
+    <string name="stats_peak">peak · %1$s</string>
+    <string name="stats_days_in_range">days in range</string>
+    <string name="stats_range_title_week">Week</string>
+    <string name="stats_range_title_month">Thirty days</string>
+    <string name="stats_peak_line">most of it — %1$s, %2$s</string>
+    <string name="stats_no_traffic">nothing has gone through the tunnel yet</string>
+    <string name="stats_quota">%1$s of %2$s</string>
+    <string name="stats_quota_left">left</string>
+    <string name="stats_quota_left_days">left · %1$s</string>
+    <string name="stats_unlimited">no limit</string>
+    <string name="stats_unlimited_until">no limit · until %1$s</string>
+    <string name="stats_place_share">%1$d%% · %2$s</string>
+    <string name="stats_week_peak">peak — %1$s, %2$02d:00</string>
+    <string name="stats_today_low">today</string>
+    <string name="stats_today_caps">TODAY</string>
+    <string name="stats_days_ago">%1$d d ago</string>
+    <string name="stats_places">Which countries</string>
+    <string name="stats_week">The week by hours</string>
+    <string name="stats_note">This is what one phone passed through the tunnel. Another device on the same key counts its own.</string>
+    <string-array name="weekdays_short">
+        <item>MON</item>
+        <item>TUE</item>
+        <item>WED</item>
+        <item>THU</item>
+        <item>FRI</item>
+        <item>SAT</item>
+        <item>SUN</item>
+    </string-array>
+
+    <!-- Экран ключа. -->
+    <string name="key_title">Access key</string>
+    <string name="key_hint_short">marvia://, vless://, subscription URL…</string>
+    <string name="key_paste">Paste</string>
+    <string name="key_qr">QR</string>
+    <string name="key_qr_description">Read the key from a QR code picture</string>
+    <string name="key_qr_missing">No QR code with a key found in this picture</string>
+    <string name="key_footer">The key lives on this phone only: we do not see it and cannot bring it back.</string>
+    <string name="key_clipboard_empty">There is no link in the clipboard</string>
+    <string name="key_saved">Key saved</string>
+    <string name="key_empty">The field is empty</string>
+
+    <!--
+        Ссылку приложению может подсунуть любое другое приложение или страница,
+        не только бот продавца. Пока ключа нет, менять нечего — берём молча.
+        Когда ключ уже стоит, подмена увела бы весь трафик на чужие серверы,
+        поэтому спрашиваем.
+    -->
+    <string name="key_replace_title">Replace the access key?</string>
+    <string name="key_replace_body">This link came from another app. After replacing it, your traffic goes through the servers of whoever issued it. Agree only if the link came from your seller.</string>
+    <string name="key_replace_yes">Replace</string>
+    <string name="key_replace_no">Keep the old one</string>
+
+    <!-- Экран выбора страны. -->
+    <string name="servers_title">Servers</string>
+    <string name="servers_refresh_all">Refresh all subscriptions</string>
+    <string name="servers_refresh">Refresh subscription</string>
+    <string name="servers_more">More actions</string>
+    <string name="servers_use">Make active</string>
+    <string name="servers_collapsed">collapsed</string>
+    <string name="servers_stale">The panel did not answer — showing yesterday’s list</string>
+    <string name="servers_no_subs">Add your access link with “+”. Use a key or a subscription.</string>
+    <string name="servers_unlimited">∞</string>
+    <string name="servers_quota">%1$s / %2$s</string>
+    <string name="servers_days_left">%1$s left</string>
+    <string name="servers_no_term">no expiry</string>
+    <string name="servers_age_now">just now</string>
+    <string name="servers_age_min">%1$d min</string>
+    <string name="servers_age_hours">%1$d h</string>
+    <string name="servers_age_days">%1$d d</string>
+    <string name="servers_measuring">measuring…</string>
+    <string name="servers_auto_fastest">fastest right now — %1$s</string>
+    <string name="servers_auto_idle">the fastest node of the active subscription</string>
+    <string name="node_picked">your pick</string>
+    <string name="node_traffic_now">traffic goes here now</string>
+    <plurals name="servers_providers">
+        <item quantity="one">%1$d provider</item>
+        <item quantity="other">%1$d providers</item>
+    </plurals>
+    <plurals name="servers_count">
+        <item quantity="one">%1$d server</item>
+        <item quantity="other">%1$d servers</item>
+    </plurals>
+    <string name="servers_measure">Refresh</string>
+    <string name="servers_auto">Automatic</string>
+    <string name="servers_auto_mark">⚡</string>
+    <string name="servers_auto_note">the fastest one right now is %1$s</string>
+    <string name="servers_auto_unknown">not measured yet</string>
+    <!-- Добавление подписки: буфер обмена или руками, как в привычных клиентах. -->
+    <string name="servers_add">Add</string>
+    <string name="servers_add_clipboard">Clipboard</string>
+    <string name="servers_add_qr">From a QR picture</string>
+    <string name="servers_add_manual">By hand</string>
+    <string name="servers_sub_name">Name</string>
+    <string name="servers_sub_link">marvia://, vless://, trojan://, ss://… or https://</string>
+    <string name="servers_sub_untitled">Subscription</string>
+    <string name="servers_subs">Subscriptions</string>
+    <string name="servers_sub_active">in use</string>
+    <string name="servers_sub_added">Subscription added</string>
+    <string name="servers_sub_bad">The client does not understand this link</string>
+    <string name="servers_sub_remove">Remove</string>
+    <string name="servers_sub_qr">Move to another phone</string>
+    <string name="servers_qr_title">Key as a QR code</string>
+    <string name="servers_qr_body">On the new phone: Add key → Camera. Whoever scans this code uses your access, so keep it away from strangers.</string>
+    <string name="servers_sub_remove_ask">Remove the subscription %1$s?</string>
+    <string name="servers_manual">Pick by hand</string>
+    <string name="servers_empty">Countries are visible from inside the tunnel.</string>
+    <string name="servers_group_other">Other</string>
+    <string name="servers_failed">Could not move: %1$s</string>
+
+    <!-- Строка ноды: что с ней и куда на самом деле идёт трафик. -->
+    <string name="node_ping">Response: %1$d ms</string>
+    <string name="node_ms">%1$d ms</string>
+    <string name="node_ping_none">Response not measured</string>
+    <string name="node_setup">Connection: %1$d ms</string>
+    <string name="node_ok">works</string>
+    <string name="node_down">not available right now</string>
+    <string name="node_unmeasured">not measured yet</string>
+    <string name="node_current">traffic goes through it right now</string>
+    <string name="node_chosen_current">picked by you · traffic goes through it</string>
+    <string name="node_chosen_silent">picked by you, but silent — traffic goes through %1$s</string>
+
+    <!--
+        Байпас. Значок VPN в шторке остаётся всегда — его рисует Android, пока
+        поднят туннель. Но местные сервисы ломает не значок, а зарубежный адрес
+        ноды, и вот его исключение из туннеля и чинит.
+    -->
+    <string name="bypass_none">Every app goes through the tunnel</string>
+    <string name="bypass_some">Outside the tunnel: %1$d</string>
+    <string name="bypass_preset">Government services and banks</string>
+    <string name="bypass_restart">Changes apply on the next connection</string>
+    <string name="bypass_loading">Looking at what is installed…</string>
+
+    <!--
+        Местные сайты мимо туннеля. Предлагаем при первом удачном подключении:
+        про эту возможность человек вспоминает ровно тогда, когда у него не
+        открылся банк, — то есть уже разозлившись.
+    -->
+    <string name="bypass_ru_title">Local sites outside the tunnel?</string>
+    <string name="bypass_ru_body">Government services, banks and mail often refuse requests from abroad. Sent outside, they open as usual, while everything else keeps going through the tunnel.</string>
+    <string name="bypass_ru_yes">Send them outside</string>
+    <string name="bypass_ru_no">No need</string>
+
+    <!--
+        Настройки. Здесь нет ручек протокола: их место внутри, а не на экране
+        человека, который не может выбрать между ними осознанно.
+    -->
+    <string name="settings_autostart">Start with the phone</string>
+    <string name="settings_autostart_sub">the tunnel comes up after a reboot</string>
+    <string name="settings_autostart_saved">The tunnel will come up by itself after a reboot</string>
+    <string name="settings_autostart_off_saved">After a reboot you will have to turn it on by hand</string>
+    <string name="settings_russian">Local sites outside the tunnel</string>
+    <string name="settings_russian_sub">banks and government services complain otherwise</string>
+    <string name="settings_russian_none">downloading the list…</string>
+    <string name="settings_russian_failed">the list is not downloaded: %1$s</string>
+    <string name="log_bypass_failed">local networks list not downloaded: %1$s</string>
+    <string name="settings_russian_count">%1$d networks in the list · applies on the next connection</string>
+    <string name="settings_always_on">Always-on VPN in the system</string>
+    <string name="settings_always_on_sub">the system brings the tunnel up earlier than we can</string>
+    <string name="settings_always_on_missing">This phone has no such settings screen</string>
+    <string name="settings_key">Access key</string>
+    <string name="settings_key_added">added on %1$s</string>
+    <string name="settings_update">New version %1$s available</string>
+    <string name="settings_update_sub">From the server of whoever gave you access, not from a store</string>
+    <string name="settings_about">About us</string>
+    <string name="about_intro">How your connection works</string>
+    <string name="about_headline">Your connection, your choice</string>
+    <string name="about_description">Marvia connects selected apps to the internet through your chosen VPN node.</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_route_title">CONNECTION ROUTE</string>
+    <string name="about_step_device">Your device</string>
+    <string name="about_step_device_sub">An app sends a request</string>
+    <string name="about_step_tunnel">Encrypted tunnel</string>
+    <string name="about_step_tunnel_sub">Traffic travels to the chosen node</string>
+    <string name="about_step_node">VPN node</string>
+    <string name="about_step_node_sub">The node forwards the request</string>
+    <string name="about_step_internet">Internet</string>
+    <string name="about_step_internet_sub">Sites see the node’s IP address</string>
+    <string name="about_scope_title">WHAT GOES THROUGH THE TUNNEL</string>
+    <string name="about_scope_apps">Apps included in your VPN settings follow this route. Excluded apps connect directly.</string>
+    <string name="about_scope_note">The tunnel protects traffic between your device and the node. It does not replace a website’s own HTTPS protection.</string>
+    <string name="about_privacy">Privacy policy ↗</string>
+    <string name="about_privacy_sub">What the app and your VPN operator can see</string>
+    <string name="about_privacy_unavailable">No browser could open the privacy policy</string>
+    <!--
+        Экран темы. Названия пресетов — по ключу из таблицы internal/look:
+        look_<ключ>. Тест в том пакете следит, что ни один пресет не остался
+        без названия на обоих языках.
+    -->
+    <string name="theme_title">Themes</string>
+    <string name="theme_tab_color">Color</string>
+    <string name="theme_tab_light">Light</string>
+    <string name="theme_tab_bg">Background</string>
+    <string name="theme_tab_shape">Shape</string>
+    <string name="theme_tab_more">More</string>
+    <string name="theme_hint_color">the color shows on the button, the mark and the tab bar</string>
+    <string name="theme_hint_light">light is the background of the whole screen</string>
+    <string name="theme_hint_bg">pattern and your own photo go under everything</string>
+    <string name="theme_hint_shape">shape is cards, the button and spacing</string>
+    <string name="theme_hint_more">home view, mark, font and saved themes</string>
+    <string name="theme_pv_main">Home</string>
+    <string name="theme_pv_settings">Settings</string>
+    <string name="theme_pv_servers">Servers</string>
+    <string name="theme_looks_caps">All palettes</string>
+    <string name="theme_accent_caps">ACCENT</string>
+    <string name="theme_accent_hint">button, marks, switches</string>
+    <string name="theme_tint_caps">TINT OF THE LIT SIDE</string>
+    <string name="theme_tint_auto">same as accent</string>
+    <string name="theme_light_caps">LIGHT</string>
+    <string name="theme_depth_caps">SHADOW DEPTH</string>
+    <string name="theme_depth_light">LIGHT</string>
+    <string name="theme_depth_dark">BLACK</string>
+    <string name="theme_pattern_caps">BACKGROUND PATTERN</string>
+    <string name="theme_pattern_hint">barely visible, so the background is not empty</string>
+    <string name="pattern_none">Plain</string>
+    <string name="pattern_dots">Dots</string>
+    <string name="pattern_grid">Grid</string>
+    <string name="pattern_rings">Rings</string>
+    <string name="pattern_lines">Lines</string>
+    <string name="theme_backdrop_caps">YOUR OWN BACKGROUND</string>
+    <string name="theme_backdrop_none">a photo from the gallery under the interface</string>
+    <string name="theme_backdrop_has">photo chosen</string>
+    <string name="theme_cards_caps">CARDS</string>
+    <string name="theme_radius_caps">CORNERS</string>
+    <string name="theme_density_caps">DENSITY</string>
+    <string name="theme_button_caps">MAIN BUTTON</string>
+    <string name="theme_home_caps">HOME SCREEN</string>
+    <string name="theme_home_hint">the theme sets colours, the view sets the layout</string>
+    <string name="home_view_marvia">Marvia</string>
+    <string name="home_view_stage">Stage</string>
+    <string name="home_view_deck">Deck</string>
+    <string name="home_view_console">Console</string>
+    <string name="theme_glow_caps">GLOW</string>
+    <string name="theme_logo_caps">MARK IN THE HEADER</string>
+    <string name="logo_marvia">Marvia</string>
+    <string name="logo_custom">Custom</string>
+    <string name="logo_none">Hide</string>
+    <string name="theme_logo_marvia">the ribbon M in the accent color</string>
+    <string name="theme_logo_custom">your own picture from the gallery</string>
+    <string name="theme_logo_none">header without a mark</string>
+    <string name="theme_font_caps">FONT</string>
+    <string name="font_onest">Onest</string>
+    <string name="font_manrope">Manrope</string>
+    <string name="font_geologica">Geologica</string>
+    <string name="theme_profiles_caps">My themes</string>
+    <string name="theme_profiles_hint">an empty slot remembers the current look</string>
+    <string name="theme_code_caps">THEME CODE · SHARE WITH A FRIEND</string>
+    <string name="theme_hint">Everything applies at once</string>
+    <string name="theme_looks">Ready looks</string>
+    <string name="theme_looks_hint">the whole screen in one tap</string>
+    <string name="theme_accent">Accent</string>
+    <string name="theme_density">Density</string>
+    <string name="theme_note">The theme is kept on this phone and sent nowhere. The seller panel and the desktop app use the same colour table.</string>
+    <string name="theme_reset">Back to grey</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_lamp_hint">tap where the light comes from</string>
+    <string name="theme_light_off">light is off, flat background</string>
+    <string name="dir_nw">top left</string>
+    <string name="dir_n">top</string>
+    <string name="dir_ne">top right</string>
+    <string name="dir_w">left</string>
+    <string name="dir_c">from the centre</string>
+    <string name="dir_e">right</string>
+    <string name="dir_sw">bottom left</string>
+    <string name="dir_s">bottom</string>
+    <string name="dir_se">bottom right</string>
+    <string name="kind_flat">Flat</string>
+    <string name="kind_linear">Soft</string>
+    <string name="kind_radial">Spot</string>
+    <string name="kind_aurora">Aurora</string>
+    <string name="theme_depth">Shadow depth</string>
+    <string name="depth_0">barely there</string>
+    <string name="depth_1">soft</string>
+    <string name="depth_2">visible</string>
+    <string name="depth_3">deep</string>
+    <string name="depth_4">almost black</string>
+    <string name="theme_tint">Tint of the lit side</string>
+    <string name="theme_radius">Corners</string>
+    <string name="radius_sharp">Sharp</string>
+    <string name="radius_soft">Soft</string>
+    <string name="radius_round">Round</string>
+    <string name="radius_pill">Pill</string>
+    <string name="theme_cards">Cards</string>
+    <string name="card_flat">Flat</string>
+    <string name="card_outline">Outlined</string>
+    <string name="card_shadow">Shadowed</string>
+    <string name="theme_button">Button</string>
+    <string name="btn_solid">Disc</string>
+    <string name="btn_ring">Ring</string>
+    <string name="btn_glass">Glass</string>
+    <string name="btn_bare">Outline</string>
+    <string name="theme_glow">Glow</string>
+    <string name="glow_none">None</string>
+    <string name="glow_soft">Soft</string>
+    <string name="glow_mid">Medium</string>
+    <string name="glow_neon">Neon</string>
+    <string name="theme_profiles">My themes</string>
+    <string name="profile_full">Style %1$d</string>
+    <string name="profile_empty">Empty %1$d</string>
+    <string name="theme_save_here">Save here</string>
+    <string name="theme_random">Random theme</string>
+    <string name="theme_code">Theme code · share it with a friend</string>
+    <string name="theme_code_placeholder">paste an MV-… code</string>
+    <string name="theme_code_bad">This is not a Marvia theme code</string>
+    <string name="theme_code_copied">Theme code copied</string>
+    <string name="theme_backdrop">Your own background</string>
+    <string name="theme_backdrop_pick">Choose a photo</string>
+    <string name="theme_backdrop_change">Another photo</string>
+    <string name="theme_backdrop_drop">Remove</string>
+    <string name="backdrop_frame">Frame</string>
+    <string name="backdrop_edit_hint">Pinch to zoom, drag to move</string>
+    <string name="backdrop_rotate">Rotate</string>
+    <string name="backdrop_reset">Reset</string>
+    <string name="backdrop_done">Done</string>
+    <string name="theme_backdrop_fit">How it fits</string>
+    <string name="backdrop_fill">Fill</string>
+    <string name="backdrop_whole">Whole</string>
+    <string name="theme_backdrop_dim">Dim</string>
+    <string name="theme_backdrop_note">The photo stays on this phone and never goes into the theme code. No video on the phone: it would need a player of its own.</string>
+    <string name="theme_backdrop_bad">Not a photo, or it cannot be read</string>
+    <string name="density_compact">Compact</string>
+    <string name="density_normal">Normal</string>
+    <string name="density_roomy">Roomy</string>
+    <string name="look_emerald">Emerald</string>
+    <string name="look_jade">Jade</string>
+    <string name="look_teal">Lagoon</string>
+    <string name="look_ice">Ice</string>
+    <string name="look_cobalt">Cobalt</string>
+    <string name="look_ultra">Ultra</string>
+    <string name="look_plum">Plum</string>
+    <string name="look_orchid">Orchid</string>
+    <string name="look_fuchsia">Fuchsia</string>
+    <string name="look_rose">Rose</string>
+    <string name="look_crimson">Crimson</string>
+    <string name="look_ember">Ember</string>
+    <string name="look_amber">Amber</string>
+    <string name="look_gold">Gold</string>
+    <string name="look_citrus">Citrus</string>
+    <string name="look_lime">Lime</string>
+    <string name="look_olive">Olive</string>
+    <string name="look_sand">Sand</string>
+    <string name="look_copper">Copper</string>
+    <string name="look_steel">Grey</string>
+    <string name="look_slate">Slate</string>
+    <string name="look_mono">Mono</string>
+    <string name="look_oled">OLED</string>
+    <string name="look_midnight">Midnight</string>
+    <string name="look_daylight">Daylight</string>
+    <string name="look_paper">Paper</string>
+    <string name="look_linen">Linen</string>
+    <string name="journal_send">Send to the seller</string>
+
+    <string name="consent_denied">The tunnel cannot start without permission from the system</string>
+    <string name="error_no_interface">The system did not give out a network interface</string>
+    <string name="error_missing_allowed_apps">The apps selected for VPN are no longer installed. Update the app selection in settings.</string>
+
+    <!--
+        Фразы под виды неудач из ядра. Задача каждой — сказать человеку, что
+        делать дальше, а не что именно сломалось внутри.
+    -->
+    <!--
+        Кончившаяся подписка — самая частая беда и единственная, где человеку
+        надо не чинить, а заплатить. Раньше он читал «ни один сервер не
+        отвечает», шёл к продавцу с «у вас всё сломалось», и продавец
+        разбирался с каждым таким вручную.
+    -->
+    <string name="fail_expired">Your subscription has ended. Renew it with your seller — access comes back at once</string>
+    <string name="fail_quota">You are out of paid traffic. Ask your seller to add more</string>
+
+    <string name="fail_account">The access key was not accepted. Get a new one from your seller</string>
+    <string name="fail_panel">Cannot fetch the server list. Check that you have internet</string>
+    <string name="fail_nodes">No server is responding right now. Try later or write to your seller</string>
+    <string name="fail_system">The phone would not create the connection. Try again</string>
+
+    <string name="notification_channel">Tunnel</string>
+    <string name="notification_channel_desc">Shows whether the tunnel is running</string>
+    <string name="notification_stop">Disconnect</string>
+    <string name="notification_on">Connected · %1$s</string>
+    <string name="notification_offline">No network · %1$s</string>
+    <string name="notification_offline_detail">The tunnel will resume by itself when the network comes back</string>
+    <string name="notification_speed">↓ %1$s   ↑ %2$s</string>
+    <string name="notification_today">Today %1$s</string>
+    <string name="tile_add">Quick settings button</string>
+    <string name="tile_add_sub">turn the tunnel on without opening the app</string>
+
+    <!--
+        Строки журнала. Журнал человек отправляет продавцу, то есть читает его
+        не только он, — поэтому он такой же перевод, как и всё остальное.
+    -->
+    <string name="log_header">Marvia · log</string>
+    <string name="log_bypassed">apps outside the tunnel: %1$d</string>
+    <string name="log_bypass_local">, local subnets outside: %1$s</string>
+    <string name="log_yes">yes</string>
+    <string name="log_no">no</string>
+    <string name="log_tunnel_on">turning the tunnel on</string>
+    <string name="log_connected">connected through %1$s</string>
+    <string name="log_moved">node stopped answering, moved to %1$s</string>
+    <string name="trouble_no_node">the node is silent and there is nowhere to move — nothing works right now</string>
+    <string name="trouble_offline">the phone has no network: neither Wi-Fi nor mobile data. The tunnel will resume by itself when it comes back</string>
+    <string name="log_failed">did not come up: %1$s — %2$s</string>
+    <!--
+        Вкладка «Ещё»: соединение, приложения, логи. Три раздела под одним
+        заголовком, как в макете; заголовок и подпись меняются вместе с ними.
+    -->
+    <string name="more_title">Settings</string>
+    <string name="more_sub">Marvia for Android · %1$s</string>
+    <string name="more_back">Back</string>
+    <string name="more_apps_card">Apps and sites</string>
+    <string name="more_apps_card_sub">Choose which traffic uses the VPN</string>
+    <string name="more_group_conn">CONNECTION</string>
+    <string name="more_group_routes">ROUTES AND DNS</string>
+    <string name="more_group_app">Diagnostics and app</string>
+    <string name="more_group_mask">CAMOUFLAGE</string>
+    <string name="more_group_apps">APPS</string>
+    <string name="more_logs_row">Connection log</string>
+    <string name="more_logs_row_sub">no site addresses</string>
+    <string name="more_reset">Reset everything</string>
+    <string name="more_reset_sub">subscriptions, theme, settings</string>
+    <string name="more_reset_ask">Reset everything? Subscriptions, theme and settings will be gone and the tunnel will stop. You will need to add the access link again.</string>
+    <string name="more_reset_yes">Reset</string>
+    <string name="about_sub">who makes Marvia, version %1$s · VP1</string>
+    <string name="apps_search">Find an app</string>
+    <string name="apps_summary_names">outside the tunnel: %1$d — %2$s</string>
+    <string name="more_conn">Connection</string>
+    <string name="more_apps">Apps</string>
+    <string name="more_logs">Log</string>
+    <string name="more_conn_title">Connection</string>
+    <string name="more_conn_sub">Protection, DNS, routing</string>
+    <string name="more_apps_title">Apps</string>
+    <string name="more_logs_title">Log</string>
+    <plurals name="more_logs_sub">
+        <item quantity="one">last %1$d line</item>
+        <item quantity="other">last %1$d lines</item>
+    </plurals>
+    <string name="more_logs_sub_empty">the log is empty so far</string>
+    <string name="conn_group_protect">Protection</string>
+    <string name="conn_group_net">Network</string>
+    <string name="conn_group_app">App</string>
+    <string name="conn_dns">DNS</string>
+    <string name="conn_dns_sub">resolver inside the tunnel</string>
+    <string name="conn_dns_secure">Encrypt name lookups</string>
+    <string name="conn_dns_secure_sub">the seller\'s node cannot see which sites you look up</string>
+    <string name="conn_dns_secure_own">a custom address cannot be encrypted: lookups go as plain DNS through the tunnel</string>
+    <string name="conn_lan">Home network outside the tunnel</string>
+    <string name="conn_lan_sub">printer, TV, router</string>
+    <string name="conn_ipv6">IPv6 through the tunnel</string>
+    <string name="conn_ipv6_sub">turn off if sites mix up your country</string>
+    <string name="conn_fragment">Split the TLS hello</string>
+    <string name="conn_fragment_sub">if your provider blocks by site name; leave off otherwise</string>
+    <string name="dns_custom">Custom address…</string>
+    <string name="dns_custom_current">Custom · %1$s</string>
+    <string name="dns_custom_title">Custom DNS</string>
+    <string name="dns_custom_hint">an IPv4 address, e.g. 76.76.2.0</string>
+    <string name="dns_custom_save">Save</string>
+    <string name="dns_custom_bad">An IPv4 address is needed: four numbers from 0 to 255 separated by dots</string>
+    <string name="dns_custom_local">A local network address: the tunnel cannot reach it</string>
+
+    <!--
+        Режимы списка приложений. «Только эти» — для тех, кому туннель нужен
+        ради двух приложений; «выключено» держит отметки, но не применяет их.
+    -->
+    <string name="apps_mode_exclude">Outside</string>
+    <string name="apps_mode_include">Only these</string>
+    <string name="apps_mode_off">Off</string>
+    <string name="snake_title">Snake</string>
+    <string name="snake_over">Game over: %d</string>
+    <string name="snake_hint">swipe to turn, tap to start and pause</string>
+    <string name="snake_close">Close</string>
+    <string name="snake_score">score %1$d · best %2$d</string>
+    <string name="apps_show_system">System</string>
+    <string name="custom_bypass">My addresses outside the tunnel</string>
+    <string name="custom_bypass_none">an address, subnet or site — direct</string>
+    <plurals name="custom_bypass_count">
+        <item quantity="one">%d rule</item>
+        <item quantity="other">%d rules</item>
+    </plurals>
+    <string name="custom_bypass_hint">192.168.50.10\n10.20.0.0/16\nwork.example.com</string>
+    <string name="custom_bypass_note">One per line: an address, subnet or site. A site turns into addresses when connecting — big sites change them, so some requests may still go through the tunnel. Networks wider than /8 are refused: they would switch the VPN off entirely.</string>
+    <string name="custom_bypass_save">Save</string>
+    <string name="custom_bypass_bad">Did not understand and skipped: %1$s</string>
+    <string name="custom_bypass_skipped">Only the first %1$d addresses are used — %2$d more were left out</string>
+    <string name="lockdown_title">No VPN — no internet</string>
+    <string name="lockdown_sub">switched on in Android settings: VPN → Marvia</string>
+    <string name="lockdown_unavailable">This phone did not open the VPN settings — look under Connections or Network &amp; internet</string>
+    <string name="apps_note_exclude">Checked apps go around the tunnel, everything else goes through it.</string>
+    <string name="apps_note_include">Only checked apps go through the tunnel, everything else goes around it. Nothing checked means everything goes through.</string>
+    <string name="apps_note_off">Every app goes through the tunnel. Your checks are kept but not applied.</string>
+    <string name="apps_summary_off">every app through the tunnel</string>
+    <string name="apps_summary_include_none">nothing checked — every app through the tunnel</string>
+    <plurals name="apps_summary_include">
+        <item quantity="one">only %1$d app through the tunnel</item>
+        <item quantity="other">only %1$d apps through the tunnel</item>
+    </plurals>
+    <plurals name="apps_summary_exclude">
+        <item quantity="one">%1$d app outside the tunnel</item>
+        <item quantity="other">%1$d apps outside the tunnel</item>
+    </plurals>
+    <string name="apps_preset_none">Nothing to add: none of them is installed, or all are already checked</string>
+
+    <string name="log_crashed">The last run crashed: %1$s</string>
+    <string name="log_crash_header">Crash, stack:</string>
+    <string name="logs_all">All</string>
+    <string name="logs_info">Info</string>
+    <string name="logs_warn">Warnings</string>
+    <string name="logs_err">Errors</string>
+    <string name="logs_copy">Copy</string>
+    <string name="logs_copied">Copied</string>
+    <string name="logs_empty">Nothing yet — the log fills up as the tunnel works</string>
+    <plurals name="logs_count">
+        <item quantity="one">%1$d line</item>
+        <item quantity="other">%1$d lines</item>
+    </plurals>
+
+    <string name="connect_space">Your space</string>
+    <string name="connect_error_hint">Connection failed. See the details below.</string>
+    <string name="connect_add_key">Add access key</string>
+    <string name="connect_disconnect">Disconnect</string>
+    <string name="connect_retry">Try again</string>
+    <string name="connect_route">Current server</string>
+    <string name="connect_change_server">Choose another server →</string>
+    <string name="stats_today">Today</string>
+    <string name="stats_session">Session</string>
+    <string name="stats_speed">Speed</string>
+    <string name="stats_mbps">%1$s Mbps</string>
+    <string name="stats_download">↓ Download</string>
+    <string name="stats_upload">↑ Upload</string>
+    <string name="session_running">Session · %1$s</string>
+    <string name="stats_kbps">%1$s kbps</string>
+    <string name="connection_warning_details">Some requests failed · View details</string>
+    <string name="theme_show_all">All themes</string>
+    <string name="theme_fewer">Show fewer</string>
+    <string name="theme_preview">Preview</string>
+    <!-- Образец строки страны в предпросмотре: узнаваемо, но не про продавца. -->
+    <string name="theme_preview_country">Finland</string>
+    <string name="theme_preview_provider">Access from Alex</string>
+    <string name="theme_look_custom">custom</string>
+    <string name="theme_preview_place">Helsinki · 33 ms</string>
+    <string name="theme_advanced">More appearance settings</string>
+    <!-- Связь с продавцом: кнопки на карточке подписки и напоминание о сроке. -->
+    <string name="seller_renew">Renew</string>
+    <string name="seller_support">Support</string>
+    <string name="seller_no_app">No app on this phone can open the link</string>
+    <string name="seller_remind_expiry">Access ends in %1$s. Renew in advance so nothing stops.</string>
+    <string name="seller_remind_traffic">%1$d%% of traffic left. Renew in advance so nothing stops.</string>
+    <string name="seller_remind_forecast">At your current usage, traffic will last about %1$s. Renew in advance so nothing stops.</string>
+    <string name="shortcut_connect">Connect</string>
+    <string name="shortcut_disconnect">Disconnect</string>
+    <string name="seller_channel">Access reminders</string>
+    <string name="seller_channel_desc">When access is about to end, traffic runs low or the seller posts an announcement</string>
+    <string name="trouble_network_changing">network changed — restoring the connection</string>
+    <string name="trouble_network_offline">no underlying network — waiting for Wi-Fi or mobile data</string>
+    <!-- Главная: «где вы», подписка и консоль (см. HomeBlocks). -->
+    <string name="home_place_auto">Auto</string>
+    <string name="home_place_auto_sub">the fastest node of your subscription</string>
+    <string name="home_place_live">traffic goes here now</string>
+    <string name="home_place_live_manual">chosen by you · traffic goes here</string>
+    <string name="home_place_last">last time</string>
+    <string name="home_plan_title">Subscription</string>
+    <string name="home_plan_left">%1$s left of %2$s</string>
+    <string name="home_plan_unlimited">traffic without a limit</string>
+    <plurals name="home_days_word">
+        <item quantity="one">day left</item>
+        <item quantity="other">days left</item>
+    </plurals>
+    <string name="home_console_connect">Connect</string>
+    <string name="home_console_disconnect">Disconnect</string>
+    <string name="home_console_cancel">Cancel</string>
+    <string name="home_console_retry">Try again</string>
+    <string name="home_r_node">node</string>
+    <string name="home_r_term">term</string>
+    <string name="home_r_quota">traffic</string>
+    <string name="home_r_speed">speed</string>
+    <string name="home_r_speed_value">↓ %1$s  ↑ %2$s Mbit/s</string>
+</resources>

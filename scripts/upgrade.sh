@@ -1,0 +1,531 @@
+#!/bin/sh
+# Обновление панели и ноды на месте.
+#
+# Запускать на сервере, от root:
+#
+#   сначала проверить подпись скрипта по docs/release-0.12.md
+#
+# Установщик панели этого не делает и делать не должен: он отказывается
+# трогать каталог, в котором лежит база с подписчиками, и это верно. Но
+# обновляться как-то надо, а до сих пор это была ручная операция, которую
+# каждый выдумывал заново.
+#
+# Что делает: находит, что здесь стоит — панель, ноду или обе, — качает свежий
+# релиз, сверяет контрольные суммы, останавливает службу, снимает копию базы
+# (только с остановленной, см. backup_panel_db), подменяет бинарники и поднимает
+# службы обратно. Если после подмены служба не встала, возвращает прежний
+# бинарник вместе с той же копией базы: остаться без панели, обновляясь, нельзя.
+
+set -eu
+
+REPO=jytt8u/marvia
+PANEL_DIR=${PANEL_DIR:-/opt/marvia}
+NODE_DIR=${NODE_DIR:-/opt/marvia-node}
+
+say()  { printf '%s\n' "$1"; }
+ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
+bad()  { printf '  \033[31m✗\033[0m %s\n' "$1"; }
+die()  { printf '\033[31m%s\033[0m\n' "$1" >&2; exit 1; }
+
+[ "$(id -u)" = 0 ] || die 'нужен root'
+
+# Установленная версия неизвестна: исполнять файл из каталога службы
+# ради информационной строки нельзя, независимо от владельца файла.
+installed_version() {
+	# Ни владелец файла, ни владелец ближайшего каталога не доказывают,
+	# что путь нельзя заменить. Старый бинарник не исполняем вообще.
+	echo '?'
+}
+
+# ─────────────────────────────────────────────── что здесь вообще стоит
+
+HAVE_PANEL=0
+HAVE_NODE=0
+[ -x "$PANEL_DIR/marvia-panel" ] && HAVE_PANEL=1
+[ -x "$NODE_DIR/marvia-node" ] && HAVE_NODE=1
+
+if [ "$HAVE_PANEL" = 0 ] && [ "$HAVE_NODE" = 0 ]; then
+	die "ни панели в $PANEL_DIR, ни ноды в $NODE_DIR. Обновлять нечего."
+fi
+
+say 'Что стоит на этой машине:'
+[ "$HAVE_PANEL" = 1 ] && ok "панель: $(installed_version "$PANEL_DIR/marvia-panel")"
+[ "$HAVE_NODE" = 1 ] && ok "нода: $(installed_version "$NODE_DIR/marvia-node")"
+
+# ─────────────────────────────────────────────── копия базы панели
+#
+# Копию снимаем не сейчас, а после остановки панели, и это принципиально.
+#
+# Панель держит SQLite в режиме WAL (internal/panel/store.go, PRAGMA
+# journal_mode = WAL). Свежие транзакции — выданные ключи, заведённые ноды,
+# продления — лежат не в panel.db, а рядом, в panel.db-wal, пока не случится
+# контрольная точка. Копия одного panel.db с работающей панели — это база на
+# момент последней контрольной точки, то есть без последних покупателей, и
+# узнают об этом ровно тогда, когда копия понадобится.
+#
+# Сама панель поэтому снимает копии через VACUUM INTO (internal/panel/backup.go)
+# — целостный снимок, не блокируя работу. Нам этот путь недоступен: у
+# marvia-panel нет ключа командной строки «снять копию и выйти», копию умеет
+# только работающая панель, по HTTP и под админским токеном, которого у скрипта
+# нет. Остаётся второй честный способ — дождаться остановки: при штатном
+# закрытии SQLite сливает WAL в основной файл, и panel.db становится полным.
+#
+# -wal и -shm всё равно копируем, если они остались: панель могли убить по
+# таймауту, не дав закрыть базу, и тогда неслитый WAL — единственное место, где
+# лежат последние транзакции.
+
+PANEL_DB_COPY=''
+
+# Копии кладём в каталог root, а не рядом с базой.
+#
+# Каталог панели принадлежит её службе. Скрипт идёт от root, и всё, что он
+# пишет туда по предсказуемому имени, служба может заранее подменить ссылкой:
+# root запишет копию базы — а в ней строки, которые задаёт покупатель, — в
+# любой файл системы, хоть в /root/.ssh/authorized_keys. Взломанная панель
+# становилась бы root на первом же обновлении по кнопке.
+BACKUP_DIR=${BACKUP_DIR:-/var/backups/marvia}
+
+# as_owner выполняет команду правами владельца каталога службы. Читать и писать
+# её файлы root должен так же, как она сама: ссылка, которую служба подложила
+# вместо panel.db, ведёт туда, куда у неё самой доступа нет, — и чтение или
+# запись через неё просто не удаются, а не открывают /etc/shadow.
+as_owner() {
+	owner=$(stat -c %U "$1")
+	shift
+	if [ "$(id -u)" = 0 ] && [ "$owner" != root ]; then
+		command -v runuser >/dev/null 2>&1 || die 'нет runuser (util-linux): не могу безопасно тронуть файлы службы'
+		runuser -u "$owner" -- "$@"
+	else
+		"$@"
+	fi
+}
+
+backup_panel_db() {
+	if [ -f "$PANEL_DIR/panel.db" ]; then
+		mkdir -p "$BACKUP_DIR"
+		chmod 700 "$BACKUP_DIR"
+		PANEL_DB_COPY="$BACKUP_DIR/panel.db.before-upgrade.$(date +%Y%m%d-%H%M%S)"
+		# В базе токены подписок и секреты покупателей: права не шире, чем у
+		# самой базы.
+		(umask 077 && as_owner "$PANEL_DIR" cat "$PANEL_DIR/panel.db" >"$PANEL_DB_COPY")
+
+		for side in -wal -shm; do
+			[ -f "$PANEL_DIR/panel.db$side" ] || continue
+			# Имя вида <копия>-wal: SQLite ищет журнал по имени основного файла,
+			# так что возвращённая копия подхватит свой журнал, а не чужой.
+			(umask 077 && as_owner "$PANEL_DIR" cat "$PANEL_DIR/panel.db$side" >"$PANEL_DB_COPY$side")
+		done
+
+		ok "копия базы: $PANEL_DB_COPY"
+	fi
+	return 0
+}
+
+# Откат базы к той самой копии, что снята после остановки. Нужен, если новая
+# версия успела привести базу к своей схеме и не поднялась: прежний бинарник с
+# уехавшей вперёд базой — это вторая беда поверх первой.
+restore_panel_db() {
+	if [ -n "$PANEL_DB_COPY" ] && [ -f "$PANEL_DB_COPY" ]; then
+		# Сначала убираем журналы, оставшиеся от неудачной версии. Иначе SQLite
+		# при первом же открытии накатит чужой WAL на возвращённый файл, и
+		# вместо отката получится смесь двух состояний.
+		rm -f "$PANEL_DIR/panel.db-wal" "$PANEL_DIR/panel.db-shm"
+
+		# Не пишем поверх: на месте базы служба могла оставить ссылку. Старый
+		# файл убираем (rm убирает саму ссылку, а не то, куда она ведёт), новый
+		# создаём правами владельца — заодно он сразу принадлежит службе, и
+		# панель может в него писать.
+		for side in '' -wal -shm; do
+			[ -f "$PANEL_DB_COPY$side" ] || continue
+			rm -f "$PANEL_DIR/panel.db$side"
+			as_owner "$PANEL_DIR" sh -c 'umask 077 && cat >"$1"' sh "$PANEL_DIR/panel.db$side" <"$PANEL_DB_COPY$side"
+		done
+
+		say "    база возвращена из $PANEL_DB_COPY"
+	fi
+	return 0
+}
+
+# ─────────────────────────────────────────────── качаем релиз
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+arch=$(uname -m)
+case "$arch" in
+x86_64|amd64) arch=amd64 ;;
+aarch64|arm64) arch=arm64 ;;
+*) die "неизвестная разрядность: $arch" ;;
+esac
+
+command -v gh >/dev/null 2>&1 || die 'нужен GitHub CLI с gh attestation verify; установи его из доверенного источника'
+command -v ss >/dev/null 2>&1 || die 'нужен ss из iproute2 для проверки запуска службы'
+# Канал выпусков: stable — latest GitHub, test — ещё и alpha, beta, rc.
+# Выбор хранится в каталоге root, его читает и служба обновления по кнопке
+# (internal/updater/agent.sh, логика та же). Меняет его только этот сценарий
+# от root: панель канал не переключает — взломанная панель не должна уметь
+# ставить серверу сборки, проверенные меньше.
+STATE=/var/lib/marvia-upgrade
+TEST_TAG='^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'
+case "${MARVIA_CHANNEL:-}" in
+'') ;;
+stable|test)
+	mkdir -p "$STATE"
+	chmod 755 "$STATE"
+	printf '%s\n' "$MARVIA_CHANNEL" >"$STATE/channel.new"
+	chmod 644 "$STATE/channel.new"
+	mv -f "$STATE/channel.new" "$STATE/channel"
+	;;
+*) die 'MARVIA_CHANNEL бывает stable или test' ;;
+esac
+channel=$(head -n 1 "$STATE/channel" 2>/dev/null || true)
+[ "$channel" = test ] || channel=stable
+ok "канал обновлений: $channel"
+
+# older A B — A старше B. Тильда вместо дефиса учит sort -V, что
+# v1.0.0-rc.1 — до v1.0.0, а не после.
+older() {
+	[ "$1" != "$2" ] &&
+		[ "$(printf '%s\n%s\n' "$1" "$2" | sed 's/-/~/' | sort -V | head -n 1 | sed 's/~/-/')" = "$1" ]
+}
+
+# newest_published — самый новый по номеру опубликованный выпуск. Лента
+# releases.atom перечисляет и метки черновиков; у них SHA256SUMS снаружи не
+# отдаётся, этим их и отсеиваем.
+newest_published() {
+	feed=$(curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 "https://github.com/$REPO/releases.atom") || return 1
+	for candidate in $(printf '%s\n' "$feed" | grep -o 'releases/tag/[^"<]*' | sed 's|.*/||' |
+		grep -E "$TEST_TAG" | sed 's/-/~/' | sort -Vru | sed 's/~/-/'); do
+		if curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 -r 0-0 -o /dev/null \
+			"https://github.com/$REPO/releases/download/$candidate/SHA256SUMS" 2>/dev/null; then
+			printf '%s\n' "$candidate"
+			return 0
+		fi
+	done
+	return 1
+}
+
+tag=${MARVIA_RELEASE_TAG:-}
+if [ -z "$tag" ] && [ "$channel" = test ]; then
+	tag=$(newest_published) || die 'не удалось узнать тестовый выпуск'
+fi
+if [ -z "$tag" ]; then
+	url=$(curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest") || die 'не удалось узнать релиз'
+	case "$url" in "https://github.com/$REPO/releases/tag/"*) tag=${url##*/} ;; *) die 'GitHub вернул посторонний адрес релиза' ;; esac
+fi
+printf '%s\n' "$tag" | grep -Eq "$TEST_TAG" || die 'неверный тег релиза'
+
+# Назад не ходим: старый бинарник поверх базы, которую уже перестроила
+# новая панель, — потеря данных. Установленную версию помним сами (запись
+# ниже, в конце): спросить её у бинарника root не может, см. installed_version.
+installed=$(head -n 1 "$STATE/installed" 2>/dev/null || true)
+if [ -n "$installed" ] && ! older "$installed" "$tag"; then
+	ok "уже стоит $installed, $tag не новее — ничего не трогаю"
+	exit 0
+fi
+base="https://github.com/$REPO/releases/download/$tag"
+say ''
+say "качаю свежий релиз ($arch)"
+
+# Имя сохраняем такое же, как в SHA256SUMS: sha256sum -c ищет файл по имени
+# из списка, а не по тому, куда мы его положили.
+archive="marvia_linux_$arch.tar.gz"
+
+curl -fsSL -o "$tmp/$archive" "$base/$archive" \
+	|| die 'не скачался архив релиза'
+curl -fsSL -o "$tmp/SHA256SUMS" "$base/SHA256SUMS" \
+	|| die 'не скачались контрольные суммы'
+curl --proto '=https' --proto-redir '=https' -fsSL --max-time 120 -o "$tmp/SHA256SUMS.sigstore.json" "$base/SHA256SUMS.sigstore.json" \
+	|| die 'не скачалась подпись контрольных сумм'
+# verify_release ФАЙЛ ПОДПИСЬ — подпись манифеста выпуска $tag. Та же
+# функция — в internal/updater/agent.sh, там и объяснение: имя репозитория
+# без учёта регистра и запасной корень доверия, если сервер корней Sigstore
+# с этого хостинга не открывается.
+verify_release() {
+	identity="^https://github\.com/(?i:$REPO)/\.github/workflows/release\.yml@refs/tags/$(printf '%s' "$tag" | sed 's/\./\\./g')\$"
+	gh attestation verify "$1" --bundle "$2" --repo "$REPO" --cert-identity-regex "$identity" \
+		--source-ref "refs/tags/$tag" --deny-self-hosted-runners && return 0
+	[ -s "$TRUSTED_ROOT" ] || return 1
+	echo "сервер корней Sigstore недоступен — проверяю корнем из $TRUSTED_ROOT"
+	gh attestation verify "$1" --bundle "$2" --repo "$REPO" --cert-identity-regex "$identity" \
+		--source-ref "refs/tags/$tag" --deny-self-hosted-runners --custom-trusted-root "$TRUSTED_ROOT"
+}
+
+# Корень ставит служба обновления (internal/updater). На сервере, который
+# этим сценарием ещё не обновлялся, его нет — берём оттуда же, откуда пришла
+# сама команда обновления, из ветки main: доверия это не добавляет.
+TRUSTED_ROOT=/usr/local/lib/marvia/sigstore-root.jsonl
+if [ ! -s "$TRUSTED_ROOT" ] &&
+	curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 -o "$tmp/sigstore-root.jsonl" \
+		"https://raw.githubusercontent.com/$REPO/main/internal/updater/sigstore-root.jsonl"; then
+	TRUSTED_ROOT="$tmp/sigstore-root.jsonl"
+fi
+verify_release "$tmp/SHA256SUMS" "$tmp/SHA256SUMS.sigstore.json" \
+	|| die 'подпись релиза не прошла проверку; ничего не установлено'
+
+# Сверяем до распаковки. Скачанный не тем бинарником сервер — это ровно та
+# беда, ради которой суммы и публикуются.
+if ! ( cd "$tmp" && grep "[ *]$archive\$" SHA256SUMS | sha256sum -c - >/dev/null 2>&1 ); then
+	# Печатаем, что именно сказал sha256sum: без этого «сумма не сошлась»
+	# одинаково означает и подмену файла, и нашу же опечатку в имени, и
+	# отсутствие строки в списке — а чинить это три разных дела.
+	( cd "$tmp" && grep "[ *]$archive\$" SHA256SUMS | sha256sum -c - 2>&1 | head -3 | sed 's/^/    /' ) || true
+	die 'контрольная сумма не сошлась — скачалось не то, ничего не трогаю'
+fi
+ok 'контрольная сумма сошлась'
+
+tar -xzf "$tmp/$archive" -C "$tmp" || die 'архив не распаковался'
+
+# ─────────────────────────────────────────────── подмена
+
+swap() {
+	name=$1
+	dir=$2
+	service=$3
+	# Что сделать после остановки службы, пока никто не пишет в её файлы.
+	after_stop=${4:-}
+
+	fresh="$tmp/$name"
+	[ -x "$fresh" ] || die "в архиве нет $name"
+
+	was=$(installed_version "$dir/$name")
+	now=$("$fresh" -version 2>/dev/null || echo '?')
+
+	# Неизвестная версия не равна ничему, в том числе другой неизвестной.
+	# Флаг -version появился не сразу: старый бинарник его не знает, обе
+	# стороны превращаются в '?', и простое сравнение объявляло «уже ?,
+	# подменять нечего» — обновление молча не происходило ровно там, где оно
+	# нужнее всего, на самых старых установках.
+	if [ "$was" != '?' ] && [ "$now" != '?' ] && [ "$was" = "$now" ]; then
+		ok "$name: уже $now, подменять нечего"
+		return 0
+	fi
+
+	say ''
+	if [ "$was" = '?' ]; then
+		say "$name: прежняя версия не исполнялась для проверки → $now"
+	else
+		say "$name: $was → $now"
+	fi
+
+	systemctl stop "$service" 2>/dev/null || true
+
+	if [ -n "$after_stop" ]; then
+		"$after_stop"
+	fi
+
+	# Копия для отката лежит в каталоге root, недоступном службе. Читаем
+	# прежний бинарник правами владельца каталога: служба могла подменить его
+	# ссылкой на чужой файл, и root не должен копировать его себе. install
+	# ниже сначала убирает старое имя, так что через ссылку он не пишет.
+	keep="$tmp/$name.before-upgrade"
+	as_owner "$dir" cat "$dir/$name" >"$keep"
+	install -m 755 "$fresh" "$dir/$name"
+
+	systemctl start "$service" || true
+
+	# Даём подняться. Панель при первом запуске может заказывать сертификат,
+	# нода — синхронно забирать список пользователей; и то и другое небыстро.
+	i=0
+	ready=0
+	while [ "$i" -lt 60 ]; do
+		pid=$(systemctl show "$service" --property=MainPID --value 2>/dev/null || echo 0)
+		if [ "$pid" -gt 0 ] && [ "$(systemctl is-active "$service")" = active ] && ss -H -ltnp | grep -F "pid=$pid," >/dev/null; then
+			ready=1
+			break
+		fi
+		i=$((i + 1))
+		sleep 1
+	done
+
+	if [ "$ready" != 1 ]; then
+		bad "$service не поднялась на новой версии — возвращаю прежнюю"
+		# Явно останавливаем: служба могла умирать не сразу, а перезапускаться
+		# по кругу, и возвращать файлы под пишущим процессом нельзя.
+		systemctl stop "$service" 2>/dev/null || true
+		install -m 755 "$keep" "$dir/$name"
+		if [ "$name" = marvia-panel ]; then
+			restore_panel_db
+		fi
+		systemctl start "$service" || true
+		journalctl -u "$service" -n 15 --no-pager -o cat || true
+		die 'обновление отменено, работает прежняя версия'
+	fi
+
+	ok "$service работает на $now"
+	rm -f "$keep"
+}
+
+# ─────────────────────────────────────────────── юнит ноды
+#
+# StartLimitIntervalSec и StartLimitBurst — ключи секции [Unit]. Установщик
+# когда-то писал их в [Service], а там systemd их не знает и молча выбрасывает:
+# «Unknown key name 'StartLimitIntervalSec' in section 'Service', ignoring».
+# На живой ноде это видно по systemctl show: StartLimitIntervalUSec оставался
+# 10s, то есть предела на перезапуски не было вовсе — упавшая нода поднималась
+# по кругу и столько же раз била запросом по панели. Шаблон установщика уже
+# поправлен, но у нод, поставленных раньше, юнит на диске остался прежним:
+# сама собой эта правка к ним не приедет, переносим здесь.
+
+fix_node_unit() {
+	unit=/etc/systemd/system/marvia-node.service
+	[ -f "$unit" ] || return 0
+	command -v systemctl >/dev/null 2>&1 || return 0
+
+	# Чиним только тот случай, ради которого пришли: ключи есть, но лежат не в
+	# [Unit]. Правильный юнит не трогаем — переписывать чужой файл «на всякий
+	# случай» значит однажды переписать его неправильно.
+	if ! awk '
+		/^[[:space:]]*\[/ { section = $1; next }
+		/^[[:space:]]*StartLimit(IntervalSec|Burst)[[:space:]]*=/ {
+			if (section != "[Unit]") misplaced = 1
+		}
+		END { exit(misplaced ? 0 : 1) }
+	' "$unit"; then
+		return 0
+	fi
+
+	work=$(mktemp -d)
+	new="$work/marvia-node.service"
+
+	# Ключи выносим сразу под заголовок [Unit]: внутри секции порядок неважен,
+	# зато не приходится угадывать, куда воткнуть строки, чтобы не разорвать
+	# чужой комментарий.
+	if ! awk '
+		/^[[:space:]]*StartLimit(IntervalSec|Burst)[[:space:]]*=/ { next }
+		{ print }
+		/^[[:space:]]*\[Unit\]/ && !moved {
+			print "# Перенесено сюда из [Service]: там systemd эти ключи не читает."
+			print "StartLimitIntervalSec=600"
+			print "StartLimitBurst=20"
+			moved = 1
+		}
+		END { exit(moved ? 0 : 1) }
+	' "$unit" > "$new"; then
+		rm -rf "$work"
+		bad 'в юните ноды нет секции [Unit] — не трогаю его, почини руками'
+		return 0
+	fi
+
+	# Пусть systemd сам скажет, что получилось: юнит службы, которая держит
+	# всех покупателей этой ноды, чинят один раз и не вслепую.
+	if command -v systemd-analyze >/dev/null 2>&1; then
+		if ! out=$(systemd-analyze verify "$new" 2>&1); then
+			bad 'systemd не принял исправленный юнит — оставляю прежний'
+			printf '%s\n' "$out" | head -5 | sed 's/^/    /'
+			rm -rf "$work"
+			return 0
+		fi
+	fi
+
+	keep_unit="$unit.before-upgrade.$(date +%Y%m%d-%H%M%S)"
+	cp "$unit" "$keep_unit"
+	install -m 644 "$new" "$unit"
+	rm -rf "$work"
+
+	systemctl daemon-reload
+
+	ok 'юнит ноды: StartLimitIntervalSec и StartLimitBurst перенесены из [Service] в [Unit]'
+	say "    прежний юнит сохранён: $(basename "$keep_unit")"
+	say '    предел перезапусков теперь действует: 20 попыток за 10 минут'
+	return 0
+}
+
+if [ "$HAVE_PANEL" = 1 ]; then
+	swap marvia-panel "$PANEL_DIR" marvia-panel backup_panel_db
+fi
+
+if [ "$HAVE_NODE" = 1 ]; then
+	swap marvia-node "$NODE_DIR" marvia-node
+	# Отдельно от подмены: юнит чиним и тогда, когда бинарник уже свежий.
+	fix_node_unit
+fi
+
+# Генератор ключей обновляем молча: он ничего не держит и ни от чего не зависит.
+if [ "$HAVE_PANEL" = 1 ] && [ -x "$tmp/marvia-keygen" ]; then
+	install -m 755 "$tmp/marvia-keygen" "$PANEL_DIR/marvia-keygen"
+fi
+
+# То, что панель раздаёт из dist, обновляем вместе с ней: бинарник ноды для
+# команды установки, генератор ключей и приложения покупателей. Иначе
+# после обновления панели новая нода ставилась бы со старым бинарником, а
+# покупатель качал бы старое приложение — и никто бы этого не заметил.
+refresh_dist() {
+	dist="$PANEL_DIR/dist"
+	[ -d "$dist" ] || return 0
+	for name in marvia-node marvia-keygen; do
+		[ -x "$tmp/$name" ] && install -m 755 "$tmp/$name" "$dist/$name"
+		[ -x "$tmp/$name" ] && install -m 755 "$tmp/$name" "$dist/$name-$arch"
+	done
+
+	# Ноды другой разрядности ставятся из файла с её суффиксом — его тоже
+	# нельзя оставить старым. Второй архив сверяем по тем же SHA256SUMS.
+	case "$arch" in amd64) other=arm64 ;; *) other=amd64 ;; esac
+	other_archive="marvia_linux_$other.tar.gz"
+	if curl -fsSL -o "$tmp/$other_archive" "$base/$other_archive" 2>/dev/null &&
+		( cd "$tmp" && grep "[ *]$other_archive\$" SHA256SUMS | sha256sum -c - >/dev/null 2>&1 ) &&
+		mkdir -p "$tmp/$other" && tar -xzf "$tmp/$other_archive" -C "$tmp/$other" 2>/dev/null && [ -x "$tmp/$other/marvia-node" ]; then
+		for name in marvia-node marvia-keygen; do
+			install -m 755 "$tmp/$other/$name" "$dist/$name-$other"
+		done
+		ok "ядро ноды для $other обновлено"
+	else
+		bad "ядро ноды для $other не скачалось — ноды на $other будут ставиться со старым"
+	fi
+
+	# Версию спрашиваем у свежего бинарника из архива: после подмены она та же,
+	# а запускать от root файл из каталога marvia нельзя (installed_version).
+	now=$("$tmp/marvia-panel" -version 2>/dev/null | awk '{print $2}' | sed 's/^v//')
+	for app in marvia-android.apk marvia-windows-setup.exe marvia-windows.zip; do
+		# Не скачалось — оставляем прежнее: старое приложение лучше никакого.
+		if curl -fsSL --max-time 300 -o "$tmp/$app" "$base/$app" 2>/dev/null &&
+			(cd "$tmp" && grep "[ *]$app\$" SHA256SUMS | sha256sum -c - >/dev/null 2>&1); then
+			install -m 644 "$tmp/$app" "$dist/$app"
+			if [ -n "$now" ]; then
+				printf '%s
+' "$now" > "$dist/$app.version"
+			else
+				rm -f "$dist/$app.version"
+			fi
+			ok "$app: $now"
+		else
+			bad "$app не скачалось или не прошло проверку суммы — оставляю прежнее"
+		fi
+	done
+}
+
+if [ "$HAVE_PANEL" = 1 ]; then
+	refresh_dist
+fi
+
+# Служба обновления по кнопке в панели (internal/updater) приезжает с каждым
+# релизом. Ставит её свежий бинарник из архива — сверенный и лежащий в
+# каталоге root, — а не установленный (см. installed_version).
+say ''
+if "$tmp/marvia-node" -install-updater 2>"$tmp/updater.err"; then
+	ok 'служба обновления: панель обновляет себя и ноды кнопкой'
+else
+	bad "служба обновления не поставилась: $(head -1 "$tmp/updater.err")"
+fi
+
+# record_installed запоминает поставленную версию и пишет статус для панели.
+# Статус обычно пишет служба по кнопке, но сервер обновляют и руками —
+# например, после того как кнопка не справилась. Без этой записи панель
+# показывала бы прошлую ошибку уже обновлённому серверу.
+record_installed() {
+	mkdir -p "$STATE"
+	printf '%s\n' "$tag" >"$STATE/installed.new"
+	chmod 644 "$STATE/installed.new"
+	mv -f "$STATE/installed.new" "$STATE/installed"
+	printf 'state=ok\nat=%s\nreason=стоит %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$tag" >"$STATE/status.new"
+	chmod 644 "$STATE/status.new"
+	mv -f "$STATE/status.new" "$STATE/status"
+}
+
+# Сюда доходим, только если все службы поднялись на новой версии: swap при
+# неудаче возвращает прежнюю и завершает сценарий раньше.
+record_installed
+
+say ''
+printf '\033[32mГотово.\033[0m Проверить ноду: scripts/node-check.sh\n'
+say ''

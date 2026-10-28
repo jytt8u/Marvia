@@ -1,0 +1,508 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"io"
+	"log"
+	"net"
+	"syscall"
+	"time"
+
+	"github.com/jytt8u/marvia/internal/egress"
+	"github.com/jytt8u/marvia/internal/fallback"
+	"github.com/jytt8u/marvia/internal/inbound"
+	"github.com/jytt8u/marvia/internal/metered"
+	"github.com/jytt8u/marvia/internal/mux"
+	"github.com/jytt8u/marvia/internal/redact"
+	"github.com/jytt8u/marvia/internal/relay"
+	"github.com/jytt8u/marvia/internal/rewind"
+	"github.com/jytt8u/marvia/internal/users"
+	"github.com/jytt8u/marvia/internal/vp1"
+)
+
+// classifyTimeout — сколько ждём, пока гость обозначит себя.
+//
+// Без дедлайна сюда набивались бы соединения, открытые и брошенные молча:
+// сканеры интернета так делают постоянно, и каждое такое соединение держало бы
+// горутину и память.
+const classifyTimeout = 15 * time.Second
+
+// serve обслуживает одно входящее соединение.
+//
+// Нода двуязычна: на одном порту она понимает свой VP1 и чужие VLESS и Trojan.
+// Смысл в том, чтобы продавец переехал на нашу платформу, не заставляя своих
+// покупателей менять приложение, — это самая дорогая часть любого переезда.
+func serve(conn net.Conn, d deps) {
+	peer := conn.RemoteAddr()
+
+	// Счётчик стоит снаружи протокола: считаем то, что реально прошло по
+	// проводу. Именно за эти байты владелец ноды платит хостеру.
+	meter := metered.New(conn)
+
+	// Пока протокол не опознан, запоминаем прочитанное: неудачная попытка
+	// должна оставить поток нетронутым для следующей, а в самом конце —
+	// для сайта-прикрытия.
+	rc := rewind.New(meter)
+	defer rc.Close()
+
+	_ = rc.SetDeadline(time.Now().Add(classifyTimeout))
+
+	var knownVLESS inbound.KnownVLESS
+	if d.registry != nil {
+		knownVLESS = func(uuid []byte) bool {
+			return d.registry.HasCredential(users.KindVLESS, uuid)
+		}
+	}
+
+	proto, err := inbound.Classify(rc, knownVLESS)
+	if err != nil {
+		serveCover(rc, err, d.fallback)
+		return
+	}
+
+	switch proto {
+	case inbound.ProtoVP1:
+		serveVP1(rc, meter, peer, d)
+	case inbound.ProtoVLESS:
+		serveVLESS(rc, meter, peer, d)
+	case inbound.ProtoTrojan:
+		serveTrojan(rc, meter, peer, d)
+	default:
+		serveCover(rc, errors.New("протокол не опознан"), d.fallback)
+	}
+}
+
+// serveVP1 обслуживает наш протокол: одна сессия, много логических потоков.
+func serveVP1(rc *rewind.Conn, meter *metered.Conn, peer net.Addr, d deps) {
+	var session *users.Session
+	authorize := vp1.AllowAll
+	if d.registry != nil {
+		authorize = func(pub []byte) error {
+			s, err := d.registry.Admit(users.KindVP1, pub, peer)
+			if err != nil {
+				return err
+			}
+			session = s
+			return nil
+		}
+	}
+
+	// Публичный ключ клиента дальше не нужен: по нему не за кем следить.
+	// Учёт ведёт сессия, а в журнал он не попадает — см. why и комментарий
+	// к serveCover.
+	tunnel, _, err := vp1.ServerHandshake(rc, d.static, d.guard, authorize)
+	if err != nil {
+		// Ключ проверяется раньше метки времени и повтора, и проверка уже
+		// засчитала соединение и адрес. Сорвалось дальше — повтор записанного
+		// приветствия, сбитые часы, обрыв до ответа — значит засчитанное надо
+		// вернуть: иначе оно висит до перезапуска ноды, и покупатель с
+		// лимитом соединений однажды перестаёт входить совсем.
+		session.Close()
+		serveCover(rc, err, d.fallback)
+		return
+	}
+	rc.Commit()
+	defer tunnel.Close()
+
+	// Потолок скорости известен только теперь, после проверки ключа.
+	meter.Limit(session.Limiter())
+
+	stop := startAccounting(meter, session, tunnel)
+	defer stop()
+
+	muxSession, err := mux.Server(tunnel)
+	if err != nil {
+		log.Printf("сессия vp1 не поднялась: %s", why(err))
+		return
+	}
+	defer muxSession.Close()
+
+	log.Printf("сессия vp1 открыта")
+	// Потолок открытых потоков в сессии. У yamux его нет, а у каждого потока
+	// окно приёма в 4 МиБ: клиент, открывший тысячу потоков к молчащей цели
+	// и заливающий в каждый, удержал бы у ноды гигабайты. Браузеру хватает
+	// десятков соединений; сотни — уже не браузер.
+	live := make(chan struct{}, maxStreamsPerSession)
+	for {
+		stream, err := mux.Accept(muxSession)
+		if err != nil {
+			log.Printf("сессия vp1 закрыта")
+			return
+		}
+		select {
+		case live <- struct{}{}:
+		default:
+			// Лишний поток закрывается сразу: клиент увидит обрыв одного
+			// соединения, а не медленную смерть всей ноды.
+			_ = stream.Close()
+			continue
+		}
+		go func() {
+			defer func() { <-live }()
+			serveStream(stream)
+		}()
+	}
+}
+
+// maxStreamsPerSession — сколько потоков одна сессия держит одновременно.
+const maxStreamsPerSession = 256
+
+// serveVLESS обслуживает чужой клиент по VLESS: одно соединение — одна цель.
+func serveVLESS(rc *rewind.Conn, meter *metered.Conn, peer net.Addr, d deps) {
+	request, err := inbound.ReadVLESSRequest(rc)
+	if err != nil {
+		serveCover(rc, err, d.fallback)
+		return
+	}
+
+	session, err := admit(d, users.KindVLESS, request.UUID, peer)
+	if err != nil {
+		serveCover(rc, err, d.fallback)
+		return
+	}
+	rc.Commit()
+	_ = rc.SetDeadline(time.Time{})
+
+	meter.Limit(session.Limiter())
+	stop := startAccounting(meter, session, rc)
+	defer stop()
+
+	// Ответный заголовок VLESS уедет вместе с первой порцией данных.
+	client := inbound.NewVLESSConn(rc)
+	switch {
+	case request.XUDP:
+		if err := inbound.ServeXUDP(client, dialUDP, udpIdleTimeout); err != nil {
+			log.Printf("vless xudp: %s", why(err))
+		}
+	case request.UDP:
+		serveForeignDatagrams(client, request.Target, "vless")
+	default:
+		pipeSingle(client, request.Target, "vless")
+	}
+}
+
+// serveTrojan обслуживает чужой клиент по Trojan.
+func serveTrojan(rc *rewind.Conn, meter *metered.Conn, peer net.Addr, d deps) {
+	request, err := inbound.ReadTrojanRequest(rc)
+	if err != nil {
+		serveCover(rc, err, d.fallback)
+		return
+	}
+
+	session, err := admit(d, users.KindTrojan, request.Digest, peer)
+	if err != nil {
+		// Пароль не подошёл — гость получает сайт, как и любой посторонний.
+		// Так и задуман Trojan: сервер неотличим от обычного веб-сервера.
+		serveCover(rc, err, d.fallback)
+		return
+	}
+	rc.Commit()
+	_ = rc.SetDeadline(time.Time{})
+
+	meter.Limit(session.Limiter())
+	stop := startAccounting(meter, session, rc)
+	defer stop()
+
+	// У Trojan ответного заголовка нет: сразу данные.
+	if request.UDP {
+		if err := inbound.ServeTrojanUDP(rc, dialUDP, udpIdleTimeout); err != nil {
+			log.Printf("trojan udp: %s", why(err))
+		}
+		return
+	}
+	pipeSingle(rc, request.Target, "trojan")
+}
+
+// admit проверяет учётные данные. Пустой реестр означает отладочный режим,
+// когда пускают любого, кто знает публичный ключ ноды.
+func admit(d deps, kind string, identity []byte, peer net.Addr) (*users.Session, error) {
+	if d.registry == nil {
+		if kind == users.KindVP1 {
+			return nil, nil
+		}
+		// У VLESS и Trojan нет ключа ноды: без списка пользователей пускать
+		// по ним некого, иначе нода станет открытым прокси для всех подряд.
+		return nil, errors.New("список пользователей не задан")
+	}
+	return d.registry.Admit(kind, identity, peer)
+}
+
+// dialUDP — исходящий UDP для чужих протоколов: те же запреты адресов и
+// портов, что у TCP и у датаграмм VP1.
+func dialUDP(to vp1.Address) (net.Conn, error) {
+	return egress.Dial(context.Background(), "udp", to.String(), dialTimeout)
+}
+
+// serveForeignDatagrams — простой UDP по VLESS: датаграммы одному
+// собеседнику с длиной впереди, ровно как у датаграмм VP1, только без
+// статуса — у VLESS его нет.
+func serveForeignDatagrams(client net.Conn, to vp1.Address, proto string) {
+	target, err := dialUDP(to)
+	if err != nil {
+		log.Printf("%s udp: цель недоступна: %s", proto, why(err))
+		return
+	}
+	defer target.Close()
+	relay.Datagrams(vp1.Datagrams(client), target, udpIdleTimeout)
+}
+
+// pipeSingle доводит до конца одно соединение чужого протокола.
+func pipeSingle(client net.Conn, target vp1.Address, proto string) {
+	// У чужих протоколов нет ответного статуса: закрытая цель выглядит для
+	// клиента как недоступная, и это правильно — объяснять ему нечего.
+	upstream, err := egress.Dial(context.Background(), "tcp", target.String(), dialTimeout)
+	if err != nil {
+		log.Printf("%s: цель недоступна: %s", proto, why(err))
+		return
+	}
+	defer upstream.Close()
+
+	if err := relay.Bidirectional(client, upstream); err != nil {
+		log.Printf("%s: обрыв передачи: %s", proto, why(err))
+	}
+}
+
+// serveStream обслуживает один логический поток внутри сессии VP1 — то есть
+// одно соединение приложения пользователя.
+func serveStream(stream net.Conn) {
+	defer stream.Close()
+
+	_ = stream.SetReadDeadline(time.Now().Add(requestTimeout))
+	addr, kind, err := vp1.ReadRequestOf(stream)
+	if err != nil {
+		log.Printf("поток vp1: чтение запроса: %s", why(err))
+		return
+	}
+	_ = stream.SetReadDeadline(time.Time{})
+
+	switch kind {
+	case vp1.KindUDP:
+		serveDatagrams(stream, addr)
+		return
+	case vp1.KindProbe:
+		serveSample(stream)
+		return
+	}
+
+	target, err := egress.Dial(context.Background(), "tcp", addr.String(), dialTimeout)
+	if err != nil {
+		log.Printf("поток vp1: цель недоступна: %s", why(err))
+		_ = vp1.WriteStatus(stream, statusOf(err))
+		return
+	}
+	defer target.Close()
+
+	if err := vp1.WriteStatus(stream, vp1.StatusOK); err != nil {
+		log.Printf("отправка статуса: %s", why(err))
+		return
+	}
+
+	if err := relay.Bidirectional(stream, target); err != nil {
+		log.Printf("поток vp1: обрыв передачи: %s", why(err))
+	}
+}
+
+// statusOf — что ответить клиенту про несостоявшийся дозвон. Закрытая цель
+// названа закрытой: клиент не будет перебирать ноды в поисках той, что
+// пустит внутрь.
+func statusOf(err error) byte {
+	if errors.Is(err, egress.ErrForbidden) || errors.Is(err, egress.ErrPort) {
+		return vp1.StatusForbidden
+	}
+	// Нет маршрута — это про ноду, а не про цель: хостер не дал IPv6. Клиент,
+	// узнав это, перестаёт слать IPv6 в сессию, и приложения сразу идут по
+	// IPv4, а не ждут отказа на каждом соединении.
+	if errors.Is(err, syscall.ENETUNREACH) {
+		return vp1.StatusNoRoute
+	}
+	return vp1.StatusUnreachable
+}
+
+// serveSample отдаёт клиенту порцию байт, чтобы тот померил скорость.
+//
+// Клиент выбирает ноду сам, с устройства, и до появления этого замера выбирал
+// по задержке. Задержка и скорость — разные вещи: нода может отвечать быстро и
+// при этом еле качать, и человек получит именно вторую. Дать ему померить —
+// дешевле, чем объяснять, почему у него всё тормозит на «самой быстрой» ноде.
+//
+// Байты настоящие, и платит за них продавец. Поэтому потолок жёсткий и
+// проверяется здесь, а не только на клиенте: чужой клиент попросить может
+// сколько угодно.
+func serveSample(stream net.Conn) {
+	_ = stream.SetReadDeadline(time.Now().Add(requestTimeout))
+	size, err := vp1.ReadSampleRequest(stream)
+	if err != nil {
+		log.Printf("замер: чтение запроса: %s", why(err))
+		return
+	}
+	_ = stream.SetReadDeadline(time.Time{})
+
+	if err := vp1.WriteStatus(stream, vp1.StatusOK); err != nil {
+		return
+	}
+
+	// Сколько отдадим на самом деле — иначе клиенту оставалось бы читать до
+	// конца потока и верить, что конец наступит.
+	if err := vp1.GrantSample(stream, size); err != nil {
+		return
+	}
+
+	// Срок на отдачу: без него медленный или залипший клиент держал бы поток
+	// и трафик ноды сколько захочет.
+	_ = stream.SetWriteDeadline(time.Now().Add(sampleTimeout))
+	if err := vp1.WriteSample(stream, size); err != nil {
+		log.Printf("замер оборван: %s", why(err))
+	}
+}
+
+// sampleTimeout — сколько отводим на отдачу замера.
+//
+// Не влезли — значит нода и правда медленная, и это ответ, а не сбой.
+const sampleTimeout = 20 * time.Second
+
+// udpIdleTimeout — сколько держим поток датаграмм без единого пакета.
+//
+// У UDP нет конца разговора, закрывать поток некому. Полторы минуты выбраны
+// по QUIC: он шлёт своё подтверждение жизни куда чаще, так что живое
+// соединение сюда не попадёт, а брошенное не будет висеть до отключения
+// человека от туннеля.
+const udpIdleTimeout = 90 * time.Second
+
+// serveDatagrams обслуживает поток датаграмм до одной цели.
+//
+// Цель фиксируется запросом и дальше не меняется: поток на неё и заведён.
+// Поэтому проверять адрес источника у пришедших ответов не нужно — сокет
+// подключённый, ядро само отбросит чужие.
+func serveDatagrams(stream net.Conn, addr vp1.Address) {
+	target, err := egress.Dial(context.Background(), "udp", addr.String(), dialTimeout)
+	if err != nil {
+		log.Printf("поток udp: цель недоступна: %s", why(err))
+		_ = vp1.WriteStatus(stream, statusOf(err))
+		return
+	}
+	defer target.Close()
+
+	if err := vp1.WriteStatus(stream, vp1.StatusOK); err != nil {
+		log.Printf("отправка статуса: %s", why(err))
+		return
+	}
+
+	relay.Datagrams(vp1.Datagrams(stream), target, udpIdleTimeout)
+}
+
+// startAccounting запускает учёт трафика и присмотр за подпиской.
+// Возвращённую функцию нужно вызвать по завершении: она доснимет счётчики.
+func startAccounting(meter *metered.Conn, session *users.Session, closer io.Closer) func() {
+	done := make(chan struct{})
+	go meterLoop(meter, session, closer, done)
+
+	var once bool
+	return func() {
+		if once {
+			return
+		}
+		once = true
+		close(done)
+
+		// Последняя выгрузка: то, что накопилось после предпоследнего тика,
+		// тоже должно попасть в статистику.
+		up, down := meter.Drain()
+		session.Add(up, down)
+		session.Close()
+	}
+}
+
+// meterLoop переносит счётчики соединения пользователю и обрывает связь,
+// когда доступ кончился.
+func meterLoop(meter *metered.Conn, session *users.Session, closer io.Closer, done <-chan struct{}) {
+	ticker := time.NewTicker(meterInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			up, down := meter.Drain()
+			if up != 0 || down != 0 {
+				session.Add(up, down)
+			}
+			// Проверяем не только квоту: подписку могли отключить или она
+			// могла истечь прямо посреди сессии. Живое соединение обязано
+			// это заметить, иначе человек пользуется сервисом до тех пор,
+			// пока сам не переподключится.
+			if err := session.Valid(); err != nil {
+				log.Printf("доступ прекращён посреди сессии (%s), отключаем", why(err))
+				_ = closer.Close()
+				return
+			}
+		}
+	}
+}
+
+// serveCover обслуживает того, кто не прошёл проверку.
+//
+// Сюда попадают сканеры, боты, случайные посетители домена, зонды цензора — и
+// свои же клиенты с истёкшей подпиской или исчерпанной квотой. Реакция должна
+// быть одинаковой во всех случаях: разница в поведении сама становится
+// способом прощупать ноду.
+func serveCover(rc *rewind.Conn, cause error, cover *fallback.Handler) {
+	if cover == nil {
+		log.Printf("соединение отклонено (%s), сайт-прикрытие не задан", why(cause))
+		return
+	}
+	if err := rc.Rewind(); err != nil {
+		log.Printf("соединение отклонено (%s), отмотка не удалась: %s", why(cause), why(err))
+		return
+	}
+	_ = rc.SetDeadline(time.Time{})
+	cover.Serve(rc)
+}
+
+// why описывает неудачу, не называя места.
+//
+// Ошибки сети носят адрес внутри себя: «dial tcp 93.184.216.34:443: connect:
+// connection refused», а у разрешения имён внутри лежит само имя. Записать
+// такую ошибку целиком — значит записать, куда ходил человек, то есть завести
+// ровно тот журнал, которого у ноды нет и не должно быть. Поэтому наружу идёт
+// причина без адреса: «connect: connection refused».
+//
+// Оператору этого хватает: он узнаёт, что цели недоступны и по какой причине,
+// — а этого довольно, чтобы отличить сломанную ноду от сломанного сайта.
+// Узнать, к какому именно сайту не пустило, он может, сходив туда сам.
+func why(err error) string {
+	if err == nil {
+		return "нет ошибки"
+	}
+
+	// DNSError печатает имя, которое искали, — это и есть «куда ходил».
+	var dns *net.DNSError
+	if errors.As(err, &dns) {
+		switch {
+		case dns.IsNotFound:
+			return "имя не найдено"
+		case dns.IsTimeout:
+			return "таймаут разрешения имени"
+		default:
+			return "имя не разрешилось"
+		}
+	}
+
+	// AddrError носит сам адрес в поле Addr.
+	var addr *net.AddrError
+	if errors.As(err, &addr) {
+		return "негодный адрес"
+	}
+
+	// OpError — обёртка, в которой адрес лежит отдельным полем, а причина
+	// внутри. Берём причину и разбираем её тем же правилом.
+	var op *net.OpError
+	if errors.As(err, &op) && op.Err != nil {
+		return why(op.Err)
+	}
+
+	// Последний рубеж для ошибок, которые адрес носят не отдельным полем, а
+	// уже внутри текста: обёртки чужих библиотек, TLS, QUIC.
+	return redact.Error(err)
+}

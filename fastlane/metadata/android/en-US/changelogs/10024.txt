@@ -1,0 +1,3 @@
+0.13.0-alpha.20 — test release.
+A Marvia key connects in about two seconds instead of five; country pings are real round trips.
+The VP1 wire format is unchanged.

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="{{.Text.Language}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>{{.Text.Title}} · Marvia</title>
+  <link rel="icon" href="data:,">
+  <!--
+    Страница без скриптов и без внешних файлов: её открывают по ссылке с
+    личным токеном, и чем меньше она умеет, тем меньше в ней можно сломать.
+    Знак встроен картинкой data:, полоса трафика — штатный <progress>,
+    стили — только с одноразовой меткой.
+  -->
+  <style nonce="{{.Nonce}}">
+    :root { color-scheme: dark; --bg: #0c0e11; --glow: #2a2f36; --card: #17191d; --card2: #1f2226; --ink: #f1f4f7; --muted: #a9b0b8;
+      --line: #2c3036; --acc: #c3ccd6; --accInk: #0c0e11; --ok: #3ddc97; --warn: #ffb15c; --off: #ff6b7a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--ink);
+      background: radial-gradient(120% 70% at 15% -10%, var(--glow), transparent 60%), var(--bg);
+      font: 16px/1.55 "Segoe UI Variable Text", "Segoe UI", -apple-system, "SF Pro Text", Roboto, system-ui, sans-serif; }
+    main { max-width: 760px; margin: auto; padding: 28px 20px 48px; }
+    .top { display: flex; align-items: center; gap: 10px; margin-bottom: 26px; }
+    .top img { width: 34px; height: 34px; }
+    .word { font-weight: 800; letter-spacing: .32em; font-size: 14px; }
+    h1 { font-size: clamp(28px, 6vw, 40px); line-height: 1.12; letter-spacing: -.02em; margin: 14px 0 6px; }
+    h2 { font-size: 20px; line-height: 1.3; margin: 0 0 14px; }
+    p { margin: 0 0 10px; }
+    .muted { color: var(--muted); }
+    .label, .announcement p { overflow-wrap: anywhere; }
+    section { margin-top: 14px; padding: 22px; border-radius: 22px; background: var(--card); border: 1px solid var(--line); }
+    .hero { padding: 26px 24px; background: linear-gradient(160deg, var(--card2), var(--card) 60%); }
+    .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; font-size: 14px; font-weight: 650;
+      background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+    .pill i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; }
+    .hero.warn .pill { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
+    .hero.off .pill { background: color-mix(in srgb, var(--off) 14%, transparent); color: var(--off); }
+    .meters { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0 4px; }
+    .meter { padding: 16px; border-radius: 16px; background: var(--bg); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .k { color: var(--muted); font-size: 13px; }
+    .big { font-size: 40px; line-height: 1; font-weight: 750; letter-spacing: -.03em; }
+    .big small { font-size: 16px; font-weight: 600; letter-spacing: 0; color: var(--muted); margin-left: 6px; }
+    .v { font-weight: 600; overflow-wrap: anywhere; }
+    .meter small { color: var(--muted); font-size: 13px; }
+    progress { appearance: none; -webkit-appearance: none; width: 100%; height: 8px; border: 0; border-radius: 999px; overflow: hidden; background: var(--line); margin: 6px 0 2px; }
+    progress::-webkit-progress-bar { background: var(--line); border-radius: 999px; }
+    progress::-webkit-progress-value { background: var(--acc); border-radius: 999px; }
+    progress::-moz-progress-bar { background: var(--acc); border-radius: 999px; }
+    .hero.warn progress::-webkit-progress-value { background: var(--warn); }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 10px 22px; border-radius: 14px;
+      text-decoration: none; font-weight: 700; color: var(--ink); background: var(--card2); border: 1px solid var(--line); }
+    .button.primary, .downloads .button:first-child { background: var(--acc); color: var(--accInk); border-color: transparent; }
+    a:focus-visible, textarea:focus-visible { outline: 3px solid var(--acc); outline-offset: 3px; }
+    ol { list-style: none; counter-reset: step; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 18px; }
+    ol > li { counter-increment: step; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 14px; }
+    ol > li::before { content: counter(step); width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+      background: var(--card2); border: 1px solid var(--line); font-weight: 750; }
+    li h3 { margin: 6px 0 8px; font-size: 16px; }
+    .connection { display: grid; grid-template-columns: minmax(0, 1fr) 176px; align-items: start; gap: 18px; }
+    figure { margin: 0; text-align: center; }
+    figure img { display: block; width: 176px; height: 176px; max-width: 100%; padding: 10px; border-radius: 14px; background: #fff; image-rendering: pixelated; }
+    figcaption { color: var(--muted); font-size: 12px; margin-top: 8px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 6px; color: var(--muted); }
+    textarea { display: block; width: 100%; min-height: 92px; resize: vertical; border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+      font: 13px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace; background: var(--bg); color: var(--ink); overflow-wrap: anywhere; }
+    .native-key { font-size: 14px; margin: 18px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
+    footer { margin-top: 22px; color: var(--muted); font-size: 13px; text-align: center; }
+    @media (max-width: 600px) {
+      main { padding: 20px 14px 36px; }
+      section, .hero { padding: 18px; border-radius: 18px; }
+      .meters, .connection { grid-template-columns: 1fr; }
+      figure { justify-self: center; }
+      .actions .button { flex: 1 1 100%; }
+    }
+    @media (prefers-color-scheme: light) {
+      :root { color-scheme: light; --bg: #f3f4f6; --glow: #ffffff; --card: #ffffff; --card2: #f7f8fa; --ink: #16181b; --muted: #5d636b;
+        --line: #e2e4e8; --acc: #1f2328; --accInk: #ffffff; --ok: #138a59; --warn: #a35a00; --off: #c22f3f; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <img src="{{.Mark}}" width="34" height="34" alt="">
+    <span class="word">MARVIA</span>
+  </header>
+
+  <section class="hero {{.State}}">
+    <div class="pill" aria-label="{{.Text.Status}}"><i></i>{{.Status}}</div>
+    <h1>{{.Text.Title}}</h1>
+    {{if .Label}}<p class="label muted">{{.Label}}</p>{{end}}
+    <p class="muted">{{.Text.Intro}}</p>
+    <div class="meters">
+      <div class="meter">
+        <span class="k">{{.Text.Term}}</span>
+        {{if .DaysLeft}}<span class="big">{{.DaysLeft}}<small>{{.DaysWord}}</small></span>{{end}}
+        <span class="v">{{.Term}}</span>
+      </div>
+      <div class="meter">
+        <span class="k">{{.Text.Traffic}}</span>
+        <span class="v">{{.Traffic}}</span>
+        {{if .HasLimit}}<progress max="100" value="{{.TrafficLeft}}">{{.TrafficLeft}}%</progress>{{end}}
+        <small>{{.Used}}</small>
+      </div>
+    </div>
+    {{if or .Seller.RenewURL .Seller.SupportURL}}
+    <nav class="actions" aria-label="{{.Text.Support}}">
+      {{if .Seller.RenewURL}}<a class="button primary" href="{{.Seller.RenewURL}}" rel="noreferrer noopener">{{.Text.Renew}}</a>{{end}}
+      {{if .Seller.SupportURL}}<a class="button" href="{{.Seller.SupportURL}}" rel="noreferrer noopener">{{.Text.Support}}</a>{{end}}
+    </nav>
+    {{end}}
+  </section>
+
+  {{if .Seller.Announce}}
+  <section class="announcement"><h2>{{.Text.Announcement}}</h2><p>{{.Seller.Announce}}</p></section>
+  {{end}}
+
+  <section>
+    <h2>{{.Text.Connect}}</h2>
+    <ol>
+      <li class="downloads">
+        <div>
+          <h3>{{.Text.Downloads}}</h3>
+          {{if .Apps}}<div class="actions">{{range .Apps}}<a class="button" href="{{.URL}}" download rel="noreferrer">{{.Label}}</a>{{end}}</div>
+          {{else}}<p class="muted">{{.Text.NoApps}}</p>{{end}}
+        </div>
+      </li>
+      <li>
+        <div class="connection">
+          <div>
+            <h3>{{.Text.AddSub}}</h3>
+            <p class="muted">{{.Text.Instructions}}</p>
+            <label for="subscription-url">{{.Text.Link}}</label>
+            <textarea id="subscription-url" readonly spellcheck="false" dir="ltr">{{.SubscriptionURL}}</textarea>
+          </div>
+          <figure><img src="{{.QR}}" width="320" height="320" alt="{{.Text.QR}}"><figcaption>{{.Text.QR}}</figcaption></figure>
+        </div>
+      </li>
+    </ol>
+    <p class="native-key muted">{{.Text.NativeKey}}</p>
+  </section>
+
+  <footer>{{.Text.Private}}</footer>
+</main>
+</body>
+</html>

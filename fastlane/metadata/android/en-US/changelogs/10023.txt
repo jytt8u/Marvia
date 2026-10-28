@@ -1,0 +1,3 @@
+0.13.0-alpha.19 — test release.
+Sites with an IPv6 address (GitHub images, Fastly, Cloudflare) open through the tunnel when the node has no IPv6.
+The VP1 wire format is unchanged.

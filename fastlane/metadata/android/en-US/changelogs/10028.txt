@@ -1,0 +1,3 @@
+0.13.0-alpha.24 — test release.
+The app is unchanged; this release is for servers: a cascade entry in Russia and flood protection for nodes.
+The VP1 wire format is unchanged.

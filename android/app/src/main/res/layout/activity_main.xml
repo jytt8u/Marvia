@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Экраны лежат друг на друге, видим всегда один. Так задумано: они
+    переключаются нижней панелью мгновенно и без пересборки, а состояние
+    подключения живёт в процессе и переживает любое переключение.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground"
+    android:orientation="vertical"
+    android:tag="bg">
+
+    <FrameLayout
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <include
+            android:id="@+id/keyScreen"
+            layout="@layout/screen_key" />
+
+        <include
+            android:id="@+id/connectScreen"
+            layout="@layout/screen_connect" />
+
+        <include
+            android:id="@+id/insightsScreen"
+            layout="@layout/screen_insights" />
+
+        <include
+            android:id="@+id/serversScreen"
+            layout="@layout/screen_servers" />
+
+        <include
+            android:id="@+id/statsScreen"
+            layout="@layout/screen_stats" />
+
+        <include
+            android:id="@+id/moreScreen"
+            layout="@layout/screen_more" />
+
+        <include
+            android:id="@+id/themeScreen"
+            layout="@layout/screen_theme" />
+
+        <include
+            android:id="@+id/languageScreen"
+            layout="@layout/screen_language" />
+
+        <include
+            android:id="@+id/permsScreen"
+            layout="@layout/screen_perms" />
+    </FrameLayout>
+
+    <include
+        android:id="@+id/nav"
+        layout="@layout/view_nav" />
+</LinearLayout>

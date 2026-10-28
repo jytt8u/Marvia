@@ -1,0 +1,420 @@
+#!/bin/sh
+#
+# Установщик ноды Marvia. Выдан панелью {{.Panel}}.
+#
+# Приглашение внутри одноразовое и живёт час. Повторно этот скрипт не сработает:
+# получи в панели новую команду.
+#
+# Что можно поменять, не редактируя файл:
+#   PORT=8443 — если 443 занят (в бою так лучше не делать, см. ниже)
+#   DEST=www.icloud.com:443 — другой сайт прикрытия
+#   NAME=amsterdam-1 — как нода будет называться в панели
+#   COUNTRY=Нидерланды — страна, которую увидит покупатель (можно указать потом)
+#   SNI=www.example.com,img.example.com — имена в SNI (по умолчанию — хост из DEST)
+#   SHORT_IDS=a1b2c3d4,0f — короткие идентификаторы REALITY (по умолчанию — один случайный)
+#   REALITY_KEY=… REALITY_PUB=… — готовая пара ключей REALITY вместо новой
+#   BBR=0 — не разрешать ноде BBR (см. «ускорение» ниже)
+#
+# Последние три нужны при переезде с Marzban или 3x-ui на тот же сервер: с
+# прежними ключами прежние ссылки покупателей продолжают работать. Строку
+# с ними печатает marvia-panel -import.
+
+set -eu
+
+PANEL='{{.Panel}}'
+INVITE='{{.Token}}'
+# RELAY=1 — вход каскада: принимает покупателей здесь и перекладывает их
+# соединения на зарубежную ноду, которую назовёт панель. Ключей у него нет,
+# сайт прикрытия ему не нужен: и то и другое — у выхода.
+RELAY={{if .Relay}}1{{else}}0{{end}}
+PORT="${PORT:-443}"
+DEST="${DEST:-www.samsung.com:443}"
+NAME="${NAME:-$(hostname 2>/dev/null || echo нода)}"
+COUNTRY="${COUNTRY:-}"
+SNI="${SNI:-}"
+SHORT_IDS="${SHORT_IDS:-}"
+GIVEN_KEY="${REALITY_KEY:-}"
+GIVEN_PUB="${REALITY_PUB:-}"
+DIR=/opt/marvia-node
+
+# ---------------------------------------------------------------- как это выглядит
+#
+# Скрипт запускают через `curl | sh`, и всё, что человек видит, — этот вывод.
+# Живой терминал получает знак, цвет, бегунок на долгих шагах и полосу
+# загрузки; журнал или труба — те же строки без украшений. NO_COLOR уважаем.
+
+TTY=0
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != dumb ]; then
+	TTY=1
+fi
+if [ "$TTY" = 1 ]; then
+	ACCENT=$(printf '\033[38;5;111m')
+	DIM=$(printf '\033[2m')
+	BOLD=$(printf '\033[1m')
+	OK=$(printf '\033[32m')
+	RESET=$(printf '\033[0m')
+	# CLR стирает строку с бегунком: итоговая строка бывает короче неё.
+	CLR=$(printf '\r\033[2K')
+else
+	ACCENT='' DIM='' BOLD='' OK='' RESET='' CLR=''
+fi
+
+say() { printf '%s\n' "$*"; }
+note() { printf '  %s%s%s\n' "$DIM" "$*" "$RESET"; }
+done_() { printf '%s  %s●%s %s\n' "$CLR" "$OK" "$RESET" "$*"; }
+die() { printf '%s  %s✕%s установка прервана: %s\n' "$CLR" "$ACCENT" "$RESET" "$*" >&2; exit 1; }
+
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+
+# spin крутит бегунок, пока команда работает; её вывод складывает в файл и
+# показывает только при неудаче. В трубе — просто строка «делаю → сделано».
+spin() {
+	text=$1
+	shift
+	if [ "$TTY" != 1 ]; then
+		printf '  … %s\n' "$text"
+		"$@" >"$WORK/out" 2>&1 || return $?
+		return 0
+	fi
+	"$@" >"$WORK/out" 2>&1 &
+	pid=$!
+	i=0
+	while kill -0 "$pid" 2>/dev/null; do
+		case $((i % 10)) in
+		0) c='⠋' ;; 1) c='⠙' ;; 2) c='⠹' ;; 3) c='⠸' ;; 4) c='⠼' ;;
+		5) c='⠴' ;; 6) c='⠦' ;; 7) c='⠧' ;; 8) c='⠇' ;; 9) c='⠏' ;;
+		esac
+		printf '\r  %s%s%s %s' "$ACCENT" "$c" "$RESET" "$text"
+		i=$((i + 1))
+		sleep 0.1
+	done
+	rc=0
+	wait "$pid" || rc=$?
+	return $rc
+}
+
+WHAT='установка ноды'
+[ "$RELAY" = 1 ] && WHAT='установка входа'
+
+banner() {
+	if [ "$TTY" != 1 ]; then
+		say "marvia · $WHAT · панель $PANEL"
+		say ''
+		return
+	fi
+	say ''
+	printf '  %s███╗   ███╗%s\n' "$ACCENT" "$RESET"
+	printf '  %s████╗ ████║%s   %smarvia%s\n' "$ACCENT" "$RESET" "$BOLD" "$RESET"
+	printf '  %s██╔████╔██║%s   %s\n' "$ACCENT" "$RESET" "$WHAT"
+	printf '  %s██║╚██╔╝██║%s\n' "$ACCENT" "$RESET"
+	printf '  %s██║ ╚═╝ ██║%s   %sпанель  %s%s\n' "$ACCENT" "$RESET" "$DIM" "$PANEL" "$RESET"
+	printf '  %s╚═╝     ╚═╝%s   %sнода    %s · порт %s%s\n' "$ACCENT" "$RESET" "$DIM" "$NAME" "$PORT" "$RESET"
+	say ''
+}
+
+banner
+
+# ---------------------------------------------------------------- проверки
+
+[ "$(id -u)" = 0 ] || die 'нужны права root'
+command -v systemctl >/dev/null 2>&1 || die 'на этой системе нет systemd, автозапуск настроить нечем'
+command -v curl >/dev/null 2>&1 || die 'нет curl. Поставь: apt-get install -y curl'
+
+case "$(uname -m)" in
+x86_64 | amd64) ARCH=amd64 ;;
+aarch64 | arm64) ARCH=arm64 ;;
+*) die "разрядность $(uname -m) не поддерживается: нода собирается под amd64 и arm64" ;;
+esac
+
+if [ -d "$DIR" ]; then
+	die "$DIR уже существует. Здесь, похоже, уже стоит нода. Снести: systemctl disable --now marvia-node && rm -rf $DIR"
+fi
+
+# Порт должен быть свободен до того, как мы что-то скачаем и запишем.
+# Обнаружить занятость после установки — значит оставить человека с
+# наполовину поставленной нодой и невнятной ошибкой в журнале.
+if command -v ss >/dev/null 2>&1; then
+	if ss -tln 2>/dev/null | awk '{print $4}' | sed 's/.*://' | grep -qx "$PORT"; then
+		die "порт $PORT уже занят. Освободи его или поставь ноду на отдельный сервер. Проверить, кто держит: ss -tlnp | grep :$PORT"
+	fi
+fi
+done_ "порт $PORT свободен, система $ARCH"
+
+if [ "$PORT" != "443" ]; then
+	say ''
+	note "ВНИМАНИЕ: нода встанет на порт $PORT, а не 443."
+	note 'Настоящие сайты на нестандартных портах не живут, и это заметно со стороны.'
+	note 'Вдобавок корпоративные и гостиничные сети такие порты часто режут.'
+	say ''
+fi
+
+# ---------------------------------------------------------------- сайт прикрытия
+
+DEST_HOST="${DEST%:*}"
+SNI="${SNI:-$DEST_HOST}"
+
+# Эти значения уходят в строку запуска службы и в запрос к панели. Проверяем
+# состав, а не верим на слово: пробел или кавычка из скопированной строки
+# сломали бы службу так, что видно это было бы только в журнале.
+case "$SNI" in
+*[!A-Za-z0-9.,-]*) die "SNI — имена через запятую, без пробелов; получено «$SNI»" ;;
+esac
+case "$SHORT_IDS" in
+*[!0-9a-fA-F,]*) die "SHORT_IDS — шестнадцатеричные строки через запятую; получено «$SHORT_IDS»" ;;
+esac
+if [ -n "$GIVEN_KEY$GIVEN_PUB" ]; then
+	[ -n "$GIVEN_KEY" ] && [ -n "$GIVEN_PUB" ] || die 'REALITY_KEY и REALITY_PUB задаются только вместе'
+	case "$GIVEN_KEY$GIVEN_PUB" in
+	*[!A-Za-z0-9_-]*) die 'ключи REALITY — строки base64url, как в конфиге Xray' ;;
+	esac
+fi
+
+if [ "$RELAY" != 1 ]; then
+	spin "проверяю сайт прикрытия $DEST_HOST" \
+		curl -sI --max-time 10 --tlsv1.3 "https://$DEST_HOST/" -o /dev/null ||
+		die "сайт прикрытия $DEST_HOST недоступен отсюда или не умеет TLS 1.3. Возьми другой: DEST=www.icloud.com:443"
+	done_ "сайт прикрытия $DEST_HOST отвечает по TLS 1.3"
+fi
+
+# ---------------------------------------------------------------- установка
+
+mkdir -p "$DIR"
+chmod 700 "$DIR"
+
+# fetch забирает бинарник под нашу разрядность. Панель отдаёт файл под неё,
+# если он у неё есть, и в любом случае говорит заголовком, для чего собран
+# то, что отдала: чужой бинарник надо поймать здесь, а не после того, как
+# ключи выпущены и приглашение сгорело.
+fetch() {
+	name=$1
+	if [ "$TTY" = 1 ]; then
+		printf '  %s↓%s %s %s(%s)%s\n' "$ACCENT" "$RESET" "$name" "$DIM" "$ARCH" "$RESET"
+		curl -fL -# -D "$WORK/headers" "$PANEL/install/$INVITE/$name?arch=$ARCH" -o "$DIR/$name" ||
+			die "не скачался $name"
+		# Полоса curl и наша строка над ней своё отработали: убираем обе,
+		# остаётся одна — «скачан». Только если полоса и правда была на экране.
+		[ -t 2 ] && printf '\033[1A\033[2K\033[1A\033[2K'
+	else
+		printf '  … скачиваю %s (%s)\n' "$name" "$ARCH"
+		curl -fsSL -D "$WORK/headers" "$PANEL/install/$INVITE/$name?arch=$ARCH" -o "$DIR/$name" ||
+			die "не скачался $name"
+	fi
+	built=$(tr -d '\r' <"$WORK/headers" | awk 'tolower($1) == "x-marvia-arch:" {print $2}' | tail -1)
+	if [ -n "$built" ] && [ "$built" != "$ARCH" ]; then
+		die "панель раздаёт $name для $built, а этот сервер — $ARCH. Положи на панель бинарник под $ARCH: /opt/marvia/dist/$name-$ARCH (архив marvia_linux_$ARCH.tar.gz из релиза)"
+	fi
+	chmod 755 "$DIR/$name"
+	done_ "$name скачан"
+}
+
+fetch marvia-node
+[ "$RELAY" = 1 ] || fetch marvia-keygen
+
+# Запускаем то, что скачали, до выпуска ключей: чужая разрядность или
+# побитый файл должны остановить установку, пока приглашение ещё живо.
+"$DIR/marvia-node" -version >"$WORK/version" 2>/dev/null ||
+	die "marvia-node не запускается на этой машине. Скорее всего, панель раздаёт бинарник не под $ARCH"
+VERSION=$(awk '{print $2}' "$WORK/version")
+
+umask 077
+
+if [ "$RELAY" != 1 ]; then
+	"$DIR/marvia-keygen" >"$DIR/.k1" 2>&1
+	"$DIR/marvia-keygen" -reality >"$DIR/.k2" 2>&1
+
+	NODE_KEY=$(awk '/Приватный ключ:/{print $3; exit}' "$DIR/.k1")
+	NODE_PUB=$(awk '/Публичный ключ:/{print $3; exit}' "$DIR/.k1")
+	REALITY_KEY=$(awk '/Приватный ключ:/{print $3; exit}' "$DIR/.k2")
+	REALITY_PUB=$(awk '/Публичный ключ:/{print $3; exit}' "$DIR/.k2")
+	SHORT_ID=$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')
+
+	rm -f "$DIR/.k1" "$DIR/.k2"
+	[ -n "$NODE_KEY" ] && [ -n "$REALITY_KEY" ] || die 'не получилось выпустить ключи'
+
+	# Прежние ключи REALITY заменяют новые целиком: публичный ключ из пары
+	# покупатели уже держат в ссылках как pbk.
+	if [ -n "$GIVEN_KEY" ]; then
+		REALITY_KEY=$GIVEN_KEY
+		REALITY_PUB=$GIVEN_PUB
+		done_ 'ключи REALITY прежние — старые ссылки подойдут'
+	fi
+	SHORT_IDS="${SHORT_IDS:-$SHORT_ID}"
+
+	printf '%s\n' "$NODE_KEY" >"$DIR/node.key"
+	chmod 600 "$DIR/node.key"
+	done_ 'ключи выпущены, приватные остались здесь'
+fi
+
+# ---------------------------------------------------------------- запись в панель
+
+# Адрес не отправляем: за NAT нода видит свой внутренний, а панель видит
+# настоящий, с которого пришло соединение.
+if [ "$RELAY" = 1 ]; then
+	BODY=$(printf '{"name":"%s","country":"%s","port":%s}' "$NAME" "$COUNTRY" "$PORT")
+	RUN_ARGS="-panel $PANEL -relay"
+else
+	BODY=$(printf '{"name":"%s","country":"%s","port":%s,"sni":"%s","public_key":"%s","reality_public_key":"%s","reality_short_id":"%s"}' \
+		"$NAME" "$COUNTRY" "$PORT" "${SNI%%,*}" "$NODE_PUB" "$REALITY_PUB" "${SHORT_IDS%%,*}")
+	RUN_ARGS="-key-file $DIR/node.key -panel $PANEL -reality-dest $DEST -reality-sni $SNI -reality-short-id $SHORT_IDS"
+fi
+
+spin 'записываюсь в панель' \
+	curl -fsS -X POST "$PANEL/api/v1/nodes/register" \
+	-H "Authorization: Bearer $INVITE" \
+	-H 'Content-Type: application/json' \
+	-d "$BODY" -o "$WORK/register" ||
+	die 'панель не приняла ноду. Скорее всего приглашение уже использовано или просрочено — возьми в панели новую команду'
+
+NODE_TOKEN=$(sed -n 's/.*"token":"\([^"]*\)".*/\1/p' "$WORK/register")
+[ -n "$NODE_TOKEN" ] || die "панель ответила непонятным: $(cat "$WORK/register")"
+done_ 'нода записана в панель'
+
+# Секреты уезжают в файл окружения, а не в строку запуска. В строке запуска
+# их видел бы любой пользователь системы через ps.
+if [ "$RELAY" = 1 ]; then
+	printf 'MARVIA_NODE_TOKEN=%s
+' "$NODE_TOKEN" >"$DIR/env"
+else
+	cat >"$DIR/env" <<ENVEOF
+MARVIA_NODE_TOKEN=$NODE_TOKEN
+MARVIA_REALITY_KEY=$REALITY_KEY
+ENVEOF
+fi
+chmod 600 "$DIR/env"
+
+# ---------------------------------------------------------------- служба
+
+# Служба обновления: панель сможет попросить ноду обновиться кнопкой. Ставим
+# сейчас, пока каталог ещё принадлежит root и бинарник только что проверен
+# запуском: ниже каталог отойдёт marvia, и запускать оттуда что-то от root
+# станет нельзя. Бинарник со старой панели флага не знает — не беда, нода
+# встанет и так, обновлять её тогда командой upgrade.sh.
+if "$DIR/marvia-node" -install-updater >/dev/null 2>&1; then
+	done_ 'служба обновления поставлена: панель обновит ноду кнопкой'
+else
+	say '  служба обновления не поставилась — обновлять ноду придётся командой upgrade.sh'
+fi
+
+id -u marvia >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin marvia
+chown -R marvia:marvia "$DIR"
+
+# ---------------------------------------------------------------- ускорение
+#
+# Нода просит для своих соединений BBR вместо стандартного CUBIC: на дальнем
+# маршруте с потерями CUBIC на каждую потерю вдвое сбавляет скорость, BBR
+# держит её по измеренной полосе. Системный алгоритм по умолчанию не трогаем —
+# остальные службы сервера живут как жили. Только загружаем модуль и
+# разрешаем выбрать BBR без root: нода работает от marvia.
+if [ "${BBR:-1}" != 0 ]; then
+	modprobe tcp_bbr 2>/dev/null || true
+	if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null; then
+		echo tcp_bbr >/etc/modules-load.d/marvia-bbr.conf
+		allowed=$(cat /proc/sys/net/ipv4/tcp_allowed_congestion_control 2>/dev/null || echo 'reno cubic')
+		case " $allowed " in
+		*" bbr "*) ;;
+		*)
+			printf 'net.ipv4.tcp_allowed_congestion_control = %s bbr\n' "$allowed" >/etc/sysctl.d/90-marvia-bbr.conf
+			sysctl -q -p /etc/sysctl.d/90-marvia-bbr.conf >/dev/null 2>&1 || true
+			;;
+		esac
+		done_ 'BBR разрешён для соединений ноды'
+	else
+		note 'BBR в этом ядре нет — нода будет на стандартном алгоритме'
+	fi
+fi
+
+cat >/etc/systemd/system/marvia-node.service <<UNITEOF
+[Unit]
+Description=Marvia node
+After=network-online.target
+Wants=network-online.target
+
+# Предел на число перезапусков живёт здесь, а не в [Service].
+#
+# В [Service] эти два ключа стояли раньше, и systemd их молча выбрасывал:
+# «Unknown key name 'StartLimitIntervalSec' in section 'Service', ignoring».
+# Проверено на живой ноде — интервал оставался стандартный, десять секунд, и
+# при RestartSec=10 предел в двадцать попыток не достижим в принципе. То есть
+# защита, ради которой всё писалось, не работала ни дня.
+#
+# Двадцать попыток за десять минут — достаточно, чтобы пережить перезагрузку
+# сети или короткую недоступность панели, и мало, чтобы превратиться в обстрел
+# собственного управляющего сервера. На живой машине счётчик однажды дошёл до
+# семи тысяч, и остановил его человек, а не программа.
+StartLimitIntervalSec=600
+StartLimitBurst=20
+
+[Service]
+Type=simple
+User=marvia
+Group=marvia
+WorkingDirectory=$DIR
+EnvironmentFile=$DIR/env
+ExecStart=$DIR/marvia-node -listen 0.0.0.0:$PORT $RUN_ARGS
+Restart=on-failure
+
+# Отступ между попытками. Раньше стояло три секунды: нода, падавшая при
+# запуске, поднималась двадцать раз в минуту и столько же раз била запросом по
+# панели. Предел на число попыток — в секции [Unit] выше, там ему и место.
+RestartSec=10
+
+# Нода не root: единственное, ради чего ей нужны были права, — занять
+# порт ниже 1024, и это выдаётся отдельной возможностью.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=$DIR
+
+[Install]
+WantedBy=multi-user.target
+UNITEOF
+
+systemctl daemon-reload
+systemctl enable --now marvia-node >/dev/null 2>&1
+done_ 'автозапуск настроен'
+
+# Даём службе мгновение подняться и проверяем, что она действительно жива.
+# «Установка завершена» при упавшей службе — худшее, что может напечатать
+# установщик: человек уходит довольный, а работать начинает завтра.
+alive() {
+	i=0
+	while [ "$i" -lt 10 ]; do
+		[ "$(systemctl is-active marvia-node)" = active ] && return 0
+		i=$((i + 1))
+		sleep 1
+	done
+	return 1
+}
+
+if ! spin 'жду, пока служба поднимется' alive; then
+	say ''
+	say 'служба не поднялась. Последние строки журнала:'
+	journalctl -u marvia-node -n 15 --no-pager -o cat || true
+	die 'нода не запустилась'
+fi
+done_ 'служба работает'
+
+say ''
+printf '  %s────────────────────────────────────────────%s\n' "$DIM" "$RESET"
+if [ "$RELAY" = 1 ]; then
+	printf '  %s●%s %sвход поднят и записан в панель%s\n' "$OK" "$RESET" "$BOLD" "$RESET"
+else
+	printf '  %s●%s %sнода поднята и записана в панель%s\n' "$OK" "$RESET" "$BOLD" "$RESET"
+fi
+say ''
+printf '    имя         %s\n' "$NAME"
+printf '    порт        %s\n' "$PORT"
+if [ "$RELAY" = 1 ]; then
+	printf '    выход       тот, что назвала панель: сменить можно там же\n'
+else
+	printf '    прикрытие   %s\n' "$DEST"
+fi
+printf '    версия      %s · %s\n' "${VERSION:-?}" "$ARCH"
+say ''
+printf '    %sжурнал      journalctl -u marvia-node -f%s\n' "$DIM" "$RESET"
+printf '    %sснести      systemctl disable --now marvia-node && rm -rf %s /etc/systemd/system/marvia-node.service%s\n' "$DIM" "$DIR" "$RESET"
+printf '  %s────────────────────────────────────────────%s\n' "$DIM" "$RESET"

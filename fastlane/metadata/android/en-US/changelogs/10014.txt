@@ -1,0 +1,4 @@
+0.13.0-alpha.10 — test release.
+The home screen is no longer empty: where you are — flag, city, response time — and your subscription: days left in large type, traffic left, and Renew if the seller gave a link.
+Each look now has its own home layout: stage, tiles panel, dot board or console.
+The VP1 wire format is unchanged.

@@ -1,0 +1,388 @@
+# Сборка готовых бинарников.
+#
+# Без неё продавец не может начать: установщик панели требует три бинарника
+# рядом с собой, а взять их можно только собрав из исходников. Человек, который
+# «не касается кода», на этом и останавливается — на нулевом шаге.
+#
+# Собираем на метку вида v0.1.0 и на кнопку «запустить» — второе нужно, чтобы
+# проверить сборку, не выпуская релиз.
+
+name: Сборка
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  # APK собирается и подписывается здесь же, из той же метки.
+  #
+  # Раньше его собирал владелец у себя, и покупателю оставалось верить, что
+  # файл в релизе сделан из этого кода. Теперь его происхождение подтверждает
+  # GitHub той же подписью, что и остальные файлы выпуска.
+  #
+  # Цена — ключ подписи живёт в секретах. Поэтому секреты лежат в окружении
+  # release, которое пускает к ним только сборку по метке v*: ветка, чужой PR
+  # и ручной запуск их не видят. А подпись сверяется с отпечатком, который
+  # знают все установленные приложения: подложенный ключ выпуск не соберёт.
+  #
+  # Ключа в секретах нет — APK пропускается, выпуск собирается как раньше, и
+  # владелец прикладывает APK сам (scripts/publish-apk.ps1).
+  android:
+    name: Android — подписанный APK
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: release
+    outputs:
+      signed: ${{ steps.key.outputs.signed }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ключ подписи из секрета
+        id: key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo '::notice::ключа подписи в секретах нет — APK приложит владелец'
+            echo 'signed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/marvia-release.jks"
+          echo "MARVIA_KEYSTORE=$RUNNER_TEMP/marvia-release.jks" >> "$GITHUB_ENV"
+          echo 'signed=true' >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        if: steps.key.outputs.signed == 'true'
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-java@v4
+        if: steps.key.outputs.signed == 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Android SDK и NDK
+        if: steps.key.outputs.signed == 'true'
+        run: |
+          sdk="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdk" --licenses >/dev/null 2>&1 || true
+          "$sdk" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+
+      # Тот же скрипт собирает ядро и для F-Droid (docs/fdroid.md).
+      - name: Ядро для Android
+        if: steps.key.outputs.signed == 'true'
+        run: sh scripts/android-core.sh
+
+      # Код обновления лежит в android/version-code и растёт с каждым APK:
+      # телефон ставит поверх только больший код, а из номера alpha его не
+      # вывести — после снятых 1.0 и 1.0.1 коды идут с 10002.
+      - name: Приложение
+        if: steps.key.outputs.signed == 'true'
+        working-directory: android
+        env:
+          MARVIA_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MARVIA_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          MARVIA_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          export MARVIA_VERSION="${GITHUB_REF_NAME#v}"
+          MARVIA_VERSION_CODE="$(tr -d ' \r\n' < version-code)"
+          export MARVIA_VERSION_CODE
+          bash ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease
+
+      - name: Подпись та же, что у установленных приложений
+        if: steps.key.outputs.signed == 'true'
+        run: |
+          tools="$ANDROID_HOME/build-tools/36.0.0"
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          cert=$("$tools/apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          if [ "$cert" != 53eb5bd44a381cbae19b7606ef20919e33dffb260d49f2d4ad868885364d7e82 ]; then
+            echo "APK подписан чужим ключом: $cert"
+            exit 1
+          fi
+          "$tools/aapt2" dump badging "$apk" | head -1
+          mkdir -p apk
+          cp "$apk" apk/marvia-android.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab apk/marvia-android.aab
+
+      - name: Стереть ключ
+        if: always()
+        run: rm -f "$RUNNER_TEMP/marvia-release.jks"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.key.outputs.signed == 'true'
+        with:
+          name: marvia-android
+          path: apk/
+          retention-days: 1
+
+  build:
+    name: Собрать и выложить
+    needs: android
+    # На ручном запуске Android пропущен — остальное собирается всё равно.
+    if: ${{ !cancelled() && (needs.android.result == 'success' || needs.android.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    # Токен подписи Windows — в окружении задачи, чтобы шаги могли спросить,
+    # есть ли он: секреты в условиях шагов напрямую не читаются.
+    env:
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Не выпускать отложенную 1.0
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          case "$GITHUB_REF_NAME" in
+            v0.*) ;;
+            *) echo 'Выпуск 1.x отложен: сначала критерии docs/development-plan.md'; exit 1 ;;
+          esac
+
+      - uses: actions/setup-go@v5
+        with:
+          # Версию берём из go.mod, чтобы она не разъехалась с той, на которой
+          # проект собирают руками.
+          go-version-file: go.mod
+          cache: true
+
+      - name: Тесты
+        run: go test ./...
+
+      - name: Собрать
+        run: |
+          set -eu
+
+          # Версия попадает внутрь бинарника: без неё на вопрос «что у тебя
+          # стоит» продавец ответить не сможет, а поддержка — тем более.
+          VERSION="${GITHUB_REF_NAME}"
+          case "$VERSION" in v*) ;; *) VERSION="v$(cat VERSION)-dev.${GITHUB_SHA::7}" ;; esac
+          echo "Версия: $VERSION"
+          echo "MARVIA_BUILD_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+          mkdir -p dist
+
+          # Панель, нода и генератор ключей — всё, что стоит на сервере
+          # продавца. Бота он пишет сам: у каждого свои тарифы, свой приём
+          # денег и своя ответственность за них. Наше дело — API.
+          for os_arch in linux/amd64 linux/arm64; do
+            os="${os_arch%/*}"
+            arch="${os_arch#*/}"
+            out="build/${os}_${arch}"
+            mkdir -p "$out"
+
+            for cmd in marvia-panel marvia-node marvia-keygen; do
+              CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
+                go build -trimpath \
+                  -ldflags "-s -w -X main.version=${VERSION}" \
+                  -o "$out/$cmd" "./cmd/$cmd"
+            done
+
+            # Установщик кладём в тот же архив: распаковал — и всё на месте,
+            # ничего больше качать не надо.
+            cp scripts/install-panel.sh "$out/install-panel.sh"
+            cp scripts/upgrade.sh "$out/upgrade.sh"
+            chmod +x "$out/install-panel.sh" "$out/upgrade.sh"
+
+            tar -czf "dist/marvia_${os}_${arch}.tar.gz" -C "$out" .
+          done
+
+          # EXE сохраняем для совместимости. Полный переносимый комплект
+          # ниже включает Wintun: без него окно работает, но VPN не поднимается.
+          #
+          # -H windowsgui убирает чёрное окно консоли за окном приложения.
+          go run github.com/tc-hib/go-winres@v0.3.3 make --arch amd64 \
+            --in cmd/marvia-windows/winres.json --out cmd/marvia-windows/rsrc \
+            --product-version "$VERSION" --file-version "$VERSION"
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+            go build -trimpath \
+              -ldflags "-H windowsgui -s -w -X main.version=${VERSION}" \
+              -o dist/marvia-windows.exe ./cmd/marvia-windows
+
+          # Установщик выкладываем и отдельным файлом: с него всё начинается,
+          # а качать ради него архив — лишний шаг на самом первом шаге.
+          cp scripts/install-panel.sh dist/install-panel.sh
+          # Служба обновления на серверах берёт сценарий отсюда, из релиза, и
+          # сверяет с SHA256SUMS — а не из ветки, которая меняется в любой миг.
+          cp scripts/upgrade.sh dist/upgrade.sh
+
+      # Подпись Authenticode через SignPath — пока токена нет, шаг пропускается
+      # и выпуск выходит как раньше, без подписи. С подписью SmartScreen
+      # перестаёт пугать «Windows защитила ваш компьютер» (docs/guide.md,
+      # «SmartScreen»). Токен и номера проекта кладёт владелец: секрет
+      # SIGNPATH_API_TOKEN и переменные SIGNPATH_ORGANIZATION_ID,
+      # SIGNPATH_PROJECT и SIGNPATH_POLICY.
+      - name: Отдать на подпись EXE
+        id: exe-upload
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: exe-unsigned
+          path: dist/marvia-windows.exe
+          if-no-files-found: error
+
+      - name: Подписать EXE
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY }}
+          github-artifact-id: ${{ steps.exe-upload.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-exe
+
+      - name: Подставить подписанный EXE
+        if: env.SIGNPATH_API_TOKEN != ''
+        run: cp "signed-exe/marvia-windows.exe" "dist/marvia-windows.exe"
+
+      - name: Собрать полный комплект Windows
+        run: sudo apt-get update && sudo apt-get install -y nsis
+
+      - name: Упаковать установщик и переносимый комплект Windows
+        shell: pwsh
+        run: ./scripts/package-windows.ps1 -Exe ./dist/marvia-windows.exe -OutputDirectory ./dist -Version $env:MARVIA_BUILD_VERSION
+
+      # Подпись Authenticode через SignPath — пока токена нет, шаг пропускается
+      # и выпуск выходит как раньше, без подписи. С подписью SmartScreen
+      # перестаёт пугать «Windows защитила ваш компьютер» (docs/guide.md,
+      # «SmartScreen»). Токен и номера проекта кладёт владелец: секрет
+      # SIGNPATH_API_TOKEN и переменные SIGNPATH_ORGANIZATION_ID,
+      # SIGNPATH_PROJECT и SIGNPATH_POLICY.
+      - name: Отдать на подпись установщик
+        id: setup-upload
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-unsigned
+          path: dist/marvia-windows-setup.exe
+          if-no-files-found: error
+
+      - name: Подписать установщик
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY }}
+          github-artifact-id: ${{ steps.setup-upload.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-setup
+
+      - name: Подставить подписанный установщик
+        if: env.SIGNPATH_API_TOKEN != ''
+        run: cp "signed-setup/marvia-windows-setup.exe" "dist/marvia-windows-setup.exe"
+
+      - name: Взять подписанный APK
+        if: needs.android.outputs.signed == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: marvia-android
+          path: dist
+
+      # APK входит в те же суммы: установщик и служба обновления панели берут
+      # приложение из релиза и сверяют его по SHA256SUMS, как и остальное.
+      - name: Посчитать суммы всех файлов выпуска
+        run: |
+          cd dist
+          apps=()
+          if [ -f marvia-android.apk ]; then apps=(marvia-android.apk marvia-android.aab); fi
+          # Без ./ перед именами: служба обновления ищет в суммах строку
+          # «сумма  имя», и префикс пути её бы сломал.
+          sha256sum -- *.tar.gz install-panel.sh upgrade.sh marvia-windows.zip marvia-windows-setup.exe "${apps[@]}" > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Подписать контрольные суммы сборки
+        id: attest
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/SHA256SUMS
+
+      - name: Сохранить подпись рядом с релизом
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: cp "$BUNDLE_PATH" dist/SHA256SUMS.sigstore.json
+
+      # Релиз выкладывается сюда же.
+      #
+      # Раньше сборки уезжали в отдельный публичный репозиторий: исходники были
+      # закрыты, а у закрытого репозитория файлы релиза по ссылке не отдаются —
+      # «скачай и запусти» там не работает в принципе. Теперь репозиторий один
+      # и он публичный, поэтому чужой токен больше не нужен: GITHUB_TOKEN
+      # действует ровно на тот репозиторий, где идёт сборка.
+      - name: Выложить релиз
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          # Собранные файлы ещё не означают проверенный выпуск. Публикуем
+          # черновик вручную только после проверки кандидата владельцем.
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: 'false'
+          files: |
+            dist/marvia_linux_amd64.tar.gz
+            dist/marvia_linux_arm64.tar.gz
+            dist/install-panel.sh
+            dist/upgrade.sh
+            dist/marvia-windows.zip
+            dist/marvia-windows-setup.exe
+            dist/marvia-android.apk
+            dist/marvia-android.aab
+            dist/SHA256SUMS
+            dist/SHA256SUMS.sigstore.json
+          body: |
+            **Marvia ${{ github.ref_name }} — тестовый кандидат.**
+            Выпуск 1.0 отложен. Перед публикацией нужно проверить установку,
+            подключение и обновление на реальных устройствах по
+            [плану](https://github.com/jytt8u/marvia/blob/main/docs/development-plan.md).
+
+            **Windows:** скачайте `marvia-windows-setup.exe` — в нём всё: приложение,
+            драйвер, ярлык; ключи при обновлении сохраняются. `marvia-windows.zip` —
+            то же без установки, распакуйте папку целиком.
+            Если Windows пишет «Система Windows защитила ваш компьютер» — это
+            SmartScreen, а не антивирус: нажмите «Подробнее» → «Выполнить в любом
+            случае». Спросит один раз, на установщике.
+
+            Android: `marvia-android.apk` собран здесь же из этой метки и подписан
+            ключом приложения — SHA-256 сертификата
+            `53:EB:5B:D4:4A:38:1C:BA:E1:9B:76:06:EF:20:91:9E:33:DF:FB:26:0D:49:F2:D4:AD:86:88:85:36:4D:7E:82`,
+            тот же, что у прежних версий, поэтому ставится поверх с сохранением ключей.
+            `marvia-android.aab` — для Google Play. Если APK в списке нет, его приложат
+            отдельно после проверки подписи владельцем.
+
+            Установка панели на чистый Linux-сервер:
+
+            ```
+            curl -fsSL https://github.com/jytt8u/marvia/releases/download/${{ github.ref_name }}/install-panel.sh -o install-panel.sh
+            sh install-panel.sh --domain panel.example.com --email you@example.com --from https://github.com/jytt8u/marvia/releases/download/${{ github.ref_name }}/marvia_linux_amd64.tar.gz
+            ```
+
+            Панель выдаёт команду установки ноды и может раздавать клиентские
+            приложения со своего домена. [Руководство](https://github.com/jytt8u/marvia/blob/${{ github.ref_name }}/docs/guide.md)
+            и [изменения](https://github.com/jytt8u/marvia/blob/${{ github.ref_name }}/CHANGELOG.md).
+
+            Контрольные суммы находятся в `SHA256SUMS` и подтверждены
+            `SHA256SUMS.sigstore.json`. Установщик сверяет суммы сам.
+
+      - name: Сохранить сборку
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: marvia-dist
+          path: dist/
+          retention-days: 14

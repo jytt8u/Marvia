@@ -1,0 +1,4 @@
+0.13.0-alpha.8 — test release.
+If a connection freezes after 15–20 KB, the app moves to another node in 12 seconds instead of a minute.
+The app now offers updates between test releases.
+The VP1 wire format is unchanged.

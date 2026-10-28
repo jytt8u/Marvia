@@ -1,0 +1,3 @@
+0.13.0-alpha.22 — test release.
+Xray for foreign VLESS, VMess and Trojan links is updated to fix GO-2026-6651 (certificate pinning bypass).
+The VP1 wire format is unchanged.

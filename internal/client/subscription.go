@@ -266,6 +266,17 @@ func FetchSubscriptionWithClient(ctx context.Context, subURL string, httpClient 
 // разрешалось, список не скачивался никогда — российские сайты шли через
 // ноду за границей и не открывались.
 func FetchBypass(ctx context.Context, subURL string, pinned []netip.Addr) ([]string, error) {
+	return fetchBypass(ctx, subURL, subscriptionClient(pinned))
+}
+
+// FetchBypassWithClient — то же через переданный транспорт: мобильный
+// клиент качает список через работающий туннель, когда панель напрямую не
+// открывается.
+func FetchBypassWithClient(ctx context.Context, subURL string, httpClient *http.Client) ([]string, error) {
+	return fetchBypass(ctx, subURL, httpguard.SubscriptionClient(httpClient))
+}
+
+func fetchBypass(ctx context.Context, subURL string, httpClient *http.Client) ([]string, error) {
 	ctx, cancel := context.WithTimeout(ctx, subscriptionTimeout)
 	defer cancel()
 
@@ -273,7 +284,7 @@ func FetchBypass(ctx context.Context, subURL string, pinned []netip.Addr) ([]str
 	if err != nil {
 		return nil, withoutSecret(err)
 	}
-	resp, err := subscriptionClient(pinned).Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("запрос списка: %w", withoutSecret(err))
 	}

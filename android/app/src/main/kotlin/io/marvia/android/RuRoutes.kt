@@ -78,8 +78,10 @@ object RuRoutes {
     /**
      * refresh скачивает список с панели, если он устарел.
      *
-     * Вызывается с выключенным туннелем: качать его через свой же туннель
-     * незачем, а до включения панель обычно доступна напрямую.
+     * При поднятом туннеле — сначала через него: панель бывает недоступна
+     * из сети человека напрямую (её адрес режут так же, как адреса нод), и
+     * тогда список не приходил никогда. Не вышло через туннель или его нет —
+     * напрямую, как раньше.
      */
     @Synchronized
     fun refresh(context: Context, accountLink: String, force: Boolean = false): Result<Int> {
@@ -95,7 +97,10 @@ object RuRoutes {
         // Экран настроек и служба могут попросить список одновременно. После
         // таймаута новая попытка каждые несколько секунд тратила батарею и
         // забивала журнал одной и той же ошибкой.
-        if (!force && SystemClock.elapsedRealtime() < nextRetryAt) {
+        // Пауза после неудачи — для той же дороги. Не вышло напрямую, а теперь
+        // туннель поднят — пробуем через него сразу, не ждём пятнадцать минут.
+        val freshRoad = failedDirect && MarviaState.core != null
+        if (!force && !freshRoad && SystemClock.elapsedRealtime() < nextRetryAt) {
             return Result.failure(IllegalStateException(lastError))
         }
 
@@ -104,7 +109,9 @@ object RuRoutes {
             // путь, что у подписки. Своим HTTP мы ходили по имени панели, и
             // там, где оно не разрешалось, список не приходил никогда —
             // российские сайты шли через ноду за границей и не открывались.
-            val text = Mobile.bypassRoutes(accountLink)
+            val text = MarviaState.core
+                ?.let { core -> runCatching { core.bypassRoutes(accountLink) }.getOrNull() }
+                ?: Mobile.bypassRoutes(accountLink)
             val count = text.lineSequence().count { it.isNotBlank() }
 
             // Пишем целиком и разом: оборванная запись оставила бы половину
@@ -112,11 +119,13 @@ object RuRoutes {
             val tmp = File(context.filesDir, "$FILE.tmp")
             tmp.writeText(text + "\n")
             tmp.renameTo(file)
+            failedDirect = false
             lastError = ""
             nextRetryAt = 0
             Result.success(count)
         } catch (t: Throwable) {
             nextRetryAt = SystemClock.elapsedRealtime() + RETRY_AFTER_FAILURE_MS
+            failedDirect = MarviaState.core == null
             val detail = MarviaVpnService.failureOf(t).detail
             lastError = if (detail.contains("deadline exceeded", ignoreCase = true) ||
                 detail.contains("timed out", ignoreCase = true) || detail.contains("timeout", ignoreCase = true)) {
@@ -126,6 +135,10 @@ object RuRoutes {
             Result.failure(t)
         }
     }
+
+    /** failedDirect — последняя неудача была без туннеля. */
+    @Volatile
+    private var failedDirect = false
 
     /** Почему список не скачался в последний раз; пусто — скачался или не пробовали. */
     @Volatile

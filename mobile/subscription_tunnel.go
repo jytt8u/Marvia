@@ -3,10 +3,13 @@ package mobile
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
+	"github.com/jytt8u/marvia/internal/client"
 	"github.com/jytt8u/marvia/internal/tunbridge"
 	"github.com/jytt8u/marvia/internal/vp1"
 )
@@ -27,6 +30,37 @@ func (t *Tunnel) Subscription(accountLink, cacheDir string, refresh bool) (strin
 	transport := subscriptionTransport(dialer.DialTarget)
 	defer transport.CloseIdleConnections()
 	return subscription(accountLink, cacheDir, refresh, &http.Client{Transport: transport})
+}
+
+// BypassRoutes — российский список через работающий туннель.
+//
+// Напрямую список качается до включения туннеля, но панель бывает
+// недоступна из сети человека — её адрес режут так же, как адреса нод.
+// Тогда список не приходил никогда, и российские сайты шли через ноду за
+// границей. Через туннель панель видна так же, как при обновлении подписки.
+func (t *Tunnel) BypassRoutes(accountLink string) (string, error) {
+	if isForeign(accountLink) {
+		return "", fail(FailPanel, errors.New("этот список даёт только панель Marvia, а подписка чужая"))
+	}
+	account, err := client.ParseAccountLink(accountLink)
+	if err != nil {
+		return "", fail(FailAccount, fmt.Errorf("ссылка доступа: %w", err))
+	}
+	t.mu.Lock()
+	backend := t.dialer
+	running := t.running
+	t.mu.Unlock()
+	if backend == nil || !running {
+		return "", fail(FailPanel, errors.New("туннель уже остановлен"))
+	}
+	dialer := tunbridge.Metered(backend, &t.up, &t.down)
+	transport := subscriptionTransport(dialer.DialTarget)
+	defer transport.CloseIdleConnections()
+	prefixes, err := client.FetchBypassWithClient(context.Background(), account.SubscriptionURL, &http.Client{Transport: transport})
+	if err != nil {
+		return "", fail(FailPanel, err)
+	}
+	return strings.Join(prefixes, "\n"), nil
 }
 
 func subscriptionTransport(dial func(context.Context, vp1.Address) (net.Conn, error)) *http.Transport {

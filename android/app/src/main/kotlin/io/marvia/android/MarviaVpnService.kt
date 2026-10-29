@@ -189,10 +189,9 @@ class MarviaVpnService : VpnService() {
             if (generation != networkGeneration) changes.trySend(available)
             detectExitCountry(started, store)
 
-            // Российский список — сейчас, когда сеть точно есть. Приложение
-            // исключено из туннеля, так что панель спрашивается напрямую, как
-            // и до включения. Сработает со следующего подключения: маршруты
-            // уже отданы системе.
+            // Российский список — сейчас, когда сеть точно есть: через туннель,
+            // а не вышло — напрямую (RuRoutes.refresh). Сработает со следующего
+            // подключения: маршруты уже отданы системе.
             if (store.bypassRussian) RuRoutes.refreshInBackground(applicationContext, link)
 
             watch(started, node)

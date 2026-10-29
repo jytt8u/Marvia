@@ -51,7 +51,7 @@ var (
 	fieldForeign = []string{"https://www.wikipedia.org/", "https://github.com/", "https://www.example.com/"}
 	// Большие файлы у трёх видов хозяев: российский, зарубежный хостер
 	// (там же, где обычно стоят ноды), зарубежный CDN.
-	fieldFreezeRU     = "https://mirror.yandex.ru/ubuntu/ls-lR.gz"
+	fieldFreezeRU = "https://mirror.yandex.ru/ubuntu/ls-lR.gz"
 	// OVH, а не Hetzner: Hetzner (fsn1, nbg1, hel1, ash) и Leaseweb 29.10.2026
 	// рвали соединение сразу после рукопожатия любому TLS из Go и uTLS, хотя
 	// curl с того же компьютера качал. Причина не выяснена; контрольный адрес

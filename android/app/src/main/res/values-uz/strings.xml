@@ -539,6 +539,8 @@
     <string name="seller_remind_expiry">Kirish tugashiga %1$s qoldi. Hech narsa toʻxtab qolmasligi uchun oldindan uzaytiring.</string>
     <string name="seller_remind_traffic">Trafikning %1$d%% qoldi. Hech narsa toʻxtab qolmasligi uchun oldindan uzaytiring.</string>
     <string name="seller_remind_forecast">Hozirgi sarf boʻyicha trafik tugashiga taxminan %1$s qoldi. Hech narsa toʻxtab qolmasligi uchun oldindan uzaytiring.</string>
+    <string name="widget_description">Bir bosishda ulash va uzish</string>
+    <string name="widget_tap">ulanish uchun bosing</string>
     <string name="shortcut_connect">Ulanish</string>
     <string name="shortcut_disconnect">Uzish</string>
     <string name="seller_channel">Kirish haqida eslatmalar</string>

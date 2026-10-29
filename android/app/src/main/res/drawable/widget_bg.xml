@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Фон виджета: тёмный, чуть прозрачный — читается на любых обоях. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#E6171A1E" />
+    <corners android:radius="22dp" />
+</shape>

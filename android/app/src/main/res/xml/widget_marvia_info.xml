@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Три на одну клетку: в две не влезают «Ажыратылған» и имя ноды.
+    updatePeriodMillis = 0: по расписанию виджет не будится — состояние ему
+    присылает само приложение, когда оно меняется (MarviaApp).
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/widget_marvia"
+    android:minWidth="180dp"
+    android:minHeight="40dp"
+    android:previewLayout="@layout/widget_marvia"
+    android:resizeMode="horizontal"
+    android:targetCellWidth="3"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

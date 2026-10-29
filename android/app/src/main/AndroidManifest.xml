@@ -133,6 +133,23 @@
         </receiver>
 
         <!--
+            Виджет на рабочем столе (MarviaWidget). Не экспортирован: события
+            виджета система шлёт ему адресно, а чужим приложениям слать
+            «переключи туннель» незачем.
+        -->
+        <receiver
+            android:name=".MarviaWidget"
+            android:exported="false"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_marvia_info" />
+        </receiver>
+
+        <!--
             Кнопка в шторке. TOGGLEABLE_TILE говорит системе, что это
             переключатель: она нарисует его включённым и выключенным, а
             TalkBack прочтёт состояние.

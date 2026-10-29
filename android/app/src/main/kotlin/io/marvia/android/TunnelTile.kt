@@ -4,11 +4,9 @@ import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.drawable.Icon
-import android.net.VpnService
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,23 +48,9 @@ class TunnelTile : TileService() {
 
     override fun onClick() {
         super.onClick()
-        val state = MarviaState.state.value
-        if (state is TunnelState.On || state is TunnelState.Connecting) {
-            startService(Intent(this, MarviaVpnService::class.java).setAction(MarviaVpnService.ACTION_STOP))
-            return
-        }
-        val store = Store(this)
-        if (store.accountLink.isBlank() || VpnService.prepare(this) != null) {
-            openApp()
-            return
-        }
-        try {
-            ContextCompat.startForegroundService(this, Intent(this, MarviaVpnService::class.java))
-        } catch (_: Throwable) {
-            // Часть прошивок не даёт поднять службу из шторки. Тогда — через
-            // приложение: человек нажал кнопку и должен увидеть, что будет.
-            openApp()
-        }
+        // Не вышло без окна — открываем приложение: человек нажал кнопку и
+        // должен увидеть, что будет (TunnelSwitch).
+        if (!TunnelSwitch.toggle(this)) openApp()
     }
 
     @SuppressLint("StartActivityAndCollapseDeprecated")

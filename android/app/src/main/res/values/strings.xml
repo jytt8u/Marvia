@@ -655,6 +655,8 @@
     <string name="seller_remind_expiry">Access ends in %1$s. Renew in advance so nothing stops.</string>
     <string name="seller_remind_traffic">%1$d%% of traffic left. Renew in advance so nothing stops.</string>
     <string name="seller_remind_forecast">At your current usage, traffic will last about %1$s. Renew in advance so nothing stops.</string>
+    <string name="widget_description">Connect and disconnect with one tap</string>
+    <string name="widget_tap">tap to connect</string>
     <string name="shortcut_connect">Connect</string>
     <string name="shortcut_disconnect">Disconnect</string>
     <string name="seller_channel">Access reminders</string>

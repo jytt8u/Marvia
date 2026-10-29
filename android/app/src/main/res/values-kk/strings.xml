@@ -539,6 +539,8 @@
     <string name="seller_remind_expiry">Кірудің аяқталуына %1$s қалды. Ештеңе тоқтап қалмас үшін алдын ала ұзартыңыз.</string>
     <string name="seller_remind_traffic">Трафиктің %1$d%% қалды. Ештеңе тоқтап қалмас үшін алдын ала ұзартыңыз.</string>
     <string name="seller_remind_forecast">Қазіргі шығын бойынша трафиктің таусылуына шамамен %1$s қалды. Ештеңе тоқтап қалмас үшін алдын ала ұзартыңыз.</string>
+    <string name="widget_description">Бір басумен қосу және ажырату</string>
+    <string name="widget_tap">қосылу үшін басыңыз</string>
     <string name="shortcut_connect">Қосылу</string>
     <string name="shortcut_disconnect">Ажырату</string>
     <string name="seller_channel">Кіру туралы еске салғыштар</string>

@@ -1,6 +1,9 @@
 package io.marvia.android
 
 import android.app.Application
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import java.io.File
 
 /**
@@ -31,6 +34,16 @@ class MarviaApp : Application() {
             Journal.add(getString(R.string.log_crashed, last.lineSequence().drop(1).firstOrNull().orEmpty().trim()), Journal.Level.ERROR)
         }
         SubscriptionRefresh.sync(this, Store(this).subscriptions.isNotEmpty())
+
+        // Виджет на рабочем столе узнаёт о туннеле отсюда: по расписанию он
+        // не будится (widget_marvia_info.xml), а служба и окно меняют
+        // состояние в этом же процессе.
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main).launch {
+            MarviaState.state
+                .map { MarviaWidget.key(it) }
+                .distinctUntilChanged()
+                .collect { MarviaWidget.paintAll(this@MarviaApp) }
+        }
     }
 
     companion object {

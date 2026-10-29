@@ -64,4 +64,31 @@
     <string name="diag_report_copied">Hisobot nusxalandi</string>
     <string name="diag_report_header">Marvia diagnostikasi</string>
     <string name="diag_report_off">ulanmagan</string>
+    <!-- Полевой замер блокировок (mobile/field.go). -->
+    <string name="field_title">BLOKIROVKALARNI DALADA OʻLCHASH</string>
+    <string name="field_intro">Koʻngillilar uchun: mobil tarmogʻingiz hozir nimani bloklayotganini tekshiradi. Taxminan bir megabayt trafik, VPN oʻchiq holatda. Hisobot nusxalamaguningizcha telefonda qoladi.</string>
+    <string name="field_run">Oʻlchashni boshlash</string>
+    <string name="field_running">Oʻlchanmoqda…</string>
+    <string name="field_need_off">Avval VPN’ni oʻchiring: SIM-karta tarmogʻi boricha oʻlchanadi.</string>
+    <string name="field_report">Oʻlchash hisobotini nusxalash</string>
+    <string name="field_report_header">Marvia — blokirovkalarni dalada oʻlchash</string>
+    <string name="field_network">Tarmoq: %1$s</string>
+    <string name="field_step_whitelist">Oq roʻyxat rejimi</string>
+    <string name="field_step_freeze_ru">Rossiya serveri, 256 KB</string>
+    <string name="field_step_freeze_abroad">Xorijiy xosting, 256 KB</string>
+    <string name="field_step_freeze_cdn">Xorijiy CDN, 256 KB</string>
+    <string name="field_step_nodes_tls">Nod manzillariga oddiy HTTPS</string>
+    <string name="field_step_nodes_vp1">Nodlarga VP1</string>
+    <string name="field_step_storage">Rossiya bulutli ombori</string>
+    <string name="field_st_ok">oʻtdi</string>
+    <string name="field_st_freeze">%1$d KB dan keyin toʻxtadi</string>
+    <string name="field_st_blocked">ochilmadi</string>
+    <string name="field_st_short">javob berdi, lekin qisqa — tushunib boʻlmaydi</string>
+    <string name="field_st_off">oʻlchanmadi</string>
+    <string name="field_st_partial">%2$d dan %1$d oʻtdi</string>
+    <string name="field_st_whitelist">yoqilgan: rossiyaliklardan %2$d dan %1$d ochildi, xorijiylardan — birortasi ham</string>
+    <string name="field_st_open">yoʻq: xorijiylardan %2$d dan %1$d ochildi</string>
+    <string name="field_wl_none">tarmoq umuman yoʻq</string>
+    <string name="field_why_foreign">kalit Marvia’niki emas — nodlar oʻlchanmadi</string>
+    <string name="field_why_no_nodes">serverlar roʻyxati hali yoʻq</string>
 </resources>

@@ -64,4 +64,31 @@
     <string name="diag_report_copied">Есеп көшірілді</string>
     <string name="diag_report_header">Marvia диагностикасы</string>
     <string name="diag_report_off">қосылмаған</string>
+    <!-- Полевой замер блокировок (mobile/field.go). -->
+    <string name="field_title">БҰҒАТТАУЛАРДЫ ДАЛАЛЫҚ ӨЛШЕУ</string>
+    <string name="field_intro">Еріктілерге: мобильді желіңіз дәл қазір нені бұғаттайтынын тексереді. Шамамен бір мегабайт трафик, VPN өшірулі кезде. Есеп көшірмейінше телефонда қалады.</string>
+    <string name="field_run">Өлшеу жүргізу</string>
+    <string name="field_running">Өлшенуде…</string>
+    <string name="field_need_off">Алдымен VPN-ді өшіріңіз: SIM-карта желісі сол күйінде өлшенеді.</string>
+    <string name="field_report">Өлшеу есебін көшіру</string>
+    <string name="field_report_header">Marvia — бұғаттауларды далалық өлшеу</string>
+    <string name="field_network">Желі: %1$s</string>
+    <string name="field_step_whitelist">Ақ тізім режимі</string>
+    <string name="field_step_freeze_ru">Ресей сервері, 256 КБ</string>
+    <string name="field_step_freeze_abroad">Шетелдік хостинг, 256 КБ</string>
+    <string name="field_step_freeze_cdn">Шетелдік CDN, 256 КБ</string>
+    <string name="field_step_nodes_tls">Нода мекенжайларына қарапайым HTTPS</string>
+    <string name="field_step_nodes_vp1">Нодаларға VP1</string>
+    <string name="field_step_storage">Ресей бұлтты қоймасы</string>
+    <string name="field_st_ok">өтті</string>
+    <string name="field_st_freeze">%1$d КБ-тан кейін тоқтады</string>
+    <string name="field_st_blocked">ашылмады</string>
+    <string name="field_st_short">жауап берді, бірақ қысқа — түсіну мүмкін емес</string>
+    <string name="field_st_off">өлшенбеді</string>
+    <string name="field_st_partial">%2$d ішінен %1$d өтті</string>
+    <string name="field_st_whitelist">қосулы: ресейліктерден %2$d ішінен %1$d ашылды, шетелдіктерден — бірде-біреуі</string>
+    <string name="field_st_open">жоқ: шетелдіктерден %2$d ішінен %1$d ашылды</string>
+    <string name="field_wl_none">желі мүлдем жоқ</string>
+    <string name="field_why_foreign">кілт Marvia емес — нодалар өлшенбеді</string>
+    <string name="field_why_no_nodes">серверлер тізімі әлі жоқ</string>
 </resources>

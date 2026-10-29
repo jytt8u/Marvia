@@ -73,4 +73,31 @@
     <string name="diag_report_copied">Report copied</string>
     <string name="diag_report_header">Marvia diagnostics</string>
     <string name="diag_report_off">not connected</string>
+    <!-- Полевой замер блокировок (mobile/field.go). -->
+    <string name="field_title">FIELD TEST OF BLOCKING</string>
+    <string name="field_intro">For volunteers: checks what your mobile network blocks right now. About a megabyte of traffic, with the VPN off. The report stays on the phone until you copy it.</string>
+    <string name="field_run">Run the field test</string>
+    <string name="field_running">Measuring…</string>
+    <string name="field_need_off">Turn the VPN off first: the test measures the SIM network as it is.</string>
+    <string name="field_report">Copy the field test report</string>
+    <string name="field_report_header">Marvia field test of blocking</string>
+    <string name="field_network">Network: %1$s</string>
+    <string name="field_step_whitelist">Whitelist mode</string>
+    <string name="field_step_freeze_ru">Russian server, 256 KB</string>
+    <string name="field_step_freeze_abroad">Foreign hosting, 256 KB</string>
+    <string name="field_step_freeze_cdn">Foreign CDN, 256 KB</string>
+    <string name="field_step_nodes_tls">Plain HTTPS to node addresses</string>
+    <string name="field_step_nodes_vp1">VP1 to nodes</string>
+    <string name="field_step_storage">Russian cloud storage</string>
+    <string name="field_st_ok">went through</string>
+    <string name="field_st_freeze">stopped after %1$d KB</string>
+    <string name="field_st_blocked">did not open</string>
+    <string name="field_st_short">answered, too short to tell</string>
+    <string name="field_st_off">not measured</string>
+    <string name="field_st_partial">%1$d of %2$d went through</string>
+    <string name="field_st_whitelist">on: Russian %1$d of %2$d open, foreign none</string>
+    <string name="field_st_open">off: %1$d of %2$d foreign sites open</string>
+    <string name="field_wl_none">no network at all</string>
+    <string name="field_why_foreign">not a Marvia key, nodes were not measured</string>
+    <string name="field_why_no_nodes">no server list yet</string>
 </resources>

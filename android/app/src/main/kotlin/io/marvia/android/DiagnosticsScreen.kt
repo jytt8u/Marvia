@@ -69,6 +69,12 @@ class DiagnosticsScreen(
     private var measuring = false
     private var speedFailed = false
 
+    /** Полевой замер: шаги по порядку; null — шаг ещё идёт. */
+    private var fieldIds: List<String> = emptyList()
+    private val field = LinkedHashMap<String, Diagnostics.FieldStep?>()
+    private var fielding = false
+    private var fieldJob: Job? = null
+
     private var live: Job? = null
     private var check: Job? = null
     private var speed: Job? = null
@@ -77,10 +83,12 @@ class DiagnosticsScreen(
     private lateinit var qualityBox: LinearLayout
     private lateinit var checkBox: LinearLayout
     private lateinit var speedBox: LinearLayout
+    private lateinit var fieldBox: LinearLayout
 
     fun open() {
         if (diag == null) diag = Mobile.newDiagnostics(store.accountLink, store.cacheDir(), store.tunnelSettings())
         if (stepIds.isEmpty()) stepIds = Mobile.diagSteps().split(',').filter { it.isNotEmpty() }
+        if (fieldIds.isEmpty()) fieldIds = Mobile.fieldSteps().split(',').filter { it.isNotEmpty() }
         render()
         watch()
     }
@@ -93,6 +101,9 @@ class DiagnosticsScreen(
         live?.cancel()
         check?.cancel()
         speed?.cancel()
+        fieldJob?.cancel()
+        fielding = false
+        field.entries.removeAll { it.value == null }
         diag?.cancel()
         diag = null
         checking = false
@@ -132,6 +143,7 @@ class DiagnosticsScreen(
                     fillWhere()
                     fillQuality()
                     if (!checking) fillSpeed()
+                    if (!fielding) fillField()
                     delay(LIVE_MS)
                 }
             }
@@ -184,6 +196,8 @@ class DiagnosticsScreen(
         checkBox = card()
         group(R.string.diag_speed_title)
         speedBox = card()
+        group(R.string.field_title)
+        fieldBox = card()
 
         rows.addView(button(host.getString(R.string.diag_report), lead = false) { copyReport() },
             LinearLayout.LayoutParams(-1, px(48)).apply { topMargin = px(14) })
@@ -192,6 +206,7 @@ class DiagnosticsScreen(
         fillQuality()
         fillCheck()
         fillSpeed()
+        fillField()
         Paint.apply(rows, theme())
         scroll.post { scroll.scrollTo(0, position) }
     }
@@ -462,6 +477,84 @@ class DiagnosticsScreen(
             box.addView(dim(host.getString(R.string.diag_need_up)), LinearLayout.LayoutParams(-1, -2).apply { if (box.childCount > 0) topMargin = px(6) })
         }
         Paint.apply(box, t)
+    }
+
+    // --------------------------------------------------- полевой замер
+
+    /**
+     * runField — полевой замер по шагам (mobile/field.go). Только без VPN:
+     * мерится сеть SIM-карты как есть, а не наш туннель.
+     */
+    private fun runField() {
+        val d = diag ?: return
+        if (fielding || up) return
+        fielding = true
+        field.clear()
+        fillField()
+        fieldJob = host.lifecycleScope.launch {
+            for (id in fieldIds) {
+                field[id] = null
+                fillField()
+                val result = withContext(Dispatchers.IO) { Diagnostics.fieldStep(d.field(id)) }
+                if (!isActive) return@launch
+                field[id] = result ?: Diagnostics.FieldStep(id, "off")
+                fillField()
+            }
+            fielding = false
+            fillField()
+        }
+    }
+
+    private fun fillField() {
+        if (!::fieldBox.isInitialized) return
+        val box = fieldBox
+        box.removeAllViews()
+        box.addView(dim(host.getString(R.string.field_intro)))
+        for ((id, s) in field) {
+            val title = Diagnostics.fieldTitle(id)?.let(host::getString) ?: id
+            box.addView(pair(title, if (s == null) "…" else Diagnostics.fieldValue(host, s)))
+            for (n in s?.nodes.orEmpty()) box.addView(dim("  " + n.name + " — " + Diagnostics.outcome(host, n.st, n.bytes)))
+        }
+        // С поднятым VPN кнопки нет: мерился бы наш туннель, а не сеть.
+        if (up) {
+            box.addView(dim(host.getString(R.string.field_need_off)), LinearLayout.LayoutParams(-1, -2).apply { topMargin = px(6) })
+        } else {
+            box.addView(button(host.getString(if (fielding) R.string.field_running else R.string.field_run), lead = true, enabled = !fielding) { runField() },
+                LinearLayout.LayoutParams(-1, px(44)).apply { topMargin = px(10) })
+        }
+        if (!fielding && field.isNotEmpty()) {
+            box.addView(button(host.getString(R.string.field_report), lead = false) { copyFieldReport() },
+                LinearLayout.LayoutParams(-1, px(44)).apply { topMargin = px(8) })
+        }
+        Paint.apply(box, theme())
+    }
+
+    /**
+     * network — сеть, на которой мерили: оператор и вид. Без разрешений:
+     * имя оператора и его код телефон отдаёт любому приложению, а без них
+     * отчёт с мобильной сети ничего не говорит о том, где режут.
+     */
+    private fun network(): String {
+        val cm = host.getSystemService(android.net.ConnectivityManager::class.java)
+        val caps = cm?.getNetworkCapabilities(cm.activeNetwork)
+        val kind = when {
+            caps == null -> ""
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "mobile"
+            else -> ""
+        }
+        val tm = host.getSystemService(android.telephony.TelephonyManager::class.java)
+        val operator = listOfNotNull(
+            tm?.networkOperatorName?.takeIf { it.isNotBlank() },
+            tm?.networkOperator?.takeIf { it.isNotBlank() },
+        ).joinToString(" ")
+        return listOf(kind, operator).filter { it.isNotEmpty() }.joinToString(", ")
+    }
+
+    private fun copyFieldReport() {
+        val text = Diagnostics.fieldReport(host, network(), field.values.filterNotNull(), version) { Mobile.redact(it) }
+        host.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("marvia", text))
+        Toast.makeText(host, R.string.diag_report_copied, Toast.LENGTH_SHORT).show()
     }
 
     // ------------------------------------------------------------ отчёт

@@ -254,4 +254,90 @@ object Diagnostics {
     }
 
     fun time(at: Long): String = SimpleDateFormat("dd.MM HH:mm", Locale.US).format(Date(at))
+
+    // ------------------------------------------------------- полевой замер
+
+    /** Шаг полевого замера так, как его отдало ядро (mobile/field.go). */
+    data class FieldStep(
+        val id: String,
+        val st: String,
+        val n: Int = 0,
+        val of: Int = 0,
+        val n2: Int = 0,
+        val of2: Int = 0,
+        val bytes: Long = 0,
+        val why: String = "",
+        val nodes: List<FieldNode> = emptyList(),
+    )
+
+    /** Нода в шаге замера: имя у продавца, не адрес. */
+    data class FieldNode(val name: String, val st: String, val bytes: Long)
+
+    fun fieldStep(json: String): FieldStep? = runCatching {
+        val o = JSONObject(json)
+        val nodes = o.optJSONArray("nodes")
+        FieldStep(
+            id = o.getString("id"),
+            st = o.getString("st"),
+            n = o.optInt("n"),
+            of = o.optInt("of"),
+            n2 = o.optInt("n2"),
+            of2 = o.optInt("of2"),
+            bytes = o.optLong("bytes"),
+            why = o.optString("why"),
+            nodes = if (nodes == null) emptyList() else List(nodes.length()) {
+                val n = nodes.getJSONObject(it)
+                FieldNode(n.optString("name"), n.optString("st"), n.optLong("bytes"))
+            },
+        )
+    }.getOrNull()
+
+    fun fieldTitle(id: String): Int? = when (id) {
+        "whitelist" -> R.string.field_step_whitelist
+        "freeze_ru" -> R.string.field_step_freeze_ru
+        "freeze_abroad" -> R.string.field_step_freeze_abroad
+        "freeze_cdn" -> R.string.field_step_freeze_cdn
+        "nodes_tls" -> R.string.field_step_nodes_tls
+        "nodes_vp1" -> R.string.field_step_nodes_vp1
+        "storage" -> R.string.field_step_storage
+        else -> null
+    }
+
+    /** fieldValue — исход шага словами. */
+    fun fieldValue(ctx: Context, s: FieldStep): String = when {
+        s.why == "foreign" -> ctx.getString(R.string.field_why_foreign)
+        s.why == "no_nodes" || s.why == "no_key" -> ctx.getString(R.string.field_why_no_nodes)
+        s.id == "whitelist" && s.st == "blocked" -> ctx.getString(R.string.field_wl_none)
+        s.st == "whitelist" -> ctx.getString(R.string.field_st_whitelist, s.n, s.of)
+        s.st == "open" -> ctx.getString(R.string.field_st_open, s.n2, s.of2)
+        s.st == "partial" -> ctx.getString(R.string.field_st_partial, s.n, s.of)
+        else -> outcome(ctx, s.st, s.bytes)
+    }
+
+    fun outcome(ctx: Context, st: String, bytes: Long): String = when (st) {
+        "ok" -> ctx.getString(R.string.field_st_ok)
+        "freeze" -> ctx.getString(R.string.field_st_freeze, (bytes / 1024).toInt())
+        "blocked" -> ctx.getString(R.string.field_st_blocked)
+        "short" -> ctx.getString(R.string.field_st_short)
+        else -> ctx.getString(R.string.field_st_off)
+    }
+
+    /**
+     * fieldReport — отчёт замера: сеть, шаги, ноды по именам. Адресов в нём
+     * нет — ни нод, ни телефона; на всякий случай всё проходит redact.
+     */
+    fun fieldReport(ctx: Context, network: String, steps: List<FieldStep>, version: String, redact: (String) -> String): String {
+        val text = buildString {
+            append(ctx.getString(R.string.field_report_header)).append(" · ").append(version).append('\n')
+            append(time(System.currentTimeMillis())).append(" · ")
+            append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append(", Android ").append(Build.VERSION.RELEASE).append('\n')
+            if (network.isNotEmpty()) append(ctx.getString(R.string.field_network, network)).append('\n')
+            append('\n')
+            for (s in steps) {
+                append(fieldTitle(s.id)?.let(ctx::getString) ?: s.id).append(": ").append(fieldValue(ctx, s)).append('\n')
+                for (n in s.nodes) append("  ").append(n.name).append(" — ").append(outcome(ctx, n.st, n.bytes)).append('\n')
+            }
+        }
+        return redact(text)
+    }
 }

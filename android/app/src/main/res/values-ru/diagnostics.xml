@@ -70,4 +70,31 @@
     <string name="diag_report_copied">Отчёт скопирован</string>
     <string name="diag_report_header">Диагностика Marvia</string>
     <string name="diag_report_off">не подключено</string>
+    <!-- Полевой замер блокировок (mobile/field.go). -->
+    <string name="field_title">ПОЛЕВОЙ ЗАМЕР БЛОКИРОВОК</string>
+    <string name="field_intro">Для добровольцев: проверяет, что ваша мобильная сеть режет прямо сейчас. Около мегабайта трафика, при выключенном VPN. Отчёт остаётся на телефоне, пока вы его не скопируете.</string>
+    <string name="field_run">Провести замер</string>
+    <string name="field_running">Замеряю…</string>
+    <string name="field_need_off">Сначала выключите VPN: мерится сеть SIM-карты как есть.</string>
+    <string name="field_report">Скопировать отчёт замера</string>
+    <string name="field_report_header">Marvia — полевой замер блокировок</string>
+    <string name="field_network">Сеть: %1$s</string>
+    <string name="field_step_whitelist">Режим белого списка</string>
+    <string name="field_step_freeze_ru">Российский сервер, 256 КБ</string>
+    <string name="field_step_freeze_abroad">Зарубежный хостер, 256 КБ</string>
+    <string name="field_step_freeze_cdn">Зарубежный CDN, 256 КБ</string>
+    <string name="field_step_nodes_tls">Обычный HTTPS к адресам нод</string>
+    <string name="field_step_nodes_vp1">VP1 к нодам</string>
+    <string name="field_step_storage">Российское облачное хранилище</string>
+    <string name="field_st_ok">прошло</string>
+    <string name="field_st_freeze">встало на %1$d КБ</string>
+    <string name="field_st_blocked">не открылось</string>
+    <string name="field_st_short">ответило, но коротко — не понять</string>
+    <string name="field_st_off">не мерилось</string>
+    <string name="field_st_partial">прошло %1$d из %2$d</string>
+    <string name="field_st_whitelist">включён: российских открылось %1$d из %2$d, зарубежных — ни одного</string>
+    <string name="field_st_open">нет: зарубежных открылось %1$d из %2$d</string>
+    <string name="field_wl_none">сети нет совсем</string>
+    <string name="field_why_foreign">ключ не Marvia — ноды не мерились</string>
+    <string name="field_why_no_nodes">списка серверов ещё нет</string>
 </resources>

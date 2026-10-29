@@ -102,6 +102,35 @@ class DiagnosticsTest {
         assertTrue("мусор в настройках принят за замер", Diagnostics.SpeedHistory.decode("x\ty\n1\t-5\tн").isEmpty())
     }
 
+    /**
+     * Полевой замер: заморозка читается как «встало на 16 КБ», ноды — по
+     * именам, а адреса в отчёт не попадают ни в каком виде.
+     */
+    @Test fun fieldReportSaysWhereItFrozeAndCarriesNoAddresses() {
+        val ctx = localized("ru")
+        val step = Diagnostics.fieldStep(
+            """{"id":"nodes_tls","st":"freeze","n":0,"of":1,"nodes":[{"name":"Финляндия","st":"freeze","bytes":16384}]}""",
+        )!!
+        assertEquals("встало на 16 КБ", Diagnostics.outcome(ctx, "freeze", 16384))
+        val white = Diagnostics.fieldStep("""{"id":"whitelist","st":"whitelist","n":3,"of":3,"n2":0,"of2":3}""")!!
+        assertTrue(Diagnostics.fieldValue(ctx, white).startsWith("включён"))
+        val text = Diagnostics.fieldReport(ctx, "mobile, MTS 25001", listOf(white, step), "dev") { it }
+        assertTrue("в отчёте нет ноды по имени", text.contains("Финляндия — встало на 16 КБ"))
+        assertTrue("в отчёте нет сети", text.contains("MTS 25001"))
+        assertFalse("в отчёте адрес", Regex("""\b\d{1,3}(\.\d{1,3}){3}\b""").containsMatchIn(text))
+    }
+
+    @Test fun everyFieldStepHasATitleInBothLanguages() {
+        for (lang in listOf("ru", "en")) {
+            val ctx = localized(lang)
+            for (id in listOf("whitelist", "freeze_ru", "freeze_abroad", "freeze_cdn", "nodes_tls", "nodes_vp1", "storage")) {
+                val title = Diagnostics.fieldTitle(id)
+                assertNotNull("у шага замера $id нет названия", title)
+                assertTrue("$lang: пустое название $id", ctx.getString(title!!).isNotBlank())
+            }
+        }
+    }
+
     private fun localized(lang: String): Context {
         val base = RuntimeEnvironment.getApplication()
         val config = Configuration(base.resources.configuration).apply { setLocale(Locale.forLanguageTag(lang)) }

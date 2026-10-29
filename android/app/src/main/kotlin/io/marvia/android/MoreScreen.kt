@@ -82,6 +82,10 @@ class MoreScreen(
     private val apps = AppsAdapter()
     private val iconCache = android.util.LruCache<String, android.graphics.drawable.Drawable>(64)
     private val dp = host.resources.displayMetrics.density
+
+    // Здесь, а не рядом с классом: init и paint трогают её раньше,
+    // чем дошла бы очередь у поля ниже по файлу.
+    private val appsCard = AppsCard(dp)
     private val advanced by lazy {
         AdvancedVpnSettings(host, ui.sectionAdvanced, ui.advancedRows, store, theme, onNextConnect)
     }
@@ -137,7 +141,12 @@ class MoreScreen(
         if (section == Section.ADVANCED) advanced.render()
         if (section == Section.DIAG) diagnostics.render()
         ui.searchBox.background = Paint.rounded(t.surf, minOf(t.r, 12), dp)
-        ui.appList.background = Paint.rounded(t.surf, t.r, dp)
+        // Шапка экрана приложений живёт внутри списка (wireApps), и общий обход
+        // темы до неё не доходит — красим её сами.
+        Paint.apply(ui.appsHeader, t)
+        appsCard.paint.color = t.surf
+        appsCard.radius = t.r * dp
+        ui.appList.invalidateItemDecorations()
         ui.appsSpinner.indeterminateTintList = ColorStateList.valueOf(t.acc)
         if (section == Section.LOGS) {
             renderLogs()
@@ -470,10 +479,73 @@ class MoreScreen(
 
     // ---------------------------------------------------------- приложения
 
+    /** OneView — адаптер на один готовый вид: шапку экрана приложений. */
+    private class OneView(private val view: View) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+        override fun getItemCount() = 1
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+            object : RecyclerView.ViewHolder(view) {}.apply { setIsRecyclable(false) }
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) = Unit
+    }
+
+    /**
+     * AppsCard рисует карточку под строками приложений — не под всем
+     * списком: шапка живёт в нём же и своей карточки не просит. Верх
+     * карточки скругляется, только когда первая строка на экране; ушла
+     * вверх — карточка тянется за край, как продолжение.
+     */
+    private class AppsCard(private val dp: Float) : RecyclerView.ItemDecoration() {
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        var radius = 16 * dp
+        private val pad = (8 * dp).toInt()
+
+        override fun getItemOffsets(out: android.graphics.Rect, view: View, parent: RecyclerView, state: RecyclerView.State) {
+            val position = parent.getChildAdapterPosition(view)
+            val last = (parent.adapter?.itemCount ?: 0) - 1
+            if (position == 1) out.top = pad
+            if (position >= 1 && position == last) out.bottom = pad
+        }
+
+        override fun onDraw(c: android.graphics.Canvas, parent: RecyclerView, state: RecyclerView.State) {
+            var top = Float.MAX_VALUE
+            var bottom = -Float.MAX_VALUE
+            for (i in 0 until parent.childCount) {
+                val child = parent.getChildAt(i)
+                val position = parent.getChildAdapterPosition(child)
+                if (position < 1) continue
+                val offsetTop = if (position == 1) pad else 0
+                val last = (parent.adapter?.itemCount ?: 0) - 1
+                val offsetBottom = if (position == last) pad else 0
+                top = minOf(top, child.top - offsetTop + child.translationY)
+                bottom = maxOf(bottom, child.bottom + offsetBottom + child.translationY)
+            }
+            if (top > bottom) return
+            c.drawRoundRect(
+                parent.paddingLeft.toFloat(), top,
+                (parent.width - parent.paddingRight).toFloat(), bottom,
+                radius, radius, paint,
+            )
+        }
+    }
+
+
     private fun wireApps() {
         ui.appList.layoutManager = LinearLayoutManager(host)
-        ui.appList.adapter = apps
+        // Шапка (переключатели, режим, поиск) — первым элементом списка:
+        // уезжает при прокрутке и отдаёт экран приложениям.
+        val header = ui.appsHeader
+        (header.parent as ViewGroup).removeView(header)
+        ui.appList.adapter = androidx.recyclerview.widget.ConcatAdapter(OneView(header), apps)
+        ui.appList.addItemDecoration(appsCard)
         ui.appList.itemAnimator = null
+        // Поиск живёт в шапке, а шапка уезжает. На фокусе ставим строку
+        // поиска наверх списка: иначе открывшаяся клавиатура сжимает список
+        // и прячет поле, в которое печатают.
+        ui.appSearch.setOnFocusChangeListener { _, focused ->
+            if (focused) {
+                (ui.appList.layoutManager as LinearLayoutManager)
+                    .scrollToPositionWithOffset(0, -(ui.searchBox.parent as View).top)
+            }
+        }
 
         ui.appSearch.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit

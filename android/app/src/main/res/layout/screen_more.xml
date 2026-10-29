@@ -325,6 +325,14 @@
             android:paddingHorizontal="16dp"
             android:visibility="gone">
 
+            <!--
+                Всё, что над списком, — его шапка: MoreScreen.wireApps
+                переносит этот блок внутрь списка, и он уезжает при прокрутке.
+                Неподвижным он занимал почти весь экран, и сотни приложений
+                листались в окошке на две строки.
+            -->
+            <LinearLayout android:id="@+id/appsHeader" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+
             <!-- Российские сайты: правило про адреса, а не про приложения, но живёт здесь же — как в макете. -->
             <LinearLayout android:id="@+id/rowRussian" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/bg_card" android:clickable="true" android:focusable="true" android:gravity="center_vertical" android:tag="card" android:paddingHorizontal="14dp" android:paddingVertical="12dp">
                 <FrameLayout android:layout_width="34dp" android:layout_height="34dp" android:layout_marginEnd="12dp" android:tag="icon.box">
@@ -446,18 +454,17 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
+            </LinearLayout>
+
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/appList"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:clipToPadding="false"
-                android:fadingEdgeLength="16dp"
-                android:requiresFadingEdge="vertical"
                 android:overScrollMode="never"
                 android:scrollbars="vertical"
-                android:layout_marginBottom="12dp"
-                android:paddingVertical="8dp" />
+                android:paddingBottom="12dp" />
         </LinearLayout>
 
         <!-- ═══════════════════════════════════════ Логи -->

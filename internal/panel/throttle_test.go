@@ -32,7 +32,7 @@ func slowReports(t *testing.T, store *panel.Store, nodeID int64, fetchMS int64) 
 func TestNodeIsCalledThrottledWhenBuyersCannotPullFromIt(t *testing.T) {
 	store := alertStore(t)
 	ctx := context.Background()
-	slow, _, _ := store.CreateNode(ctx, panel.CreateNodeParams{Name: "marvia-185", Address: "203.0.113.1:443"})
+	slow, _, _ := store.CreateNode(ctx, panel.CreateNodeParams{Name: "marvia-node-x", Address: "203.0.113.1:443"})
 	fast, _, _ := store.CreateNode(ctx, panel.CreateNodeParams{Name: "fi-1", Address: "203.0.113.2:443"})
 	slowReports(t, store, slow.ID, 6000)
 	slowReports(t, store, fast.ID, 300)
@@ -66,7 +66,7 @@ func TestNodeIsCalledThrottledWhenBuyersCannotPullFromIt(t *testing.T) {
 func TestSellerIsToldOnceThatANodeIsThrottled(t *testing.T) {
 	store := alertStore(t)
 	ctx := context.Background()
-	node, _, _ := store.CreateNode(ctx, panel.CreateNodeParams{Name: "marvia-185", Address: "203.0.113.1:443"})
+	node, _, _ := store.CreateNode(ctx, panel.CreateNodeParams{Name: "marvia-node-x", Address: "203.0.113.1:443"})
 	if err := store.TouchNode(ctx, node.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestSellerIsToldOnceThatANodeIsThrottled(t *testing.T) {
 			told = append(told, text)
 		}
 	}
-	if len(told) != 1 || !strings.Contains(told[0], "marvia-185") || !strings.Contains(told[0], "кбит/с") {
+	if len(told) != 1 || !strings.Contains(told[0], "marvia-node-x") || !strings.Contains(told[0], "кбит/с") {
 		t.Fatalf("про зарезанную ноду: %v", box.texts)
 	}
 }

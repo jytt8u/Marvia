@@ -107,7 +107,7 @@ func TestCountryCodesWrittenBeforeAreNamedOnRestart(t *testing.T) {
 func TestUnrecognisedCountryIsReplacedByTheAddressCountry(t *testing.T) {
 	defer panel.SetGeoLookup(func(context.Context, string) (string, error) { return "nl", nil })()
 	h := newHarness(t)
-	weird := h.createNode("marvia-185")
+	weird := h.createNode("marvia-node-x")
 	h.do(http.MethodPatch, "/api/v1/nodes/"+itoa(weird.Node.ID), adminToken, map[string]any{"country": "Пиюсн"}, nil)
 	kept := h.createNode("fi-1")
 	h.do(http.MethodPatch, "/api/v1/nodes/"+itoa(kept.Node.ID), adminToken, map[string]any{"country": "Финляндия"}, nil)

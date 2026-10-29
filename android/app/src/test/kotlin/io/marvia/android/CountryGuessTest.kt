@@ -22,7 +22,7 @@ class CountryGuessTest {
         assertEquals("", CountryGuess.fromName("My private CDN"))
         assertEquals("", CountryGuess.fromName("server-03"))
         assertEquals("", CountryGuess.fromName("business proxy"))
-        assertEquals("", CountryGuess.fromName("marvia-185"))
+        assertEquals("", CountryGuess.fromName("marvia-node-x"))
     }
 
     @Test fun sellerCountryRemainsAuthoritativeAndCoreNameDoesNotChange() {
@@ -32,7 +32,7 @@ class CountryGuessTest {
         val foreign = row.copy(country = "")
         assertEquals("Нидерланды", foreign.group)
         assertEquals("🇳🇱 Amsterdam", foreign.title)
-        val learned = NodeRow(2, "marvia-185", "", 0, true, true, false, exitCountry = "Германия")
+        val learned = NodeRow(2, "marvia-node-x", "", 0, true, true, false, exitCountry = "Германия")
         assertEquals("Германия", learned.group)
         assertEquals(true, learned.countryFromExit)
         assertEquals("Финляндия", learned.copy(country = "Финляндия").group)

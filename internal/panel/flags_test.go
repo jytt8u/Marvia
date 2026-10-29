@@ -13,7 +13,7 @@ func TestFlagIsAddedOnlyWhenTheCountryIsKnown(t *testing.T) {
 		"Южная Корея · Сеул":           "🇰🇷 Южная Корея · Сеул",
 		"Germany · Frankfurt":          "🇩🇪 Germany · Frankfurt",
 		"🇳🇱 Нидерланды":                "🇳🇱 Нидерланды",
-		"marvia-185":                   "marvia-185",
+		"marvia-node-x":                "marvia-node-x",
 		"Луна · база 1":                "Луна · база 1",
 	}
 	for in, want := range cases {

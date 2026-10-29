@@ -1,0 +1,3 @@
+0.13.0-alpha.31 — test release.
+Game mode: steady game ping while something downloads alongside. A home screen widget. A field test of blocking in Diagnostics. The Apps and sites screen scrolls as a whole. The Russian route list comes through the tunnel when the panel is unreachable directly.
+The VP1 wire format is unchanged.
